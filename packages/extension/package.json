@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "vite build",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
