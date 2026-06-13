@@ -25,6 +25,10 @@ importers:
         version: 1.6.1
 
   packages/extension:
+    dependencies:
+      '@klav/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -34,6 +38,10 @@ importers:
         version: 1.6.1
 
   packages/sdk:
+    dependencies:
+      '@klav/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.4.0
