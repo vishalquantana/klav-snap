@@ -1,16 +1,26 @@
 {
   "name": "@klav/snap",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "main": "dist/klav-snap.umd.js",
+  "module": "dist/klav-snap.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/klav-snap.es.js",
+      "require": "./dist/klav-snap.umd.js"
+    }
+  },
   "scripts": {
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "build": "vite build",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@klav/core": "workspace:*"
+    "@klav/core": "workspace:*",
+    "heic2any": "^0.0.4",
+    "html-to-image": "^1.11.13"
   },
   "devDependencies": {
+    "vite": "^5.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   }
