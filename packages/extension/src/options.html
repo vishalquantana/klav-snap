@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Klav Snap Settings</title>
+  <style>
+    body{font-family:system-ui;background:#1e1e2e;color:#cdd6f4;padding:32px;max-width:560px;margin:0 auto;}
+    h1{font-size:20px;margin-bottom:24px;}
+    label{display:block;font-size:13px;color:#a6adc8;margin-bottom:4px;margin-top:16px;}
+    input,select{width:100%;padding:8px 12px;background:#313244;color:#cdd6f4;border:1px solid #45475a;border-radius:6px;font-size:14px;box-sizing:border-box;}
+    .section{background:#181825;border-radius:8px;padding:16px;margin-top:20px;}
+    .section h2{font-size:14px;color:#89b4fa;margin:0 0 12px;}
+    button#save{margin-top:24px;width:100%;padding:12px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
+    #status{margin-top:12px;text-align:center;color:#a6e3a1;font-size:13px;}
+    .cloud-section{background:#1e2a3a;border:1px solid rgba(137,180,250,.27);border-radius:8px;padding:16px;margin-top:20px;}
+    small{font-size:11px;color:#a6adc8;}
+  </style>
+</head>
+<body>
+  <h1>⚡ Klav Snap Settings</h1>
+  <label>Active Integration</label>
+  <select id="integration">
+    <option value="jira">Jira</option>
+    <option value="linear">Linear</option>
+    <option value="github">GitHub Issues</option>
+    <option value="plane">Plane</option>
+  </select>
+
+  <div class="section" id="jira-section">
+    <h2>Jira</h2>
+    <label>Base URL</label><input id="jira-baseUrl" type="url" placeholder="https://yourorg.atlassian.net">
+    <label>Email</label><input id="jira-email" type="email">
+    <label>API Token</label><input id="jira-token" type="password">
+    <label>Project Key</label><input id="jira-projectKey" placeholder="PROJ">
+  </div>
+
+  <div class="section" id="linear-section" style="display:none">
+    <h2>Linear</h2>
+    <label>API Key</label><input id="linear-apiKey" type="password">
+    <label>Team ID</label><input id="linear-teamId" placeholder="team_abc123">
+  </div>
+
+  <div class="section" id="github-section" style="display:none">
+    <h2>GitHub Issues</h2>
+    <label>Personal Access Token</label><input id="github-token" type="password">
+    <label>Repository (owner/repo)</label><input id="github-repo" placeholder="acme/webapp">
+    <small>Note: screenshots embedded in issue body. GitHub has no direct attachment API.</small>
+  </div>
+
+  <div class="section" id="plane-section" style="display:none">
+    <h2>Plane</h2>
+    <label>API Token</label><input id="plane-token" type="password">
+    <label>Workspace Slug</label><input id="plane-workspace" placeholder="acme">
+    <label>Project ID</label><input id="plane-projectId" placeholder="proj_abc123">
+  </div>
+
+  <div class="cloud-section">
+    <h2 style="color:#89b4fa;font-size:14px;margin:0 0 8px;">☁️ Cloud Switch</h2>
+    <small>Leave empty for direct mode. Set to your self-hosted Klav backend or https://app.klav.io</small>
+    <label style="margin-top:12px;">Backend URL</label>
+    <input id="backendUrl" type="url" placeholder="https://app.klav.io  (or leave empty)">
+  </div>
+
+  <label style="margin-top:20px;display:flex;align-items:center;gap:8px;">
+    <input type="checkbox" id="autoFileErrors" style="width:auto;">
+    Auto-file silent tickets for unhandled JS errors
+  </label>
+
+  <button id="save">Save Settings</button>
+  <div id="status"></div>
+  <script type="module" src="./options.ts"></script>
+</body>
+</html>
