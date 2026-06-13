@@ -4,6 +4,18 @@
   "private": true,
   "type": "module",
   "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./submit": "./src/submit.ts",
+    "./annotator": "./src/annotator.ts",
+    "./crop": "./src/crop.ts",
+    "./integrations/jira": "./src/integrations/jira.ts",
+    "./integrations/linear": "./src/integrations/linear.ts",
+    "./integrations/github": "./src/integrations/github.ts",
+    "./integrations/plane": "./src/integrations/plane.ts",
+    "./integrations/backend": "./src/integrations/backend.ts"
+  },
   "scripts": {
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"

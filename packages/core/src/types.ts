@@ -65,11 +65,11 @@ export interface IntegrationConfig {
 
 // Extension message protocol
 export type BackgroundMessage =
-  | { kind: 'OPEN_MODAL'; reportType: ReportType }
   | { kind: 'CAPTURE_TAB' }
   | { kind: 'SUBMIT_REPORT'; payload: SubmitReportPayload }
 
 export type ContentMessage =
+  | { kind: 'OPEN_MODAL'; reportType: ReportType }
   | { kind: 'CAPTURE_TAB_RESULT'; dataUrl: string }
   | { kind: 'SUBMIT_SUCCESS'; issueKey: string; issueUrl: string }
   | { kind: 'SUBMIT_ERROR'; message: string }
