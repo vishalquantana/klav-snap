@@ -122,7 +122,7 @@ pnpm -r build         # build extension + SDK
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE) — free for non-commercial use.  
+[FSL-1.1-ALv2](LICENSE) (Functional Source License) — free for any non-competing use; converts to Apache 2.0 on the second anniversary of each release.  
 For commercial licensing, contact [hello@quantana.com.au](mailto:hello@quantana.com.au).
 
 Built by [Quantana](https://quantana.com.au) — AI-first design and development agency.
