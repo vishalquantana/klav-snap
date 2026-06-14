@@ -6,6 +6,17 @@ Named after Ekalavya: the self-taught master. Klav Snap is the "eyes" of the Kla
 
 ---
 
+## Screenshots
+
+_Screenshots coming soon — load the extension and right-click any page to see it in action._
+
+To try it yourself:
+1. Build and load the extension (`pnpm install && pnpm -r build`, then load `packages/extension/dist` as an unpacked extension)
+2. Right-click any element on any page → **Report a Bug** or **Request a Feature**
+3. Annotate the auto-captured screenshot, add context, and submit to your configured integration
+
+---
+
 ## Features
 
 - **Right-click anywhere** → Report a Bug / Request a Feature / View submissions

@@ -42,6 +42,46 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 })
 
 chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendResponse) => {
+  if (msg.kind === 'AUTO_FILE_ERROR') {
+    getSettings().then(settings => {
+      // Guard again on the background side in case the flag changed between
+      // the content script reading it and the message arriving.
+      if (!settings.autoFileErrors) return
+
+      const body = [
+        `**Page:** ${msg.pageUrl}`,
+        `**Time:** ${new Date(msg.timestamp).toISOString()}`,
+        '',
+        msg.stack ? `**Stack trace:**\n\`\`\`\n${msg.stack}\n\`\`\`` : '',
+      ].filter(Boolean).join('\n')
+
+      const payload = {
+        type: 'bug' as const,
+        description: `Auto: ${msg.message}\n\n${body}`,
+        context: {
+          pageUrl: msg.pageUrl,
+          userAgent: '',
+          screenSize: '',
+          viewportSize: '',
+          consoleErrors: [],
+          networkFailures: [],
+        },
+        screenshots: [],
+      }
+
+      return dispatchSubmit(payload, settings, {
+        jira: jiraSubmit,
+        linear: linearSubmit,
+        github: githubSubmit,
+        plane: planeSubmit,
+        backend: backendSubmit,
+      })
+    }).catch(() => {
+      // Fire-and-forget: silently ignore submission errors for auto-filed bugs
+    })
+    return true
+  }
+
   if (msg.kind === 'CAPTURE_TAB') {
     chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
       const tabId = sender.tab?.id

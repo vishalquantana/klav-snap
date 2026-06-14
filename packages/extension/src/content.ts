@@ -7,15 +7,48 @@ const consoleErrors: ConsoleError[] = []
 const networkFailures: NetworkFailure[] = []
 const MAX_RING = 50
 
+// ── Auto-file deduplication ──────────────────────────────────────────────────
+// Maps a normalised error key → timestamp of last auto-filed report.
+// Errors with the same key within 30 seconds are suppressed.
+const AUTO_FILE_DEDUP_MS = 30_000
+const recentAutoFiled = new Map<string, number>()
+
+function maybeAutoFile(message: string, stack?: string) {
+  const key = message.slice(0, 200) // normalise to first 200 chars
+  const now = Date.now()
+  const last = recentAutoFiled.get(key)
+  if (last !== undefined && now - last < AUTO_FILE_DEDUP_MS) return
+  recentAutoFiled.set(key, now)
+
+  // Read setting from storage; avoid blocking the error handler itself
+  chrome.storage.sync.get('klavSettings', (result) => {
+    const settings = result.klavSettings ?? {}
+    if (!settings.autoFileErrors) return
+    chrome.runtime.sendMessage({
+      kind: 'AUTO_FILE_ERROR',
+      message,
+      stack,
+      pageUrl: window.location.href,
+      timestamp: now,
+    } satisfies BackgroundMessage)
+  })
+}
+
 window.onerror = (msg, _src, _line, _col, err) => {
-  consoleErrors.push({ message: String(msg), stack: err?.stack, timestamp: Date.now() })
+  const message = String(msg)
+  const stack = err?.stack
+  consoleErrors.push({ message, stack, timestamp: Date.now() })
   if (consoleErrors.length > MAX_RING) consoleErrors.shift()
+  maybeAutoFile(message, stack)
   return false
 }
 
 window.addEventListener('unhandledrejection', (e) => {
-  consoleErrors.push({ message: String(e.reason), stack: e.reason?.stack, timestamp: Date.now() })
+  const message = String(e.reason)
+  const stack = e.reason?.stack
+  consoleErrors.push({ message, stack, timestamp: Date.now() })
   if (consoleErrors.length > MAX_RING) consoleErrors.shift()
+  maybeAutoFile(message, stack)
 })
 
 const origFetch = window.fetch
