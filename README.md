@@ -122,6 +122,7 @@ pnpm -r build         # build extension + SDK
 
 ## License
 
-MIT — [Quantana](https://quantana.com.au)
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for non-commercial use.  
+For commercial licensing, contact [hello@quantana.com.au](mailto:hello@quantana.com.au).
 
-Built by Quantana — AI-first design and development agency.
+Built by [Quantana](https://quantana.com.au) — AI-first design and development agency.
