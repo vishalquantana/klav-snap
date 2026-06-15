@@ -1,0 +1,12 @@
+{
+  "name": "klav-sims-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
+    "zod": "^4.4.3"
+  }
+}

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klav Sims — Live Prototype</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0f; color: #cdd6f4; padding: 20px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg,#6366f1,#8b5cf6); display:flex;align-items:center;justify-content:center;font-size:18px; }
+  h1 { font-size: 19px; font-weight: 800; }
+  .sub { font-size: 12px; color: #6c7086; }
+  .grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  .panel { background: #11111a; border: 1px solid #1e1e2e; border-radius: 14px; padding: 16px; }
+  .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #6c7086; margin-bottom: 10px; }
+
+  textarea { width: 100%; min-height: 150px; background: #0a0a0f; color: #cdd6f4; border: 1px solid #313244; border-radius: 8px; padding: 10px; font-size: 12px; line-height: 1.5; resize: vertical; font-family: ui-monospace, monospace; }
+  .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  button { font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer; transition: opacity .15s, transform .1s; }
+  button:hover { opacity: .9; } button:active { transform: translateY(1px); } button:disabled { opacity: .4; cursor: not-allowed; }
+  .primary { background: #6366f1; color: white; }
+  .ghost { background: #1e1e2e; color: #cdd6f4; border: 1px solid #313244; }
+
+  /* Stage */
+  #stageWrap { position: relative; }
+  #stage { width: 740px; max-width: 100%; height: 460px; background: #f5f5f7; border-radius: 12px; overflow: hidden; position: relative; }
+  #stage img { width: 100%; height: 100%; object-fit: contain; background:#fff; }
+
+  /* Demo dashboard inside stage */
+  .dnav { background: white; border-bottom: 1px solid #e5e5ea; padding: 0 16px; height: 42px; display: flex; align-items: center; gap: 0; }
+  .dlogo { width: 20px; height: 20px; border-radius: 5px; background: #6366f1; margin-right: 8px; }
+  .dbrand { font-size: 13px; font-weight: 700; color: #1d1d1f; margin-right: 24px; }
+  .dni { padding: 0 12px; height: 42px; display: flex; align-items: center; font-size: 12px; color: #6e6e73; border-bottom: 2px solid transparent; }
+  .dni.on { color: #6366f1; border-bottom-color: #6366f1; font-weight: 600; }
+  .dbody { padding: 16px; color:#1d1d1f; }
+  .dtitle { font-size: 17px; font-weight: 700; }
+  .dsub { font-size: 11px; color: #6e6e73; margin-bottom: 14px; }
+  .kpis { display: flex; gap: 10px; margin-bottom: 14px; }
+  .kpi { flex: 1; background: white; border: 1px solid #e5e5ea; border-radius: 9px; padding: 11px 13px; }
+  .kl { font-size: 9px; color: #6e6e73; text-transform: uppercase; letter-spacing:.05em; }
+  .kv { font-size: 21px; font-weight: 700; color:#1d1d1f; }
+  .kd { font-size: 9px; margin-top: 2px; } .up{color:#34c759}.dn{color:#ff3b30}
+  .cols { display: flex; gap: 10px; }
+  .card { background: white; border: 1px solid #e5e5ea; border-radius: 9px; padding: 12px; }
+  .c2 { flex: 2; } .c1 { flex: 1; }
+  .ct { font-size: 12px; font-weight: 700; color: #1d1d1f; margin-bottom: 8px; display:flex;justify-content:space-between;align-items:center; }
+  .badge { font-size: 9px; background:#fff0f0;color:#ff3b30;border-radius:8px;padding:2px 7px;font-weight:600; }
+  .ap { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f5f5f7; font-size: 11px; }
+  .ap:last-child{border-bottom:none}
+  .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}.r{background:#ff3b30}.y{background:#ff9500}.g{background:#34c759}
+  .apn{flex:1;color:#1d1d1f;font-weight:500}.apa{color:#6e6e73;font-size:10px}
+  .apd{font-size:9px;font-weight:600}.od{color:#ff3b30}.so{color:#ff9500}.ok{color:#34c759}
+  .apb{font-size:9px;padding:3px 8px;border-radius:4px;border:1px solid #6366f1;color:#6366f1;background:transparent;cursor:pointer;font-weight:600}
+  .act{display:flex;gap:6px;padding:5px 0;border-bottom:1px solid #f5f5f7;font-size:10px;color:#6e6e73}
+  .act:last-child{border-bottom:none}.act strong{color:#1d1d1f}
+
+  /* sim character overlay */
+  .sim-char { position: absolute; z-index: 60; display: flex; flex-direction: column; align-items: center; pointer-events: none;
+              transition: left .9s cubic-bezier(.4,0,.2,1), top .9s cubic-bezier(.4,0,.2,1); }
+  .ch-head { width: 38px; height: 38px; border-radius: 50%; display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;box-shadow:0 3px 12px rgba(0,0,0,.35);position:relative;z-index:2; }
+  .ch-legs { display: flex; gap: 4px; margin-top: 2px; }
+  .ch-leg { width: 5px; height: 13px; border-radius: 3px; }
+  .sim-char.walking .ch-leg:nth-child(1){animation:lL .32s ease-in-out infinite alternate}
+  .sim-char.walking .ch-leg:nth-child(2){animation:lR .32s ease-in-out infinite alternate}
+  @keyframes lL{from{transform:rotate(-22deg)}to{transform:rotate(22deg)}}
+  @keyframes lR{from{transform:rotate(22deg)}to{transform:rotate(-22deg)}}
+  .ch-arm { position:absolute; top:9px; right:30px; width:26px; height:5px; border-radius:3px; transform-origin:right center; transform:rotate(-35deg); display:none; }
+  .sim-char.pointing .ch-arm{display:block}
+  .ch-fing{position:absolute;left:-4px;top:-5px;font-size:13px}
+
+  .bubble { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); width: 230px; background: #1e1e2e; border: 1.5px solid #313244; border-radius: 13px; padding: 11px 13px; box-shadow: 0 8px 28px rgba(0,0,0,.5); opacity: 0; transition: opacity .25s; pointer-events: auto; }
+  .bubble.show { opacity: 1; }
+  .bubble::after { content:''; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%); border:6px solid transparent; border-top-color:#313244; border-bottom:none; }
+  .bn { font-size: 10px; font-weight: 700; margin-bottom: 5px; }
+  .bo { font-size: 11.5px; color:#cdd6f4; line-height:1.45; }
+  .bbug { margin-top: 8px; background:#181825; border:1px solid #313244; border-radius:7px; padding:7px 9px; }
+  .bbug .bt { font-size:10px;font-weight:700;color:#f38ba8;margin-bottom:2px; }
+  .bbug .bd { font-size:9.5px;color:#a6adc8;line-height:1.4; }
+  .filebtn{margin-top:7px;font-size:10px;font-weight:700;background:#6366f1;color:white;border-radius:5px;padding:4px 10px;cursor:pointer;display:inline-block}
+
+  /* box highlight on stage */
+  .hilite { position: absolute; border: 2px solid #6366f1; background: rgba(99,102,241,.12); border-radius: 6px; z-index: 50; pointer-events: none; box-shadow: 0 0 0 3px rgba(99,102,241,.12); transition: opacity .3s; }
+
+  /* dock */
+  .dock-sim { display: flex; align-items: center; gap: 10px; padding: 9px; border-radius: 10px; border: 1px solid #1e1e2e; margin-bottom: 8px; cursor: default; background:#0d0d15; }
+  .ds-av { width: 34px; height: 34px; border-radius: 50%; display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0; }
+  .ds-name { font-size: 12px; font-weight: 700; }
+  .ds-role { font-size: 9px; color: #6c7086; }
+  .ds-type { font-size: 8px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-left: auto; }
+  .t-client{background:#1e2140;color:#89b4fa}.t-internal{background:#222;color:#9399b2}
+  .ds-insights { font-size: 9px; color:#7f849c; margin-top:4px; }
+  .reviewbtn { width: 100%; margin-top: 6px; font-size: 11px; padding: 6px; border-radius: 6px; background:#6366f1;color:white;border:none;cursor:pointer; }
+
+  .status { font-size: 11px; color: #6c7086; margin-top: 8px; min-height: 16px; }
+  .err { color: #f38ba8; }
+  .hint { font-size: 11px; color: #6c7086; margin-top: 8px; line-height: 1.5; }
+  input[type=file]{font-size:11px;color:#6c7086}
+  .usage{font-size:9px;color:#45475a;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">🧬</div>
+    <div>
+      <h1>Klav Sims — Live Prototype</h1>
+      <div class="sub">Paste a transcript → extract Sims → a Sim screenshots this page and reacts for real (Claude vision)</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <h2>① Transcript → Sims</h2>
+        <textarea id="transcript"></textarea>
+        <div class="row">
+          <button class="primary" id="extractBtn">Extract Sims</button>
+          <button class="ghost" id="clearBtn">Clear</button>
+        </div>
+        <div class="status" id="extractStatus"></div>
+      </div>
+
+      <div class="panel">
+        <h2>② The page your Sims review</h2>
+        <div id="stageWrap">
+          <div id="stage">
+            <!-- demo dashboard -->
+            <div id="demo">
+              <div class="dnav">
+                <div class="dlogo"></div><span class="dbrand">Acme Finance</span>
+                <div class="dni on">Overview</div><div class="dni">Reports</div><div class="dni">Approvals</div>
+              </div>
+              <div class="dbody">
+                <div class="dtitle">Q2 Revenue Overview</div>
+                <div class="dsub">Apr – Jun 2026 · updated 2h ago</div>
+                <div class="kpis">
+                  <div class="kpi"><div class="kl">Revenue</div><div class="kv">$2.4M</div><div class="kd up">↑ 12%</div></div>
+                  <div class="kpi"><div class="kl">Pending Approvals</div><div class="kv">14</div><div class="kd dn">3 overdue</div></div>
+                  <div class="kpi"><div class="kl">Approval Rate</div><div class="kv">87%</div><div class="kd up">↑ 5%</div></div>
+                  <div class="kpi"><div class="kl">Month-end Close</div><div class="kv">4 days</div><div class="kd dn">⚠ 3 at risk</div></div>
+                </div>
+                <div class="cols">
+                  <div class="card c2">
+                    <div class="ct">Pending Approvals <span class="badge">3 overdue</span></div>
+                    <div class="ap"><div class="dot r"></div><div class="apn">Q2 Marketing Budget Reallocation</div><div class="apa">$84k</div><div class="apd od">2d overdue</div><button class="apb">Approve</button></div>
+                    <div class="ap"><div class="dot r"></div><div class="apn">Infrastructure Vendor Contract</div><div class="apa">$210k</div><div class="apd od">1d overdue</div><button class="apb">Approve</button></div>
+                    <div class="ap"><div class="dot y"></div><div class="apn">Sales Team Bonus Pool</div><div class="apa">$120k</div><div class="apd so">Due today</div><button class="apb">Approve</button></div>
+                    <div class="ap"><div class="dot g"></div><div class="apn">Annual Audit Fees</div><div class="apa">$32k</div><div class="apd ok">5 days</div><button class="apb">Approve</button></div>
+                  </div>
+                  <div class="card c1">
+                    <div class="ct">Recent Activity</div>
+                    <div class="act"><span>✅</span><div><strong>James</strong> approved Q1 Audit</div></div>
+                    <div class="act"><span>💬</span><div><strong>Sarah</strong> commented on vendor</div></div>
+                    <div class="act"><span>📎</span><div><strong>Anika</strong> uploaded projections</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;">
+            Replace with a screenshot <input type="file" id="upload" accept="image/*" style="display:none" />
+          </label>
+          <button class="ghost" id="resetStage">Use demo dashboard</button>
+        </div>
+        <div class="hint">The Sim screenshots whatever is in this box, sends it to Claude vision, and reacts in-character. Swap in a screenshot of <em>your own</em> product to see it react to that.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: dock -->
+    <div class="panel">
+      <h2>Your Sims</h2>
+      <div id="dock"><div class="hint">No Sims yet — extract them from the transcript on the left.</div></div>
+      <div class="status" id="reactStatus"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { toPng } from "https://esm.sh/html-to-image@1.11.13"
+
+const SAMPLE = `Interviewer: Sarah, you're the CFO at Acme. When you open the finance dashboard in the morning, what's the first thing you do?
+Sarah Chen: The very first number I look at is revenue. That has to be front and centre — don't make me hunt for it. After that I go straight to approvals. The problem is the approval list isn't sorted by urgency. I've got fourteen items and three are overdue, but I have to manually scan to find which ones. I have four minutes before my next call. Sort it by what's overdue, always.
+Interviewer: Anything else that blocks you?
+Sarah Chen: Yes — there's no export button. I cannot sign off on anything until my EA has it in an Excel spreadsheet for the board packet. That's just our governance.
+
+Interviewer: James, you're the finance lead. What's your workflow?
+James Moore: Honestly my biggest gripe is I have to approve each item one at a time. With month-end close four days away I need a bulk-approve. Just give me checkboxes and an "approve selected" button. Clicking fourteen times is painful.
+
+Interviewer: Anika, operations — what works well for you?
+Anika Kumar: I actually love that the revenue figure is right there at the top. I check it every single morning before standup. The layout is clean. I just wish the "at risk" items were a bit more obvious.`
+
+const $ = (id) => document.getElementById(id)
+$("transcript").value = SAMPLE
+
+let sims = []
+
+$("clearBtn").onclick = () => { $("transcript").value = ""; }
+
+$("extractBtn").onclick = async () => {
+  const transcript = $("transcript").value.trim()
+  if (transcript.length < 20) { setStatus("extractStatus", "Add a transcript first.", true); return }
+  $("extractBtn").disabled = true
+  setStatus("extractStatus", "🧠 Extracting personas with " + "Claude… (10-30s)")
+  try {
+    const r = await fetch("/api/extract", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript }) })
+    const data = await r.json()
+    if (data.error) throw new Error(data.error)
+    sims = data.personas
+    renderDock()
+    setStatus("extractStatus", `✅ Extracted ${sims.length} Sim${sims.length === 1 ? "" : "s"}.` + usageStr(data.usage))
+  } catch (e) {
+    setStatus("extractStatus", "Error: " + e.message, true)
+  } finally { $("extractBtn").disabled = false }
+}
+
+function renderDock() {
+  const dock = $("dock")
+  if (!sims.length) { dock.innerHTML = '<div class="hint">No Sims yet.</div>'; return }
+  dock.innerHTML = ""
+  sims.forEach((s, i) => {
+    const el = document.createElement("div")
+    el.className = "dock-sim"
+    const ins = s.insights || []
+    el.innerHTML = `
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div class="ds-av" style="background:${s.accent || "#6366f1"}">${s.initials || s.name.slice(0,2).toUpperCase()}</div>
+          <div><div class="ds-name">${esc(s.name)}</div><div class="ds-role">${esc(s.role)}</div></div>
+          <div class="ds-type ${s.type === "client" ? "t-client" : "t-internal"}">${s.type}</div>
+        </div>
+        <div class="ds-insights">${ins.slice(0,3).map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ")}</div>
+        <button class="reviewbtn" data-i="${i}">Have ${esc(s.name.split(" ")[0])} review this page →</button>
+      </div>`
+    dock.appendChild(el)
+  })
+  dock.querySelectorAll(".reviewbtn").forEach(b => b.onclick = () => review(Number(b.dataset.i)))
+}
+
+function badge(kind){const c=kind==="pain"?"#f38ba8":kind==="want"?"#89b4fa":"#a6e3a1";return `<span style="color:${c};font-weight:700">${kind}</span>`}
+
+async function review(i) {
+  const sim = sims[i]
+  clearOverlays()
+  setStatus("reactStatus", `📸 ${sim.name.split(" ")[0]} is screenshotting the page…`)
+  let dataUrl
+  try {
+    dataUrl = await toPng($("stage"), { pixelRatio: 1, cacheBust: true })
+  } catch (e) { setStatus("reactStatus", "Screenshot failed: " + e.message, true); return }
+  const imageB64 = dataUrl.split(",")[1]
+  setStatus("reactStatus", `👀 ${sim.name.split(" ")[0]} is reviewing… (Claude vision, 10-30s)`)
+  try {
+    const r = await fetch("/api/react", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ persona: sim, imageB64, mediaType: "image/png", pageUrl: "acme-finance/overview" }) })
+    const data = await r.json()
+    if (data.error) throw new Error(data.error)
+    setStatus("reactStatus", `✅ ${sim.name.split(" ")[0]} gave ${data.reactions.length} reaction(s).` + usageStr(data.usage))
+    playReactions(sim, data.reactions)
+  } catch (e) { setStatus("reactStatus", "Error: " + e.message, true) }
+}
+
+async function playReactions(sim, reactions) {
+  const stage = $("stage")
+  const W = stage.clientWidth, H = stage.clientHeight
+  const char = makeChar(sim)
+  stage.appendChild(char)
+  // start bottom-left
+  char.style.left = "8px"; char.style.top = (H - 56) + "px"
+  await sleep(60)
+
+  for (const rx of reactions) {
+    const box = rx.box
+    let cx = W * 0.5, cy = H * 0.5
+    let hi = null
+    if (box && typeof box.x === "number") {
+      const bx = box.x * W, by = box.y * H, bw = box.w * W, bh = box.h * H
+      cx = bx + bw / 2; cy = by + bh / 2
+      hi = document.createElement("div"); hi.className = "hilite"
+      hi.style.left = bx + "px"; hi.style.top = by + "px"; hi.style.width = bw + "px"; hi.style.height = bh + "px"
+      stage.appendChild(hi)
+    }
+    // walk to just below the target
+    char.classList.add("walking"); char.classList.remove("pointing")
+    char.style.left = Math.max(4, Math.min(W - 42, cx - 19)) + "px"
+    char.style.top = Math.max(4, Math.min(H - 56, cy + 8)) + "px"
+    await sleep(950)
+    char.classList.remove("walking"); char.classList.add("pointing")
+    showBubble(char, sim, rx)
+    await sleep(4200)
+    hideBubble(char)
+    if (hi) hi.style.opacity = "0"
+    await sleep(350)
+  }
+  // walk off
+  char.classList.add("walking"); char.classList.remove("pointing")
+  char.style.left = (W + 30) + "px"
+  await sleep(900)
+  char.remove()
+  clearOverlays()
+}
+
+function makeChar(sim) {
+  const el = document.createElement("div")
+  el.className = "sim-char"
+  el.innerHTML = `
+    <div class="bubble" data-bubble></div>
+    <div style="position:relative;display:flex;flex-direction:column;align-items:center">
+      <div class="ch-arm" style="background:${shade(sim.accent)}"><span class="ch-fing">👆</span></div>
+      <div class="ch-head" style="background:${sim.accent || "#6366f1"}">${sim.initials || sim.name.slice(0,2).toUpperCase()}</div>
+      <div class="ch-legs"><div class="ch-leg" style="background:${shade(sim.accent)}"></div><div class="ch-leg" style="background:${shade(sim.accent)}"></div></div>
+    </div>`
+  return el
+}
+
+function showBubble(char, sim, rx) {
+  const b = char.querySelector("[data-bubble]")
+  const bug = rx.suggestedBug
+  b.innerHTML = `
+    <div class="bn" style="color:${sim.accent || "#89b4fa"}">${esc(sim.name)} · ${esc(sim.role)} ${rx.emoji || ""}</div>
+    <div class="bo">${esc(rx.observation)}</div>
+    ${bug ? `<div class="bbug"><div class="bt">🐛 ${esc(bug.title)} <span style="color:#6c7086">(${bug.severity})</span></div><div class="bd">${esc(bug.body)}</div></div>
+      <span class="filebtn" data-file>→ File to Jira</span>` : ""}`
+  b.classList.add("show")
+  const fb = b.querySelector("[data-file]")
+  if (fb) fb.onclick = () => { fb.textContent = "✅ Filed to Jira (KS-" + (100 + Math.floor(performance.now() % 800)) + ")"; fb.style.background = "#a6e3a1"; fb.style.color = "#1e1e2e" }
+}
+function hideBubble(char){ const b=char.querySelector("[data-bubble]"); if(b) b.classList.remove("show") }
+
+function clearOverlays(){ document.querySelectorAll(".hilite,.sim-char").forEach(e=>e.remove()) }
+
+// upload handling
+$("upload").onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return
+  const reader = new FileReader()
+  reader.onload = () => { $("stage").innerHTML = `<img src="${reader.result}" alt="uploaded page" />` }
+  reader.readAsDataURL(f)
+}
+$("resetStage").onclick = () => location.reload()
+
+function setStatus(id, msg, err=false){ const e=$(id); e.textContent=msg; e.className="status"+(err?" err":"") }
+function usageStr(u){ if(!u) return ""; const t=(u.input_tokens||0)+(u.output_tokens||0); return ` · ${t} tokens` }
+function esc(s){ return String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])) }
+function shade(hex){ return hex || "#4f46e5" }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)) }
+</script>
+</body>
+</html>
