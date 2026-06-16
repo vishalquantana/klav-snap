@@ -51,7 +51,11 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .msg{font-size:12.5px;color:var(--green);margin-top:8px;min-height:16px}
 .muted{color:var(--paper-faint);font-size:13px}
 .hide{display:none}
-@media(max-width:760px){.grid{grid-template-columns:1fr}.ws{display:none}}
+.conngrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.conngrid input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none}
+.conngrid input:focus{border-color:var(--indigo)}
+.flbl{display:block;font-size:12px;color:var(--paper-faint);margin-bottom:5px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.ws{display:none}.conngrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -103,10 +107,21 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
       </div>
     </div>
 
-    <!-- Bug tracker placeholder -->
+    <!-- Team tracker connection -->
     <div class="card full">
-      <h2>🐛 Bug tracker <span class="muted" style="text-transform:none;letter-spacing:0">· coming soon</span></h2>
-      <div class="muted">Sim-filed reactions and manual Snap bugs will land here, tagged by source, filed to Jira / Linear / GitHub / Plane.</div>
+      <h2>🐛 Team bug tracker · Plane</h2>
+      <div class="muted" style="margin-bottom:14px">Configure the workspace's Plane connection once — teammates just sign into the Snap extension and file reports here. The token is encrypted at rest and never sent to a browser.</div>
+      <div id="connAdmin" class="hide">
+        <div class="conngrid">
+          <div><label class="flbl">API Token</label><input id="cn-token" type="password" placeholder="•••• leave blank to keep existing" /></div>
+          <div><label class="flbl">Host</label><input id="cn-host" type="url" placeholder="https://api.plane.so" /></div>
+          <div><label class="flbl">Workspace Slug</label><input id="cn-workspace" placeholder="acme" /></div>
+          <div><label class="flbl">Project ID</label><input id="cn-project" placeholder="proj_abc123" /></div>
+        </div>
+        <button class="btn btn-indigo" id="cn-save" style="margin-top:14px">Save team connection</button>
+        <div class="msg" id="cn-msg"></div>
+      </div>
+      <div id="connUser" class="hide muted">Only admins can configure the team connection.<span id="connStatus"></span></div>
     </div>
   </div>
 </div>
@@ -145,7 +160,43 @@ function render() {
   $("userNote").classList.toggle("hide", admin)
   $("simsAdmin").classList.toggle("hide", !admin)
   $("simsUser").classList.toggle("hide", admin)
+  $("connAdmin").classList.toggle("hide", !admin)
+  $("connUser").classList.toggle("hide", admin)
+  loadConn(admin)
 }
+
+async function loadConn(admin) {
+  try {
+    const r = await fetch("/api/integration")
+    if (!r.ok) return
+    const c = (await r.json()).config
+    if (!c) return
+    if (admin) {
+      $("cn-host").value = c.host || "https://api.plane.so"
+      $("cn-workspace").value = c.workspace || ""
+      $("cn-project").value = c.projectId || ""
+      if (c.hasToken) $("cn-token").placeholder = "•••• saved — leave blank to keep"
+    } else {
+      $("connStatus").textContent = c.hasToken ? ` Connected to Plane workspace "${esc(c.workspace)}".` : ""
+    }
+  } catch {}
+}
+$("cn-save") && ($("cn-save").onclick = async () => {
+  const fd = new FormData()
+  const tok = $("cn-token").value.trim()
+  if (tok) fd.set("token", tok)
+  fd.set("host", $("cn-host").value.trim() || "https://api.plane.so")
+  fd.set("workspace", $("cn-workspace").value.trim())
+  fd.set("project_id", $("cn-project").value.trim())
+  $("cn-save").disabled = true
+  const r = await fetch("/api/integration", { method: "POST", body: fd })
+  const d = await r.json().catch(() => ({}))
+  $("cn-save").disabled = false
+  const msg = $("cn-msg")
+  if (d.error) { msg.style.color = "var(--rose)"; msg.textContent = d.error; return }
+  $("cn-token").value = ""; $("cn-token").placeholder = "•••• saved — leave blank to keep"
+  msg.style.color = "var(--green)"; msg.textContent = "✓ Team connection saved (encrypted)."
+})
 
 $("inviteBtn") && ($("inviteBtn").onclick = async () => {
   const email = $("inviteEmail").value.trim()
