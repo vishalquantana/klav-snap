@@ -1404,4 +1404,34 @@ The name **Klav Sims** carries trademark risk: "SIMS SOFTWARE" is incontestable 
 
 ---
 
+## 16. Reaction draft queue (core-loop refinement)
+
+A Sim reaction must never silently vanish nor auto-file a ticket. It lands in a **per-member draft queue inside Klav**; the member reviews and selects which to **save** (file as bugs). This makes "where did that feedback go?" obvious, keeps the tracker free of auto-spam, and gives the human final say. This refines loop step ④ (§1.1) from *react → file* to **react → draft queue → curate → file**.
+
+### 16.1 Model (no new table)
+
+Add a `status` to the existing `sim_reaction` row (§5): `draft` (default) | `saved` | `dismissed`. Transitions:
+
+| From | Action | To | Side effect |
+|---|---|---|---|
+| `draft` | Save | `saved` | Files the bug via the existing server-side bridge (§7.1); writes `bug_id` onto the reaction. |
+| `draft` | Dismiss | `dismissed` | None (kept for analytics; never shown again). |
+
+A reaction is scoped to `memberId` + `projectId` (§5.3), so a draft queue is the member's own. The reaction already persists its screenshot ref, `ElementTarget`, observation, emotion, and `suggestedBug` (§6.2) — saving just promotes the `suggestedBug` into a real tracker issue, tagged `source:'sim'`.
+
+### 16.2 Surfaces
+
+- **Dock (extension + widget, §9, §11, §12):** a draft tray with an unread count; each entry shows the Sim, the observation, and the suggested bug. Select entries → **"Save selected to Klav"** bulk-files. (The prototype implements exactly this.)
+- **Web app (§10):** the bug tracker gains a **Drafts** filter (`status='draft'`) so a member — or a PM reviewing the team's — can triage queued reactions and batch-file. Already-saved drafts appear in the normal list with their filed `source:'sim'` bug.
+
+### 16.3 API
+
+`POST /api/reactions/file` `{ reactionIds: string[] }` → files each draft through the existing four-handler bridge (§7.1), flips `status='saved'`, returns `{ reactionId, bug }[]`. `POST /api/reactions/dismiss` `{ reactionIds }` → flips `status='dismissed'`. Both authorize on the reaction's `memberId`/`projectId`.
+
+### 16.4 Scope
+
+MVP (already proven in `/prototype`): collect reactions into the dock queue, checkbox-select, save (mock-files with a `KS-###` ref). v1: persist `status` on `sim_reaction` + the two endpoints + the web-app Drafts filter. PM-views-team-drafts and per-draft inline edit are v1.1.
+
+---
+
 *End of spec.*
