@@ -30,6 +30,32 @@ input.code{font-family:var(--mono);font-size:24px;letter-spacing:.32em;text-alig
 .dev{margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--indigo);background:var(--ink);border:1px dashed var(--line);border-radius:10px;padding:10px;text-align:center}
 .hide{display:none}
 .back{display:inline-flex;gap:7px;font-size:13px;color:var(--paper-faint);text-decoration:none;margin-bottom:20px}.back:hover{color:var(--paper-dim)}
+
+/* ── Sim greeter ── */
+.login-sim{position:fixed;bottom:84px;left:46px;z-index:3;display:flex;flex-direction:column;align-items:center;animation:simbob 3s ease-in-out infinite}
+@keyframes simbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.login-sim .ls-bubble{position:absolute;bottom:64px;left:50%;transform:translateX(-50%);width:206px;background:var(--ink-2);border:1px solid var(--line);border-radius:13px;padding:10px 13px;font-family:var(--display);font-style:italic;font-size:13.5px;line-height:1.45;color:var(--paper);box-shadow:0 14px 36px rgba(0,0,0,.55);transition:opacity .4s}
+.login-sim .ls-bubble::after{content:"";position:absolute;bottom:-7px;left:28px;border:6px solid transparent;border-top-color:var(--ink-2);border-bottom:none}
+.login-sim .ls-tag{font-family:var(--mono);font-style:normal;font-size:9px;letter-spacing:.07em;color:var(--indigo);margin-bottom:5px}
+.ls-head{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6);box-shadow:0 6px 18px rgba(0,0,0,.4);position:relative;z-index:2;transition:background .4s}
+.ls-eyes{position:absolute;bottom:11px;display:flex;gap:5px}
+.ls-eye{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.92);position:relative}
+.ls-eye::after{content:"";position:absolute;width:2px;height:2px;border-radius:50%;background:rgba(0,0,0,.55);top:1px;left:1px;animation:look 4s ease-in-out infinite}
+@keyframes look{0%,40%,100%{transform:translate(0,0)}55%,75%{transform:translate(1px,-1px)}}
+.ls-legs{display:flex;gap:6px;margin-top:3px}
+.ls-leg{width:6px;height:15px;border-radius:3px;background:#4f46e5;transition:background .4s}
+.ls-arm{position:absolute;top:13px;right:34px;width:24px;height:6px;border-radius:3px;background:#4f46e5;transform-origin:right center;animation:wave 2.6s ease-in-out infinite;transition:background .4s}
+@keyframes wave{0%,100%{transform:rotate(-28deg)}50%{transform:rotate(-52deg)}}
+.ls-arm .ls-fin{position:absolute;left:-6px;top:-8px;font-size:15px}
+
+/* ── customer quote marquee ── */
+.q-marquee{position:fixed;bottom:0;left:0;right:0;z-index:2;border-top:1px solid var(--line);background:rgba(12,10,8,.85);backdrop-filter:blur(10px);padding:13px 0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.q-track{display:flex;gap:48px;width:max-content;animation:qscroll 42s linear infinite}
+.q-item{display:flex;align-items:baseline;gap:11px;white-space:nowrap;font-family:var(--display);font-style:italic;font-size:16px;color:var(--paper-dim)}
+.q-item .q-who{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--paper-faint)}
+@keyframes qscroll{to{transform:translateX(-50%)}}
+@media(max-width:760px){.login-sim{display:none}}
+@media (prefers-reduced-motion: reduce){.login-sim,.q-track,.ls-arm,.ls-eye::after{animation:none}}
 </style>
 </head>
 <body>
@@ -58,9 +84,49 @@ input.code{font-family:var(--mono);font-size:24px;letter-spacing:.32em;text-alig
   </div>
 </div>
 
+<div class="login-sim" aria-hidden="true">
+  <div class="ls-bubble"><div class="ls-tag" id="lsTag">SARAH CHEN · CFO</div><span id="lsText">“Your Sims are ready when you are.”</span></div>
+  <div style="position:relative;display:flex;flex-direction:column;align-items:center">
+    <div class="ls-arm"><span class="ls-fin">👋</span></div>
+    <div class="ls-head" id="lsHead"><span id="lsInit">SC</span><div class="ls-eyes"><span class="ls-eye"></span><span class="ls-eye"></span></div></div>
+    <div class="ls-legs"><span class="ls-leg"></span><span class="ls-leg"></span></div>
+  </div>
+</div>
+
+<div class="q-marquee" aria-hidden="true"><div class="q-track" id="qTrack">
+  <span class="q-item">“I need an export before I sign off.” <span class="q-who">— Sarah, CFO</span></span>
+  <span class="q-item">“Give me bulk-approve — I'm not clicking 14 times.” <span class="q-who">— James, Finance Lead</span></span>
+  <span class="q-item">“Revenue front and centre — I check it every morning.” <span class="q-who">— Anika, Ops</span></span>
+  <span class="q-item">“Why is this two clicks deep?” <span class="q-who">— Priya, Designer</span></span>
+  <span class="q-item">“I'd never trust a number I can't drill into.” <span class="q-who">— Marcus, Analyst</span></span>
+  <span class="q-item">“Sort it by what's overdue. Always.” <span class="q-who">— Sarah, CFO</span></span>
+</div></div>
+
 <script>
 const $ = (id) => document.getElementById(id)
 let email = ""
+
+// seamless quote marquee + rotating Sim greeter
+const qt = $("qTrack"); if (qt) qt.innerHTML += qt.innerHTML
+const QUIPS = [
+  { who: "SARAH CHEN · CFO", init: "SC", bg: "linear-gradient(135deg,#6366f1,#8b5cf6)", leg: "#4f46e5", text: "“Your Sims are ready when you are.”" },
+  { who: "JAMES MOORE · FINANCE LEAD", init: "JM", bg: "linear-gradient(135deg,#e8a24a,#ef4444)", leg: "#b45309", text: "“Sign in — I've got notes on your latest build.”" },
+  { who: "ANIKA KUMAR · OPERATIONS", init: "AK", bg: "linear-gradient(135deg,#10b981,#06b6d4)", leg: "#0e7490", text: "“Welcome back. Let's go look at something.”" },
+  { who: "PRIYA RAO · DESIGNER", init: "PR", bg: "linear-gradient(135deg,#ec4899,#8b5cf6)", leg: "#be185d", text: "“I spotted three things since you were gone.”" },
+]
+let qi = 0
+setInterval(() => {
+  qi = (qi + 1) % QUIPS.length
+  const q = QUIPS[qi], b = document.querySelector(".ls-bubble")
+  if (!b) return
+  b.style.opacity = "0"
+  setTimeout(() => {
+    $("lsTag").textContent = q.who; $("lsText").textContent = q.text; $("lsInit").textContent = q.init
+    $("lsHead").style.background = q.bg
+    document.querySelectorAll(".ls-leg, .ls-arm").forEach((el) => (el.style.background = q.leg))
+    b.style.opacity = "1"
+  }, 400)
+}, 4200)
 
 async function post(url, body) {
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
