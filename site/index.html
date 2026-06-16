@@ -207,6 +207,60 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
   .loop,.sims-row,.phases{grid-template-columns:1fr}
   .nav-links{display:none}
 }
+
+/* ── extra micro-interactions ── */
+.brand .spark{transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.brand:hover .spark{transform:rotate(-12deg) scale(1.09)}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:-5px;height:1.5px;width:0;background:var(--indigo);transition:width .25s cubic-bezier(.2,.7,.2,1)}
+.nav-links a{position:relative}
+.nav-links a:hover::after{width:100%}
+.btn{transition:transform .12s,background .2s,border-color .2s,gap .2s}
+.btn:hover{gap:12px}
+.btn-indigo{position:relative; overflow:hidden}
+.btn-indigo::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.42),transparent 75%);transform:translateX(-130%);transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+.btn-indigo:hover::after{transform:translateX(130%)}
+.step:hover .ic{animation:wiggle .55s ease}
+@keyframes wiggle{0%,100%{transform:rotate(0)}28%{transform:rotate(-10deg) scale(1.1)}62%{transform:rotate(8deg)}}
+.intg{transition:transform .2s,border-color .2s,color .2s}
+.intg:hover{border-color:var(--indigo);color:var(--indigo);transform:translateY(-2px)}
+.tile,.persona,.step{will-change:transform}
+.p-av,.sr-av,.pc-target{transition:transform .25s}
+.persona:hover .p-av{transform:scale(1.08) rotate(-4deg)}
+.eyebrow .tag{transition:color .2s}
+.hero-note .mono{animation:pulse 2s infinite}
+
+/* scroll reveal */
+.io{opacity:0; transform:translateY(24px); transition:opacity .75s cubic-bezier(.2,.7,.2,1), transform .75s cubic-bezier(.2,.7,.2,1)}
+.io.in{opacity:1; transform:none}
+
+/* ── roaming reviewer Sims (the page reviews itself) ── */
+.rv{position:fixed; display:flex; flex-direction:column; align-items:center; width:46px; z-index:61; opacity:0; pointer-events:none;
+  transition:left .9s cubic-bezier(.4,0,.2,1), top .9s cubic-bezier(.4,0,.2,1), opacity .4s}
+.rv .rv-head{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:12px;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.5);position:relative;z-index:2}
+.rv .rv-legs{display:flex;gap:5px;margin-top:2px}
+.rv .rv-leg{width:6px;height:14px;border-radius:3px}
+.rv.walk .rv-leg:nth-child(1){animation:legA .34s ease-in-out infinite alternate}
+.rv.walk .rv-leg:nth-child(2){animation:legB .34s ease-in-out infinite alternate}
+.rv .rv-arm{position:absolute;top:10px;right:30px;width:28px;height:6px;border-radius:3px;transform-origin:right center;transform:rotate(-40deg);opacity:0;transition:opacity .2s}
+.rv.point .rv-arm{opacity:1}
+.rv .rv-arm .fin{position:absolute;left:-5px;top:-7px;font-size:13px}
+.rv .rv-bubble{position:absolute;bottom:54px;left:50%;transform:translateX(-50%) translateY(8px);width:214px;background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:11px 13px;box-shadow:0 18px 44px rgba(0,0,0,.6);opacity:0;transition:opacity .3s,transform .3s;font-size:12.5px;line-height:1.46;pointer-events:none}
+.rv.say .rv-bubble{opacity:1;transform:translateX(-50%) translateY(0)}
+.rv .rv-bubble::after{content:"";position:absolute;bottom:-7px;left:24px;border:6px solid transparent;border-top-color:var(--ink-2);border-bottom:none}
+.rv.flip .rv-bubble{left:auto;right:50%;transform:translateX(50%) translateY(8px)}
+.rv.flip.say .rv-bubble{transform:translateX(50%) translateY(0)}
+.rv.flip .rv-bubble::after{left:auto;right:24px}
+.rv .rv-tag{font-family:var(--mono);font-size:9px;letter-spacing:.07em;margin-bottom:5px;display:flex;align-items:center;gap:6px;color:var(--indigo)}
+.rv .rv-emoji{margin-left:auto;font-size:14px}
+.klav-hl{position:fixed;border:2px solid var(--indigo);border-radius:9px;box-shadow:0 0 0 4px rgba(139,139,245,.12);pointer-events:none;z-index:60;opacity:0;transition:opacity .3s,left .3s,top .3s,width .3s,height .3s}
+.klav-hl.on{opacity:1}
+#klav-toggle{position:fixed;right:18px;bottom:18px;z-index:64;font-family:var(--body);font-weight:600;font-size:13px;padding:11px 16px;border-radius:30px;border:1px solid var(--line);background:rgba(21,17,13,.92);backdrop-filter:blur(12px);color:var(--paper);cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 12px 30px rgba(0,0,0,.45);transition:border-color .2s,transform .12s}
+#klav-toggle:hover{border-color:var(--indigo)}
+#klav-toggle:active{transform:translateY(1px)}
+#klav-toggle .live{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.4s infinite}
+#klav-toggle.hint{animation:tgpulse 2.2s ease infinite}
+@keyframes tgpulse{0%,100%{box-shadow:0 12px 30px rgba(0,0,0,.45)}50%{box-shadow:0 12px 30px rgba(0,0,0,.45),0 0 0 7px rgba(139,139,245,.13)}}
+@media (prefers-reduced-motion: reduce){.rv,.klav-hl,.io{transition:none}.io{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -440,6 +494,99 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 // duplicate the marquee track for a seamless loop
 const mq = document.getElementById('mq');
 if (mq) mq.innerHTML += mq.innerHTML;
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// scroll reveal
+if (!reduce && 'IntersectionObserver' in window) {
+  const els = [...document.querySelectorAll('section .sec-head, .step, .persona, .phase, .split > div, .trust, #cta .wrap')];
+  els.forEach(el => el.classList.add('io'));
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .14 });
+  els.forEach((el, i) => { el.style.transitionDelay = (Math.min(i % 3, 2) * .06) + 's'; io.observe(el); });
+}
+
+// hero parallax
+const stage = document.querySelector('.stage');
+if (stage && !reduce) addEventListener('mousemove', e => {
+  const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
+  stage.style.transform = `translate(${x * 9}px, ${y * 7}px)`;
+}, { passive: true });
+
+// ── roaming reviewer Sims: the page reviews itself ──
+const REVIEWERS = {
+  SC: { name: 'Sarah Chen', role: 'CFO', accent: 'linear-gradient(135deg,#6366f1,#8b5cf6)', leg: '#5a5ad6' },
+  JM: { name: 'James Moore', role: 'Finance Lead', accent: 'linear-gradient(135deg,#e8a24a,#ef4444)', leg: '#b45309' },
+  AK: { name: 'Anika Kumar', role: 'Operations', accent: 'linear-gradient(135deg,#10b981,#06b6d4)', leg: '#0e7490' },
+  PR: { name: 'Priya Rao', role: 'Designer', accent: 'linear-gradient(135deg,#ec4899,#8b5cf6)', leg: '#be185d' },
+};
+const MOODS = { love: '😍', neutral: '🤔', frustrated: '😤', confused: '😕' };
+const NOTES = [
+  { sel: 'h1', who: 'AK', mood: 'love', text: "I get this headline instantly. Don't you dare touch it." },
+  { sel: '.eyebrow', who: 'PR', mood: 'confused', text: "The 'private beta' pill is sweet, but it's fighting the headline for attention — dim it a touch." },
+  { sel: '.hero-cta .btn-indigo', who: 'SC', mood: 'neutral', text: "Add a tiny 'no credit card' line under here and you've removed my last excuse." },
+  { sel: '.marquee', who: 'AK', mood: 'love', text: "Real quotes scrolling past — I keep reading them instead of leaving. Nice." },
+  { sel: '#how .step', who: 'JM', mood: 'neutral', text: "Three clean steps. I'd number the outcome too — 'a filed ticket' is the payoff." },
+  { sel: '#sims .sec-head h2', who: 'PR', mood: 'love', text: "That italic on 'the people from your calls' — yes. Lean into that contrast everywhere." },
+  { sel: '#sims .persona', who: 'SC', mood: 'neutral', text: "These quote cards earn trust fast. Put a company logo on them and I'm sold." },
+  { sel: '#snap .snap-menu', who: 'JM', mood: 'love', text: "Showing the real right-click menu is clever — I know exactly what I'm installing before I click." },
+  { sel: '.phase.build', who: 'AK', mood: 'neutral', text: "'Building' is exciting, but give me a date. Even 'Q3' tells me whether to wait." },
+  { sel: '.trust', who: 'SC', mood: 'love', text: "THIS is the section that closes me. The verbatim-quote answer kills my 'is this fake?' worry." },
+  { sel: '#cta .btn-indigo', who: 'PR', mood: 'frustrated', text: "Two CTAs at the same weight here — make 'Request early access' clearly the hero." },
+];
+
+const hl = document.createElement('div'); hl.className = 'klav-hl'; document.body.appendChild(hl);
+const rv = document.createElement('div'); rv.className = 'rv'; document.body.appendChild(rv);
+const tg = document.createElement('button'); tg.id = 'klav-toggle'; tg.className = 'hint'; document.body.appendChild(tg);
+
+let tourOn = false, ix = 0, timer = null, activeEl = null;
+
+function buildRv(who) {
+  const p = REVIEWERS[who];
+  rv.innerHTML = `<div class="rv-bubble"></div><div style="position:relative;display:flex;flex-direction:column;align-items:center">`
+    + `<div class="rv-arm" style="background:${p.leg}"><span class="fin">👆</span></div>`
+    + `<div class="rv-head" style="background:${p.accent}">${who}</div>`
+    + `<div class="rv-legs"><span class="rv-leg" style="background:${p.leg}"></span><span class="rv-leg" style="background:${p.leg}"></span></div></div>`;
+}
+function inView(el) { const r = el.getBoundingClientRect(); return r.width && r.top < innerHeight - 70 && r.bottom > 80 && r.left < innerWidth && r.right > 0; }
+function place(el) {
+  const r = el.getBoundingClientRect();
+  hl.style.left = r.left + 'px'; hl.style.top = r.top + 'px'; hl.style.width = r.width + 'px'; hl.style.height = r.height + 'px'; hl.classList.add('on');
+  // clamp so the 214px bubble (±107) and its vertical extent never leave the viewport — no cut-off
+  const cx = Math.min(Math.max(r.left + r.width / 2, 120), innerWidth - 120);
+  const cy = Math.min(Math.max(r.bottom + 10, 156), innerHeight - 78);
+  rv.style.left = (cx - 23) + 'px'; rv.style.top = cy + 'px';
+}
+function showNote(n) {
+  const el = document.querySelector(n.sel);
+  if (!el || !inView(el)) return false;
+  activeEl = el; buildRv(n.who); const p = REVIEWERS[n.who];
+  rv.classList.add('walk'); rv.classList.remove('point', 'say');
+  place(el);
+  const b = rv.querySelector('.rv-bubble');
+  b.innerHTML = `<div class="rv-tag">${p.name.toUpperCase()} · ${p.role.toUpperCase()}<span class="rv-emoji">${MOODS[n.mood] || ''}</span></div>${n.text}`;
+  setTimeout(() => { rv.classList.remove('walk'); rv.classList.add('point', 'say'); }, 920);
+  return true;
+}
+function step() {
+  if (!tourOn) return;
+  let n = null, tries = 0;
+  while (tries < NOTES.length) { const c = NOTES[ix % NOTES.length]; ix++; tries++; const el = document.querySelector(c.sel); if (el && inView(el)) { n = c; break; } }
+  if (n) showNote(n); else { hl.classList.remove('on'); rv.classList.remove('say', 'point'); activeEl = null; }
+  timer = setTimeout(step, n ? 5800 : 1500);
+}
+function reposition() {
+  if (!tourOn || !activeEl) return;
+  if (!inView(activeEl)) { hl.classList.remove('on'); return; }
+  place(activeEl);
+}
+function updateToggle() { tg.innerHTML = tourOn ? `<span class="live"></span> Sims reviewing — pause` : `👀 Let the Sims review this page`; }
+function start() { if (tourOn) return; tourOn = true; tg.classList.remove('hint'); rv.style.opacity = '1'; updateToggle(); step(); }
+function stop() { tourOn = false; clearTimeout(timer); hl.classList.remove('on'); rv.classList.remove('say', 'point', 'walk'); rv.style.opacity = '0'; activeEl = null; updateToggle(); }
+tg.onclick = () => tourOn ? stop() : start();
+updateToggle();
+addEventListener('scroll', reposition, { passive: true });
+addEventListener('resize', reposition);
+if (!reduce) setTimeout(() => { if (!tourOn) start(); }, 4600);
 </script>
 </body>
 </html>

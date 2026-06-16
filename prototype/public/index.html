@@ -98,6 +98,21 @@
   .hint { font-size: 11px; color: #6c7086; margin-top: 8px; line-height: 1.5; }
   input[type=file]{font-size:11px;color:#6c7086}
   .usage{font-size:9px;color:#45475a;margin-top:4px}
+
+  /* below-flipped bubble — prevents the speech bubble being cut off at the top of the stage */
+  .sim-char.below .bubble{bottom:auto;top:58px}
+  .sim-char.below .bubble::after{top:-7px;bottom:auto;border:6px solid transparent;border-bottom-color:#313244;border-top:none}
+  /* draft queue */
+  .draft{background:#0d0d15;border:1px solid #1e1e2e;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;gap:9px;align-items:flex-start}
+  .draft.saved{border-color:#a6e3a1}
+  .draft input{margin-top:3px;accent-color:#6366f1;cursor:pointer;width:14px;height:14px;flex-shrink:0}
+  .draft .dav{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+  .draft .dnm{font-size:11px;font-weight:700;color:#cdd6f4}
+  .draft .dob{font-size:11px;color:#a6adc8;line-height:1.4;margin-top:2px}
+  .draft .dbug{font-size:10px;color:#f38ba8;margin-top:4px}
+  .draft .drm{margin-left:auto;color:#6c7086;cursor:pointer;font-size:15px;background:none;border:none;line-height:1;padding:0 2px}
+  .draft .savedtag{font-size:9px;color:#a6e3a1;margin-top:4px}
+  .savebar{width:100%;margin-top:10px;font-size:12px;padding:9px;border-radius:8px;background:#6366f1;color:#fff;border:none;cursor:pointer}
 </style>
 </head>
 <body>
@@ -171,11 +186,20 @@
       </div>
     </div>
 
-    <!-- RIGHT: dock -->
-    <div class="panel">
-      <h2>Your Sims</h2>
-      <div id="dock"><div class="hint">No Sims yet — extract them from the transcript on the left.</div></div>
-      <div class="status" id="reactStatus"></div>
+    <!-- RIGHT -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="panel">
+        <h2>Your Sims</h2>
+        <div id="dock"><div class="hint">No Sims yet — extract them from the transcript on the left.</div></div>
+        <div class="status" id="reactStatus"></div>
+      </div>
+      <div class="panel">
+        <h2>Draft queue · <span id="draftCount">0</span></h2>
+        <div class="hint" id="draftEmpty">Sim feedback collects here as drafts. Review them, then pick which to save to Klav and file as bugs.</div>
+        <div id="drafts"></div>
+        <button class="savebar" id="saveDrafts" style="display:none">Save selected to Klav →</button>
+        <div class="status" id="draftStatus"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -266,8 +290,9 @@ async function review(i) {
 async function playReactions(sim, reactions) {
   const stage = $("stage")
   const W = stage.clientWidth, H = stage.clientHeight
+  const stageWrap = $("stageWrap")
   const char = makeChar(sim)
-  stage.appendChild(char)
+  stageWrap.appendChild(char)
   // start bottom-left
   char.style.left = "8px"; char.style.top = (H - 56) + "px"
   await sleep(60)
@@ -289,7 +314,9 @@ async function playReactions(sim, reactions) {
     char.style.top = Math.max(4, Math.min(H - 56, cy + 8)) + "px"
     await sleep(950)
     char.classList.remove("walking"); char.classList.add("pointing")
+    char.classList.toggle("below", cy < H * 0.42)
     showBubble(char, sim, rx)
+    addDraft(sim, rx)
     await sleep(4200)
     hideBubble(char)
     if (hi) hi.style.opacity = "0"
@@ -322,13 +349,53 @@ function showBubble(char, sim, rx) {
   b.innerHTML = `
     <div class="bn" style="color:${sim.accent || "#89b4fa"}">${esc(sim.name)} · ${esc(sim.role)} ${rx.emoji || ""}</div>
     <div class="bo">${esc(rx.observation)}</div>
-    ${bug ? `<div class="bbug"><div class="bt">🐛 ${esc(bug.title)} <span style="color:#6c7086">(${bug.severity})</span></div><div class="bd">${esc(bug.body)}</div></div>
-      <span class="filebtn" data-file>→ File to Jira</span>` : ""}`
+    ${bug ? `<div class="bbug"><div class="bt">🐛 ${esc(bug.title)} <span style="color:#6c7086">(${bug.severity})</span></div><div class="bd">${esc(bug.body)}</div></div>` : ""}
+    <div style="font-size:9.5px;color:#7f849c;margin-top:7px;font-weight:600">↓ saved to your draft queue</div>`
   b.classList.add("show")
-  const fb = b.querySelector("[data-file]")
-  if (fb) fb.onclick = () => { fb.textContent = "✅ Filed to Jira (KS-" + (100 + Math.floor(performance.now() % 800)) + ")"; fb.style.background = "#a6e3a1"; fb.style.color = "#1e1e2e" }
 }
 function hideBubble(char){ const b=char.querySelector("[data-bubble]"); if(b) b.classList.remove("show") }
+
+// ── draft queue: Sim reactions collect here; the user picks which to save to Klav ──
+let drafts = []
+let draftSeq = 0
+function addDraft(sim, rx){
+  drafts.push({ id: ++draftSeq, sim, rx, selected: true, saved: false, key: null })
+  renderDrafts()
+}
+function renderDrafts(){
+  const wrap = $("drafts"), empty = $("draftEmpty"), save = $("saveDrafts")
+  $("draftCount").textContent = drafts.length
+  empty.style.display = drafts.length ? "none" : "block"
+  const pending = drafts.filter(d => !d.saved)
+  save.style.display = pending.length ? "block" : "none"
+  save.textContent = `Save ${pending.filter(d => d.selected).length} selected to Klav →`
+  wrap.innerHTML = ""
+  drafts.forEach(d => {
+    const el = document.createElement("div")
+    el.className = "draft" + (d.saved ? " saved" : "")
+    const bug = d.rx.suggestedBug
+    el.innerHTML =
+      (d.saved ? "" : `<input type="checkbox" ${d.selected ? "checked" : ""} data-id="${d.id}">`) +
+      `<div class="dav" style="background:${d.sim.accent || "#6366f1"}">${esc(d.sim.initials || d.sim.name.slice(0,2).toUpperCase())}</div>` +
+      `<div style="flex:1"><div style="display:flex;align-items:center"><span class="dnm">${esc(d.sim.name)}</span>` +
+      (d.saved ? "" : `<button class="drm" data-rm="${d.id}">×</button>`) + `</div>` +
+      `<div class="dob">${esc(d.rx.observation)}</div>` +
+      (bug ? `<div class="dbug">🐛 ${esc(bug.title)} (${esc(bug.severity)})</div>` : "") +
+      (d.saved ? `<div class="savedtag">✅ Saved to Klav${d.key ? ` · filed ${d.key}` : ""}</div>` : "") +
+      `</div>`
+    wrap.appendChild(el)
+  })
+  wrap.querySelectorAll("input[type=checkbox]").forEach(c => c.onchange = () => {
+    const d = drafts.find(x => x.id == c.dataset.id); if (d) { d.selected = c.checked; renderDrafts() }
+  })
+  wrap.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { drafts = drafts.filter(x => x.id != b.dataset.rm); renderDrafts() })
+}
+function saveDrafts(){
+  let n = 0
+  drafts.forEach(d => { if (!d.saved && d.selected) { d.saved = true; n++; if (d.rx.suggestedBug) d.key = "KS-" + (100 + Math.floor((performance.now() + d.id * 7) % 800)) } })
+  renderDrafts()
+  setStatus("draftStatus", n ? `Saved ${n} to Klav — bugs filed to your tracker.` : "Nothing selected.")
+}
 
 function clearOverlays(){ document.querySelectorAll(".hilite,.sim-char").forEach(e=>e.remove()) }
 
@@ -346,6 +413,9 @@ function usageStr(u){ if(!u) return ""; const t=(u.input_tokens||0)+(u.output_to
 function esc(s){ return String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])) }
 function shade(hex){ return hex || "#4f46e5" }
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)) }
+
+$("saveDrafts").onclick = saveDrafts
+renderDrafts()
 </script>
 </body>
 </html>
