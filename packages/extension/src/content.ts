@@ -30,7 +30,7 @@ function maybeAutoFile(message: string, stack?: string) {
       stack,
       pageUrl: window.location.href,
       timestamp: now,
-    } satisfies BackgroundMessage)
+    } satisfies BackgroundMessage).catch(() => {})
   })
 }
 
@@ -90,6 +90,18 @@ function buildContext(): SubmitReportPayload['context'] {
 }
 
 // ── Modal ────────────────────────────────────────────────────────────────────
+const ICONS = {
+  bug: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3.003 3.003 0 1 1 6 0v1M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6Zm0 0v-9M6.53 9C4.6 8.8 3 7.1 3 5m3 8H2m1 8c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4m-.8 4c2.1.1 3.8 1.9 3.8 4"/></svg>`,
+  bulb: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z"/></svg>`,
+  camera: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>`,
+  crop: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>`,
+  image: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="M16 5h6M19 2v6"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>`,
+  send: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>`,
+  pencil: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  trash: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></svg>`,
+  x: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+}
+
 function openModal(type: ReportType) {
   currentReportType = type
   screenshots = []
@@ -98,26 +110,39 @@ function openModal(type: ReportType) {
 
   const style = document.createElement('style')
   style.textContent = `
-    .klavity-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;pointer-events:all;}
-    .klavity-modal{background:#1e1e2e;color:#cdd6f4;border-radius:12px;padding:24px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.5);font-family:system-ui,sans-serif;}
-    .klavity-toggle{display:flex;gap:8px;margin-bottom:16px;}
-    .klavity-toggle button{flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-weight:600;}
-    .klavity-toggle .bug.active{background:#f38ba8;color:#1e1e2e;}
-    .klavity-toggle .feat.active{background:#fab387;color:#1e1e2e;}
-    .klavity-toggle button:not(.active){background:#313244;color:#cdd6f4;}
-    .klavity-page{font-size:12px;color:#a6adc8;margin-bottom:12px;}
-    .klavity-strip{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;min-height:64px;}
-    .klavity-thumb{position:relative;flex-shrink:0;}
-    .klavity-thumb img{height:60px;border-radius:4px;border:1px solid #45475a;}
-    .klavity-thumb .klavity-rm{position:absolute;top:-4px;right:-4px;background:#f38ba8;color:#1e1e2e;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
-    .klavity-thumb .klavity-markup{position:absolute;bottom:-4px;right:-4px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
-    .klavity-actions{display:flex;gap:8px;margin-bottom:12px;}
-    .klavity-actions button{flex:1;padding:8px;background:#313244;color:#cdd6f4;border:none;border-radius:6px;cursor:pointer;font-size:12px;}
-    .klavity-counter{font-size:11px;color:#a6adc8;margin-bottom:8px;}
-    textarea.klavity-desc{width:100%;min-height:100px;resize:vertical;background:#181825;color:#cdd6f4;border:1px solid #45475a;border-radius:6px;padding:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
-    .klavity-submit{width:100%;padding:12px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
-    .klavity-submit:disabled{opacity:.5;cursor:not-allowed;}
-    .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
+    .klavity-overlay{position:fixed;inset:0;background:rgba(40,35,30,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;pointer-events:all;font-family:system-ui,-apple-system,sans-serif;}
+    .klavity-modal{background:#FBF6EE;color:#2D2A26;border-radius:20px;width:100%;max-width:520px;box-shadow:0 24px 70px rgba(40,30,20,.28);overflow:hidden;}
+    .klavity-modal *{box-sizing:border-box;}
+    .klavity-header{display:flex;align-items:center;gap:8px;padding:18px 22px;border-bottom:1px solid #EFE9DE;}
+    .klavity-toggle{display:flex;gap:8px;}
+    .klavity-toggle button{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:11px;border:none;cursor:pointer;font-size:15px;font-weight:700;background:transparent;color:#6B655C;transition:background .12s;}
+    .klavity-toggle button:not(.active):hover{background:#F0EADF;}
+    .klavity-toggle button svg{display:block;}
+    .klavity-toggle .bug.active{background:#E94F37;color:#fff;}
+    .klavity-toggle .feat.active{background:#F4A93C;color:#fff;}
+    .klavity-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:none;background:transparent;color:#8A837A;border-radius:9px;cursor:pointer;transition:background .12s,color .12s;}
+    .klavity-close:hover{background:#F0EADF;color:#3D3833;}
+    .klavity-body{padding:20px 22px 22px;}
+    .klavity-page{font-size:13px;color:#7A736A;margin-bottom:14px;}
+    .klavity-page b{color:#3D3833;font-weight:600;}
+    .klavity-strip{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+    .klavity-strip:empty{display:none;}
+    .klavity-thumb{position:relative;flex:1 1 100%;min-width:0;border-radius:13px;overflow:hidden;border:1px solid #E5DCCD;box-shadow:0 2px 8px rgba(40,30,20,.08);background:#fff;}
+    .klavity-thumb img{display:block;width:100%;max-height:230px;object-fit:cover;object-position:top;}
+    .klavity-thumb .klavity-ovl{position:absolute;top:9px;right:9px;display:flex;gap:7px;}
+    .klavity-thumb .klavity-ovl button{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;background:rgba(45,40,35,.62);color:#fff;backdrop-filter:blur(2px);transition:background .12s;}
+    .klavity-thumb .klavity-ovl button:hover{background:rgba(45,40,35,.85);}
+    .klavity-actions{display:flex;gap:10px;margin-bottom:14px;}
+    .klavity-actions button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 8px;background:#F2ECE2;color:#3D3833;border:1px solid #E6DFD3;border-radius:13px;cursor:pointer;font-size:14px;font-weight:600;transition:background .12s;}
+    .klavity-actions button:hover{background:#ECE5D9;}
+    .klavity-counter{font-size:13px;color:#9B9388;text-align:center;margin-bottom:14px;}
+    textarea.klavity-desc{width:100%;min-height:130px;resize:vertical;background:#EFEAE0;color:#2D2A26;border:1.5px solid #DDD4C4;border-radius:13px;padding:14px;font-size:16px;font-family:inherit;line-height:1.4;margin-bottom:16px;transition:border-color .12s;}
+    textarea.klavity-desc::placeholder{color:#8A837A;}
+    textarea.klavity-desc:focus{outline:none;border-color:#B79CE0;box-shadow:0 0 0 3px rgba(167,139,214,.18);}
+    .klavity-submit{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:14px;background:#A98BD6;color:#fff;border:none;border-radius:13px;font-size:16px;font-weight:700;cursor:pointer;transition:background .12s;}
+    .klavity-submit:hover:not(:disabled){background:#9A78CF;}
+    .klavity-submit:disabled{opacity:.55;cursor:not-allowed;}
+    .klavity-error{color:#E94F37;font-size:13px;margin-bottom:10px;display:none;}
   `
   root.appendChild(style)
 
@@ -128,22 +153,27 @@ function openModal(type: ReportType) {
   const modal = document.createElement('div')
   modal.className = 'klavity-modal'
   modal.innerHTML = `
-    <div class="klavity-toggle">
-      <button class="bug ${type === 'bug' ? 'active' : ''}">🐛 Bug</button>
-      <button class="feat ${type === 'feature' ? 'active' : ''}">💡 Feature</button>
+    <div class="klavity-header">
+      <div class="klavity-toggle">
+        <button class="bug ${type === 'bug' ? 'active' : ''}">${ICONS.bug} Bug</button>
+        <button class="feat ${type === 'feature' ? 'active' : ''}">${ICONS.bulb} Feature</button>
+      </div>
+      <button class="klavity-close" id="klavity-close" aria-label="Close">${ICONS.x}</button>
     </div>
-    <div class="klavity-page">📍 ${window.location.pathname}</div>
-    <div class="klavity-strip" id="klavity-strip"></div>
-    <div class="klavity-actions">
-      <button id="klavity-full">📷 Full Page</button>
-      <button id="klavity-region">✂️ Region</button>
-      <button id="klavity-upload">🖼 Upload</button>
+    <div class="klavity-body">
+      <div class="klavity-page"><b>Page:</b> ${window.location.pathname}</div>
+      <div class="klavity-strip" id="klavity-strip"></div>
+      <div class="klavity-actions">
+        <button id="klavity-full">${ICONS.camera} Capture Screen</button>
+        <button id="klavity-region">${ICONS.crop} Capture Area</button>
+        <button id="klavity-upload">${ICONS.image} Upload Images</button>
+      </div>
+      <input type="file" id="klavity-file" accept="image/*,.heic,.heif" multiple style="display:none">
+      <div class="klavity-counter" id="klavity-counter">0/5 images · paste with ⌘+V</div>
+      <div class="klavity-error" id="klavity-err"></div>
+      <textarea class="klavity-desc" id="klavity-desc" placeholder="Describe the bug..."></textarea>
+      <button class="klavity-submit" id="klavity-submit" disabled>${ICONS.send} Submit</button>
     </div>
-    <input type="file" id="klavity-file" accept="image/*,.heic,.heif" multiple style="display:none">
-    <div class="klavity-counter" id="klavity-counter">0/5 images · paste with ⌘+V</div>
-    <div class="klavity-error" id="klavity-err"></div>
-    <textarea class="klavity-desc" id="klavity-desc" placeholder="Describe the bug..."></textarea>
-    <button class="klavity-submit" id="klavity-submit" disabled>Submit</button>
   `
 
   overlay.appendChild(modal)
@@ -158,6 +188,7 @@ function openModal(type: ReportType) {
   const submit = modal.querySelector('#klavity-submit') as HTMLButtonElement
   desc.addEventListener('input', () => { submit.disabled = desc.value.trim() === '' })
 
+  modal.querySelector('#klavity-close')!.addEventListener('click', () => closeModal())
   submit.addEventListener('click', () => handleSubmit(desc.value.trim()))
   modal.querySelector('#klavity-full')!.addEventListener('click', () => captureFullPage())
   modal.querySelector('#klavity-region')!.addEventListener('click', () => startRegion())
@@ -191,15 +222,20 @@ function updateStrip() {
     wrap.className = 'klavity-thumb'
     const img = document.createElement('img')
     img.src = dataUrl
-    const rm = document.createElement('button')
-    rm.className = 'klavity-rm'
-    rm.textContent = '×'
-    rm.addEventListener('click', () => { screenshots.splice(i, 1); updateStrip() })
+    const ovl = document.createElement('div')
+    ovl.className = 'klavity-ovl'
     const markup = document.createElement('button')
     markup.className = 'klavity-markup'
-    markup.textContent = '✏'
+    markup.setAttribute('aria-label', 'Annotate')
+    markup.innerHTML = ICONS.pencil
     markup.addEventListener('click', () => openAnnotator(i))
-    wrap.append(img, rm, markup)
+    const rm = document.createElement('button')
+    rm.className = 'klavity-rm'
+    rm.setAttribute('aria-label', 'Remove')
+    rm.innerHTML = ICONS.trash
+    rm.addEventListener('click', () => { screenshots.splice(i, 1); updateStrip() })
+    ovl.append(markup, rm)
+    wrap.append(img, ovl)
     strip.appendChild(wrap)
   })
   counter.textContent = `${screenshots.length}/5 images · paste with ⌘+V`
@@ -207,12 +243,13 @@ function updateStrip() {
 
 function addScreenshot(dataUrl: string) {
   if (screenshots.length >= 5) return
+  if (screenshots.includes(dataUrl)) return // dedupe (e.g. double auto-capture)
   screenshots.push(dataUrl)
   updateStrip()
 }
 
 function captureFullPage() {
-  chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage)
+  chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage).catch(() => {})
 }
 
 async function handleFileSelect(e: Event) {
@@ -328,7 +365,7 @@ function startRegion() {
     }
     pendingRegionCapture = true
     document.addEventListener('klavity-capture-result', onCapture, { once: true })
-    chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage)
+    chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage).catch(() => {})
   })
 }
 
@@ -456,7 +493,7 @@ async function handleSubmit(description: string) {
     screenshots: [...screenshots],
   }
 
-  chrome.runtime.sendMessage({ kind: 'SUBMIT_REPORT', payload } satisfies BackgroundMessage)
+  chrome.runtime.sendMessage({ kind: 'SUBMIT_REPORT', payload } satisfies BackgroundMessage).catch(() => {})
 }
 
 // ── Message listener ─────────────────────────────────────────────────────────
@@ -475,10 +512,10 @@ chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
     const root = shadowRoot
     if (root) {
       root.innerHTML = `
-        <style>.klavity-success{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:all;}</style>
+        <style>.klavity-success{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:all;font-family:system-ui,-apple-system,sans-serif;}</style>
         <div class="klavity-success">
-          <div style="background:#1e1e2e;color:#a6e3a1;border-radius:12px;padding:32px;font-family:system-ui;font-size:16px;text-align:center;">
-            ✓ Filed as <strong>${msg.issueKey}</strong>
+          <div style="background:#FBF6EE;color:#2D2A26;border-radius:18px;padding:30px 38px;font-size:16px;text-align:center;box-shadow:0 24px 70px rgba(40,30,20,.28);">
+            <span style="color:#3AA76D;font-weight:700;">✓</span> Filed as <strong>${msg.issueKey}</strong>
           </div>
         </div>
       `

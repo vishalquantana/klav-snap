@@ -32,25 +32,36 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: 'klavity-history', title: '📋 View submissions', contexts: ['all'] })
 })
 
+// Send to a tab's content script via the callback form, which CONSUMES
+// chrome.runtime.lastError (no "Could not establish connection" promise
+// rejection). Resolves true if a content script received it.
+function safeSend(tabId: number, msg: ContentMessage): Promise<boolean> {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, msg, () => resolve(!chrome.runtime.lastError))
+  })
+}
+
 // Open the report modal in a tab. If the content script isn't there yet (the tab
 // was open before the extension loaded/updated — an MV3 gotcha), inject it and retry.
-function openModal(tabId: number, reportType: ReportType) {
+async function openModal(tabId: number, reportType: ReportType) {
   const msg = { kind: 'OPEN_MODAL', reportType } satisfies ContentMessage
-  chrome.tabs.sendMessage(tabId, msg, () => {
-    if (!chrome.runtime.lastError) return
-    const cs = chrome.runtime.getManifest().content_scripts?.[0]
-    const js = cs?.js ?? []
-    const css = cs?.css ?? []
-    ;(async () => {
-      try {
-        if (css.length) await chrome.scripting.insertCSS({ target: { tabId }, files: css })
-        if (js.length) await chrome.scripting.executeScript({ target: { tabId }, files: js })
-        chrome.tabs.sendMessage(tabId, msg)
-      } catch (e) {
-        console.error('[Klavity] could not inject content script (unsupported page?):', e)
-      }
-    })()
-  })
+  if (await safeSend(tabId, msg)) return
+
+  const cs = chrome.runtime.getManifest().content_scripts?.[0]
+  try {
+    if (cs?.css?.length) await chrome.scripting.insertCSS({ target: { tabId }, files: cs.css })
+    if (cs?.js?.length) await chrome.scripting.executeScript({ target: { tabId }, files: cs.js })
+  } catch (e) {
+    console.warn('[Klavity] can’t inject into this page (restricted page like chrome:// or the Web Store?):', e)
+    return
+  }
+  // crxjs registers the content-script listener asynchronously (loader → dynamic
+  // import), so the first message can race it — retry briefly until it answers.
+  for (let i = 0; i < 12; i++) {
+    await new Promise((r) => setTimeout(r, 120))
+    if (await safeSend(tabId, msg)) return
+  }
+  console.warn('[Klavity] content script did not respond after injection')
 }
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -111,9 +122,7 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
   if (msg.kind === 'CAPTURE_TAB') {
     chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
       const tabId = sender.tab?.id
-      if (tabId) {
-        chrome.tabs.sendMessage(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl } satisfies ContentMessage)
-      }
+      if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl })
     })
     return true
   }
@@ -129,14 +138,10 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
       })
     }).then(result => {
       const tabId = sender.tab?.id
-      if (tabId) {
-        chrome.tabs.sendMessage(tabId, { kind: 'SUBMIT_SUCCESS', ...result } satisfies ContentMessage)
-      }
+      if (tabId) void safeSend(tabId, { kind: 'SUBMIT_SUCCESS', ...result })
     }).catch(err => {
       const tabId = sender.tab?.id
-      if (tabId) {
-        chrome.tabs.sendMessage(tabId, { kind: 'SUBMIT_ERROR', message: String(err.message) } satisfies ContentMessage)
-      }
+      if (tabId) void safeSend(tabId, { kind: 'SUBMIT_ERROR', message: String(err?.message ?? err) })
     })
     return true
   }
