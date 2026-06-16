@@ -7,6 +7,64 @@ const consoleErrors: ConsoleError[] = []
 const networkFailures: NetworkFailure[] = []
 const MAX_RING = 50
 
+// ── Context validity check & Toast helper ────────────────────────────────────
+function isContextValid(): boolean {
+  try {
+    return typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined' && !!chrome.runtime.getManifest()
+  } catch (e) {
+    return false
+  }
+}
+
+function showToast(message: string) {
+  const existing = document.getElementById('klavity-toast')
+  if (existing) existing.remove()
+
+  const toast = document.createElement('div')
+  toast.id = 'klavity-toast'
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translate(-50%, 20px);
+    background: #2D2A26;
+    color: #FBF6EE;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    z-index: 2147483647;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  `
+  toast.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F4A93C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    <span>${message}</span>
+  `
+  document.body.appendChild(toast)
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1'
+    toast.style.transform = 'translate(-50%, 0)'
+  })
+
+  setTimeout(() => {
+    toast.style.opacity = '0'
+    toast.style.transform = 'translate(-50%, -10px)'
+    setTimeout(() => toast.remove(), 250)
+  }, 4000)
+}
+
 // ── Auto-file deduplication ──────────────────────────────────────────────────
 // Maps a normalised error key → timestamp of last auto-filed report.
 // Errors with the same key within 30 seconds are suppressed.
@@ -14,6 +72,7 @@ const AUTO_FILE_DEDUP_MS = 30_000
 const recentAutoFiled = new Map<string, number>()
 
 function maybeAutoFile(message: string, stack?: string) {
+  if (!isContextValid()) return
   const key = message.slice(0, 200) // normalise to first 200 chars
   const now = Date.now()
   const last = recentAutoFiled.get(key)
@@ -35,6 +94,7 @@ function maybeAutoFile(message: string, stack?: string) {
 }
 
 window.onerror = (msg, _src, _line, _col, err) => {
+  if (!isContextValid()) return false
   const message = String(msg)
   const stack = err?.stack
   consoleErrors.push({ message, stack, timestamp: Date.now() })
@@ -44,6 +104,7 @@ window.onerror = (msg, _src, _line, _col, err) => {
 }
 
 window.addEventListener('unhandledrejection', (e) => {
+  if (!isContextValid()) return
   const message = String(e.reason)
   const stack = e.reason?.stack
   consoleErrors.push({ message, stack, timestamp: Date.now() })
@@ -53,6 +114,9 @@ window.addEventListener('unhandledrejection', (e) => {
 
 const origFetch = window.fetch
 window.fetch = async (...args) => {
+  if (!isContextValid()) {
+    return origFetch(...args)
+  }
   const res = await origFetch(...args)
   if (res.status >= 400) {
     const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url
@@ -127,13 +191,14 @@ function openModal(type: ReportType) {
     .klavity-body{padding:20px 22px 22px;}
     .klavity-page{font-size:13px;color:#7A736A;margin-bottom:14px;}
     .klavity-page b{color:#3D3833;font-weight:600;}
-    .klavity-strip{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+    .klavity-strip{display:flex;gap:10px;margin-bottom:14px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:thin;}
     .klavity-strip:empty{display:none;}
-    .klavity-thumb{position:relative;flex:1 1 100%;min-width:0;border-radius:13px;overflow:hidden;border:1px solid #E5DCCD;box-shadow:0 2px 8px rgba(40,30,20,.08);background:#fff;}
-    .klavity-thumb img{display:block;width:100%;max-height:230px;object-fit:cover;object-position:top;}
-    .klavity-thumb .klavity-ovl{position:absolute;top:9px;right:9px;display:flex;gap:7px;}
-    .klavity-thumb .klavity-ovl button{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;background:rgba(45,40,35,.62);color:#fff;backdrop-filter:blur(2px);transition:background .12s;}
-    .klavity-thumb .klavity-ovl button:hover{background:rgba(45,40,35,.85);}
+    .klavity-thumb{position:relative;flex:0 0 140px;width:140px;height:95px;border-radius:10px;overflow:hidden;border:1px solid #E5DCCD;box-shadow:0 2px 8px rgba(40,30,20,.08);background:#fff;}
+    .klavity-thumb img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;}
+    .klavity-thumb .klavity-ovl{position:absolute;inset:0;background:rgba(40,35,30,.4);display:flex;align-items:center;justify-content:center;gap:10px;opacity:0;transition:opacity .15s ease-in-out;}
+    .klavity-thumb:hover .klavity-ovl{opacity:1;}
+    .klavity-thumb .klavity-ovl button{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:none;cursor:pointer;background:#FBF6EE;color:#2D2A26;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform .12s,background .12s;}
+    .klavity-thumb .klavity-ovl button:hover{transform:scale(1.1);background:#fff;}
     .klavity-actions{display:flex;gap:10px;margin-bottom:14px;}
     .klavity-actions button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 8px;background:#F2ECE2;color:#3D3833;border:1px solid #E6DFD3;border-radius:13px;cursor:pointer;font-size:14px;font-weight:600;transition:background .12s;}
     .klavity-actions button:hover{background:#ECE5D9;}
@@ -251,13 +316,34 @@ function addScreenshot(dataUrl: string) {
   updateStrip()
 }
 
+// MV3 service workers sleep and are loaded via a dynamic import (crxjs), so a cold
+// SW can drop the FIRST message with "Receiving end does not exist" before its
+// onMessage listener is registered. Retry briefly to let it wake. "message port
+// closed" means it DID receive (the real reply arrives via a separate message).
+function sendToBackground(msg: BackgroundMessage, attempt = 0): Promise<void> {
+  return chrome.runtime.sendMessage(msg).then(() => {}).catch((err: unknown) => {
+    const m = String((err as Error)?.message ?? err)
+    if (/message port closed/i.test(m)) return
+    if (attempt < 5 && /Receiving end does not exist|Could not establish connection/i.test(m)) {
+      return new Promise<void>((res) => setTimeout(res, 200)).then(() => sendToBackground(msg, attempt + 1))
+    }
+    throw err
+  })
+}
+
 function captureFullPage() {
   const host = shadowRoot?.host as HTMLElement | undefined
   if (host) host.style.display = 'none'
   pendingFullCapture = true
   // Wait one frame + 50ms so Chrome finishes repainting before capturing
   requestAnimationFrame(() => setTimeout(() => {
-    chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage).catch(() => {
+    if (!isContextValid()) {
+      pendingFullCapture = false
+      if (host) host.style.display = ''
+      showToast('Extension reloaded. Please refresh the page.')
+      return
+    }
+    sendToBackground({ kind: 'CAPTURE_TAB' }).catch(() => {
       pendingFullCapture = false
       if (host) host.style.display = ''
     })
@@ -269,7 +355,7 @@ function captureFullPage() {
       pendingFullCapture = false
       if (host) host.style.display = ''
     }
-  }, 1800)
+  }, 2200)
 }
 
 async function handleFileSelect(e: Event) {
@@ -385,7 +471,24 @@ function startRegion() {
     }
     pendingRegionCapture = true
     document.addEventListener('klavity-capture-result', onCapture, { once: true })
-    chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage).catch(() => {})
+
+    // Wait one frame + 80ms so Chrome finishes repainting (removing the selection overlay) before capturing
+    requestAnimationFrame(() => setTimeout(() => {
+      if (!isContextValid()) {
+        pendingRegionCapture = false
+        if (host) host.style.display = ''
+        document.removeEventListener('klavity-capture-result', onCapture)
+        document.removeEventListener('keydown', escHandler, { capture: true })
+        showToast('Extension reloaded. Please refresh the page.')
+        return
+      }
+      sendToBackground({ kind: 'CAPTURE_TAB' }).catch(() => {
+        pendingRegionCapture = false
+        if (host) host.style.display = ''
+        document.removeEventListener('klavity-capture-result', onCapture)
+        document.removeEventListener('keydown', escHandler, { capture: true })
+      })
+    }, 80))
   })
 }
 
@@ -499,6 +602,10 @@ function openAnnotator(index: number) {
 }
 
 async function handleSubmit(description: string) {
+  if (!isContextValid()) {
+    showToast('Extension reloaded. Please refresh the page.')
+    return
+  }
   const root = shadowRoot!
   const submit = root.getElementById('klavity-submit') as HTMLButtonElement
   const errEl = root.getElementById('klavity-err') as HTMLElement
@@ -513,7 +620,7 @@ async function handleSubmit(description: string) {
     screenshots: [...screenshots],
   }
 
-  chrome.runtime.sendMessage({ kind: 'SUBMIT_REPORT', payload } satisfies BackgroundMessage).catch(() => {})
+  sendToBackground({ kind: 'SUBMIT_REPORT', payload }).catch(() => {})
 }
 
 // ── Message listener ─────────────────────────────────────────────────────────
@@ -661,11 +768,18 @@ function showCtxMenu(x: number, y: number) {
   }, 0)
 }
 
-document.addEventListener('contextmenu', (e) => {
+function handleContextMenu(e: MouseEvent) {
+  if (!isContextValid()) {
+    document.removeEventListener('contextmenu', handleContextMenu)
+    showToast('Extension reloaded. Please refresh the page.')
+    return
+  }
   if (e.shiftKey || nativeMenuPending) {
     nativeMenuPending = false
     return // pass through to native browser menu
   }
   e.preventDefault()
   showCtxMenu(e.clientX, e.clientY)
-})
+}
+
+document.addEventListener('contextmenu', handleContextMenu)
