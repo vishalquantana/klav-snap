@@ -1,0 +1,83 @@
+# Klavity — Product Requirements (PRD)
+
+> **Version:** `0.2.0` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-17
+>
+> This is the single source of truth for the product version. It moves in lockstep
+> with [`CHANGELOG.md`](../CHANGELOG.md) and every `package.json` + the extension
+> `manifest.json`. See [Versioning](#versioning) for the rules.
+
+---
+
+## 1. Vision
+
+Klavity turns the messy reality of "this is broken / this is missing" into
+filed, actionable tickets — first by hand, then by AI persona, then autonomously.
+Named after **Ekalavya**, the self-taught master.
+
+Three phases, each building on the last through one shared backend (the **cloud
+switch**: a single `backendUrl`):
+
+| Phase | Product | One-liner | Status |
+|---|---|---|---|
+| 1 | **Klavity Snap** — the *eyes* | Right-click to file annotated bug/feature reports to Jira, Linear, GitHub, or Plane from any site. | ✅ Shipping (this repo) |
+| 2 | **Klavity Sims** — the *judgment* | AI personas (virtual QA engineers) that look at a page and react in character, then file what they find. | 🔜 Live prototype |
+| 3 | **Klavity OS** — the *autonomy* | Autonomous UAT agent that exercises a product end-to-end and reports regressions. | 🔜 Planned |
+
+Open-core, FSL-1.1-ALv2; Turso/SQLite backend. Built by
+[Quantana](https://quantana.com.au).
+
+## 2. Phase 1 — Klavity Snap (current scope)
+
+**Goal:** the lowest-friction way to file a high-context bug or feature request
+from anywhere on the web.
+
+**Shipped capabilities** (see [`CHANGELOG.md`](../CHANGELOG.md) for the per-version
+breakdown):
+
+- Right-click reporter (Chrome MV3) with custom context-menu overlay.
+- Auto + region screenshot capture (cross-origin images, full-page render).
+- Canvas annotation (pen, rect, arrow, text, 4 colours, undo/clear).
+- Upload & paste attachments with HEIC/HEIF conversion.
+- Context capture: URL, browser, screen size, last 50 console + network errors.
+- Four integrations: Jira, Linear, GitHub Issues, Plane.
+- Cloud switch (`backendUrl`) → direct mode or Klavity Cloud / self-hosted.
+- Embeddable SDK `@klavity/snap` (script tag + npm).
+- Account login + per-user/admin Plane connection, AES-GCM secret encryption.
+
+**Architecture:** `packages/core` (shared types, integrations, annotator, modal),
+`packages/extension` (MV3), `packages/sdk` (embeddable). The Bun `prototype/` is
+the seed of Phase 2's `services/api`.
+
+## 3. Phase 2 — Klavity Sims (next)
+
+Live prototype today (`prototype/`): transcript → named personas → on-page vision
+reaction → suggested bug → filed. Sims Studio lets users extract, edit, and now
+**save Sims to a library** (persistence API). Productionising this into the real
+backend is the Phase 2 critical path.
+
+## 4. Versioning
+
+Klavity Snap follows [Semantic Versioning 2.0.0](https://semver.org/). Because
+this is pre-1.0, the practical rules are:
+
+- **MAJOR (`0.x` → `1.0`)** — first stable, publicly committed API surface.
+- **MINOR (`0.1` → `0.2`)** — new user-facing capability, additive.
+- **PATCH (`0.2.0` → `0.2.1`)** — bug fixes / internal changes, no new surface.
+
+**The version lives in exactly these places and they always change together:**
+
+1. The `**Version:**` line at the top of this PRD.
+2. The top dated entry in [`CHANGELOG.md`](../CHANGELOG.md).
+3. `package.json` in `/`, `packages/core`, `packages/extension`, `packages/sdk`.
+4. `packages/extension/manifest.json`.
+
+**Release flow:** add changes under `## [Unreleased]` in the changelog as you go;
+on release, rename that heading to the new version + today's date, bump the four
+manifests + this PRD header, then commit and tag `vX.Y.Z`.
+
+## 5. Roadmap / open items
+
+- Phase 2: productionise Sims into `services/api` (Bun + Hono).
+- Sign in with GitHub (OAuth) in extension + web app — reduce sign-up friction.
+- Wire the reusable Sim component (`@klavity/core/sim`) into live surfaces.
+- Phase 3: Klavity OS autonomous UAT agent (design pending).
