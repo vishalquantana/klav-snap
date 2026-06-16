@@ -612,6 +612,9 @@ function renderDock(newIndex = -1) {
           </div>
           <div class="ds-insights">${shown.length ? shown.map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ") : (onlyCriticalInsights && ins.length ? '<span style="opacity:.6">No critical insights</span>' : "")}</div>
           <button class="reviewbtn" data-i="${i}">Have ${esc(s.name.split(" ")[0])} review this page →</button>
+          ${s._saved
+            ? `<div class="ds-savedtag">✓ Saved to library <button class="ds-delbtn" data-del="${i}">Remove</button></div>`
+            : `<button class="ds-savebtn" data-savesim="${i}">Save Sim to library →</button>`}
         </div>`
     }
     dock.appendChild(el)
@@ -627,6 +630,18 @@ function wireDock() {
   dock.querySelectorAll(".ds-edit").forEach(b => b.onclick = () => { editingIndex = Number(b.dataset.edit); renderDock() })
   dock.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => { editingIndex = -1; renderDock() })
   dock.querySelectorAll("[data-save]").forEach(b => b.onclick = () => saveEdit(Number(b.dataset.save)))
+  dock.querySelectorAll("[data-savesim]").forEach(b => b.onclick = async () => {
+    const i = Number(b.dataset.savesim)
+    b.disabled = true; b.textContent = "Saving…"
+    try { await apiSaveSim(sims[i]); renderDock() }
+    catch(e) { b.disabled = false; b.textContent = "Save Sim to library →"; setStatus("extractStatus", "Save failed: " + e.message, true) }
+  })
+  dock.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    const i = Number(b.dataset.del)
+    if (!confirm(`Remove "${sims[i].name}" from your library?`)) return
+    await apiDeleteSim(sims[i])
+    sims.splice(i, 1); renderDock()
+  })
   dock.querySelectorAll("[data-avup]").forEach(b => b.onclick = () => { dock.querySelector(`[data-avfile="${b.dataset.avup}"]`).click() })
   dock.querySelectorAll("[data-avfile]").forEach(inp => inp.onchange = (e) => onAvatar(Number(inp.dataset.avfile), e))
   dock.querySelectorAll("[data-accent]").forEach(inp => inp.oninput = (e) => {
@@ -670,6 +685,10 @@ function saveEdit(i) {
   editingIndex = -1
   renderDock()
   devSaveSims()
+  // auto-update backend if this sim was already saved
+  if (sims[i]._saved) {
+    apiSaveSim(sims[i]).then(() => renderDock()).catch(e => setStatus("extractStatus", "Update failed: " + e.message, true))
+  }
 }
 
 function onAvatar(i, e) {
@@ -1088,6 +1107,7 @@ $("appLogo").addEventListener("click", () => {
 
 renderDevBar()
 if (devEnabled) devLoadSims()
+loadSavedSims()
 </script>
 </body>
 </html>

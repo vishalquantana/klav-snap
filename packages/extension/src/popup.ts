@@ -60,20 +60,45 @@ document.getElementById('btn-feat')!.addEventListener('click', () => openModal('
 
 // ── Sims ─────────────────────────────────────────────────────────────────────
 const simsData = await chrome.storage.local.get('klavSims')
-const sims: Sim[] = simsData.klavSims ?? []
+let sims: Sim[] = simsData.klavSims ?? []
 const simsList = document.getElementById('sims-list')!
 
-if (sims.length === 0) {
-  simsList.innerHTML = `
-    <div class="empty-state">No sims added yet.</div>
-    <a class="empty-link" id="add-sim-link" href="#" style="text-align:center;">+ Add sims at Klavity →</a>
-  `
-  document.getElementById('add-sim-link')!.addEventListener('click', (e) => {
-    e.preventDefault()
-    const url = s.backendUrl || 'https://klavity.quantana.top'
-    chrome.tabs.create({ url: `${url}/app` })
-  })
-} else {
+// Sync saved sims from backend when logged in
+if (s.backendUrl && s.klavToken) {
+  try {
+    const r = await fetch(`${s.backendUrl}/api/personas`, { headers: { Authorization: `Bearer ${s.klavToken}` } })
+    if (r.ok) {
+      const d = await r.json()
+      if (Array.isArray(d.personas) && d.personas.length) {
+        // Merge backend sims with local, preserving enabled state
+        const enabledMap = new Map(sims.map(s => [s.id, s.enabled]))
+        const synced: Sim[] = d.personas.map((p: any) => ({
+          id: p.id, name: p.name, role: p.role || '',
+          accent: p.accent || '#6366f1',
+          initials: p.initials || p.name.slice(0, 2).toUpperCase(),
+          enabled: enabledMap.get(p.id) ?? true,
+        }))
+        sims = synced
+        await chrome.storage.local.set({ klavSims: sims })
+      }
+    }
+  } catch { /* offline or not logged in */ }
+}
+
+function renderSims() {
+  simsList.innerHTML = ''
+  if (sims.length === 0) {
+    simsList.innerHTML = `
+      <div class="empty-state">No sims yet. Build them in Klavity Studio.</div>
+      <a class="empty-link" id="add-sim-link" href="#" style="text-align:center;">+ Open Sim Studio →</a>
+    `
+    document.getElementById('add-sim-link')?.addEventListener('click', (e) => {
+      e.preventDefault()
+      const url = s.backendUrl || 'https://klavity.quantana.top'
+      chrome.tabs.create({ url: `${url}/app` })
+    })
+    return
+  }
   sims.forEach((sim, i) => {
     const row = document.createElement('div')
     row.className = 'sim-row'
@@ -96,6 +121,7 @@ if (sims.length === 0) {
     simsList.appendChild(row)
   })
 }
+renderSims()
 
 // ── Recent submissions ────────────────────────────────────────────────────────
 const recentData = await chrome.storage.local.get('klavRecent')

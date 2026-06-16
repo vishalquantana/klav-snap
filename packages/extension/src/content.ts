@@ -638,6 +638,7 @@ async function handleSubmit(description: string) {
 // ── Message listener ─────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
   if (msg.kind === 'CAPTURE_TAB_RESULT') {
+    const isRegion = pendingRegionCapture
     document.dispatchEvent(new CustomEvent('klavity-capture-result', { detail: { dataUrl: msg.dataUrl, error: msg.error } }))
     if (pendingFullCapture) {
       pendingFullCapture = false
@@ -647,7 +648,7 @@ chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
         showToast(msg.error ? `Screen capture failed: ${msg.error}` : 'Screen capture failed. Check extension permissions.')
       }
     }
-    if (!pendingRegionCapture && shadowRoot?.querySelector('.klavity-overlay')) {
+    if (!isRegion && shadowRoot?.querySelector('.klavity-overlay')) {
       addScreenshot(msg.dataUrl)
     }
     return
