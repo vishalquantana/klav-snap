@@ -1,0 +1,13 @@
+klav.quantana.top {
+	encode zstd gzip
+
+	# ── Optional but RECOMMENDED while this is a public demo on a paid API key ──
+	# Without this, anyone who finds the URL can spend your OpenRouter credits.
+	# 1) generate a hash:  caddy hash-password --plaintext 'YOUR_PASSWORD'
+	# 2) uncomment and paste the hash:
+	# basic_auth {
+	# 	klav <PASTE_BCRYPT_HASH_HERE>
+	# }
+
+	reverse_proxy 127.0.0.1:4317
+}

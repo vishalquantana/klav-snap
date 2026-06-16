@@ -1,0 +1,22 @@
+[Unit]
+Description=Klav Sims prototype (Bun)
+After=network.target
+
+[Service]
+Type=simple
+User=klav
+WorkingDirectory=/opt/klav/prototype
+EnvironmentFile=/etc/klav/klav.env
+# Adjust to the output of `which bun` for the klav user (official installer → ~/.bun/bin/bun)
+ExecStart=/home/klav/.bun/bin/bun run server.ts
+Restart=always
+RestartSec=3
+
+# light hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
