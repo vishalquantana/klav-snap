@@ -123,7 +123,12 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
   }
 
   if (msg.kind === 'CAPTURE_TAB') {
-    chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
+    const winId = sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT
+    chrome.tabs.captureVisibleTab(winId, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError || !dataUrl) {
+        console.warn('[Klavity] capture failed:', chrome.runtime.lastError?.message)
+        return
+      }
       const tabId = sender.tab?.id
       if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl })
     })
@@ -142,6 +147,14 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
     }).then(result => {
       const tabId = sender.tab?.id
       if (tabId) void safeSend(tabId, { kind: 'SUBMIT_SUCCESS', ...result })
+      // Persist to recent list for popup
+      const type = msg.payload.type
+      const desc = msg.payload.description.slice(0, 80)
+      chrome.storage.local.get('klavRecent', (r) => {
+        const list: Array<{ type: string; desc: string; issueKey: string; issueUrl: string; ts: number }> = r.klavRecent ?? []
+        list.unshift({ type, desc, issueKey: result.issueKey, issueUrl: result.issueUrl, ts: Date.now() })
+        chrome.storage.local.set({ klavRecent: list.slice(0, 10) })
+      })
     }).catch(err => {
       const tabId = sender.tab?.id
       if (tabId) void safeSend(tabId, { kind: 'SUBMIT_ERROR', message: String(err?.message ?? err) })

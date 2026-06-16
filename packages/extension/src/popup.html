@@ -3,18 +3,123 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    body{font-family:system-ui;background:#1e1e2e;color:#cdd6f4;width:240px;padding:16px;margin:0;}
-    h2{font-size:15px;margin:0 0 12px;}
-    p{font-size:12px;color:#a6adc8;margin:0 0 12px;}
-    button{width:100%;padding:10px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;}
-    a{display:block;text-align:center;font-size:12px;color:#a6adc8;text-decoration:none;margin-top:4px;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:system-ui,-apple-system,sans-serif;background:#16161e;color:#cdd6f4;width:320px;min-height:200px;}
+
+    /* ── Header ── */
+    .header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px;border-bottom:1px solid #2a2a3a;}
+    .header-left{display:flex;align-items:center;gap:8px;}
+    .logo{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px;}
+    .logo span{color:#a78bfa;}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:#3AA76D;flex-shrink:0;}
+    .status-dot.warn{background:#F4A93C;}
+    .status-dot.err{background:#E94F37;}
+    .status-label{font-size:11px;color:#6b7280;}
+    .settings-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:rgba(255,255,255,.06);border-radius:7px;cursor:pointer;color:#9ca3af;transition:background .12s;}
+    .settings-btn:hover{background:rgba(255,255,255,.12);color:#e5e7eb;}
+
+    /* ── Quick actions ── */
+    .actions{display:flex;gap:8px;padding:12px 16px;}
+    .action-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 8px;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:opacity .12s;}
+    .action-btn:hover{opacity:.88;}
+    .action-bug{background:#E94F37;color:#fff;}
+    .action-feat{background:#312e81;color:#c4b5fd;border:1px solid #4c1d95;}
+
+    /* ── Section ── */
+    .section{padding:0 16px 12px;}
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+    .section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#4b5563;}
+    .section-action{font-size:11px;color:#7c3aed;cursor:pointer;background:none;border:none;font-family:inherit;}
+    .section-action:hover{color:#a78bfa;}
+    .divider{height:1px;background:#1f1f2e;margin:0 16px;}
+
+    /* ── Sims list ── */
+    .sim-row{display:flex;align-items:center;gap:10px;padding:7px 0;}
+    .sim-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+    .sim-info{flex:1;min-width:0;}
+    .sim-name{font-size:13px;font-weight:600;color:#e5e7eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .sim-role{font-size:11px;color:#6b7280;}
+    .toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;position:absolute;}
+    .toggle-track{position:absolute;inset:0;border-radius:10px;background:#374151;cursor:pointer;transition:background .2s;}
+    .toggle input:checked + .toggle-track{background:#7c3aed;}
+    .toggle-track::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .2s;}
+    .toggle input:checked + .toggle-track::after{left:19px;}
+    .empty-state{padding:10px 0;text-align:center;color:#4b5563;font-size:12px;}
+    .empty-link{color:#7c3aed;text-decoration:none;font-size:12px;margin-top:2px;display:block;}
+    .empty-link:hover{color:#a78bfa;}
+
+    /* ── Recent list ── */
+    .recent-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;border-radius:6px;margin:0 -4px;padding-left:4px;padding-right:4px;transition:background .1s;}
+    .recent-row:hover{background:rgba(255,255,255,.04);}
+    .recent-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+    .recent-icon.bug{background:rgba(233,79,55,.18);}
+    .recent-icon.feat{background:rgba(167,139,250,.18);}
+    .recent-desc{flex:1;min-width:0;}
+    .recent-text{font-size:12px;color:#d1d5db;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .recent-meta{font-size:10px;color:#4b5563;margin-top:1px;}
+    .recent-key{font-size:10px;color:#7c3aed;font-weight:600;flex-shrink:0;margin-top:3px;}
+
+    /* ── Footer ── */
+    .footer{display:flex;align-items:center;justify-content:center;padding:10px 16px;border-top:1px solid #1f1f2e;}
+    .footer a{font-size:12px;color:#4b5563;text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .12s;}
+    .footer a:hover{color:#9ca3af;}
   </style>
 </head>
 <body>
-  <h2>⚡ Klavity Snap</h2>
-  <p id="status-line">Right-click anywhere to report a bug.</p>
-  <button id="open-options">⚙️ Settings</button>
-  <a id="tracker-link" href="#" target="_blank">Open issue tracker ↗</a>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">⚡ <span>Klavity</span></div>
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-label" id="status-label">Loading…</span>
+    </div>
+    <button class="settings-btn" id="open-options" title="Settings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="actions">
+    <button class="action-btn action-bug" id="btn-bug">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3.003 3.003 0 1 1 6 0v1M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6Z"/></svg>
+      Report a Bug
+    </button>
+    <button class="action-btn action-feat" id="btn-feat">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z"/></svg>
+      Request Feature
+    </button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Sims -->
+  <div class="section" style="padding-top:12px;">
+    <div class="section-header">
+      <span class="section-title">Sims</span>
+      <button class="section-action" id="manage-sims">Manage →</button>
+    </div>
+    <div id="sims-list"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Recent -->
+  <div class="section" style="padding-top:12px;">
+    <div class="section-header">
+      <span class="section-title">Recent</span>
+    </div>
+    <div id="recent-list"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <a id="tracker-link" href="#" target="_blank">
+      Open tracker
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </a>
+  </div>
+
   <script type="module" src="./popup.ts"></script>
 </body>
 </html>

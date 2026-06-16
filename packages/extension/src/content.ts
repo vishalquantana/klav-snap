@@ -244,7 +244,7 @@ function updateStrip() {
 }
 
 function addScreenshot(dataUrl: string) {
-  if (screenshots.length >= 5) return
+  if (!dataUrl || screenshots.length >= 5) return
   if (screenshots.includes(dataUrl)) return // dedupe (e.g. double auto-capture)
   screenshots.push(dataUrl)
   updateStrip()
@@ -254,7 +254,10 @@ function captureFullPage() {
   const host = shadowRoot?.host as HTMLElement | undefined
   if (host) host.style.display = 'none'
   pendingFullCapture = true
-  chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage).catch(() => {})
+  // Wait one frame + 50ms so Chrome finishes repainting before capturing
+  requestAnimationFrame(() => setTimeout(() => {
+    chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage).catch(() => {})
+  }, 50))
 }
 
 async function handleFileSelect(e: Event) {
@@ -550,6 +553,7 @@ chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
 
 // ── Custom right-click menu ──────────────────────────────────────────────────
 let ctxMenuEl: HTMLElement | null = null
+let nativeMenuPending = false // next right-click passes through to browser
 
 function closeCtxMenu() {
   ctxMenuEl?.remove()
@@ -591,6 +595,26 @@ function showCtxMenu(x: number, y: number) {
     menu.appendChild(btn)
   })
 
+  // ── "Show browser menu" at bottom ──────────────────────────────────────────
+  const divider = document.createElement('div')
+  divider.style.cssText = 'height:1px;background:#f0f0f0;margin:4px 0;'
+  menu.appendChild(divider)
+
+  const nativeBtn = document.createElement('button')
+  nativeBtn.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;background:transparent;border:none;cursor:pointer;font-size:13px;color:#6b7280;text-align:left;'
+  nativeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg><span>Show browser menu</span>`
+  nativeBtn.addEventListener('mouseenter', () => { nativeBtn.style.background = '#f5f5f5' })
+  nativeBtn.addEventListener('mouseleave', () => { nativeBtn.style.background = 'transparent' })
+  nativeBtn.addEventListener('click', () => {
+    closeCtxMenu()
+    nativeMenuPending = true
+    // Dispatch a synthetic contextmenu at the same position — our handler will pass it through
+    document.elementFromPoint(x, y)?.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 2 })
+    )
+  })
+  menu.appendChild(nativeBtn)
+
   document.body.appendChild(menu)
 
   requestAnimationFrame(() => {
@@ -612,6 +636,10 @@ function showCtxMenu(x: number, y: number) {
 }
 
 document.addEventListener('contextmenu', (e) => {
+  if (e.shiftKey || nativeMenuPending) {
+    nativeMenuPending = false
+    return // pass through to native browser menu
+  }
   e.preventDefault()
   showCtxMenu(e.clientX, e.clientY)
 })
