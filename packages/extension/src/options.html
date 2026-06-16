@@ -39,6 +39,7 @@
     button#save{margin-top:14px;transition:background .2s,box-shadow .2s;}
     button#save.dirty{background:#89b4fa;box-shadow:0 0 0 2px rgba(249,226,175,.55);}
     button#save.clean{background:#a6e3a1;color:#0d1117;}
+    button#save:disabled{cursor:default;opacity:.7;box-shadow:none;}
     .savestate{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;font-size:13px;font-weight:600;min-height:20px;}
     .savestate .dot{width:8px;height:8px;border-radius:50%;}
     .savestate.dirty{color:#f9e2af;} .savestate.dirty .dot{background:#f9e2af;animation:sb 1.2s ease-in-out infinite;}
@@ -117,8 +118,8 @@
   </div>
   <div id="testResult" class="testresult"></div>
 
-  <button id="save">Save Settings</button>
-  <div id="saveState" class="savestate"><span class="dot"></span><span id="saveStateText"></span></div>
+  <button id="save" class="clean" disabled>✓ Saved</button>
+  <div id="saveState" class="savestate saved"><span class="dot"></span><span id="saveStateText">All changes saved</span></div>
   <script type="module" src="./options.ts"></script>
 </body>
 </html>

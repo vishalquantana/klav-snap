@@ -206,6 +206,7 @@ function setSaveState(st: SaveState) {
   row.className = 'savestate ' + st
   btn.classList.toggle('dirty', st === 'dirty')
   btn.classList.toggle('clean', st === 'saved')
+  btn.disabled = st !== 'dirty' // only clickable when there are unsaved changes
   if (st === 'dirty') { text.textContent = 'Unsaved changes'; btn.textContent = 'Save Settings' }
   else if (st === 'saving') { text.textContent = 'Saving…' }
   else { text.textContent = 'All changes saved'; btn.textContent = '✓ Saved' }
