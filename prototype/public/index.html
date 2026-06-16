@@ -91,6 +91,15 @@
   .ds-av { width: 34px; height: 34px; border-radius: 50%; display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0; }
   .ds-name { font-size: 12px; font-weight: 700; }
   .ds-role { font-size: 9px; color: #6c7086; }
+  .ds-av img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
+  .ds-edit { margin-left:4px; background:none; border:none; color:#6c7086; cursor:pointer; font-size:13px; padding:2px 6px; border-radius:6px; flex-shrink:0; }
+  .ds-edit:hover { color:#cdd6f4; background:#1e1e2e; }
+  .ds-in { width:100%; background:#0d0d15; border:1px solid #1e1e2e; border-radius:7px; padding:6px 9px; color:#cdd6f4; font-size:12px; margin-bottom:6px; box-sizing:border-box; font-family:inherit; }
+  .ds-in:focus { outline:none; border-color:#8b8bf5; }
+  .ds-color { width:30px; height:30px; padding:0; border:1px solid #1e1e2e; border-radius:7px; background:none; cursor:pointer; flex-shrink:0; }
+  .dsm { font-size:12px; padding:7px 12px; }
+  @keyframes dockIn { from { opacity:0; transform:translateY(10px) scale(.98); } to { opacity:1; transform:none; } }
+  .dock-sim.in { animation: dockIn .35s ease; }
   .ds-type { font-size: 8px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-left: auto; }
   .t-client{background:#1e2140;color:#89b4fa}.t-internal{background:#222;color:#9399b2}
   .ds-insights { font-size: 9px; color:#7f849c; margin-top:4px; }
@@ -172,6 +181,10 @@
   .briefrow input:focus{border-color:#6366f1}
   .briefrow .mic{padding:9px 11px}
   .briefrow .mic.rec{background:#f38ba8;color:#1e1e2e;border-color:transparent;animation:gpulse 1.2s infinite}
+
+/* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #89b4fa;outline-offset:2px;border-radius:5px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
@@ -207,8 +220,10 @@
       <textarea id="transcript"></textarea>
       <div class="row">
         <button class="primary" id="extractBtn">Extract Sims</button>
+        <button class="ghost" id="uploadBtn">📄 Upload transcript</button>
         <button class="ghost" id="clearBtn">Clear</button>
       </div>
+      <input type="file" id="transcriptFile" accept=".txt,.md,.markdown,.vtt,.srt,.text,text/*" style="display:none" />
       <div class="status" id="extractStatus"></div>
       <div class="orsep">— or, no transcript yet? —</div>
       <div class="label">Start from a preset</div>
@@ -310,6 +325,20 @@ let sims = []
 
 $("clearBtn").onclick = () => { $("transcript").value = ""; }
 
+$("uploadBtn").onclick = () => $("transcriptFile").click()
+$("transcriptFile").onchange = async (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    $("transcript").value = text
+    setStatus("extractStatus", `📄 Loaded “${file.name}” (${text.length.toLocaleString()} chars). Click Extract Sims.`)
+  } catch (err) {
+    setStatus("extractStatus", "Couldn’t read that file: " + err.message, true)
+  }
+  e.target.value = "" // allow re-selecting the same file
+}
+
 $("extractBtn").onclick = async () => {
   const transcript = $("transcript").value.trim()
   if (transcript.length < 20) { setStatus("extractStatus", "Add a transcript first.", true); return }
@@ -327,28 +356,106 @@ $("extractBtn").onclick = async () => {
   } finally { $("extractBtn").disabled = false }
 }
 
-function renderDock() {
+let editingIndex = -1
+
+function avatarInner(s) {
+  return s.avatar
+    ? `<img src="${s.avatar}" alt="">`
+    : esc(s.initials || s.name.slice(0, 2).toUpperCase())
+}
+
+function editForm(s, i) {
+  return `
+    <div class="ds-editform" style="flex:1">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+        <div class="ds-av" style="background:${s.accent || "#6366f1"};cursor:pointer" data-avup="${i}" title="Upload image">${avatarInner(s)}</div>
+        <button class="ghost dsm" data-avup="${i}">Upload image</button>
+        <input type="color" class="ds-color" data-accent="${i}" value="${(s.accent || "#6366f1").slice(0, 7)}" title="Accent colour" />
+        <input type="file" accept="image/*" data-avfile="${i}" style="display:none" />
+      </div>
+      <input class="ds-in" data-name="${i}" value="${esc(s.name)}" placeholder="Name" />
+      <input class="ds-in" data-role="${i}" value="${esc(s.role)}" placeholder="Role" />
+      <select class="ds-in" data-type="${i}">
+        <option value="client"${s.type === "client" ? " selected" : ""}>client</option>
+        <option value="internal"${s.type === "internal" ? " selected" : ""}>internal</option>
+      </select>
+      <textarea class="ds-in" data-summary="${i}" rows="2" placeholder="Summary">${esc(s.summary || "")}</textarea>
+      <div class="row" style="margin-top:2px">
+        <button class="primary dsm" data-save="${i}">Save</button>
+        <button class="ghost dsm" data-cancel="${i}">Cancel</button>
+      </div>
+    </div>`
+}
+
+function renderDock(newIndex = -1) {
   const dock = $("dock")
-  if (!sims.length) { dock.innerHTML = '<div class="hint">No Sims yet.</div>'; return }
+  if (!sims.length) { dock.innerHTML = '<div class="hint">No Sims yet.</div>'; editingIndex = -1; return }
   dock.innerHTML = ""
   sims.forEach((s, i) => {
     const el = document.createElement("div")
-    el.className = "dock-sim"
-    const ins = s.insights || []
-    el.innerHTML = `
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:9px">
-          <div class="ds-av" style="background:${s.accent || "#6366f1"}">${s.initials || s.name.slice(0,2).toUpperCase()}</div>
-          <div><div class="ds-name">${esc(s.name)}</div><div class="ds-role">${esc(s.role)}</div></div>
-          <div class="ds-type ${s.type === "client" ? "t-client" : "t-internal"}">${s.type}</div>
-        </div>
-        <div class="ds-insights">${ins.slice(0,3).map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ")}</div>
-        <button class="reviewbtn" data-i="${i}">Have ${esc(s.name.split(" ")[0])} review this page →</button>
-      </div>`
+    el.className = "dock-sim" + (i === newIndex ? " in" : "")
+    if (i === editingIndex) {
+      el.innerHTML = editForm(s, i)
+    } else {
+      const ins = s.insights || []
+      el.innerHTML = `
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:9px">
+            <div class="ds-av" style="background:${s.accent || "#6366f1"}">${avatarInner(s)}</div>
+            <div style="flex:1"><div class="ds-name">${esc(s.name)}</div><div class="ds-role">${esc(s.role)}</div></div>
+            <div class="ds-type ${s.type === "client" ? "t-client" : "t-internal"}">${esc(s.type)}</div>
+            <button class="ds-edit" data-edit="${i}" title="Edit Sim">✎</button>
+          </div>
+          <div class="ds-insights">${ins.slice(0, 3).map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ")}</div>
+          <button class="reviewbtn" data-i="${i}">Have ${esc(s.name.split(" ")[0])} review this page →</button>
+        </div>`
+    }
     dock.appendChild(el)
   })
-  dock.querySelectorAll(".reviewbtn").forEach(b => b.onclick = () => review(Number(b.dataset.i)))
+  wireDock()
   updateFlow()
+}
+
+function wireDock() {
+  const dock = $("dock")
+  dock.querySelectorAll(".reviewbtn").forEach(b => b.onclick = () => review(Number(b.dataset.i)))
+  dock.querySelectorAll(".ds-edit").forEach(b => b.onclick = () => { editingIndex = Number(b.dataset.edit); renderDock() })
+  dock.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => { editingIndex = -1; renderDock() })
+  dock.querySelectorAll("[data-save]").forEach(b => b.onclick = () => saveEdit(Number(b.dataset.save)))
+  dock.querySelectorAll("[data-avup]").forEach(b => b.onclick = () => { dock.querySelector(`[data-avfile="${b.dataset.avup}"]`).click() })
+  dock.querySelectorAll("[data-avfile]").forEach(inp => inp.onchange = (e) => onAvatar(Number(inp.dataset.avfile), e))
+  dock.querySelectorAll("[data-accent]").forEach(inp => inp.oninput = (e) => {
+    sims[Number(inp.dataset.accent)].accent = e.target.value
+    const av = inp.closest(".ds-editform").querySelector(".ds-av")
+    if (av) av.style.background = e.target.value
+  })
+}
+
+function saveEdit(i) {
+  const dock = $("dock")
+  const g = (attr) => dock.querySelector(`[${attr}="${i}"]`)
+  const s = sims[i]
+  s.name = g("data-name").value.trim() || s.name
+  s.role = g("data-role").value.trim()
+  s.type = g("data-type").value
+  s.summary = g("data-summary").value.trim()
+  s.accent = g("data-accent").value
+  if (!s.avatar) s.initials = s.name.slice(0, 2).toUpperCase()
+  editingIndex = -1
+  renderDock()
+}
+
+function onAvatar(i, e) {
+  const file = e.target.files[0]
+  if (!file || !file.type.startsWith("image/")) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    sims[i].avatar = reader.result
+    const av = $("dock").querySelector(`.ds-av[data-avup="${i}"]`)
+    if (av) av.innerHTML = `<img src="${reader.result}" alt="">`
+  }
+  reader.readAsDataURL(file)
+  e.target.value = ""
 }
 
 function badge(kind){const c=kind==="pain"?"#f38ba8":kind==="want"?"#89b4fa":"#a6e3a1";return `<span style="color:${c};font-weight:700">${kind}</span>`}
@@ -424,7 +531,7 @@ function makeChar(sim) {
     <div class="bubble" data-bubble></div>
     <div style="position:relative;display:flex;flex-direction:column;align-items:center">
       <div class="ch-arm" style="background:${shade(sim.accent)}"><span class="ch-fing">👆</span></div>
-      <div class="ch-head" style="background:${sim.accent || "#6366f1"}">${sim.initials || sim.name.slice(0,2).toUpperCase()}</div>
+      <div class="ch-head" style="background:${sim.accent || "#6366f1"};overflow:hidden">${sim.avatar ? `<img src="${sim.avatar}" alt="" style="width:100%;height:100%;object-fit:cover">` : (sim.initials || sim.name.slice(0,2).toUpperCase())}</div>
       <div class="ch-legs"><div class="ch-leg" style="background:${shade(sim.accent)}"></div><div class="ch-leg" style="background:${shade(sim.accent)}"></div></div>
     </div>`
   return el
@@ -539,8 +646,8 @@ function renderPresets(){
 function addPreset(k){
   const p=PRESETS[k]; if(!p) return
   if(sims.some(s=>s.name===p.name)){ setStatus("briefStatus", `${p.name} is already in your Sims.`); return }
-  sims.push(JSON.parse(JSON.stringify(p))); renderDock()
-  setStatus("briefStatus", `Added ${p.name}. Now click "Have ${p.name.split(" ")[0]} review this page".`)
+  sims.push(JSON.parse(JSON.stringify(p))); renderDock(sims.length - 1)
+  setStatus("briefStatus", `Added ${p.name} — click ✎ to rename or set a photo, then have them review this page.`)
 }
 async function createFromBrief(){
   const brief=$("brief").value.trim()
@@ -549,8 +656,8 @@ async function createFromBrief(){
   try{
     const r=await fetch("/api/persona/brief",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({brief})})
     const d=await r.json(); if(d.error) throw new Error(d.error)
-    sims.push(d.persona); renderDock(); $("brief").value=""
-    setStatus("briefStatus", `Created ${d.persona.name}. Now have them review this page.`)
+    sims.push(d.persona); renderDock(sims.length - 1); $("brief").value=""
+    setStatus("briefStatus", `Created ${d.persona.name} — click ✎ to rename or set a photo, then have them review this page.`)
   }catch(e){ setStatus("briefStatus","Error: "+e.message,true) } finally { $("briefBtn").disabled=false }
 }
 // voice dictation (Web Speech API; Chrome)
