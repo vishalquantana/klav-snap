@@ -250,6 +250,21 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 .rv.flip .rv-bubble{left:auto;right:50%;transform:translateX(50%) translateY(8px)}
 .rv.flip.say .rv-bubble{transform:translateX(50%) translateY(0)}
 .rv.flip .rv-bubble::after{left:auto;right:24px}
+/* ── artefact-aware bubble orientations (so it never covers the element under review) ── */
+/* bubble BELOW the head (Sim stands above its target) */
+.rv.b-below .rv-bubble{bottom:auto;top:54px;left:50%;right:auto;transform:translateX(-50%) translateY(-8px)}
+.rv.b-below.say .rv-bubble{transform:translateX(-50%) translateY(0)}
+.rv.b-below .rv-bubble::after{bottom:auto;top:-7px;left:24px;right:auto;border:6px solid transparent;border-bottom-color:var(--ink-2);border-top:none}
+/* bubble to the RIGHT of the head (Sim stands left of its target) */
+.rv.b-right .rv-bubble{bottom:auto;top:50%;left:54px;right:auto;transform:translateY(-50%) translateX(-8px)}
+.rv.b-right.say .rv-bubble{transform:translateY(-50%) translateX(0)}
+.rv.b-right .rv-bubble::after{bottom:auto;top:17px;left:-7px;right:auto;border:6px solid transparent;border-right-color:var(--ink-2);border-left:none}
+/* bubble to the LEFT of the head (Sim stands right of its target) */
+.rv.b-left .rv-bubble{bottom:auto;top:50%;left:auto;right:54px;transform:translateY(-50%) translateX(8px)}
+.rv.b-left.say .rv-bubble{transform:translateY(-50%) translateX(0)}
+.rv.b-left .rv-bubble::after{bottom:auto;top:17px;left:auto;right:-7px;border:6px solid transparent;border-left-color:var(--ink-2);border-right:none}
+/* arm points down when the Sim stands above its target */
+.rv.aim-down .rv-arm{top:auto;bottom:10px;transform:rotate(40deg)}
 .rv .rv-tag{font-family:var(--mono);font-size:9px;letter-spacing:.07em;margin-bottom:5px;display:flex;align-items:center;gap:6px;color:var(--indigo)}
 .rv .rv-emoji{margin-left:auto;font-size:14px}
 .klavity-hl{position:fixed;border:2px solid var(--indigo);border-radius:9px;box-shadow:0 0 0 4px rgba(139,139,245,.12);pointer-events:none;z-index:60;opacity:0;transition:opacity .3s,left .3s,top .3s,width .3s,height .3s}
@@ -548,13 +563,45 @@ function buildRv(who) {
     + `<div class="rv-legs"><span class="rv-leg" style="background:${p.leg}"></span><span class="rv-leg" style="background:${p.leg}"></span></div></div>`;
 }
 function inView(el) { const r = el.getBoundingClientRect(); return r.width && r.top < innerHeight - 70 && r.bottom > 80 && r.left < innerWidth && r.right > 0; }
+const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+const overlaps = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
 function place(el) {
   const r = el.getBoundingClientRect();
   hl.style.left = r.left + 'px'; hl.style.top = r.top + 'px'; hl.style.width = r.width + 'px'; hl.style.height = r.height + 'px'; hl.classList.add('on');
-  // clamp so the 214px bubble (±107) and its vertical extent never leave the viewport — no cut-off
-  const cx = Math.min(Math.max(r.left + r.width / 2, 120), innerWidth - 120);
-  const cy = Math.min(Math.max(r.bottom + 10, 156), innerHeight - 78);
-  rv.style.left = (cx - 23) + 'px'; rv.style.top = cy + 'px';
+
+  // Bubble + Sim go on whichever side of the element has room, with the bubble
+  // pushed into the free space so it never covers the element under review.
+  const BW = 214, BH = 134, HEAD = 50, GAP = 12, M = 8; // bubble w/h, sim height, gaps, viewport margin
+  const elBox = { l: r.left, t: r.top, r: r.right, b: r.bottom };
+  const cxAt = clamp(r.left + r.width / 2, BW / 2 + M, innerWidth - BW / 2 - M);
+  const cyAt = clamp(r.top + r.height / 2, BH / 2 + M, innerHeight - BH / 2 - M);
+
+  const cands = {
+    below: { cls: 'b-below', aim: false, simLeft: cxAt - 23, simTop: r.bottom + GAP, room: innerHeight - r.bottom,
+             bub: { l: cxAt - BW / 2, r: cxAt + BW / 2, t: r.bottom + GAP + HEAD, b: r.bottom + GAP + HEAD + BH } },
+    above: { cls: '',        aim: true,  simLeft: cxAt - 23, simTop: r.top - HEAD - GAP, room: r.top,
+             bub: { l: cxAt - BW / 2, r: cxAt + BW / 2, t: r.top - HEAD - GAP - BH, b: r.top - HEAD - GAP } },
+    right: { cls: 'b-right', aim: false, simLeft: r.right + GAP, simTop: cyAt - 25, room: innerWidth - r.right,
+             bub: { l: r.right + GAP + 27, r: r.right + GAP + 27 + BW, t: cyAt - BH / 2, b: cyAt + BH / 2 } },
+    left:  { cls: 'b-left',  aim: false, simLeft: r.left - GAP - 46, simTop: cyAt - 25, room: r.left,
+             bub: { l: r.left - GAP - 19 - BW, r: r.left - GAP - 19, t: cyAt - BH / 2, b: cyAt + BH / 2 } },
+  };
+  const inVp = (b) => b.l >= M && b.r <= innerWidth - M && b.t >= M && b.b <= innerHeight - M;
+
+  // Narrow elements (pills, buttons) usually have side whitespace; wide ones (headlines,
+  // sections) need above/below. Pick the first side that fits and clears the element.
+  const order = r.width < innerWidth * 0.6 ? ['right', 'left', 'below', 'above'] : ['below', 'above', 'right', 'left'];
+  let best = null;
+  for (const s of order) { const c = cands[s]; if (inVp(c.bub) && !overlaps(c.bub, elBox)) { best = c; break; } }
+  if (!best) { // nothing clean: take the side with the most room
+    best = Object.values(cands).reduce((a, b) => (a.room >= b.room ? a : b));
+  }
+
+  rv.classList.remove('b-below', 'b-right', 'b-left', 'aim-down');
+  if (best.cls) rv.classList.add(best.cls);
+  if (best.aim) rv.classList.add('aim-down');
+  rv.style.left = clamp(best.simLeft, M, innerWidth - 46 - M) + 'px';
+  rv.style.top = clamp(best.simTop, M, innerHeight - HEAD - M) + 'px';
 }
 function showNote(n) {
   const el = document.querySelector(n.sel);

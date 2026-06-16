@@ -1,8 +1,14 @@
-import { DEFAULT_SETTINGS, detectTrackerUrl } from '@klavity/core'
-import type { KlavitySettings, IntegrationType } from '@klavity/core'
+import { DEFAULT_SETTINGS, detectTrackerUrl, dispatchSubmit } from '@klavity/core'
+import { submitReport as jiraSubmit } from '@klavity/core/integrations/jira'
+import { submitReport as linearSubmit } from '@klavity/core/integrations/linear'
+import { submitReport as githubSubmit } from '@klavity/core/integrations/github'
+import { submitReport as planeSubmit } from '@klavity/core/integrations/plane'
+import { submitReport as backendSubmit } from '@klavity/core/integrations/backend'
+import type { KlavitySettings, IntegrationType, SubmitReportPayload } from '@klavity/core'
 
 const $ = (id: string) => document.getElementById(id) as HTMLInputElement | HTMLSelectElement
 const setVal = (id: string, v: string) => { ($(id) as HTMLInputElement).value = v }
+const handlers = { jira: jiraSubmit, linear: linearSubmit, github: githubSubmit, plane: planeSubmit, backend: backendSubmit }
 
 function showSection(integration: IntegrationType) {
   ;['jira', 'linear', 'github', 'plane'].forEach(id => {
@@ -67,9 +73,9 @@ $('smart-url').addEventListener('input', (e) => {
   ok.classList.add('show')
 })
 
-$('save').addEventListener('click', async () => {
+function readSettings(): KlavitySettings {
   const cloudOn = ($('cloudToggle') as HTMLInputElement).checked
-  const settings: KlavitySettings = {
+  return {
     integration: ($('integration') as HTMLSelectElement).value as IntegrationType,
     backendUrl: cloudOn ? ($('backendUrl') as HTMLInputElement).value.trim() : '',
     autoFileErrors: ($('autoFileErrors') as HTMLInputElement).checked,
@@ -94,7 +100,92 @@ $('save').addEventListener('click', async () => {
       projectId: ($('plane-projectId') as HTMLInputElement).value.trim(),
     },
   }
-  await chrome.storage.sync.set({ klavSettings: settings })
+}
+
+const resultEl = () => document.getElementById('testResult')!
+function showResult(ok: boolean, html: string) {
+  const el = resultEl()
+  el.className = 'testresult ' + (ok ? 'ok' : 'err')
+  el.innerHTML = html
+}
+async function withButton(id: string, busyLabel: string, fn: () => Promise<void>) {
+  const btn = $(id) as HTMLButtonElement
+  const label = btn.textContent
+  btn.disabled = true; btn.textContent = busyLabel
+  try { await fn() } finally { btn.disabled = false; btn.textContent = label }
+}
+
+// Lightweight authenticated check — confirms host/token/project are valid without filing.
+async function testConnection(s: KlavitySettings): Promise<{ ok: boolean; msg: string }> {
+  try {
+    if (s.backendUrl) {
+      const r = await fetch(`${s.backendUrl.replace(/\/+$/, '')}/api/me`)
+      return { ok: r.ok, msg: r.ok ? `Reached Klavity backend at ${s.backendUrl}` : `Backend responded ${r.status}` }
+    }
+    switch (s.integration) {
+      case 'plane': {
+        const base = (s.plane.host || 'https://api.plane.so').replace(/\/+$/, '')
+        const r = await fetch(`${base}/api/v1/workspaces/${s.plane.workspace}/projects/${s.plane.projectId}/`, { headers: { 'X-API-Key': s.plane.token } })
+        if (r.ok) { const d = await r.json().catch(() => ({} as any)); return { ok: true, msg: `Connected to Plane project "${d.name ?? s.plane.projectId}"` } }
+        return { ok: false, msg: `Plane ${r.status}: ${(await r.text()).slice(0, 180)}` }
+      }
+      case 'jira': {
+        const base = s.jira.baseUrl.replace(/\/+$/, '')
+        const r = await fetch(`${base}/rest/api/3/myself`, { headers: { Authorization: `Basic ${btoa(`${s.jira.email}:${s.jira.token}`)}`, Accept: 'application/json' } })
+        return { ok: r.ok, msg: r.ok ? `Authenticated to Jira at ${base}` : `Jira responded ${r.status}` }
+      }
+      case 'github': {
+        const r = await fetch(`https://api.github.com/repos/${s.github.repo}`, { headers: { Authorization: `Bearer ${s.github.token}`, Accept: 'application/vnd.github+json' } })
+        return { ok: r.ok, msg: r.ok ? `Connected to GitHub repo ${s.github.repo}` : `GitHub responded ${r.status}` }
+      }
+      case 'linear': {
+        const r = await fetch('https://api.linear.app/graphql', { method: 'POST', headers: { Authorization: s.linear.apiKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ query: '{ viewer { id name } }' }) })
+        const d = await r.json().catch(() => ({} as any))
+        return d?.data?.viewer ? { ok: true, msg: `Authenticated to Linear as ${d.data.viewer.name}` } : { ok: false, msg: `Linear responded ${r.status}` }
+      }
+    }
+    return { ok: false, msg: 'Pick an integration first.' }
+  } catch (e) {
+    return { ok: false, msg: `Request failed: ${(e as Error).message} (check the host / network)` }
+  }
+}
+
+// Files a real "Klavity test ticket" through the same path a bug report uses.
+function insertTestTicket(s: KlavitySettings) {
+  const payload: SubmitReportPayload = {
+    type: 'bug',
+    description: 'Klavity Snap — test ticket (connection check). Safe to delete.',
+    context: {
+      pageUrl: location.href,
+      userAgent: navigator.userAgent,
+      screenSize: `${screen.width}x${screen.height}`,
+      viewportSize: `${innerWidth}x${innerHeight}`,
+      consoleErrors: [],
+      networkFailures: [],
+    },
+    screenshots: [],
+  }
+  return dispatchSubmit(payload, s, handlers)
+}
+
+$('test').addEventListener('click', () => withButton('test', 'Testing…', async () => {
+  showResult(true, 'Testing connection…')
+  const r = await testConnection(readSettings())
+  showResult(r.ok, (r.ok ? '✓ ' : '✗ ') + r.msg)
+}))
+
+$('testTicket').addEventListener('click', () => withButton('testTicket', 'Filing…', async () => {
+  showResult(true, 'Filing a test ticket…')
+  try {
+    const res = await insertTestTicket(readSettings())
+    showResult(true, `✓ Created test ticket <b>${res.issueKey}</b> — <a href="${res.issueUrl}" target="_blank" rel="noopener">open in tracker ↗</a>`)
+  } catch (e) {
+    showResult(false, '✗ ' + (e as Error).message)
+  }
+}))
+
+$('save').addEventListener('click', async () => {
+  await chrome.storage.sync.set({ klavSettings: readSettings() })
   const status = document.getElementById('status')!
   status.textContent = '✓ Saved'
   setTimeout(() => { status.textContent = '' }, 2000)

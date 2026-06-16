@@ -29,6 +29,14 @@
     .switch input:checked + .slider{background:#89b4fa;}
     .switch input:checked + .slider::before{transform:translateX(18px);}
     #cloud-fields{margin-top:14px;}
+    .btnrow{display:flex;gap:10px;margin-top:24px;}
+    .secondary{flex:1;padding:11px;background:#313244;color:#cdd6f4;border:1px solid #45475a;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+    .secondary:hover{border-color:#89b4fa;}
+    .secondary:disabled{opacity:.6;cursor:default;}
+    .testresult{margin-top:12px;font-size:13px;line-height:1.5;min-height:18px;}
+    .testresult.ok{color:#a6e3a1;}.testresult.err{color:#f38ba8;}
+    .testresult a{color:#89b4fa;}
+    button#save{margin-top:14px;}
   </style>
 </head>
 <body>
@@ -94,6 +102,12 @@
     <input type="checkbox" id="autoFileErrors" style="width:auto;">
     Auto-file silent tickets for unhandled JS errors
   </label>
+
+  <div class="btnrow">
+    <button type="button" id="test" class="secondary">🔌 Test Connection</button>
+    <button type="button" id="testTicket" class="secondary">🎫 Insert Test Ticket</button>
+  </div>
+  <div id="testResult" class="testresult"></div>
 
   <button id="save">Save Settings</button>
   <div id="status"></div>
