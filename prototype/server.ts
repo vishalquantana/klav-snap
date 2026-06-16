@@ -75,7 +75,7 @@ function parseJSON(s: string) {
   }
 }
 async function extractPersonas(transcript: string) {
-  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000, true)
+  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000)
   return { data: parseJSON(content), usage }
 }
 async function reactToPage(persona: any, imageB64: string, mediaType: string, pageUrl: string) {
