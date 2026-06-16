@@ -15,7 +15,7 @@
     .cloud-section{background:#1e2a3a;border:1px solid rgba(137,180,250,.27);border-radius:8px;padding:16px;margin-top:24px;}
     small{font-size:11px;color:#a6adc8;}
     .urlpaste{border:1px dashed #89b4fa;background:#1a2230;}
-    .urlpaste::placeholder{color:#6c7086;}
+    .urlpaste::placeholder{color:#a9b2c9;}
     .parsed{display:none;font-size:12px;color:#a6e3a1;margin-top:6px;}
     .parsed.show{display:block;}
     /* toggle switch */
@@ -46,7 +46,12 @@
     .savestate.saving{color:#a6adc8;font-weight:400;} .savestate.saving .dot{background:#a6adc8;}
     .savestate.saved{color:#a6e3a1;} .savestate.saved .dot{background:#a6e3a1;}
     @keyframes sb{0%,100%{opacity:1}50%{opacity:.3}}
-  </style>
+  
+/* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #89b4fa;outline-offset:2px;border-radius:5px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+input::placeholder,textarea::placeholder{color:#a9b2c9}
+</style>
 </head>
 <body>
   <h1>⚡ Klavity Snap Settings</h1>

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
 <style>
-:root{--ink:#0c0a08;--ink-2:#15110d;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;--indigo:#8b8bf5;--indigo-deep:#6366f1;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11);
+:root{--ink:#0c0a08;--ink-2:#15110d;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#a89e91;--indigo:#8b8bf5;--indigo-deep:#6366f1;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11);
 --display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -58,6 +58,10 @@ input.code{font-family:var(--mono);font-size:24px;letter-spacing:.32em;text-alig
 @keyframes qscroll{to{transform:translateX(-50%)}}
 @media(max-width:920px){.login-sim{display:none}}
 @media (prefers-reduced-motion: reduce){.login-sim,.q-track,.ls-arm,.ls-eye::after{animation:none}}
+
+/* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>

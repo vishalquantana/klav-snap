@@ -13,7 +13,7 @@
 <style>
 :root{
   --ink:#0c0a08; --ink-2:#15110d; --ink-3:#1e1813;
-  --paper:#f3ece1; --paper-dim:#b3a896; --paper-faint:#776c5d;
+  --paper:#f3ece1; --paper-dim:#b3a896; --paper-faint:#a89e91;
   --indigo:#8b8bf5; --indigo-deep:#6366f1;
   --amber:#e8a24a; --rose:#e8849a; --green:#9fd6a0;
   --line:rgba(243,236,225,.11); --line-2:rgba(243,236,225,.06);
@@ -278,6 +278,10 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 #klavity-toggle.hint{animation:tgpulse 2.2s ease infinite}
 @keyframes tgpulse{0%,100%{box-shadow:0 12px 30px rgba(0,0,0,.45)}50%{box-shadow:0 12px 30px rgba(0,0,0,.45),0 0 0 7px rgba(139,139,245,.13)}}
 @media (prefers-reduced-motion: reduce){.rv,.klavity-hl,.io{transition:none}.io{opacity:1;transform:none}}
+
+/* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>

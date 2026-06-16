@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <style>
-:root{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;
+:root{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#a89e91;
 --indigo:#8b8bf5;--indigo-deep:#6366f1;--amber:#e8a24a;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11);
 --display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -89,6 +89,10 @@ input.in:focus{border-color:var(--indigo)}
 .pill{font-family:var(--mono);font-size:11px;color:var(--green)}
 .hide{display:none}
 @media(max-width:820px){.shell{grid-template-columns:1fr}.rail{display:none}.tiles{grid-template-columns:1fr}}
+
+/* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
@@ -207,7 +211,7 @@ function renderPersona(p, extra){
     (extra ? `<div style="font-family:var(--mono);font-size:11px;color:var(--paper-faint);padding-top:10px;border-top:1px solid var(--line)">${esc(extra)}</div>` : "")
 }
 
-let cur = 0
+let cur = Number(localStorage.getItem('klav_onboarding_step') || 0)
 function paint(){
   document.querySelectorAll('.step').forEach(el=>el.classList.toggle('hide', Number(el.dataset.s)!==cur))
   document.querySelectorAll('.rstep').forEach(el=>{
@@ -217,7 +221,7 @@ function paint(){
     el.querySelector('.ix').textContent = s<cur ? '✓' : (s+1)
   })
 }
-function go(n){ cur=n; paint(); window.scrollTo(0,0) }
+function go(n){ cur=n; localStorage.setItem('klav_onboarding_step', n); paint(); window.scrollTo(0,0) }
 
 async function extract(){
   document.getElementById('upl').classList.add('hide')
@@ -238,7 +242,7 @@ async function extract(){
   }
   rv.classList.add('show'); document.getElementById('s1next').style.display='flex'
 }
-function finish(){ document.getElementById('done').classList.remove('hide') }
+function finish(){ localStorage.removeItem('klav_onboarding_step'); document.getElementById('done').classList.remove('hide') }
 paint()
 </script>
 </body>
