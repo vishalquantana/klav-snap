@@ -1,10 +1,17 @@
 export type IntegrationType = 'jira' | 'linear' | 'github' | 'plane'
 export type ReportType = 'bug' | 'feature'
 
+// How the extension authenticates to the Klavity backend:
+//   'klavity' — signed-in user; backend resolves their personal→team connection (token stays server-side)
+//   'direct'  — no account; the extension forwards its own tracker creds (Phase 1 behavior)
+export type ConnectionMode = 'klavity' | 'direct'
+
 export interface KlavitySettings {
   integration: IntegrationType
   backendUrl: string
   autoFileErrors: boolean
+  connectionMode: ConnectionMode
+  klavToken: string // Klavity session/Bearer token from email→OTP login (empty until signed in)
   jira: { baseUrl: string; email: string; token: string; projectKey: string }
   linear: { apiKey: string; teamId: string }
   github: { token: string; repo: string } // "owner/repo"
@@ -15,6 +22,8 @@ export const DEFAULT_SETTINGS: KlavitySettings = {
   integration: 'jira',
   backendUrl: '',
   autoFileErrors: false,
+  connectionMode: 'direct',
+  klavToken: '',
   jira: { baseUrl: '', email: '', token: '', projectKey: '' },
   linear: { apiKey: '', teamId: '' },
   github: { token: '', repo: '' },

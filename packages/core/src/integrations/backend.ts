@@ -8,20 +8,25 @@ export async function submitReport(config: IntegrationConfig): Promise<SubmitRes
   form.append('page_url', context.pageUrl)
   form.append('context', JSON.stringify(context))
 
-  // Phase 1: forward Plane creds over TLS so the backend can create the issue.
-  // (Phase 2 replaces this with a Klavity Bearer token + server-side connection.)
-  const { plane } = settings
-  form.append('plane_token', plane.token)
-  form.append('plane_workspace', plane.workspace)
-  form.append('plane_project_id', plane.projectId)
-  form.append('plane_host', plane.host)
+  // Klavity mode: signed-in user. The backend resolves their personal→team connection,
+  // so the tracker token never leaves the server — we send only a Bearer token.
+  const useKlavity = settings.connectionMode === 'klavity' && !!settings.klavToken
+  if (!useKlavity) {
+    // Direct mode (Phase 1): forward this browser's own Plane creds over TLS.
+    const { plane } = settings
+    form.append('plane_token', plane.token)
+    form.append('plane_workspace', plane.workspace)
+    form.append('plane_project_id', plane.projectId)
+    form.append('plane_host', plane.host)
+  }
 
   for (let i = 0; i < screenshots.length; i++) {
     const blob = await (await fetch(screenshots[i])).blob()
     form.append('screenshots', blob, `screenshot-${i}.png`)
   }
 
-  const res = await fetch(`${settings.backendUrl}/api/feedback`, { method: 'POST', body: form })
+  const headers: Record<string, string> = useKlavity ? { Authorization: `Bearer ${settings.klavToken}` } : {}
+  const res = await fetch(`${settings.backendUrl}/api/feedback`, { method: 'POST', headers, body: form })
 
   if (!res.ok) throw new Error(`Klavity backend error ${res.status}: ${await res.text()}`)
 

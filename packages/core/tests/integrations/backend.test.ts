@@ -38,4 +38,22 @@ describe('backend.submitReport', () => {
     expect(result.issueKey).toBe('42')
     expect(result.issueUrl).toBe('https://plane.quantana.top/x')
   })
+
+  it('in Klavity mode sends a Bearer token and forwards no creds', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'fb_2', jira_key: '7', issue_url: 'https://plane.quantana.top/y' }),
+    } as Response)
+
+    const klavityConfig: IntegrationConfig = {
+      ...config,
+      settings: { ...config.settings, connectionMode: 'klavity', klavToken: 'sess_abc' },
+    }
+    await submitReport(klavityConfig)
+    const [, opts] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(opts.headers.Authorization).toBe('Bearer sess_abc')
+    const form = opts.body as FormData
+    expect(form.get('plane_token')).toBeNull()
+    expect(form.get('description')).toBe('Export fails silently')
+  })
 })
