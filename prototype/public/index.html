@@ -217,12 +217,37 @@
   /* theme toggle */
   .theme-toggle{position:fixed;right:16px;bottom:16px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12)}
 
+/* ── dev mode bar ── */
+  #devbar { position: sticky; top: 0; z-index: 200; display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 34px; font-size: 11.5px; font-weight: 600; background: #92400e; color: #fef3c7; border-bottom: 1px solid #78350f; }
+  #devbar .dbtag { background: #fef3c7; color: #92400e; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+  #devbar .dbsep { opacity: .4; margin: 0 2px; }
+  #devbar .dbtoggle { position: relative; width: 30px; height: 16px; cursor: pointer; flex-shrink: 0; }
+  #devbar .dbtoggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  #devbar .dbtoggle .slider { position: absolute; inset: 0; border-radius: 8px; background: rgba(0,0,0,.35); transition: background .2s; }
+  #devbar .dbtoggle input:checked + .slider { background: #34d399; }
+  #devbar .dbtoggle .slider::before { content: ''; position: absolute; width: 12px; height: 12px; left: 2px; top: 2px; border-radius: 50%; background: white; transition: transform .2s; }
+  #devbar .dbtoggle input:checked + .slider::before { transform: translateX(14px); }
+  #devbar .dbstat { opacity: .75; font-weight: 400; margin-left: 4px; }
+  #devbar .dbclear { margin-left: auto; font-size: 10.5px; font-weight: 600; color: #fef3c7; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.2); border-radius: 5px; padding: 2px 9px; cursor: pointer; }
+  #devbar .dbclear:hover { background: rgba(0,0,0,.4); }
+
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
+<div id="devbar" style="display:none">
+  <span class="dbtag">DEV</span>
+  <label class="dbtoggle" title="Toggle dev cache">
+    <input type="checkbox" id="devToggle" />
+    <span class="slider"></span>
+  </label>
+  <span>Dev cache</span>
+  <span class="dbsep">·</span>
+  <span id="devStat" class="dbstat">0 hits saved</span>
+  <button class="dbclear" id="devClear">Clear cache</button>
+</div>
 <div class="wrap">
   <div class="head">
     <div class="logo"><img src="/favicon.svg" width="34" height="34" alt="Klavity" /></div>
@@ -400,13 +425,20 @@ $("extractBtn").onclick = async () => {
   const transcript = $("transcript").value.trim()
   if (transcript.length < 20) { setStatus("extractStatus", "Add a transcript first.", true); return }
   $("extractBtn").disabled = true
+  const cacheKey = "extract_" + devHash(transcript)
+  const cached = devCacheGet(cacheKey)
+  if (cached) {
+    sims = cached.personas; renderDock(); devSaveSims()
+    setStatus("extractStatus", `⚡ [cache] ${sims.length} Sim${sims.length === 1 ? "" : "s"} (${devCacheCount()} entries cached)`)
+    $("extractBtn").disabled = false; renderDevBar(); return
+  }
   setStatus("extractStatus", "🧠 Extracting personas with " + "Claude… (10-30s)")
   try {
     const r = await fetch("/api/extract", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript }) })
     const data = await r.json()
     if (data.error) throw new Error(data.error)
-    sims = data.personas
-    renderDock()
+    devCacheSet(cacheKey, { personas: data.personas }); renderDevBar()
+    sims = data.personas; renderDock(); devSaveSims()
     setStatus("extractStatus", `✅ Extracted ${sims.length} Sim${sims.length === 1 ? "" : "s"}.` + usageStr(data.usage))
   } catch (e) {
     setStatus("extractStatus", "Error: " + e.message, true)
@@ -537,15 +569,24 @@ async function review(i) {
     return
   }
   const imageB64 = dataUrl.split(",")[1]
+  const pageUrl = "acme-finance/overview"
   setStatus("reactStatus", `👀 ${sim.name.split(" ")[0]} is reviewing… (Claude vision, 10-30s)`)
+  const reactKey = "react_" + devHash(sim.name + "|" + sim.role + "|" + pageUrl)
+  const cachedReact = devCacheGet(reactKey)
+  if (cachedReact) {
+    setStatus("reactStatus", `⚡ [cache] ${sim.name.split(" ")[0]} gave ${cachedReact.reactions.length} reaction(s) (${devCacheCount()} entries cached)`)
+    playReactions(sim, cachedReact.reactions)
+  } else {
   try {
     const r = await fetch("/api/react", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ persona: sim, imageB64, mediaType: "image/png", pageUrl: "acme-finance/overview" }) })
+      body: JSON.stringify({ persona: sim, imageB64, mediaType: "image/png", pageUrl }) })
     const data = await r.json()
     if (data.error) throw new Error(data.error)
+    devCacheSet(reactKey, { reactions: data.reactions }); renderDevBar()
     setStatus("reactStatus", `✅ ${sim.name.split(" ")[0]} gave ${data.reactions.length} reaction(s).` + usageStr(data.usage))
     playReactions(sim, data.reactions)
   } catch (e) { setStatus("reactStatus", "Error: " + e.message, true) }
+  }
   finally {
     reviewing.delete(i)
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = `Have ${sim.name.split(" ")[0]} review this page →` }
@@ -723,11 +764,20 @@ function addPreset(k){
 async function createFromBrief(){
   const brief=$("brief").value.trim()
   if(brief.length<4){ setStatus("briefStatus","Describe your user in a few words.",true); return }
-  $("briefBtn").disabled=true; setStatus("briefStatus","🧠 Creating a Sim from your brief…")
+  $("briefBtn").disabled=true
+  const briefKey = "brief_" + devHash(brief)
+  const cachedBrief = devCacheGet(briefKey)
+  if (cachedBrief) {
+    sims.push(cachedBrief.persona); renderDock(sims.length - 1); devSaveSims(); $("brief").value=""
+    setStatus("briefStatus", `⚡ [cache] ${cachedBrief.persona.name} (${devCacheCount()} entries cached)`)
+    $("briefBtn").disabled=false; renderDevBar(); return
+  }
+  setStatus("briefStatus","🧠 Creating a Sim from your brief…")
   try{
     const r=await fetch("/api/persona/brief",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({brief})})
     const d=await r.json(); if(d.error) throw new Error(d.error)
-    sims.push(d.persona); renderDock(sims.length - 1); $("brief").value=""
+    devCacheSet(briefKey, { persona: d.persona }); renderDevBar()
+    sims.push(d.persona); renderDock(sims.length - 1); devSaveSims(); $("brief").value=""
     setStatus("briefStatus", `Created ${d.persona.name} — click ✎ to rename or set a photo, then have them review this page.`)
   }catch(e){ setStatus("briefStatus","Error: "+e.message,true) } finally { $("briefBtn").disabled=false }
 }
@@ -791,6 +841,67 @@ renderPresets(); setupVoice()
 $("saveDrafts").onclick = saveDrafts
 renderDrafts()
 updateFlow()
+
+// ── Dev mode cache ──
+const DEV_NS = "klav_dev_"
+const DEV_SIMS_KEY = "klav_dev_sims"
+const DEV_MODE_KEY = "klav_dev_mode"
+let devEnabled = false
+try { devEnabled = localStorage.getItem(DEV_MODE_KEY) === "1" } catch(e) {}
+
+function devHash(s) {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = (h * 33 ^ s.charCodeAt(i)) >>> 0
+  return h.toString(36)
+}
+function devCacheGet(key) {
+  if (!devEnabled) return null
+  try { const v = localStorage.getItem(DEV_NS + key); return v ? JSON.parse(v) : null } catch(e) { return null }
+}
+function devCacheSet(key, data) {
+  if (!devEnabled) return
+  try { localStorage.setItem(DEV_NS + key, JSON.stringify(data)) } catch(e) {}
+}
+function devCacheCount() {
+  let n = 0
+  try { for (let i = 0; i < localStorage.length; i++) { if (localStorage.key(i).startsWith(DEV_NS) && localStorage.key(i) !== DEV_SIMS_KEY) n++ } } catch(e) {}
+  return n
+}
+function devSaveSims() {
+  if (!devEnabled) return
+  try { localStorage.setItem(DEV_SIMS_KEY, JSON.stringify(sims)) } catch(e) {}
+}
+function devLoadSims() {
+  if (!devEnabled) return false
+  try {
+    const v = localStorage.getItem(DEV_SIMS_KEY)
+    if (!v) return false
+    const saved = JSON.parse(v)
+    if (Array.isArray(saved) && saved.length) { sims = saved; renderDock(); updateFlow(); return true }
+  } catch(e) {}
+  return false
+}
+function renderDevBar() {
+  $("devbar").style.display = "flex"
+  $("devToggle").checked = devEnabled
+  $("devStat").textContent = devCacheCount() + " entries cached"
+}
+function setDevMode(on) {
+  devEnabled = on
+  try { localStorage.setItem(DEV_MODE_KEY, on ? "1" : "0") } catch(e) {}
+  renderDevBar()
+}
+$("devToggle").onchange = (e) => setDevMode(e.target.checked)
+$("devClear").onclick = () => {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(DEV_NS)) keys.push(k) }
+    keys.forEach(k => localStorage.removeItem(k))
+  } catch(e) {}
+  renderDevBar()
+}
+renderDevBar()
+if (devEnabled) devLoadSims()
 </script>
 </body>
 </html>
