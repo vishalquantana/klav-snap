@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity — your customers, in the room while you build</title>
+<meta name="description" content="Klavity turns real customer interviews into living personas that review your product in their own words — and files the bugs they find straight to Jira, Linear, GitHub, or Plane." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  /* ── DESIGNER PALETTE (from screenshot) - Grayscale Edition ── */
+  --ink:#ffffff;                                                /* pure white background */
+  --ink-2:rgba(255,255,255,0.45);                               /* glassmorphism base */
+  --ink-3:rgba(255,255,255,0.85);                               /* hover card/subtle focus */
+  --paper:#09090b; --paper-dim:#3f3f46; --paper-faint:#71717a;  /* text shades */
+  --indigo:#09090b; --indigo-deep:#09090b;                      /* primary brand colors (grayscale) */
+  --amber:#3f3f46; --rose:#71717a; --green:#18181b;             /* grayscale accents */
+  --line:rgba(255,255,255,0.7); --line-2:rgba(0,0,0,0.06);      /* glass borders */
+  --display:'Fraunces',serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--ink); color:var(--paper); font-family:var(--body);
+  font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+/* warm grain + vignette atmosphere */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body::after{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:1;
+  background:radial-gradient(120% 80% at 50% -10%, rgba(139,139,245,.10), transparent 60%),
+             radial-gradient(80% 60% at 100% 110%, rgba(232,162,74,.06), transparent 60%);
+}
+.wrap{max-width:1160px; margin:0 auto; padding:0 28px; position:relative; z-index:2}
+a{color:inherit; text-decoration:none}
+.mono{font-family:var(--mono); font-weight:500}
+.tag{
+  font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--paper-faint);
+}
+
+/* ── nav ── */
+nav{position:sticky; top:0; z-index:50; backdrop-filter:blur(14px);
+  background:linear-gradient(var(--ink), rgba(12,10,8,.72)); border-bottom:1px solid var(--line-2)}
+.nav-in{display:flex; align-items:center; gap:28px; height:70px}
+.brand{display:flex; align-items:center; gap:11px; font-family:var(--display); font-weight:600; font-size:22px; letter-spacing:-.02em}
+.brand .spark{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; font-size:16px;
+  background:linear-gradient(135deg,var(--indigo-deep),#a78bfa); box-shadow:0 6px 20px rgba(99,102,241,.4)}
+.nav-links{display:flex; gap:26px; margin-left:18px}
+.nav-links a{font-size:14.5px; color:var(--paper-dim); transition:color .2s}
+.nav-links a:hover{color:var(--paper)}
+.nav-cta{margin-left:auto; display:flex; gap:12px; align-items:center}
+.btn{font-family:var(--body); font-weight:600; font-size:14.5px; padding:10px 18px; border-radius:11px; cursor:pointer; border:1px solid transparent; transition:transform .12s, background .2s, border-color .2s; display:inline-flex; align-items:center; gap:8px}
+.btn:active{transform:translateY(1px)}
+.btn-ghost{color:var(--paper); border-color:var(--line); background:transparent}
+.btn-ghost:hover{border-color:rgba(243,236,225,.3)}
+.btn-solid{color:#100d0a; background:var(--paper)}
+.btn-solid:hover{background:#fff}
+.btn-indigo{color:#0c0a08; background:linear-gradient(135deg,#a9a9ff,var(--indigo)); box-shadow:0 8px 24px rgba(139,139,245,.3)}
+
+/* ── hero ── */
+.hero{padding:70px 0 40px; position:relative}
+.hero-grid{display:grid; grid-template-columns:1.05fr .95fr; gap:50px; align-items:center}
+.eyebrow{display:inline-flex; align-items:center; gap:9px; padding:6px 13px; border:1px solid var(--line); border-radius:30px; margin-bottom:26px}
+.eyebrow .dot{width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(159,214,160,.6); animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(159,214,160,.5)}70%{box-shadow:0 0 0 7px rgba(159,214,160,0)}100%{box-shadow:0 0 0 0 rgba(159,214,160,0)}}
+h1{font-family:var(--display); font-weight:450; font-size:clamp(44px,6vw,76px); line-height:1.02; letter-spacing:-.025em; font-optical-sizing:auto}
+h1 em{font-style:italic; color:var(--amber); font-variation-settings:'WONK' 1, 'SOFT' 30}
+h1 .ind{color:var(--indigo)}
+.lede{font-size:19.5px; color:var(--paper-dim); max-width:30ch; margin:26px 0 32px; line-height:1.55}
+.hero-cta{display:flex; gap:14px; flex-wrap:wrap; align-items:center}
+.hero-note{margin-top:18px; font-size:13.5px; color:var(--paper-faint); display:flex; align-items:center; gap:8px}
+
+.reveal{opacity:0; transform:translateY(16px); animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes rise{to{opacity:1; transform:translateY(0)}}
+.d1{animation-delay:.05s}.d2{animation-delay:.15s}.d3{animation-delay:.27s}.d4{animation-delay:.4s}.d5{animation-delay:.52s}
+
+/* hero stage: a product card with sims observing it */
+.stage{position:relative; aspect-ratio:1/.92}
+.prod-card{position:absolute; inset:6% 8% 14% 6%; background:#faf7f1; border-radius:16px; box-shadow:0 40px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.4); overflow:hidden; color:#1d1a16; transform:rotate(-1.4deg)}
+.pc-bar{height:38px; background:#fff; border-bottom:1px solid #ece6db; display:flex; align-items:center; gap:7px; padding:0 13px}
+.pc-dot{width:9px; height:9px; border-radius:50%}
+.pc-body{padding:15px}
+.pc-h{font-family:var(--display); font-weight:600; font-size:15px}
+.pc-sub{font-size:10.5px; color:#9a8f7d; margin-bottom:11px; font-family:var(--mono)}
+.pc-kpis{display:flex; gap:7px; margin-bottom:11px}
+.pc-kpi{flex:1; background:#fff; border:1px solid #ece6db; border-radius:9px; padding:8px}
+.pc-kl{font-size:7.5px; color:#9a8f7d; letter-spacing:.05em; text-transform:uppercase}
+.pc-kv{font-size:17px; font-weight:700; font-family:var(--display)}
+.pc-row{display:flex; align-items:center; gap:7px; font-size:10px; padding:5px 0; border-top:1px solid #f1ece2}
+.pc-dotc{width:6px; height:6px; border-radius:50%}
+.pc-row .nm{flex:1; font-weight:600}
+/* highlighted element the sim points at */
+.pc-target{outline:2px solid var(--indigo-deep); outline-offset:2px; border-radius:6px; animation:halo 2.6s ease-in-out infinite}
+@keyframes halo{0%,100%{box-shadow:0 0 0 3px rgba(99,102,241,.18)}50%{box-shadow:0 0 0 7px rgba(99,102,241,.05)}}
+
+/* a walking sim that points */
+.sim{position:absolute; z-index:5; display:flex; flex-direction:column; align-items:center; width:52px}
+.sim .speech{position:absolute; bottom:62px; width:178px; background:var(--ink-2); border:1px solid var(--line); border-radius:13px; padding:10px 12px; box-shadow:0 16px 40px rgba(0,0,0,.5); font-size:12px; line-height:1.4}
+.sim .speech .sp-tag{font-family:var(--mono); font-size:9px; letter-spacing:.08em; color:var(--indigo); margin-bottom:4px}
+.sim .speech::after{content:""; position:absolute; bottom:-7px; left:24px; border:6px solid transparent; border-top-color:var(--ink-2); border-bottom:none}
+.sim .head{width:42px; height:42px; border-radius:50%; display:grid; place-items:center; font-family:var(--mono); font-weight:700; font-size:12px; color:#fff; box-shadow:0 6px 18px rgba(0,0,0,.4); position:relative; z-index:2}
+.sim .legs{display:flex; gap:5px; margin-top:2px}
+.sim .leg{width:6px; height:15px; border-radius:3px}
+.sim.walk .leg:nth-child(1){animation:legA .34s ease-in-out infinite alternate}
+.sim.walk .leg:nth-child(2){animation:legB .34s ease-in-out infinite alternate}
+@keyframes legA{from{transform:rotate(-24deg)}to{transform:rotate(24deg)}}
+@keyframes legB{from{transform:rotate(24deg)}to{transform:rotate(-24deg)}}
+.sim .arm{position:absolute; top:11px; right:32px; width:30px; height:6px; border-radius:3px; transform-origin:right center; transform:rotate(-38deg)}
+.sim .arm .fin{position:absolute; left:-5px; top:-6px; font-size:14px}
+
+#sarah{left:6%; bottom:6%; animation:walkSarah 9s ease-in-out infinite}
+@keyframes walkSarah{
+  0%{left:-12%; opacity:0} 8%{left:6%; opacity:1}
+  14%,40%{left:34%} 48%,92%{left:34%} 100%{left:34%}
+}
+.float{animation:bob 3.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* ── marquee of customer quotes ── */
+.marquee{margin:54px 0 10px; border-top:1px solid var(--line-2); border-bottom:1px solid var(--line-2); padding:20px 0; overflow:hidden; -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.mq-track{display:flex; gap:54px; width:max-content; animation:scroll 38s linear infinite}
+.mq-q{display:flex; align-items:baseline; gap:12px; white-space:nowrap; font-family:var(--display); font-style:italic; font-size:19px; color:var(--paper-dim)}
+.mq-q .who{font-family:var(--mono); font-style:normal; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--paper-faint)}
+@keyframes scroll{to{transform:translateX(-50%)}}
+
+/* ── section scaffold ── */
+section{padding:90px 0; position:relative}
+.sec-head{max-width:680px; margin-bottom:50px}
+.sec-head h2{font-family:var(--display); font-weight:450; font-size:clamp(32px,4vw,46px); line-height:1.07; letter-spacing:-.02em; margin:14px 0 16px}
+.sec-head h2 em{font-style:italic; color:var(--indigo)}
+.sec-head p{font-size:18px; color:var(--paper-dim)}
+
+/* loop steps */
+.loop{display:grid; grid-template-columns:repeat(3,1fr); gap:20px}
+.step{background:var(--ink-2); border:1px solid var(--line); border-radius:18px; padding:26px; position:relative; overflow:hidden; transition:transform .2s, border-color .2s}
+.step:hover{transform:translateY(-4px); border-color:rgba(139,139,245,.4)}
+.step .num{font-family:var(--mono); font-size:12px; color:var(--indigo); letter-spacing:.1em}
+.step h3{font-family:var(--display); font-weight:550; font-size:22px; margin:14px 0 9px; letter-spacing:-.01em}
+.step p{font-size:15px; color:var(--paper-dim); line-height:1.55}
+.step .ic{position:absolute; top:22px; right:22px; font-size:22px; opacity:.85}
+.step .seam{height:1px; background:linear-gradient(90deg,var(--indigo),transparent); margin:18px 0 0; opacity:.4}
+
+/* sims showcase */
+.sims-row{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+.persona{background:var(--ink-2); border:1px solid var(--line); border-radius:18px; padding:22px; transition:transform .2s, box-shadow .2s}
+.persona:hover{transform:translateY(-5px) rotate(-.6deg); box-shadow:0 24px 50px rgba(0,0,0,.45)}
+.p-top{display:flex; align-items:center; gap:12px; margin-bottom:16px}
+.p-av{width:46px; height:46px; border-radius:50%; display:grid; place-items:center; font-family:var(--mono); font-weight:700; color:#fff; font-size:14px}
+.p-name{font-family:var(--display); font-weight:600; font-size:18px}
+.p-role{font-family:var(--mono); font-size:10px; letter-spacing:.06em; color:var(--paper-faint); text-transform:uppercase}
+.p-quote{font-family:var(--display); font-style:italic; font-size:17px; line-height:1.45; color:var(--paper); margin-bottom:14px}
+.p-quote .qm{color:var(--indigo); font-size:22px}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{font-family:var(--mono); font-size:10px; padding:3px 9px; border-radius:6px; letter-spacing:.04em}
+.chip.pain{background:rgba(232,132,154,.13); color:var(--rose)} .chip.want{background:rgba(139,139,245,.14); color:var(--indigo)} .chip.love{background:rgba(159,214,160,.13); color:var(--green)}
+
+/* split feature (Snap) */
+.split{display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center}
+.feature-list{list-style:none; margin-top:22px; display:flex; flex-direction:column; gap:14px}
+.feature-list li{display:flex; gap:13px; font-size:15.5px; color:var(--paper-dim)}
+.feature-list .ck{color:var(--green); font-family:var(--mono); flex-shrink:0}
+.snap-card{background:var(--ink-2); border:1px solid var(--line); border-radius:18px; padding:8px; box-shadow:0 30px 60px rgba(0,0,0,.4)}
+.snap-menu{background:#eceef2; color:#18181b; border-radius:12px; overflow:hidden}
+.sm-item{padding:11px 15px; font-size:13.5px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(0,0,0,.07); cursor:default}
+.sm-item:last-child{border-bottom:none}
+.sm-item:hover{background:#e3e5ea}
+.sm-item .k{margin-left:auto; font-family:var(--mono); font-size:10px; color:#8b909b}
+.integrations{display:flex; gap:9px; margin-top:16px; flex-wrap:wrap}
+.intg{font-family:var(--mono); font-size:11px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; color:var(--paper-dim)}
+
+/* phases */
+.phases{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+.phase{border:1px solid var(--line); border-radius:18px; padding:24px; position:relative}
+.phase.live{background:linear-gradient(180deg,rgba(159,214,160,.06),transparent); border-color:rgba(159,214,160,.3)}
+.phase.build{background:linear-gradient(180deg,rgba(139,139,245,.07),transparent); border-color:rgba(139,139,245,.35)}
+.ph-stat{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:3px 9px; border-radius:20px; display:inline-block; margin-bottom:14px}
+.ph-stat.s-live{background:rgba(159,214,160,.15); color:var(--green)} .ph-stat.s-build{background:rgba(139,139,245,.15); color:var(--indigo)} .ph-stat.s-soon{background:var(--ink-3); color:var(--paper-faint)}
+.phase h3{font-family:var(--display); font-weight:600; font-size:24px; letter-spacing:-.01em}
+.phase .pl{font-family:var(--mono); font-size:11px; color:var(--paper-faint); margin:2px 0 12px}
+.phase p{font-size:14.5px; color:var(--paper-dim); line-height:1.55}
+
+/* trust */
+.trust{background:var(--ink-2); border:1px solid var(--line); border-radius:24px; padding:54px; text-align:center; position:relative; overflow:hidden}
+.trust::before{content:"“"; position:absolute; top:-30px; left:30px; font-family:var(--display); font-size:200px; color:var(--line); pointer-events:none}
+.trust h2{font-family:var(--display); font-weight:450; font-size:clamp(26px,3.4vw,38px); line-height:1.2; max-width:24ch; margin:0 auto 18px; letter-spacing:-.01em}
+.trust h2 em{font-style:italic; color:var(--amber)}
+.trust p{color:var(--paper-dim); max-width:60ch; margin:0 auto}
+
+/* final cta */
+.final{text-align:center; padding:110px 0}
+.final h2{font-family:var(--display); font-weight:450; font-size:clamp(38px,5.5vw,68px); line-height:1.04; letter-spacing:-.025em; margin-bottom:20px}
+.final h2 em{font-style:italic; color:var(--indigo)}
+.final .hero-cta{justify-content:center; margin-top:30px}
+
+footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-faint)}
+.foot{display:flex; align-items:center; gap:20px; flex-wrap:wrap; font-size:13.5px}
+.foot a{color:var(--paper-dim)} .foot a:hover{color:var(--paper)}
+.foot .sp{margin-left:auto}
+
+@media(max-width:880px){
+  .hero-grid,.split{grid-template-columns:1fr; gap:36px}
+  .stage{aspect-ratio:1/.7; order:-1}
+  .loop,.sims-row,.phases{grid-template-columns:1fr}
+  .nav-links{display:none}
+}
+
+/* ── extra micro-interactions ── */
+.brand .spark{transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+.brand:hover .spark{transform:rotate(-12deg) scale(1.09)}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:-5px;height:1.5px;width:0;background:var(--indigo);transition:width .25s cubic-bezier(.2,.7,.2,1)}
+.nav-links a{position:relative}
+.nav-links a:hover::after{width:100%}
+.btn{transition:transform .12s,background .2s,border-color .2s,gap .2s}
+.btn:hover{gap:12px}
+.btn-indigo{position:relative; overflow:hidden}
+.btn-indigo::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 25%,rgba(255,255,255,.42),transparent 75%);transform:translateX(-130%);transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+.btn-indigo:hover::after{transform:translateX(130%)}
+.step:hover .ic{animation:wiggle .55s ease}
+@keyframes wiggle{0%,100%{transform:rotate(0)}28%{transform:rotate(-10deg) scale(1.1)}62%{transform:rotate(8deg)}}
+.intg{transition:transform .2s,border-color .2s,color .2s}
+.intg:hover{border-color:var(--indigo);color:var(--indigo);transform:translateY(-2px)}
+.tile,.persona,.step{will-change:transform}
+.p-av,.sr-av,.pc-target{transition:transform .25s}
+.persona:hover .p-av{transform:scale(1.08) rotate(-4deg)}
+.eyebrow .tag{transition:color .2s}
+.hero-note .mono{animation:pulse 2s infinite}
+
+/* scroll reveal */
+.io{opacity:0; transform:translateY(24px); transition:opacity .75s cubic-bezier(.2,.7,.2,1), transform .75s cubic-bezier(.2,.7,.2,1)}
+.io.in{opacity:1; transform:none}
+
+/* ── roaming reviewer Sims (the page reviews itself) ── */
+.rv{position:fixed; display:flex; flex-direction:column; align-items:center; width:46px; z-index:61; opacity:0; pointer-events:none;
+  transition:left .9s cubic-bezier(.4,0,.2,1), top .9s cubic-bezier(.4,0,.2,1), opacity .4s}
+.rv .rv-head{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:12px;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.5);position:relative;z-index:2}
+.rv .rv-legs{display:flex;gap:5px;margin-top:2px}
+.rv .rv-leg{width:6px;height:14px;border-radius:3px}
+.rv.walk .rv-leg:nth-child(1){animation:legA .34s ease-in-out infinite alternate}
+.rv.walk .rv-leg:nth-child(2){animation:legB .34s ease-in-out infinite alternate}
+.rv .rv-arm{position:absolute;top:10px;right:30px;width:28px;height:6px;border-radius:3px;transform-origin:right center;transform:rotate(-40deg);opacity:0;transition:opacity .2s}
+.rv.point .rv-arm{opacity:1}
+.rv .rv-arm .fin{position:absolute;left:-5px;top:-7px;font-size:13px}
+.rv .rv-bubble{position:absolute;bottom:54px;left:50%;transform:translateX(-50%) translateY(8px);width:214px;background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:11px 13px;box-shadow:0 18px 44px rgba(0,0,0,.6);opacity:0;transition:opacity .3s,transform .3s;font-size:12.5px;line-height:1.46;pointer-events:none}
+.rv.say .rv-bubble{opacity:1;transform:translateX(-50%) translateY(0)}
+.rv .rv-bubble::after{content:"";position:absolute;bottom:-7px;left:24px;border:6px solid transparent;border-top-color:var(--ink-2);border-bottom:none}
+.rv.flip .rv-bubble{left:auto;right:50%;transform:translateX(50%) translateY(8px)}
+.rv.flip.say .rv-bubble{transform:translateX(50%) translateY(0)}
+.rv.flip .rv-bubble::after{left:auto;right:24px}
+/* ── artefact-aware bubble orientations (so it never covers the element under review) ── */
+/* bubble BELOW the head (Sim stands above its target) */
+.rv.b-below .rv-bubble{bottom:auto;top:54px;left:50%;right:auto;transform:translateX(-50%) translateY(-8px)}
+.rv.b-below.say .rv-bubble{transform:translateX(-50%) translateY(0)}
+.rv.b-below .rv-bubble::after{bottom:auto;top:-7px;left:24px;right:auto;border:6px solid transparent;border-bottom-color:var(--ink-2);border-top:none}
+/* bubble to the RIGHT of the head (Sim stands left of its target) */
+.rv.b-right .rv-bubble{bottom:auto;top:50%;left:54px;right:auto;transform:translateY(-50%) translateX(-8px)}
+.rv.b-right.say .rv-bubble{transform:translateY(-50%) translateX(0)}
+.rv.b-right .rv-bubble::after{bottom:auto;top:17px;left:-7px;right:auto;border:6px solid transparent;border-right-color:var(--ink-2);border-left:none}
+/* bubble to the LEFT of the head (Sim stands right of its target) */
+.rv.b-left .rv-bubble{bottom:auto;top:50%;left:auto;right:54px;transform:translateY(-50%) translateX(8px)}
+.rv.b-left.say .rv-bubble{transform:translateY(-50%) translateX(0)}
+.rv.b-left .rv-bubble::after{bottom:auto;top:17px;left:auto;right:-7px;border:6px solid transparent;border-left-color:var(--ink-2);border-right:none}
+/* arm points down when the Sim stands above its target */
+.rv.aim-down .rv-arm{top:auto;bottom:10px;transform:rotate(40deg)}
+.rv .rv-tag{font-family:var(--mono);font-size:9px;letter-spacing:.07em;margin-bottom:5px;display:flex;align-items:center;gap:6px;color:var(--indigo)}
+.rv .rv-emoji{margin-left:auto;font-size:14px}
+.klavity-hl{position:fixed;border:2px solid var(--indigo);border-radius:9px;box-shadow:0 0 0 4px rgba(139,139,245,.12);pointer-events:none;z-index:60;opacity:0;transition:opacity .3s,left .3s,top .3s,width .3s,height .3s}
+.klavity-hl.on{opacity:1}
+#klavity-toggle{position:fixed;right:18px;bottom:18px;z-index:64;font-family:var(--body);font-weight:600;font-size:13px;padding:11px 16px;border-radius:30px;border:1px solid var(--line);background:rgba(21,17,13,.92);backdrop-filter:blur(12px);color:var(--paper);cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 12px 30px rgba(0,0,0,.45);transition:border-color .2s,transform .12s}
+#klavity-toggle:hover{border-color:var(--indigo)}
+#klavity-toggle:active{transform:translateY(1px)}
+#klavity-toggle .live{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.4s infinite}
+#klavity-toggle.hint{animation:tgpulse 2.2s ease infinite}
+@keyframes tgpulse{0%,100%{box-shadow:0 12px 30px rgba(0,0,0,.45)}50%{box-shadow:0 12px 30px rgba(0,0,0,.45),0 0 0 7px rgba(139,139,245,.13)}}
+@media (prefers-reduced-motion: reduce){.rv,.klavity-hl,.io{transition:none}.io{opacity:1;transform:none}}
+
+/* ════════ DESIGNER PALETTE re-skin — overrides ════════ */
+.topbar{position:fixed;top:0;left:0;right:0;height:4px;z-index:100;background:#09090b}
+body::before{opacity:.08;mix-blend-mode:overlay}
+body::after{background:
+  linear-gradient(to right, rgba(9,9,11,.05) 1px, transparent 1px) 0 0/44px 44px,
+  linear-gradient(to bottom, rgba(9,9,11,.05) 1px, transparent 1px) 0 0/44px 44px
+  !important}
+nav{background:rgba(241,243,246,0.75)!important; backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-bottom:1px solid rgba(255,255,255,0.6)!important}
+.brand .spark{background:#000!important; color:#fff!important; box-shadow:0 4px 10px rgba(0,0,0,0.15)!important; border-radius:8px}
+.nav-links a::after{background:#09090b}
+h1{font-family:var(--display); font-weight:450; font-size:clamp(44px,6vw,76px); line-height:1.02; letter-spacing:-.025em; text-transform:none}
+h1 em{font-style:italic!important; color:#71717a!important; font-variation-settings:'WONK' 1, 'SOFT' 30!important; display:inline-block}
+h1 .ind{color:#09090b!important}
+.eyebrow{background:rgba(255,255,255,0.65); border-color:rgba(255,255,255,0.8); border-radius:30px}
+.eyebrow .tag{color:#3f3f46!important; font-weight:700}
+.eyebrow .dot{background:#71717a!important; box-shadow:0 0 0 4px rgba(113, 113, 122, 0.15)!important}
+.btn-indigo{color:#fff!important; background:#000!important; border-radius:30px!important; box-shadow:0 6px 16px rgba(0,0,0,0.15)!important; border:none!important}
+.btn-indigo:hover{background:#27272a!important}
+.btn-ghost{color:var(--paper); background:rgba(255,255,255,0.65)!important; border-color:rgba(255,255,255,0.85)!important; border-radius:30px!important}
+.btn-ghost:hover{border-color:rgba(0,0,0,0.08)!important; background:rgba(255,255,255,0.85)!important}
+.btn-solid{color:#fff; background:#000}
+.prod-card{background:#eceef2!important; border:1px solid rgba(0,0,0,0.07)!important; box-shadow:0 26px 60px rgba(0,0,0,0.10)!important; border-radius:20px!important}
+.pc-bar{background:#ffffff!important; border-bottom:1px solid rgba(0,0,0,0.05)!important}
+.pc-kpi{background:#ffffff!important; border:1px solid rgba(0,0,0,0.05)!important; border-radius:12px!important; box-shadow:0 1px 2px rgba(0,0,0,0.03)!important}
+.pc-target{outline:2px solid #ff4eb8!important; box-shadow:0 0 0 4px rgba(255, 78, 184, 0.15)!important}
+.snap-card{background:rgba(255,255,255,0.55)!important; border:1px solid rgba(17,17,19,0.07)!important; box-shadow:0 18px 46px rgba(17,17,19,0.10)!important; border-radius:20px!important}
+.step, .persona, .phase{background:rgba(255,255,255,0.55)!important; backdrop-filter:blur(16px)!important; -webkit-backdrop-filter:blur(16px)!important; border:1px solid rgba(17,17,19,0.07)!important; box-shadow:0 14px 40px rgba(17,17,19,0.08)!important; position:relative; overflow:hidden; border-radius:20px!important}
+.step:hover, .persona:hover, .phase:hover{border-color:rgba(255,255,255,0.95)!important; background:rgba(255,255,255,0.65)!important; box-shadow:0 20px 40px rgba(0,0,0,0.04)!important}
+.step::after, .persona::after, .phase::after{content:""; position:absolute; top:0; right:0; width:40px; height:40px; background-image:repeating-linear-gradient(45deg, rgba(0,0,0,0.04), rgba(0,0,0,0.04) 4px, transparent 4px, transparent 8px); clip-path:polygon(100% 0, 0 0, 100% 100%); opacity:0.8}
+.sim .speech{background:rgba(255,255,255,0.92)!important; backdrop-filter:blur(12px)!important; -webkit-backdrop-filter:blur(12px)!important; border:1px solid rgba(17,17,19,0.08)!important; border-radius:16px!important; box-shadow:0 16px 44px rgba(17,17,19,0.14)!important}
+.sim .speech .sp-tag{color:#ff4eb8!important; font-weight:700}
+.rv .rv-bubble{background:rgba(255,255,255,0.94)!important; backdrop-filter:blur(14px)!important; -webkit-backdrop-filter:blur(14px)!important; border:1px solid rgba(17,17,19,0.09)!important; border-radius:16px!important; box-shadow:0 22px 54px rgba(17,17,19,0.17), 0 0 0 1px rgba(17,17,19,0.03)!important}
+.rv .rv-tag{color:#ff4eb8!important; font-weight:700}
+.trust{background:#18181b!important; border:none!important; color:#fff!important; border-radius:24px!important; padding:60px!important; box-shadow:0 12px 36px rgba(0,0,0,0.06)!important}
+.trust h2{color:#fff!important}
+.trust h2 em{color:#fff!important; font-style:italic!important}
+.trust p{color:rgba(255,255,255,0.9)!important}
+.trust .tag{color:rgba(255,255,255,0.8)!important}
+.chip.pain{background:rgba(0,0,0,0.05)!important; color:#52525b!important}
+.chip.want{background:rgba(0,0,0,0.05)!important; color:#52525b!important}
+.chip.love{background:rgba(0,0,0,0.05)!important; color:#52525b!important}
+.stage::before{content:""; position:absolute; top:50%; left:-20px; width:1px; height:120px; background:linear-gradient(to bottom, #71717a, transparent); z-index:1}
+.stage::after{content:""; position:absolute; top:50%; left:-24px; width:9px; height:9px; border-radius:50%; background:#71717a; box-shadow:0 0 0 4px rgba(113, 113, 122, 0.15); z-index:1}
+#klavity-toggle{background:#000!important; color:#fff!important; border-radius:30px!important; border:1px solid rgba(255,255,255,0.15)!important; box-shadow:0 10px 24px rgba(0,0,0,0.15)!important}
+#klavity-toggle:hover{border-color:#ff4eb8!important}
+#klavity-toggle .live{background:#ff4eb8!important}
+/* gray italic accents (lean into grayscale) */
+.sec-head h2 em, .final h2 em{color:#71717a!important; font-style:italic}
+/* Sim persona cards tinted to match each Sim's colour (and to stand out on white) */
+#sims .sims-row .persona:nth-child(1){background:rgba(99,102,241,0.10)!important; border-color:rgba(99,102,241,0.42)!important; box-shadow:0 16px 40px rgba(99,102,241,0.16)!important}
+#sims .sims-row .persona:nth-child(2){background:rgba(232,140,74,0.11)!important; border-color:rgba(232,140,74,0.44)!important; box-shadow:0 16px 40px rgba(232,140,74,0.16)!important}
+#sims .sims-row .persona:nth-child(3){background:rgba(16,185,129,0.10)!important; border-color:rgba(16,185,129,0.42)!important; box-shadow:0 16px 40px rgba(16,185,129,0.16)!important}
+
+/* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #2563eb;outline-offset:2px;border-radius:5px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+.p-role{color:#3f3f46!important}
+</style>
+</head>
+<body>
+
+<div class="topbar"></div>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="brand" href="#"><span class="spark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M7 2C7 7 17 7 17 12 17 17 7 17 7 22"/><path d="M17 2C17 7 7 7 7 12 7 17 17 17 17 22"/><path d="M9 5.2h6M9 18.8h6" stroke-width="1.4"/><path d="M7.6 9h8.8M7.6 15h8.8" stroke-width="1.2" opacity=".8"/></svg></span>Klavity</a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#sims">Sims</a>
+      <a href="#snap">Snap</a>
+      <a href="#phases">Roadmap</a>
+      <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="/login">Log in</a>
+      <a class="btn btn-indigo" href="/login">Get started</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow reveal d1"><span class="dot"></span><span class="tag">Turn customer calls into product reviews</span></span>
+      <h1 class="reveal d2">Your customers are <em>in the room</em> while you <span class="ind">build.</span></h1>
+      <p class="lede reveal d3">Klavity turns real interview transcripts into living personas — <strong>Sims</strong> — that review your product in their own words, point at what's broken, and file the bug for you.</p>
+      <div class="hero-cta reveal d4">
+        <a class="btn btn-indigo" href="/login">Get started</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalquantana/klav-snap#install" target="_blank" rel="noopener">⊕ Add to Chrome</a>
+      </div>
+      <div class="hero-note reveal d5"><span class="mono" style="color:var(--green)">●</span> Free forever: the right-click bug reporter. Open source.</div>
+    </div>
+
+    <div class="stage reveal d3">
+      <!-- product the sims review -->
+      <div class="prod-card float">
+        <div class="pc-bar">
+          <span class="pc-dot" style="background:#ff6058"></span><span class="pc-dot" style="background:#ffbd2e"></span><span class="pc-dot" style="background:#28c840"></span>
+          <span style="margin-left:8px; font-family:var(--mono); font-size:10px; color:#9a8f7d">acme-finance/overview</span>
+        </div>
+        <div class="pc-body">
+          <div class="pc-h">Q2 Revenue Overview</div>
+          <div class="pc-sub">apr–jun 2026 · updated 2h ago</div>
+          <div class="pc-kpis">
+            <div class="pc-kpi"><div class="pc-kl">Revenue</div><div class="pc-kv">$2.4M</div></div>
+            <div class="pc-kpi pc-target"><div class="pc-kl">Pending</div><div class="pc-kv">14</div></div>
+            <div class="pc-kpi"><div class="pc-kl">Rate</div><div class="pc-kv">87%</div></div>
+          </div>
+          <div class="pc-row"><span class="pc-dotc" style="background:#ff3b30"></span><span class="nm">Marketing Budget</span><span style="color:#ff3b30">2d overdue</span></div>
+          <div class="pc-row"><span class="pc-dotc" style="background:#ff3b30"></span><span class="nm">Vendor Contract</span><span style="color:#ff3b30">1d overdue</span></div>
+          <div class="pc-row"><span class="pc-dotc" style="background:#ff9500"></span><span class="nm">Bonus Pool</span><span style="color:#ff9500">today</span></div>
+        </div>
+      </div>
+      <!-- a sim that walks in and points -->
+      <div class="sim walk" id="sarah">
+        <div class="speech"><div class="sp-tag">SARAH CHEN · CFO</div>“These aren't sorted by urgency — I can't see what's overdue at a glance.”</div>
+        <div style="position:relative; display:flex; flex-direction:column; align-items:center">
+          <div class="arm" style="background:#5a5ad6"><span class="fin">👆</span></div>
+          <div class="head" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">SC</div>
+          <div class="legs"><span class="leg" style="background:#5a5ad6"></span><span class="leg" style="background:#5a5ad6"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- quote marquee -->
+  <div class="wrap"><div class="marquee">
+    <div class="mq-track" id="mq">
+      <span class="mq-q">“I need an export before I sign off.” <span class="who">— Sarah, CFO</span></span>
+      <span class="mq-q">“Give me bulk-approve, I'm not clicking 14 times.” <span class="who">— James, Finance Lead</span></span>
+      <span class="mq-q">“Revenue front and centre — I check it every morning.” <span class="who">— Anika, Ops</span></span>
+      <span class="mq-q">“Why is this two clicks deep?” <span class="who">— Priya, Designer</span></span>
+      <span class="mq-q">“I'd never trust a number I can't drill into.” <span class="who">— Marcus, Analyst</span></span>
+    </div>
+  </div></div>
+</header>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="tag">The loop</span>
+      <h2>From a recorded call to a <em>filed bug</em> — without leaving your product.</h2>
+      <p>You already talk to customers. Klavity makes those conversations show up exactly where you work.</p>
+    </div>
+    <div class="loop">
+      <div class="step">
+        <span class="ic">📝</span><span class="num">01 / EXTRACT</span>
+        <h3>Drop in a transcript</h3>
+        <p>Upload an interview or call. Klavity extracts each speaker into a Sim — their role, what they love, want, and hate — every insight anchored to a verbatim quote they actually said.</p>
+        <div class="seam"></div>
+      </div>
+      <div class="step">
+        <span class="ic">🧬</span><span class="num">02 / REVIEW</span>
+        <h3>A Sim reviews your screen</h3>
+        <p>While you browse your own app, the right Sim walks to the element it cares about, points at it, and reacts in the real customer's voice — grounded, specific, in character.</p>
+        <div class="seam"></div>
+      </div>
+      <div class="step">
+        <span class="ic">🐛</span><span class="num">03 / FILE</span>
+        <h3>One click → a real ticket</h3>
+        <p>Turn any reaction into a Jira, Linear, GitHub, or Plane issue — with the screenshot, the page, and the customer's quote attached. Same tracker as your manual bug reports.</p>
+        <div class="seam"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MEET YOUR SIMS -->
+<section id="sims">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="tag">Meet your Sims</span>
+      <h2>Not personas on a slide. <em>The people from your calls.</em></h2>
+      <p>Each Sim is built from real transcripts and gets sharper every time you add another. Push them to your team so everyone ships with the same customers watching.</p>
+    </div>
+    <div class="sims-row">
+      <div class="persona">
+        <div class="p-top"><div class="p-av" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">SC</div><div><div class="p-name">Sarah Chen</div><div class="p-role">CFO · Acme</div></div></div>
+        <div class="p-quote"><span class="qm">“</span>I have four minutes before my next call and I'm hunting for the overdue ones.<span class="qm">”</span></div>
+        <div class="chips"><span class="chip pain">urgency-blind</span><span class="chip want">excel export</span><span class="chip love">revenue first</span></div>
+      </div>
+      <div class="persona">
+        <div class="p-top"><div class="p-av" style="background:linear-gradient(135deg,#e8a24a,#ef4444)">JM</div><div><div class="p-name">James Moore</div><div class="p-role">Finance Lead · Acme</div></div></div>
+        <div class="p-quote"><span class="qm">“</span>I have to approve each item one at a time. Clicking fourteen times is painful.<span class="qm">”</span></div>
+        <div class="chips"><span class="chip pain">no bulk action</span><span class="chip want">checkboxes</span></div>
+      </div>
+      <div class="persona">
+        <div class="p-top"><div class="p-av" style="background:linear-gradient(135deg,#10b981,#06b6d4)">AK</div><div><div class="p-name">Anika Kumar</div><div class="p-role">Operations · Acme</div></div></div>
+        <div class="p-quote"><span class="qm">“</span>The revenue figure is right there. I check it every single morning before standup.<span class="qm">”</span></div>
+        <div class="chips"><span class="chip love">clean layout</span><span class="chip want">clearer 'at risk'</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SNAP (free wedge) -->
+<section id="snap">
+  <div class="wrap split">
+    <div>
+      <span class="tag">Klavity Snap · free &amp; open source</span>
+      <div class="sec-head" style="margin-bottom:0">
+        <h2 style="margin-top:14px">Start with the <em>right-click bug reporter.</em></h2>
+        <p>The free foundation the whole suite is built on. Right-click any page, annotate the auto-captured screenshot, and file straight to your tracker — with the console errors and network failures already attached.</p>
+      </div>
+      <ul class="feature-list">
+        <li><span class="ck">✓</span> Right-click → Report a Bug / Request a Feature, on any website</li>
+        <li><span class="ck">✓</span> Auto full-page screenshot, region capture, and canvas annotation</li>
+        <li><span class="ck">✓</span> Last 50 console errors + network failures captured automatically</li>
+        <li><span class="ck">✓</span> Files to Jira, Linear, GitHub Issues, or Plane — or your own backend</li>
+      </ul>
+      <div class="integrations">
+        <span class="intg">Jira</span><span class="intg">Linear</span><span class="intg">GitHub</span><span class="intg">Plane</span><span class="intg">Self-hosted</span>
+      </div>
+    </div>
+    <div class="snap-card">
+      <div class="snap-menu">
+        <div class="sm-item">🔎 &nbsp;Inspect</div>
+        <div class="sm-item" style="background:#dfe2e8; color:#18181b; font-weight:600">⚡ &nbsp;Klavity — Report a Bug <span class="k">⌘⇧K</span></div>
+        <div class="sm-item">💡 &nbsp;Klavity — Request a Feature</div>
+        <div class="sm-item">🧬 &nbsp;Klavity — Ask a Sim</div>
+        <div class="sm-item">📋 &nbsp;View submissions</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PHASES -->
+<section id="phases">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="tag">The arc</span>
+      <h2>Snap today. <em>Sims now.</em> An autonomous tester next.</h2>
+      <p>Named after Ekalavya, the self-taught master — Klavity learns your product and your customers, then acts on its own.</p>
+    </div>
+    <div class="phases">
+      <div class="phase live">
+        <span class="ph-stat s-live">● Shipped</span>
+        <h3>Klavity Snap</h3><div class="pl">the eyes</div>
+        <p>Right-click bug reporting from any page, into any tracker. Free and open source — the wedge the rest is built on.</p>
+      </div>
+      <div class="phase build">
+        <span class="ph-stat s-build">◐ Building</span>
+        <h3>Klavity Sims</h3><div class="pl">the voices</div>
+        <p>Synthetic users from real transcripts that review your product in-context and file what they find. Private beta now.</p>
+      </div>
+      <div class="phase">
+        <span class="ph-stat s-soon">○ Next</span>
+        <h3>Klavity OS</h3><div class="pl">the autopilot</div>
+        <p>An autonomous UAT agent that explores your staging build, predicts regressions, and fixes the test suite before you ship.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<section>
+  <div class="wrap">
+    <div class="trust">
+      <span class="tag" style="position:relative; z-index:2">The obvious objection</span>
+      <h2 style="position:relative; z-index:2">“Aren't these just <em>made-up opinions?</em>”</h2>
+      <p style="position:relative; z-index:2">No. Every Sim reaction is anchored to a <strong>verbatim quote a real person said</strong> in a real call — Klavity verifies the quote exists in the source transcript before it ever surfaces. The Sim reads your actual screen and will even disagree with its own notes when the screen has changed. Grounded, not generated.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta" class="final">
+  <div class="wrap">
+    <span class="tag">Free to start · no credit card</span>
+    <h2>Ship like your best customer is <em>looking over your shoulder.</em></h2>
+    <p class="lede" style="margin:18px auto 0; max-width:40ch; text-align:center">Because, finally, they are.</p>
+    <div class="hero-cta">
+      <a class="btn btn-indigo" href="/login">Get started →</a>
+      <a class="btn btn-ghost" href="https://github.com/vishalquantana/klav-snap#install" target="_blank" rel="noopener">Add to Chrome</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <a class="brand" href="#" style="font-size:18px"><span class="spark" style="width:24px;height:24px;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 2C7 7 17 7 17 12 17 17 7 17 7 22"/><path d="M17 2C17 7 7 7 7 12 7 17 17 17 17 22"/><path d="M9 5.2h6M9 18.8h6" stroke-width="1.5"/></svg></span>Klavity</a>
+    <a href="#how">How it works</a><a href="#snap">Snap</a><a href="#cta">Early access</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub</a>
+    <span class="sp">Built by <a href="https://quantana.com.au" target="_blank" rel="noopener">Quantana</a> · FSL-1.1 · © 2026</span>
+  </div>
+</footer>
+
+<script>
+// duplicate the marquee track for a seamless loop
+const mq = document.getElementById('mq');
+if (mq) mq.innerHTML += mq.innerHTML;
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// scroll reveal
+if (!reduce && 'IntersectionObserver' in window) {
+  const els = [...document.querySelectorAll('section .sec-head, .step, .persona, .phase, .split > div, .trust, #cta .wrap')];
+  els.forEach(el => el.classList.add('io'));
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .14 });
+  els.forEach((el, i) => { el.style.transitionDelay = (Math.min(i % 3, 2) * .06) + 's'; io.observe(el); });
+}
+
+// hero parallax
+const stage = document.querySelector('.stage');
+if (stage && !reduce) addEventListener('mousemove', e => {
+  const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
+  stage.style.transform = `translate(${x * 9}px, ${y * 7}px)`;
+}, { passive: true });
+
+// ── roaming reviewer Sims: the page reviews itself ──
+const REVIEWERS = {
+  SC: { name: 'Sarah Chen', role: 'CFO', accent: 'linear-gradient(135deg,#6366f1,#8b5cf6)', leg: '#5a5ad6' },
+  JM: { name: 'James Moore', role: 'Finance Lead', accent: 'linear-gradient(135deg,#e8a24a,#ef4444)', leg: '#b45309' },
+  AK: { name: 'Anika Kumar', role: 'Operations', accent: 'linear-gradient(135deg,#10b981,#06b6d4)', leg: '#0e7490' },
+  PR: { name: 'Priya Rao', role: 'Designer', accent: 'linear-gradient(135deg,#ec4899,#8b5cf6)', leg: '#be185d' },
+};
+const MOODS = { love: '😍', neutral: '🤔', frustrated: '😤', confused: '😕' };
+const NOTES = [
+  { sel: 'h1', who: 'AK', mood: 'love', text: "I get this headline instantly. Don't you dare touch it." },
+  { sel: '.eyebrow', who: 'PR', mood: 'confused', text: "The 'private beta' pill is sweet, but it's fighting the headline for attention — dim it a touch." },
+  { sel: '.hero-cta .btn-indigo', who: 'SC', mood: 'neutral', text: "Add a tiny 'no credit card' line under here and you've removed my last excuse." },
+  { sel: '.marquee', who: 'AK', mood: 'love', text: "Real quotes scrolling past — I keep reading them instead of leaving. Nice." },
+  { sel: '#how .step', who: 'JM', mood: 'neutral', text: "Three clean steps. I'd number the outcome too — 'a filed ticket' is the payoff." },
+  { sel: '#sims .sec-head h2', who: 'PR', mood: 'love', text: "That italic on 'the people from your calls' — yes. Lean into that contrast everywhere." },
+  { sel: '#sims .persona', who: 'SC', mood: 'neutral', text: "These quote cards earn trust fast. Put a company logo on them and I'm sold." },
+  { sel: '#snap .snap-menu', who: 'JM', mood: 'love', text: "Showing the real right-click menu is clever — I know exactly what I'm installing before I click." },
+  { sel: '.phase.build', who: 'AK', mood: 'neutral', text: "'Building' is exciting, but give me a date. Even 'Q3' tells me whether to wait." },
+  { sel: '.trust', who: 'SC', mood: 'love', text: "THIS is the section that closes me. The verbatim-quote answer kills my 'is this fake?' worry." },
+  { sel: '#cta .btn-indigo', who: 'PR', mood: 'frustrated', text: "Two CTAs here — 'Get started' should clearly win over 'Add to Chrome'." },
+];
+
+const hl = document.createElement('div'); hl.className = 'klavity-hl'; document.body.appendChild(hl);
+const rv = document.createElement('div'); rv.className = 'rv'; document.body.appendChild(rv);
+const tg = document.createElement('button'); tg.id = 'klavity-toggle'; tg.className = 'hint'; document.body.appendChild(tg);
+
+let tourOn = false, ix = 0, timer = null, activeEl = null;
+
+function buildRv(who) {
+  const p = REVIEWERS[who];
+  rv.innerHTML = `<div class="rv-bubble"></div><div style="position:relative;display:flex;flex-direction:column;align-items:center">`
+    + `<div class="rv-arm" style="background:${p.leg}"><span class="fin">👆</span></div>`
+    + `<div class="rv-head" style="background:${p.accent}">${who}</div>`
+    + `<div class="rv-legs"><span class="rv-leg" style="background:${p.leg}"></span><span class="rv-leg" style="background:${p.leg}"></span></div></div>`;
+}
+function inView(el) { const r = el.getBoundingClientRect(); return r.width && r.top < innerHeight - 70 && r.bottom > 80 && r.left < innerWidth && r.right > 0; }
+const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+const overlaps = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
+function place(el) {
+  const r = el.getBoundingClientRect();
+  hl.style.left = r.left + 'px'; hl.style.top = r.top + 'px'; hl.style.width = r.width + 'px'; hl.style.height = r.height + 'px'; hl.classList.add('on');
+
+  // Bubble + Sim go on whichever side of the element has room, with the bubble
+  // pushed into the free space so it never covers the element under review.
+  const BW = 214, BH = 134, HEAD = 50, GAP = 12, M = 8; // bubble w/h, sim height, gaps, viewport margin
+  const elBox = { l: r.left, t: r.top, r: r.right, b: r.bottom };
+  const cxAt = clamp(r.left + r.width / 2, BW / 2 + M, innerWidth - BW / 2 - M);
+  const cyAt = clamp(r.top + r.height / 2, BH / 2 + M, innerHeight - BH / 2 - M);
+
+  const cands = {
+    below: { cls: 'b-below', aim: false, simLeft: cxAt - 23, simTop: r.bottom + GAP, room: innerHeight - r.bottom,
+             bub: { l: cxAt - BW / 2, r: cxAt + BW / 2, t: r.bottom + GAP + HEAD, b: r.bottom + GAP + HEAD + BH } },
+    above: { cls: '',        aim: true,  simLeft: cxAt - 23, simTop: r.top - HEAD - GAP, room: r.top,
+             bub: { l: cxAt - BW / 2, r: cxAt + BW / 2, t: r.top - HEAD - GAP - BH, b: r.top - HEAD - GAP } },
+    right: { cls: 'b-right', aim: false, simLeft: r.right + GAP, simTop: cyAt - 25, room: innerWidth - r.right,
+             bub: { l: r.right + GAP + 27, r: r.right + GAP + 27 + BW, t: cyAt - BH / 2, b: cyAt + BH / 2 } },
+    left:  { cls: 'b-left',  aim: false, simLeft: r.left - GAP - 46, simTop: cyAt - 25, room: r.left,
+             bub: { l: r.left - GAP - 19 - BW, r: r.left - GAP - 19, t: cyAt - BH / 2, b: cyAt + BH / 2 } },
+  };
+  const inVp = (b) => b.l >= M && b.r <= innerWidth - M && b.t >= M && b.b <= innerHeight - M;
+
+  // Narrow elements (pills, buttons) usually have side whitespace; wide ones (headlines,
+  // sections) need above/below. Pick the first side that fits and clears the element.
+  const order = r.width < innerWidth * 0.6 ? ['right', 'left', 'below', 'above'] : ['below', 'above', 'right', 'left'];
+  let best = null;
+  for (const s of order) { const c = cands[s]; if (inVp(c.bub) && !overlaps(c.bub, elBox)) { best = c; break; } }
+  if (!best) { // nothing clean: take the side with the most room
+    best = Object.values(cands).reduce((a, b) => (a.room >= b.room ? a : b));
+  }
+
+  rv.classList.remove('b-below', 'b-right', 'b-left', 'aim-down');
+  if (best.cls) rv.classList.add(best.cls);
+  if (best.aim) rv.classList.add('aim-down');
+  rv.style.left = clamp(best.simLeft, M, innerWidth - 46 - M) + 'px';
+  rv.style.top = clamp(best.simTop, M, innerHeight - HEAD - M) + 'px';
+}
+function showNote(n) {
+  const el = document.querySelector(n.sel);
+  if (!el || !inView(el)) return false;
+  activeEl = el; buildRv(n.who); const p = REVIEWERS[n.who];
+  rv.classList.add('walk'); rv.classList.remove('point', 'say');
+  rv.style.opacity = '1';
+  place(el);
+  const b = rv.querySelector('.rv-bubble');
+  b.innerHTML = `<div class="rv-tag">${p.name.toUpperCase()} · ${p.role.toUpperCase()}<span class="rv-emoji">${MOODS[n.mood] || ''}</span></div>${n.text}`;
+  setTimeout(() => { rv.classList.remove('walk'); rv.classList.add('point', 'say'); }, 920);
+  return true;
+}
+function step() {
+  if (!tourOn) return;
+  let n = null, tries = 0;
+  while (tries < NOTES.length) { const c = NOTES[ix % NOTES.length]; ix++; tries++; const el = document.querySelector(c.sel); if (el && inView(el)) { n = c; break; } }
+  if (n) showNote(n); else { hl.classList.remove('on'); rv.classList.remove('say', 'point'); rv.style.opacity = '0'; activeEl = null; }
+  timer = setTimeout(step, n ? 5800 : 1500);
+}
+function reposition() {
+  if (!tourOn || !activeEl) return;
+  if (!inView(activeEl)) { hl.classList.remove('on'); rv.style.opacity = '0'; return; }
+  rv.style.opacity = '1';
+  place(activeEl);
+}
+function updateToggle() { tg.innerHTML = tourOn ? `<span class="live"></span> Sims reviewing — pause` : `👀 Let the Sims review this page`; }
+function start() { if (tourOn) return; tourOn = true; tg.classList.remove('hint'); rv.style.opacity = '1'; updateToggle(); step(); }
+function stop() { tourOn = false; clearTimeout(timer); hl.classList.remove('on'); rv.classList.remove('say', 'point', 'walk'); rv.style.opacity = '0'; activeEl = null; updateToggle(); }
+tg.onclick = () => tourOn ? stop() : start();
+updateToggle();
+addEventListener('scroll', reposition, { passive: true });
+addEventListener('resize', reposition);
+if (!reduce) setTimeout(() => { if (!tourOn) start(); }, 4600);
+</script>
+</body>
+</html>
