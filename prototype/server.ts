@@ -1,9 +1,11 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration } from "./lib/db"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
 import { uploadScreenshot } from "./lib/s3"
 import { buildIssueHtml } from "./lib/feedback"
+import { encryptSecret, decryptSecret } from "./lib/crypto"
+import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -82,6 +84,13 @@ async function sessionEmail(req: Request): Promise<string | null> {
   if (!sid) return null
   return getSession(sid)
 }
+// Identify a request authenticated by an `Authorization: Bearer <session id>` header (the extension).
+async function bearerEmail(req: Request): Promise<string | null> {
+  const h = req.headers.get("authorization") || ""
+  const m = h.match(/^Bearer\s+(.+)$/i)
+  if (!m || !db) return null
+  return getSession(m[1])
+}
 
 Bun.serve({
   port: PORT,
@@ -130,7 +139,7 @@ Bun.serve({
         await ensureWorkspace(e)
         const sid = token()
         await createSession(sid, e, Date.now() + SESSION_DAYS * 86400 * 1000)
-        return json({ ok: true, redirect: "/dashboard" }, 200, { "Set-Cookie": cookie("klav_session", sid, SESSION_DAYS * 86400, SECURE) })
+        return json({ ok: true, redirect: "/dashboard", token: sid }, 200, { "Set-Cookie": cookie("klav_session", sid, SESSION_DAYS * 86400, SECURE) })
       } catch (err: any) { return json({ error: err.message }, 500) }
     }
     if (req.method === "POST" && path === "/api/auth/logout") {
@@ -145,12 +154,27 @@ Bun.serve({
         const form = await req.formData()
         const description = String(form.get("description") || "").trim()
         const pageUrl = String(form.get("page_url") || "")
-        const planeToken = String(form.get("plane_token") || "")
-        const planeWorkspace = String(form.get("plane_workspace") || "")
-        const planeProject = String(form.get("plane_project_id") || "")
-        const planeHost = String(form.get("plane_host") || "https://api.plane.so").replace(/\/+$/, "")
         if (!description) return json({ error: "Description is required." }, 400)
-        if (!planeToken || !planeWorkspace || !planeProject) return json({ error: "Missing Plane connection details." }, 400)
+
+        // Resolve the Plane connection: Bearer (personal → team) else forwarded direct creds.
+        let planeToken = "", planeWorkspace = "", planeProject = "", planeHost = "https://api.plane.so"
+        const email = await bearerEmail(req)
+        if (email) {
+          const ms = await membershipsFor(email)
+          const stored = (await getIntegration("user", email)) || (ms[0] ? await getIntegration("workspace", ms[0].workspaceId) : null)
+          if (stored?.config?.token_enc) {
+            planeToken = await decryptSecret(stored.config.token_enc)
+            planeWorkspace = stored.config.workspace; planeProject = stored.config.projectId
+            planeHost = (stored.config.host || "https://api.plane.so").replace(/\/+$/, "")
+          }
+        }
+        if (!planeToken) { // direct mode (Phase 1): creds forwarded in the form
+          planeToken = String(form.get("plane_token") || "")
+          planeWorkspace = String(form.get("plane_workspace") || "")
+          planeProject = String(form.get("plane_project_id") || "")
+          planeHost = String(form.get("plane_host") || "https://api.plane.so").replace(/\/+$/, "")
+        }
+        if (!planeToken || !planeWorkspace || !planeProject) return json({ error: "No Plane connection. Configure one in Klavity or the extension." }, 400)
 
         // Upload screenshots (cap 5, 8MB each) to object storage.
         const files = form.getAll("screenshots").filter((f): f is File => f instanceof File).slice(0, 5)
@@ -201,6 +225,43 @@ Bun.serve({
         const active = ms[0] || null
         const members = active ? await membersOf(active.workspaceId) : []
         return json({ email: me, workspaces: ms, active, members })
+      }
+      // workspace (team) connection — read by any member, written by admins
+      if (path === "/api/integration") {
+        const ms = await membershipsFor(me); const active = ms[0]
+        if (!active) return json({ error: "No workspace." }, 400)
+        if (req.method === "GET") {
+          const cur = await getIntegration("workspace", active.workspaceId)
+          return json({ integration: cur?.integration ?? null, config: cur ? redactPlane(cur.config) : null })
+        }
+        if (req.method === "POST") {
+          if ((await roleIn(active.workspaceId, me)) !== "admin") return json({ error: "Only admins can set the team connection." }, 403)
+          const form = await req.formData()
+          const cfg = planeConfigFromForm(form) as PlaneStored
+          const tok = String(form.get("token") || "")
+          const existing = await getIntegration("workspace", active.workspaceId)
+          cfg.token_enc = tok ? await encryptSecret(tok) : (existing?.config?.token_enc ?? "")
+          if (!cfg.token_enc) return json({ error: "Token is required." }, 400)
+          await setIntegration("workspace", active.workspaceId, "plane", cfg)
+          return json({ ok: true, config: redactPlane(cfg) })
+        }
+      }
+      // personal connection — the logged-in user, synced to their account
+      if (path === "/api/integration/personal") {
+        if (req.method === "GET") {
+          const cur = await getIntegration("user", me)
+          return json({ integration: cur?.integration ?? null, config: cur ? redactPlane(cur.config) : null })
+        }
+        if (req.method === "POST") {
+          const form = await req.formData()
+          const cfg = planeConfigFromForm(form) as PlaneStored
+          const tok = String(form.get("token") || "")
+          const existing = await getIntegration("user", me)
+          cfg.token_enc = tok ? await encryptSecret(tok) : (existing?.config?.token_enc ?? "")
+          if (!cfg.token_enc) return json({ error: "Token is required." }, 400)
+          await setIntegration("user", me, "plane", cfg)
+          return json({ ok: true, config: redactPlane(cfg) })
+        }
       }
       // admin invites a user to the active workspace
       if (req.method === "POST" && path === "/api/team/invite") {
