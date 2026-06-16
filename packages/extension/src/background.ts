@@ -7,6 +7,17 @@ import { submitReport as githubSubmit } from '@klavity/core/integrations/github'
 import { submitReport as planeSubmit } from '@klavity/core/integrations/plane'
 import { submitReport as backendSubmit } from '@klavity/core/integrations/backend'
 
+// Safety net: messaging a tab/port that has no listener (e.g. a tab with no
+// content script) rejects with "Could not establish connection / Receiving end
+// does not exist / message port closed". These are benign here — swallow them so
+// they never surface as an uncaught error in the service-worker log.
+self.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+  const m = String((e.reason && e.reason.message) || e.reason || '')
+  if (/Could not establish connection|Receiving end does not exist|message port closed/i.test(m)) {
+    e.preventDefault()
+  }
+})
+
 async function getSettings(): Promise<KlavitySettings> {
   const result = await chrome.storage.sync.get('klavSettings')
   return { ...DEFAULT_SETTINGS, ...(result.klavSettings ?? {}) }
