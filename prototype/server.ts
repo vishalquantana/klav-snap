@@ -156,6 +156,7 @@ Bun.serve({
         const files = form.getAll("screenshots").filter((f): f is File => f instanceof File).slice(0, 5)
         const imageUrls: string[] = []
         for (const f of files) {
+          if (f.type && !f.type.startsWith("image/")) return json({ error: `Screenshot ${f.name} is not an image.` }, 400)
           if (f.size > 8 * 1024 * 1024) return json({ error: `Screenshot ${f.name} exceeds 8MB.` }, 400)
           imageUrls.push(await uploadScreenshot(await f.arrayBuffer(), f.type || "image/png"))
         }
@@ -170,10 +171,13 @@ Bun.serve({
 
         const data: any = await res.json()
         const webBase = planeHost === "https://api.plane.so" ? "https://app.plane.so" : planeHost
+        const issueId = String(data.id ?? "")
+        const seq = data.sequence_id != null ? String(data.sequence_id) : ""
         return json({
-          id: String(data.id ?? data.sequence_id ?? ""),
-          jira_key: String(data.sequence_id ?? ""),
-          issue_url: `${webBase}/${planeWorkspace}/projects/${planeProject}/issues/`,
+          id: issueId,
+          // Omit jira_key when Plane gives no sequence_id, so the extension's `?? id` fallback fires.
+          ...(seq ? { jira_key: seq } : {}),
+          issue_url: `${webBase}/${planeWorkspace}/projects/${planeProject}/issues/${issueId ? issueId + "/" : ""}`,
         })
       } catch (e: any) {
         return json({ error: e?.message || "feedback failed" }, 500)
