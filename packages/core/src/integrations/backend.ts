@@ -8,6 +8,14 @@ export async function submitReport(config: IntegrationConfig): Promise<SubmitRes
   form.append('page_url', context.pageUrl)
   form.append('context', JSON.stringify(context))
 
+  // Phase 1: forward Plane creds over TLS so the backend can create the issue.
+  // (Phase 2 replaces this with a Klavity Bearer token + server-side connection.)
+  const { plane } = settings
+  form.append('plane_token', plane.token)
+  form.append('plane_workspace', plane.workspace)
+  form.append('plane_project_id', plane.projectId)
+  form.append('plane_host', plane.host)
+
   for (let i = 0; i < screenshots.length; i++) {
     const blob = await (await fetch(screenshots[i])).blob()
     form.append('screenshots', blob, `screenshot-${i}.png`)
