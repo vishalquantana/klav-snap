@@ -131,6 +131,11 @@
   .ds-av img { width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
   .ds-edit { margin-left:4px; background:none; border:none; color:var(--paper-faint); cursor:pointer; font-size:13px; padding:2px 6px; border-radius:6px; flex-shrink:0; }
   .ds-edit:hover { color:var(--paper); background:var(--ink-4); }
+  .ds-savebtn{font-size:10px;font-weight:700;padding:5px 10px;border-radius:6px;background:var(--indigo);color:#fff;border:none;cursor:pointer;margin-top:6px;width:100%}
+  .ds-savebtn:disabled{opacity:.45;cursor:not-allowed}
+  .ds-savedtag{font-size:9px;font-weight:700;color:var(--green);margin-top:5px;display:flex;align-items:center;gap:5px}
+  .ds-delbtn{font-size:10px;padding:3px 8px;border-radius:6px;background:none;border:1px solid var(--line-2);color:var(--paper-faint);cursor:pointer}
+  .ds-delbtn:hover{border-color:var(--rose);color:var(--rose)}
   .ds-in { width:100%; background:var(--ink-3); border:1px solid var(--line); border-radius:7px; padding:6px 9px; color:var(--paper); font-size:12px; margin-bottom:6px; box-sizing:border-box; font-family:inherit; }
   .ds-in:focus { outline:none; border-color:var(--indigo); }
   .ds-color { width:30px; height:30px; padding:0; border:1px solid var(--line); border-radius:7px; background:none; cursor:pointer; flex-shrink:0; }
@@ -144,6 +149,9 @@
   .ds-insrow .ds-inskind { flex:0 0 78px; margin-bottom:0; padding:6px; }
   .ds-insrow .ds-instext { flex:1; margin-bottom:0; }
   .ds-insrow .ds-edit { flex:0 0 auto; align-self:center; font-size:15px; }
+  .ins-filter { display:flex; align-items:center; gap:7px; font-size:11px; font-weight:600; color:var(--paper-dim); margin-bottom:10px; cursor:pointer; user-select:none; }
+  .ins-filter input { accent-color:var(--indigo); width:14px; height:14px; cursor:pointer; }
+  .ins-filter span { font-weight:500; color:var(--paper-faint); }
   .reviewbtn { width: 100%; margin-top: 6px; font-size: 11px; padding: 6px; border-radius: 6px; background:var(--indigo);color:white;border:none;cursor:pointer; }
 
   /* lane1 tab bar */
@@ -412,6 +420,43 @@ $("transcript").value = SAMPLE
 
 let sims = []
 
+// ── Backend persona persistence ──
+async function apiSaveSim(sim) {
+  const method = sim._id ? "PUT" : "POST"
+  const url = sim._id ? `/api/personas/${sim._id}` : "/api/personas"
+  const r = await fetch(url, { method, headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: sim.name, role: sim.role, type: sim.type,
+      initials: sim.initials || sim.name.slice(0,2).toUpperCase(),
+      accent: sim.accent || "#6366f1", summary: sim.summary || "",
+      insights: sim.insights || [], avatar: sim.avatar || null }) })
+  if (!r.ok) { const d = await r.json(); throw new Error(d.error || "save failed") }
+  const d = await r.json()
+  if (!sim._id && d.persona?.id) sim._id = d.persona.id
+  sim._saved = true
+}
+async function apiDeleteSim(sim) {
+  if (!sim._id) return
+  await fetch(`/api/personas/${sim._id}`, { method: "DELETE" })
+}
+async function loadSavedSims() {
+  try {
+    const r = await fetch("/api/personas")
+    if (!r.ok) return
+    const d = await r.json()
+    if (!Array.isArray(d.personas) || !d.personas.length) return
+    // Merge: keep any unsaved session sims, prepend saved ones
+    const savedIds = new Set(d.personas.map(p => p.id))
+    sims = [
+      ...d.personas.map(p => ({ _id: p.id, _saved: true, name: p.name, role: p.role,
+        type: p.type, initials: p.initials, accent: p.accent, summary: p.summary,
+        insights: p.insights, avatar: p.avatar || undefined })),
+      ...sims.filter(s => !s._id || !savedIds.has(s._id)),
+    ]
+    renderDock(); updateFlow()
+    if (sims.length) switchL1Tab('sims')
+  } catch(e) { /* not logged in or offline, no-op */ }
+}
+
 $("clearBtn").onclick = () => { $("transcript").value = ""; }
 
 $("uploadBtn").onclick = () => $("transcriptFile").click()
@@ -474,6 +519,7 @@ $("extractBtn").onclick = async () => {
 }
 
 let editingIndex = -1
+let onlyCriticalInsights = (() => { try { return localStorage.getItem("klav-only-critical") === "1" } catch (e) { return false } })()
 
 function avatarInner(s) {
   return s.avatar
@@ -539,6 +585,15 @@ function renderDock(newIndex = -1) {
   const dock = $("dock")
   if (!sims.length) { dock.innerHTML = '<div class="hint">No Sims yet — use Import to add one.</div>'; editingIndex = -1; renderReviewPicker(); return }
   dock.innerHTML = ""
+  const filterTg = document.createElement("label")
+  filterTg.className = "ins-filter"
+  filterTg.innerHTML = `<input type="checkbox"${onlyCriticalInsights ? " checked" : ""}> Critical feedback only <span>(hide positive insights)</span>`
+  filterTg.querySelector("input").onchange = (e) => {
+    onlyCriticalInsights = e.target.checked
+    try { localStorage.setItem("klav-only-critical", onlyCriticalInsights ? "1" : "0") } catch (err) {}
+    renderDock()
+  }
+  dock.appendChild(filterTg)
   sims.forEach((s, i) => {
     const el = document.createElement("div")
     el.className = "dock-sim" + (i === newIndex ? " in" : "")
@@ -546,6 +601,7 @@ function renderDock(newIndex = -1) {
       el.innerHTML = editForm(s, i)
     } else {
       const ins = s.insights || []
+      const shown = (onlyCriticalInsights ? ins.filter(x => x.kind !== "love") : ins).slice(0, 3)
       el.innerHTML = `
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:9px">
@@ -554,7 +610,7 @@ function renderDock(newIndex = -1) {
             <div class="ds-type ${s.type === "client" ? "t-client" : "t-internal"}">${esc(s.type)}</div>
             <button class="ds-edit" data-edit="${i}" title="Edit Sim">✎</button>
           </div>
-          <div class="ds-insights">${ins.slice(0, 3).map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ")}</div>
+          <div class="ds-insights">${shown.length ? shown.map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ") : (onlyCriticalInsights && ins.length ? '<span style="opacity:.6">No critical insights</span>' : "")}</div>
           <button class="reviewbtn" data-i="${i}">Have ${esc(s.name.split(" ")[0])} review this page →</button>
         </div>`
     }
