@@ -103,7 +103,39 @@
     </div>
     <div id="cloud-fields" style="display:none">
       <label>Backend URL</label>
-      <input id="backendUrl" type="url" placeholder="https://app.klav.io">
+      <input id="backendUrl" type="url" placeholder="https://klavity.quantana.top">
+
+      <div id="klav-account" style="margin-top:14px;border-top:1px solid #45475a;padding-top:14px;">
+        <div id="klav-signedout">
+          <label>Klavity account <small>(sign in so reports file via your team/personal connection — no token kept in this browser)</small></label>
+          <div style="display:flex;gap:8px;">
+            <input id="klav-email" type="email" placeholder="you@company.com">
+            <button type="button" id="klav-send" class="secondary" style="flex:0 0 auto;width:auto;">Send code</button>
+          </div>
+          <div id="klav-otp-row" style="display:none;margin-top:8px;">
+            <div style="display:flex;gap:8px;">
+              <input id="klav-code" inputmode="numeric" placeholder="6-digit code">
+              <button type="button" id="klav-verify" class="secondary" style="flex:0 0 auto;width:auto;">Sign in</button>
+            </div>
+          </div>
+        </div>
+        <div id="klav-signedin" style="display:none;">
+          <div class="switchrow">
+            <div class="meta"><strong>✓ Signed in</strong><br><small id="klav-who"></small></div>
+            <button type="button" id="klav-signout" class="secondary" style="flex:0 0 auto;width:auto;">Sign out</button>
+          </div>
+          <div class="section" style="margin-top:14px;">
+            <h2>Personal Plane connection <small style="color:#a6adc8;font-weight:400;">(synced to your account; leave blank to use your team's)</small></h2>
+            <label>API Token</label><input id="pers-token" type="password" placeholder="•••• leave blank to keep existing">
+            <label>Host</label><input id="pers-host" type="url" placeholder="https://api.plane.so">
+            <label>Workspace Slug</label><input id="pers-workspace" placeholder="acme">
+            <label>Project ID</label><input id="pers-projectId" placeholder="proj_abc123">
+            <button type="button" id="pers-save" class="secondary" style="margin-top:12px;">Save personal connection</button>
+            <div id="pers-result" class="testresult"></div>
+          </div>
+        </div>
+        <div id="klav-msg" class="testresult"></div>
+      </div>
     </div>
   </div>
 

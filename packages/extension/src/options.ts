@@ -10,6 +10,11 @@ const $ = (id: string) => document.getElementById(id) as HTMLInputElement | HTML
 const setVal = (id: string, v: string) => { ($(id) as HTMLInputElement).value = v }
 const handlers = { jira: jiraSubmit, linear: linearSubmit, github: githubSubmit, plane: planeSubmit, backend: backendSubmit }
 
+// Klavity account state (signed-in ⇒ reports file via the user's server-side connection)
+let klavToken = ''
+let klavEmail = ''
+const backendUrl = () => ($('backendUrl') as HTMLInputElement).value.trim().replace(/\/+$/, '')
+
 function showSection(integration: IntegrationType) {
   ;['jira', 'linear', 'github', 'plane'].forEach(id => {
     const el = document.getElementById(`${id}-section`)!
@@ -23,8 +28,10 @@ function setCloud(on: boolean) {
 }
 
 async function load() {
-  const result = await chrome.storage.sync.get('klavSettings')
+  const result = await chrome.storage.sync.get(['klavSettings', 'klavEmail'])
   const s: KlavitySettings = { ...DEFAULT_SETTINGS, ...(result.klavSettings ?? {}) }
+  klavToken = s.klavToken || ''
+  klavEmail = result.klavEmail || ''
 
   ;($('integration') as HTMLSelectElement).value = s.integration
   ;($('jira-baseUrl') as HTMLInputElement).value = s.jira.baseUrl
@@ -44,6 +51,7 @@ async function load() {
   ;($('autoFileErrors') as HTMLInputElement).checked = s.autoFileErrors
 
   showSection(s.integration)
+  renderAccount()
 }
 
 $('integration').addEventListener('change', (e) => {
@@ -80,6 +88,8 @@ function readSettings(): KlavitySettings {
     integration: ($('integration') as HTMLSelectElement).value as IntegrationType,
     backendUrl: cloudOn ? ($('backendUrl') as HTMLInputElement).value.trim() : '',
     autoFileErrors: ($('autoFileErrors') as HTMLInputElement).checked,
+    connectionMode: cloudOn && klavToken ? 'klavity' : 'direct',
+    klavToken,
     jira: {
       baseUrl: ($('jira-baseUrl') as HTMLInputElement).value.trim(),
       email: ($('jira-email') as HTMLInputElement).value.trim(),
@@ -230,5 +240,107 @@ document.addEventListener('input', markDirty)
 document.addEventListener('change', markDirty)
 
 $('save').addEventListener('click', () => { clearTimeout(saveTimer); void persist() })
+
+// ── Klavity account: email→OTP sign-in, personal connection synced to the account ──
+const klavMsg = () => document.getElementById('klav-msg')!
+function setKlavMsg(ok: boolean | null, text: string) {
+  const el = klavMsg()
+  el.className = 'testresult' + (ok === true ? ' ok' : ok === false ? ' err' : '')
+  el.textContent = text
+}
+
+function renderAccount() {
+  const signedIn = !!klavToken
+  document.getElementById('klav-signedout')!.style.display = signedIn ? 'none' : ''
+  document.getElementById('klav-signedin')!.style.display = signedIn ? '' : 'none'
+  if (signedIn) {
+    ;(document.getElementById('klav-who') as HTMLElement).textContent = klavEmail || 'your Klavity account'
+    void loadPersonal()
+  }
+}
+
+async function loadPersonal() {
+  const url = backendUrl()
+  if (!url || !klavToken) return
+  try {
+    const r = await fetch(`${url}/api/integration/personal`, { headers: { Authorization: `Bearer ${klavToken}` } })
+    if (!r.ok) return
+    const d = await r.json()
+    if (d?.config) {
+      setVal('pers-host', d.config.host || 'https://api.plane.so')
+      setVal('pers-workspace', d.config.workspace || '')
+      setVal('pers-projectId', d.config.projectId || '')
+      ;($('pers-token') as HTMLInputElement).placeholder = d.config.hasToken ? '•••• saved — leave blank to keep' : 'API token'
+    }
+  } catch { /* ignore */ }
+}
+
+async function sendCode() {
+  const url = backendUrl()
+  const email = ($('klav-email') as HTMLInputElement).value.trim()
+  if (!url) return setKlavMsg(false, 'Set the Backend URL first.')
+  if (!email.includes('@')) return setKlavMsg(false, 'Enter a valid email.')
+  setKlavMsg(null, 'Sending code…')
+  try {
+    const r = await fetch(`${url}/api/auth/request`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+    const d = await r.json().catch(() => ({} as any))
+    if (!r.ok) return setKlavMsg(false, d.error || `Request failed (${r.status})`)
+    document.getElementById('klav-otp-row')!.style.display = ''
+    setKlavMsg(true, d.devCode ? `Dev code: ${d.devCode}` : 'Code sent — check your email.')
+  } catch (e) { setKlavMsg(false, (e as Error).message) }
+}
+
+async function verifyCode() {
+  const url = backendUrl()
+  const email = ($('klav-email') as HTMLInputElement).value.trim()
+  const code = ($('klav-code') as HTMLInputElement).value.trim()
+  setKlavMsg(null, 'Signing in…')
+  try {
+    const r = await fetch(`${url}/api/auth/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) })
+    const d = await r.json().catch(() => ({} as any))
+    if (!r.ok || !d.token) return setKlavMsg(false, d.error || 'Invalid or expired code.')
+    klavToken = d.token; klavEmail = email
+    await chrome.storage.sync.set({ klavEmail })
+    await persist() // writes klavToken + connectionMode into settings
+    document.getElementById('klav-otp-row')!.style.display = 'none'
+    setKlavMsg(null, '')
+    renderAccount()
+  } catch (e) { setKlavMsg(false, (e as Error).message) }
+}
+
+async function signOut() {
+  klavToken = ''; klavEmail = ''
+  await chrome.storage.sync.set({ klavEmail: '' })
+  await persist()
+  renderAccount()
+  setKlavMsg(null, '')
+}
+
+async function savePersonal() {
+  const url = backendUrl()
+  const msg = document.getElementById('pers-result')!
+  const setMsg = (ok: boolean | null, t: string) => { msg.className = 'testresult' + (ok === true ? ' ok' : ok === false ? ' err' : ''); msg.textContent = t }
+  if (!url || !klavToken) return setMsg(false, 'Sign in first.')
+  const form = new FormData()
+  const tok = ($('pers-token') as HTMLInputElement).value.trim()
+  if (tok) form.set('token', tok)
+  form.set('host', ($('pers-host') as HTMLInputElement).value.trim() || 'https://api.plane.so')
+  form.set('workspace', ($('pers-workspace') as HTMLInputElement).value.trim())
+  form.set('project_id', ($('pers-projectId') as HTMLInputElement).value.trim())
+  setMsg(null, 'Saving…')
+  try {
+    const r = await fetch(`${url}/api/integration/personal`, { method: 'POST', headers: { Authorization: `Bearer ${klavToken}` }, body: form })
+    const d = await r.json().catch(() => ({} as any))
+    if (!r.ok) return setMsg(false, d.error || `Failed (${r.status})`)
+    ;($('pers-token') as HTMLInputElement).value = ''
+    ;($('pers-token') as HTMLInputElement).placeholder = '•••• saved — leave blank to keep'
+    setMsg(true, '✓ Personal connection saved (synced to your account).')
+  } catch (e) { setMsg(false, (e as Error).message) }
+}
+
+$('klav-send').addEventListener('click', () => void sendCode())
+$('klav-verify').addEventListener('click', () => void verifyCode())
+$('klav-signout').addEventListener('click', () => void signOut())
+$('pers-save').addEventListener('click', () => void savePersonal())
 
 load().then(() => setSaveState('saved'))
