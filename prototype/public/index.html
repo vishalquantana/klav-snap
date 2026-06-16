@@ -250,7 +250,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 </div>
 <div class="wrap">
   <div class="head">
-    <div class="logo"><img src="/favicon.svg" width="34" height="34" alt="Klavity" /></div>
+    <div class="logo" id="appLogo" style="cursor:default"><img src="/favicon.svg" width="34" height="34" alt="Klavity" /></div>
     <div>
       <h1>Klavity · Sims Studio</h1>
       <div class="sub">Add a Sim, then watch one review this page and file what it finds.</div>
@@ -573,21 +573,22 @@ async function review(i) {
   setStatus("reactStatus", `👀 ${sim.name.split(" ")[0]} is reviewing… (Claude vision, 10-30s)`)
   const reactKey = "react_" + devHash(sim.name + "|" + sim.role + "|" + pageUrl)
   const cachedReact = devCacheGet(reactKey)
-  if (cachedReact) {
-    setStatus("reactStatus", `⚡ [cache] ${sim.name.split(" ")[0]} gave ${cachedReact.reactions.length} reaction(s) (${devCacheCount()} entries cached)`)
-    playReactions(sim, cachedReact.reactions)
-  } else {
   try {
-    const r = await fetch("/api/react", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ persona: sim, imageB64, mediaType: "image/png", pageUrl }) })
-    const data = await r.json()
-    if (data.error) throw new Error(data.error)
-    devCacheSet(reactKey, { reactions: data.reactions }); renderDevBar()
-    setStatus("reactStatus", `✅ ${sim.name.split(" ")[0]} gave ${data.reactions.length} reaction(s).` + usageStr(data.usage))
-    playReactions(sim, data.reactions)
-  } catch (e) { setStatus("reactStatus", "Error: " + e.message, true) }
-  }
-  finally {
+    if (cachedReact) {
+      setStatus("reactStatus", `⚡ [cache] ${sim.name.split(" ")[0]} gave ${cachedReact.reactions.length} reaction(s) (${devCacheCount()} entries cached)`)
+      playReactions(sim, cachedReact.reactions)
+    } else {
+      const r = await fetch("/api/react", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ persona: sim, imageB64, mediaType: "image/png", pageUrl }) })
+      const data = await r.json()
+      if (data.error) throw new Error(data.error)
+      devCacheSet(reactKey, { reactions: data.reactions }); renderDevBar()
+      setStatus("reactStatus", `✅ ${sim.name.split(" ")[0]} gave ${data.reactions.length} reaction(s).` + usageStr(data.usage))
+      playReactions(sim, data.reactions)
+    }
+  } catch (e) {
+    setStatus("reactStatus", "Error: " + e.message, true)
+  } finally {
     reviewing.delete(i)
     if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = `Have ${sim.name.split(" ")[0]} review this page →` }
   }
@@ -846,8 +847,11 @@ updateFlow()
 const DEV_NS = "klav_dev_"
 const DEV_SIMS_KEY = "klav_dev_sims"
 const DEV_MODE_KEY = "klav_dev_mode"
+const DEV_UNLOCKED_KEY = "klav_dev_unlocked"
 let devEnabled = false
+let devUnlocked = false
 try { devEnabled = localStorage.getItem(DEV_MODE_KEY) === "1" } catch(e) {}
+try { devUnlocked = localStorage.getItem(DEV_UNLOCKED_KEY) === "1" } catch(e) {}
 
 function devHash(s) {
   let h = 5381
@@ -882,6 +886,7 @@ function devLoadSims() {
   return false
 }
 function renderDevBar() {
+  if (!devUnlocked) return
   $("devbar").style.display = "flex"
   $("devToggle").checked = devEnabled
   $("devStat").textContent = devCacheCount() + " entries cached"
@@ -900,6 +905,22 @@ $("devClear").onclick = () => {
   } catch(e) {}
   renderDevBar()
 }
+
+// ── Logo 5-click easter egg to reveal dev bar ──
+let logoClicks = 0, logoTimer = null
+$("appLogo").addEventListener("click", () => {
+  logoClicks++
+  clearTimeout(logoTimer)
+  if (logoClicks >= 5) {
+    logoClicks = 0
+    devUnlocked = true
+    try { localStorage.setItem(DEV_UNLOCKED_KEY, "1") } catch(e) {}
+    renderDevBar()
+  } else {
+    logoTimer = setTimeout(() => { logoClicks = 0 }, 1500)
+  }
+})
+
 renderDevBar()
 if (devEnabled) devLoadSims()
 </script>
