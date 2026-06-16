@@ -38,9 +38,7 @@ function getTrackerUrl(settings: KlavitySettings): string {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({ id: 'klavity-bug', title: '🐛 Report a Bug', contexts: ['all'] })
-  chrome.contextMenus.create({ id: 'klavity-feature', title: '💡 Request a Feature', contexts: ['all'] })
-  chrome.contextMenus.create({ id: 'klavity-history', title: '📋 View submissions', contexts: ['all'] })
+  // Native context menu replaced by custom overlay in content script.
 })
 
 // Send to a tab's content script via the callback form, which CONSUMES
@@ -75,21 +73,15 @@ async function openModal(tabId: number, reportType: ReportType) {
   console.warn('[Klavity] content script did not respond after injection')
 }
 
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (!tab?.id) return
-
-  if (info.menuItemId === 'klavity-history') {
-    const settings = await getSettings()
-    const url = getTrackerUrl(settings)
-    if (url) chrome.tabs.create({ url })
-    return
+chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendResponse) => {
+  if (msg.kind === 'OPEN_TRACKER_URL') {
+    getSettings().then(settings => {
+      const url = getTrackerUrl(settings)
+      if (url) chrome.tabs.create({ url })
+    })
+    return true
   }
 
-  const reportType: ReportType = info.menuItemId === 'klavity-bug' ? 'bug' : 'feature'
-  openModal(tab.id, reportType)
-})
-
-chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendResponse) => {
   if (msg.kind === 'AUTO_FILE_ERROR') {
     getSettings().then(settings => {
       // Guard again on the background side in case the flag changed between

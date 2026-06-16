@@ -67,6 +67,7 @@ let shadowRoot: ShadowRoot | null = null
 let screenshots: string[] = []
 let currentReportType: ReportType = 'bug'
 let pendingRegionCapture = false
+let pendingFullCapture = false
 
 function getHost(): ShadowRoot {
   if (!shadowRoot) {
@@ -93,6 +94,7 @@ function buildContext(): SubmitReportPayload['context'] {
 const ICONS = {
   bug: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3.003 3.003 0 1 1 6 0v1M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6Zm0 0v-9M6.53 9C4.6 8.8 3 7.1 3 5m3 8H2m1 8c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4m-.8 4c2.1.1 3.8 1.9 3.8 4"/></svg>`,
   bulb: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z"/></svg>`,
+  clipboard: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/></svg>`,
   camera: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>`,
   crop: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>`,
   image: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="M16 5h6M19 2v6"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>`,
@@ -249,6 +251,9 @@ function addScreenshot(dataUrl: string) {
 }
 
 function captureFullPage() {
+  const host = shadowRoot?.host as HTMLElement | undefined
+  if (host) host.style.display = 'none'
+  pendingFullCapture = true
   chrome.runtime.sendMessage({ kind: 'CAPTURE_TAB' } satisfies BackgroundMessage).catch(() => {})
 }
 
@@ -499,9 +504,12 @@ async function handleSubmit(description: string) {
 // ── Message listener ─────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
   if (msg.kind === 'CAPTURE_TAB_RESULT') {
-    // Fire custom event for region capture listener
     document.dispatchEvent(new CustomEvent('klavity-capture-result', { detail: msg.dataUrl }))
-    // Only add to strip directly if NOT a region capture (region capture handles its own crop+add)
+    if (pendingFullCapture) {
+      pendingFullCapture = false
+      const host = shadowRoot?.host as HTMLElement | undefined
+      if (host) host.style.display = ''
+    }
     if (!pendingRegionCapture && shadowRoot?.querySelector('.klavity-overlay')) {
       addScreenshot(msg.dataUrl)
     }
@@ -538,4 +546,72 @@ chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
   if (msg.kind === 'OPEN_MODAL') {
     openModal(msg.reportType)
   }
+})
+
+// ── Custom right-click menu ──────────────────────────────────────────────────
+let ctxMenuEl: HTMLElement | null = null
+
+function closeCtxMenu() {
+  ctxMenuEl?.remove()
+  ctxMenuEl = null
+}
+
+function showCtxMenu(x: number, y: number) {
+  closeCtxMenu()
+
+  const menu = document.createElement('div')
+  ctxMenuEl = menu
+  menu.style.cssText = 'position:fixed;z-index:2147483647;background:#fff;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.08);min-width:224px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;border:1px solid rgba(0,0,0,.06);padding:4px 0;'
+  menu.style.left = `${x}px`
+  menu.style.top = `${y}px`
+
+  const entries: Array<{ icon: string; iconColor: string; label: string; action: () => void }> = [
+    { icon: ICONS.bug, iconColor: '#E94F37', label: 'Report a Bug', action: () => openModal('bug') },
+    { icon: ICONS.bulb, iconColor: '#F4A93C', label: 'Request a Feature', action: () => openModal('feature') },
+    { icon: ICONS.clipboard, iconColor: '#8A837A', label: 'View submissions', action: () => { chrome.runtime.sendMessage({ kind: 'OPEN_TRACKER_URL' } satisfies BackgroundMessage).catch(() => {}) } },
+  ]
+
+  entries.forEach((entry, i) => {
+    if (i > 0) {
+      const sep = document.createElement('div')
+      sep.style.cssText = 'height:1px;background:#f0f0f0;margin:0 12px;'
+      menu.appendChild(sep)
+    }
+    const btn = document.createElement('button')
+    btn.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;background:transparent;border:none;cursor:pointer;font-size:15px;font-weight:500;color:#1a1a1a;text-align:left;'
+    const iconSpan = document.createElement('span')
+    iconSpan.style.cssText = `display:inline-flex;flex-shrink:0;color:${entry.iconColor};`
+    iconSpan.innerHTML = entry.icon
+    const labelSpan = document.createElement('span')
+    labelSpan.textContent = entry.label
+    btn.append(iconSpan, labelSpan)
+    btn.addEventListener('mouseenter', () => { btn.style.background = '#f5f5f5' })
+    btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent' })
+    btn.addEventListener('click', () => { closeCtxMenu(); entry.action() })
+    menu.appendChild(btn)
+  })
+
+  document.body.appendChild(menu)
+
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect()
+    if (r.right > window.innerWidth - 8) menu.style.left = `${x - r.width}px`
+    if (r.bottom > window.innerHeight - 8) menu.style.top = `${y - r.height}px`
+  })
+
+  const onOutside = (e: MouseEvent) => {
+    if (!menu.contains(e.target as Node)) { closeCtxMenu(); document.removeEventListener('mousedown', onOutside) }
+  }
+  const onEsc = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') { e.stopPropagation(); closeCtxMenu(); document.removeEventListener('keydown', onEsc, { capture: true }) }
+  }
+  setTimeout(() => {
+    document.addEventListener('mousedown', onOutside)
+    document.addEventListener('keydown', onEsc, { capture: true })
+  }, 0)
+}
+
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault()
+  showCtxMenu(e.clientX, e.clientY)
 })

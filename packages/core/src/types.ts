@@ -77,6 +77,7 @@ export type BackgroundMessage =
   | { kind: 'CAPTURE_TAB' }
   | { kind: 'SUBMIT_REPORT'; payload: SubmitReportPayload }
   | { kind: 'AUTO_FILE_ERROR'; message: string; stack?: string; pageUrl: string; timestamp: number }
+  | { kind: 'OPEN_TRACKER_URL' }
 
 export type ContentMessage =
   | { kind: 'OPEN_MODAL'; reportType: ReportType }
