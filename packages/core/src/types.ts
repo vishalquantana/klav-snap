@@ -81,7 +81,7 @@ export type BackgroundMessage =
 
 export type ContentMessage =
   | { kind: 'OPEN_MODAL'; reportType: ReportType }
-  | { kind: 'CAPTURE_TAB_RESULT'; dataUrl: string }
+  | { kind: 'CAPTURE_TAB_RESULT'; dataUrl: string; error?: string }
   | { kind: 'SUBMIT_SUCCESS'; issueKey: string; issueUrl: string }
   | { kind: 'SUBMIT_ERROR'; message: string }
 

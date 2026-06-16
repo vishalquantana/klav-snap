@@ -123,14 +123,27 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
   }
 
   if (msg.kind === 'CAPTURE_TAB') {
-    const winId = sender.tab?.windowId ?? chrome.windows.WINDOW_ID_CURRENT
-    chrome.tabs.captureVisibleTab(winId, { format: 'png' }, (dataUrl) => {
-      const tabId = sender.tab?.id
-      if (chrome.runtime.lastError || !dataUrl) {
-        console.warn('[Klavity] capture failed:', chrome.runtime.lastError?.message)
-        // Still notify the content script (empty dataUrl) so it re-shows the modal
-        // instead of leaving it hidden — otherwise the modal "flashes and disappears".
-        if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl: '' })
+    const tabId = sender.tab?.id
+    // Try capturing the current window active tab first (best for Arc)
+    chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
+      const errorMsg = chrome.runtime.lastError?.message || ''
+      if (errorMsg || !dataUrl) {
+        // Fallback: Try with sender tab's specific windowId
+        const winId = sender.tab?.windowId
+        if (winId) {
+          chrome.tabs.captureVisibleTab(winId, { format: 'png' }, (dataUrl2) => {
+            const errorMsg2 = chrome.runtime.lastError?.message || ''
+            if (errorMsg2 || !dataUrl2) {
+              console.warn('[Klavity] capture failed with winId fallback:', errorMsg2)
+              if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl: '', error: errorMsg2 })
+              return
+            }
+            if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl: dataUrl2 })
+          })
+          return
+        }
+        console.warn('[Klavity] capture failed without winId:', errorMsg)
+        if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl: '', error: errorMsg })
         return
       }
       if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl })

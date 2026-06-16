@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona } from "./lib/db"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
 import { uploadScreenshot } from "./lib/s3"
@@ -228,6 +228,62 @@ Bun.serve({
       } catch (e: any) {
         return json({ error: e?.message || "feedback failed" }, 500)
       }
+    }
+
+    // ── personas (Sims library) — cookie OR Bearer ──
+    if (path === "/api/personas" || path.startsWith("/api/personas/")) {
+      const me2 = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!me2) return json({ error: "Sign in to continue." }, 401)
+      const ms2 = await membershipsFor(me2)
+      const ws2 = ms2[0]
+      if (!ws2) return json({ error: "No workspace." }, 400)
+      const wid = ws2.workspaceId
+
+      if (req.method === "GET" && path === "/api/personas") {
+        const personas = await listPersonas(wid)
+        return json({ personas })
+      }
+      if (req.method === "POST" && path === "/api/personas") {
+        try {
+          const body = await req.json()
+          const id = "sim_" + crypto.randomUUID()
+          await upsertPersona(id, wid, {
+            name: String(body.name || "Unnamed"), role: String(body.role || ""),
+            type: body.type === "internal" ? "internal" : "client",
+            initials: String(body.initials || "").slice(0, 2).toUpperCase(),
+            accent: String(body.accent || "#6366f1"),
+            summary: String(body.summary || ""),
+            insights: Array.isArray(body.insights) ? body.insights : [],
+            avatar: body.avatar ? String(body.avatar) : null,
+          })
+          const [saved] = (await listPersonas(wid)).filter(p => p.id === id)
+          return json({ persona: saved }, 201)
+        } catch (e: any) { return json({ error: e.message }, 500) }
+      }
+      const idMatch = path.match(/^\/api\/personas\/([^/]+)$/)
+      if (idMatch) {
+        const pid = idMatch[1]
+        if (req.method === "PUT") {
+          try {
+            const body = await req.json()
+            await upsertPersona(pid, wid, {
+              name: String(body.name || "Unnamed"), role: String(body.role || ""),
+              type: body.type === "internal" ? "internal" : "client",
+              initials: String(body.initials || "").slice(0, 2).toUpperCase(),
+              accent: String(body.accent || "#6366f1"),
+              summary: String(body.summary || ""),
+              insights: Array.isArray(body.insights) ? body.insights : [],
+              avatar: body.avatar ? String(body.avatar) : null,
+            })
+            return json({ ok: true })
+          } catch (e: any) { return json({ error: e.message }, 500) }
+        }
+        if (req.method === "DELETE") {
+          await deletePersona(pid, wid)
+          return json({ ok: true })
+        }
+      }
+      return json({ error: "Not found" }, 404)
     }
 
     // ── everything below requires a session ──

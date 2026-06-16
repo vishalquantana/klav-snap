@@ -118,6 +118,11 @@
   /* box highlight on stage */
   .hilite { position: absolute; border: 2px solid var(--indigo); background: rgba(99,102,241,.12); border-radius: 6px; z-index: 50; pointer-events: none; box-shadow: 0 0 0 3px rgba(99,102,241,.12); transition: opacity .3s; }
 
+  /* reaction bubble — docked BELOW the stage so it never covers the page being reviewed */
+  .rbubble { position: absolute; max-width: 320px; background: var(--ink-2); border: 1.5px solid var(--line-2); border-radius: 13px; padding: 11px 13px; box-shadow: 0 10px 30px rgba(0,0,0,.28); opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; pointer-events: none; z-index: 80; }
+  .rbubble.show { opacity: 1; transform: none; }
+  .rbubble::before { content:''; position:absolute; top:-7px; left:var(--tail-x,40px); transform:translateX(-50%); border:7px solid transparent; border-bottom-color:var(--line-2); border-top:none; }
+
   /* dock */
   .dock-sim { display: flex; align-items: center; gap: 10px; padding: 9px; border-radius: 10px; border: 1px solid var(--line); margin-bottom: 8px; cursor: default; background:var(--ink-3); }
   .ds-av { width: 34px; height: 34px; border-radius: 50%; display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0; }
@@ -135,6 +140,10 @@
   .ds-type { font-size: 8px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-left: auto; }
   .t-client{background:rgba(99,102,241,.15);color:var(--blue)}.t-internal{background:var(--ink-4);color:var(--paper-dim)}
   .ds-insights { font-size: 9px; color:var(--paper-faint); margin-top:4px; }
+  .ds-insrow { display:flex; gap:6px; margin-bottom:6px; align-items:flex-start; }
+  .ds-insrow .ds-inskind { flex:0 0 78px; margin-bottom:0; padding:6px; }
+  .ds-insrow .ds-instext { flex:1; margin-bottom:0; }
+  .ds-insrow .ds-edit { flex:0 0 auto; align-self:center; font-size:15px; }
   .reviewbtn { width: 100%; margin-top: 6px; font-size: 11px; padding: 6px; border-radius: 6px; background:var(--indigo);color:white;border:none;cursor:pointer; }
 
   /* lane1 tab bar */
@@ -353,6 +362,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
               </div>
             </div>
           </div>
+          <div id="reactBubble" class="rbubble"></div>
         </div>
         <div class="row">
           <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;">
@@ -487,6 +497,20 @@ function editForm(s, i) {
         <option value="internal"${s.type === "internal" ? " selected" : ""}>internal</option>
       </select>
       <textarea class="ds-in" data-summary="${i}" rows="2" placeholder="Summary">${esc(s.summary || "")}</textarea>
+      <div class="label" style="font-size:10px;margin:6px 0 4px">Insights (want / pain / love)</div>
+      <div class="ds-insrows">
+        ${(s.insights || []).map((x, j) => `
+          <div class="ds-insrow">
+            <select class="ds-in ds-inskind" data-inskind="${i}-${j}">
+              <option value="pain"${x.kind === "pain" ? " selected" : ""}>pain</option>
+              <option value="want"${x.kind === "want" ? " selected" : ""}>want</option>
+              <option value="love"${x.kind === "love" ? " selected" : ""}>love</option>
+            </select>
+            <textarea class="ds-in ds-instext" data-instext="${i}-${j}" rows="2" placeholder="Insight text">${esc(x.text || "")}</textarea>
+            <button class="ds-edit" data-insrm="${i}-${j}" title="Remove insight">×</button>
+          </div>`).join("")}
+      </div>
+      <button class="ghost dsm" data-insadd="${i}" style="margin-bottom:6px">+ insight</button>
       <div class="row" style="margin-top:2px">
         <button class="primary dsm" data-save="${i}">Save</button>
         <button class="ghost dsm" data-cancel="${i}">Cancel</button>
@@ -554,9 +578,19 @@ function wireDock() {
     const av = inp.closest(".ds-editform").querySelector(".ds-av")
     if (av) av.style.background = e.target.value
   })
+  dock.querySelectorAll("[data-insadd]").forEach(b => b.onclick = () => {
+    const i = Number(b.dataset.insadd); applyEdit(i)
+    ;(sims[i].insights = sims[i].insights || []).push({ kind: "want", text: "" })
+    renderDock()
+  })
+  dock.querySelectorAll("[data-insrm]").forEach(b => b.onclick = () => {
+    const [i, j] = b.dataset.insrm.split("-").map(Number); applyEdit(i)
+    sims[i].insights.splice(j, 1); renderDock()
+  })
 }
 
-function saveEdit(i) {
+// Read the current edit-form values (including the insights list) back into sims[i].
+function applyEdit(i) {
   const dock = $("dock")
   const g = (attr) => dock.querySelector(`[${attr}="${i}"]`)
   const s = sims[i]
@@ -565,9 +599,21 @@ function saveEdit(i) {
   s.type = g("data-type").value
   s.summary = g("data-summary").value.trim()
   s.accent = g("data-accent").value
+  const ins = []
+  dock.querySelectorAll(`[data-instext^="${i}-"]`).forEach(t => {
+    const kindEl = dock.querySelector(`[data-inskind="${t.dataset.instext}"]`)
+    ins.push({ kind: kindEl ? kindEl.value : "want", text: t.value.trim() })
+  })
+  s.insights = ins
   if (!s.avatar) s.initials = s.name.slice(0, 2).toUpperCase()
+}
+
+function saveEdit(i) {
+  applyEdit(i)
+  sims[i].insights = (sims[i].insights || []).filter(x => x.text)
   editingIndex = -1
   renderDock()
+  devSaveSims()
 }
 
 function onAvatar(i, e) {
@@ -644,28 +690,41 @@ async function playReactions(sim, reactions) {
   char.style.left = "8px"; char.style.top = (H - 56) + "px"
   await sleep(60)
 
+  // Selectors for the real mockup components the model might be pointing at.
+  const SNAP_SEL = ".kpi,.card,.ap,.apb,.dni,.act,.badge,.dlogo,.dbrand,.dtitle,.dsub"
   for (const rx of reactions) {
     const box = rx.box
     let cx = W * 0.5, cy = H * 0.5
     let hi = null
     if (box && typeof box.x === "number") {
-      const bx = box.x * W, by = box.y * H, bw = box.w * W, bh = box.h * H
+      let bx = box.x * W, by = box.y * H, bw = box.w * W, bh = box.h * H
+      // The model returns an approximate box. The mockup is live DOM, so snap the
+      // outline to the real element under the box centre — it then frames the actual
+      // component instead of the rough guess. (Falls back to the raw box for uploaded
+      // screenshots, where there's no element to snap to.)
+      const sr = stage.getBoundingClientRect()
+      const el = document.elementFromPoint(sr.left + bx + bw / 2, sr.top + by + bh / 2)
+      const snap = el && stage.contains(el) ? el.closest(SNAP_SEL) : null
+      if (snap) {
+        const r = snap.getBoundingClientRect()
+        bx = r.left - sr.left - 3; by = r.top - sr.top - 3; bw = r.width + 6; bh = r.height + 6
+      }
       cx = bx + bw / 2; cy = by + bh / 2
       hi = document.createElement("div"); hi.className = "hilite"
       hi.style.left = bx + "px"; hi.style.top = by + "px"; hi.style.width = bw + "px"; hi.style.height = bh + "px"
       stage.appendChild(hi)
     }
     // walk to just below the target
+    const charX = Math.max(4, Math.min(W - 42, cx - 19))
     char.classList.add("walking"); char.classList.remove("pointing")
-    char.style.left = Math.max(4, Math.min(W - 42, cx - 19)) + "px"
+    char.style.left = charX + "px"
     char.style.top = Math.max(4, Math.min(H - 56, cy + 8)) + "px"
     await sleep(950)
     char.classList.remove("walking"); char.classList.add("pointing")
-    char.classList.toggle("below", cy < H * 0.42)
-    showBubble(char, sim, rx)
+    showBubble(sim, rx, charX + 19)
     addDraft(sim, rx)
     await sleep(4200)
-    hideBubble(char)
+    hideBubble()
     if (hi) hi.style.opacity = "0"
     await sleep(350)
   }
@@ -681,7 +740,6 @@ function makeChar(sim) {
   const el = document.createElement("div")
   el.className = "sim-char"
   el.innerHTML = `
-    <div class="bubble" data-bubble></div>
     <div style="position:relative;display:flex;flex-direction:column;align-items:center">
       <div class="ch-arm" style="background:${shade(sim.accent)}"><span class="ch-fing">👆</span></div>
       <div class="ch-head" style="background:${sim.accent || "#6366f1"};overflow:hidden">${sim.avatar ? `<img src="${sim.avatar}" alt="" style="width:100%;height:100%;object-fit:cover">` : (sim.initials || sim.name.slice(0,2).toUpperCase())}</div>
@@ -690,17 +748,26 @@ function makeChar(sim) {
   return el
 }
 
-function showBubble(char, sim, rx) {
-  const b = char.querySelector("[data-bubble]")
+function showBubble(sim, rx, tailX) {
+  const b = $("reactBubble"); if (!b) return
+  const stage = $("stage"), W = stage.clientWidth
   const bug = rx.suggestedBug
   b.innerHTML = `
     <div class="bn" style="color:${sim.accent || "#89b4fa"}">${esc(sim.name)} · ${esc(sim.role)} ${rx.emoji || ""}</div>
     <div class="bo">${esc(rx.observation)}</div>
     ${bug ? `<div class="bbug"><div class="bt">🐛 ${esc(bug.title)} <span style="color:var(--paper-faint)">(${bug.severity})</span></div><div class="bd">${esc(bug.body)}</div></div>` : ""}
     <div style="font-size:9.5px;color:var(--paper-faint);margin-top:7px;font-weight:600">↓ saved to your draft queue</div>`
+  // dock below the stage so the mockup stays fully visible
+  const bw = Math.min(320, W - 8)
+  const tx = (typeof tailX === "number") ? tailX : W / 2
+  const left = Math.max(0, Math.min(W - bw, tx - bw / 2))
+  b.style.width = bw + "px"
+  b.style.left = left + "px"
+  b.style.top = (stage.clientHeight + 12) + "px"
+  b.style.setProperty("--tail-x", Math.max(16, Math.min(bw - 16, tx - left)) + "px")
   b.classList.add("show")
 }
-function hideBubble(char){ const b=char.querySelector("[data-bubble]"); if(b) b.classList.remove("show") }
+function hideBubble(){ const b=$("reactBubble"); if(b) b.classList.remove("show") }
 
 // ── draft queue: Sim reactions collect here; the user picks which to save to Klavity ──
 let drafts = []
@@ -746,7 +813,7 @@ function saveDrafts(){
   if (n) finishGuide()
 }
 
-function clearOverlays(){ document.querySelectorAll(".hilite,.sim-char").forEach(e=>e.remove()) }
+function clearOverlays(){ hideBubble(); document.querySelectorAll(".hilite,.sim-char").forEach(e=>e.remove()) }
 
 // upload handling
 $("upload").onchange = (e) => {

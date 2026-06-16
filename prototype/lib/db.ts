@@ -21,6 +21,21 @@ export async function initDb() {
        updated_at INTEGER NOT NULL,
        PRIMARY KEY (scope, owner_id)
      )`,
+    `CREATE TABLE IF NOT EXISTS personas (
+       id TEXT PRIMARY KEY,             -- sim_<uuid>
+       workspace_id TEXT NOT NULL,
+       name TEXT NOT NULL,
+       role TEXT,
+       type TEXT NOT NULL DEFAULT 'client',
+       initials TEXT,
+       accent TEXT,
+       summary TEXT,
+       insights_json TEXT,
+       avatar TEXT,
+       created_at INTEGER NOT NULL,
+       updated_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS persona_ws_idx ON personas (workspace_id, created_at)`,
   ]
   for (const s of stmts) await db.execute(s)
   console.log("✓ Turso connected, schema ready")
@@ -100,4 +115,39 @@ export async function setIntegration(scope: 'workspace' | 'user', ownerId: strin
 }
 export async function deleteIntegration(scope: 'workspace' | 'user', ownerId: string) {
   await db!.execute({ sql: "DELETE FROM integrations WHERE scope=? AND owner_id=?", args: [scope, ownerId] })
+}
+
+// ── personas (Sims) ──
+export type PersonaRow = {
+  id: string; workspaceId: string; name: string; role: string; type: string
+  initials: string; accent: string; summary: string; insights: any[]; avatar: string | null
+  createdAt: number; updatedAt: number
+}
+function rowToPersona(x: any): PersonaRow {
+  return {
+    id: String(x.id), workspaceId: String(x.workspace_id), name: String(x.name),
+    role: String(x.role || ""), type: String(x.type || "client"),
+    initials: String(x.initials || ""), accent: String(x.accent || "#6366f1"),
+    summary: String(x.summary || ""), insights: x.insights_json ? JSON.parse(String(x.insights_json)) : [],
+    avatar: x.avatar ? String(x.avatar) : null, createdAt: Number(x.created_at), updatedAt: Number(x.updated_at),
+  }
+}
+export async function listPersonas(workspaceId: string): Promise<PersonaRow[]> {
+  const r = await db!.execute({ sql: "SELECT * FROM personas WHERE workspace_id=? ORDER BY created_at ASC", args: [workspaceId] })
+  return r.rows.map(rowToPersona)
+}
+export async function upsertPersona(id: string, workspaceId: string, data: Omit<PersonaRow, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>) {
+  const now = Date.now()
+  await db!.execute({
+    sql: `INSERT INTO personas (id,workspace_id,name,role,type,initials,accent,summary,insights_json,avatar,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,type=excluded.type,
+          initials=excluded.initials,accent=excluded.accent,summary=excluded.summary,
+          insights_json=excluded.insights_json,avatar=excluded.avatar,updated_at=excluded.updated_at`,
+    args: [id, workspaceId, data.name, data.role, data.type, data.initials, data.accent, data.summary,
+           JSON.stringify(data.insights), data.avatar ?? null, now, now],
+  })
+}
+export async function deletePersona(id: string, workspaceId: string) {
+  await db!.execute({ sql: "DELETE FROM personas WHERE id=? AND workspace_id=?", args: [id, workspaceId] })
 }

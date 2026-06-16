@@ -9,7 +9,7 @@
     "https://api.linear.app/*",
     "https://api.github.com/*",
     "https://api.plane.so/*",
-    "https://*/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "src/background.ts",

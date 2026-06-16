@@ -442,6 +442,7 @@ function startRegion() {
       linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)) ${x}px 0/${w}px ${y}px,
       linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)) ${x}px ${y+h}px/${w}px calc(100% - ${y+h}px)
     `
+    overlay.style.backgroundRepeat = 'no-repeat'
   })
 
   overlay.addEventListener('pointerup', async (e) => {
@@ -457,16 +458,27 @@ function startRegion() {
     // Capture full page, then crop to selected rect
     const onCapture = async (ev: Event) => {
       pendingRegionCapture = false
-      const dataUrl = (ev as CustomEvent).detail as string
+      const { dataUrl, error } = (ev as CustomEvent).detail as { dataUrl: string; error?: string }
+      if (!dataUrl) {
+        if (host) host.style.display = ''
+        document.removeEventListener('keydown', escHandler, { capture: true })
+        showToast(error ? `Screen capture failed: ${error}` : 'Screen capture failed. Check extension permissions.')
+        return
+      }
       const dpr = window.devicePixelRatio || 1
-      const cropped = await cropDataUrl(
-        dataUrl,
-        { x: rect.x * dpr, y: rect.y * dpr, w: rect.w * dpr, h: rect.h * dpr },
-        window.scrollX * dpr,
-        window.scrollY * dpr,
-      )
-      if (host) host.style.display = ''
-      addScreenshot(cropped)
+      try {
+        const cropped = await cropDataUrl(
+          dataUrl,
+          { x: rect.x * dpr, y: rect.y * dpr, w: rect.w * dpr, h: rect.h * dpr },
+          window.scrollX * dpr,
+          window.scrollY * dpr,
+        )
+        if (host) host.style.display = ''
+        addScreenshot(cropped)
+      } catch (err) {
+        if (host) host.style.display = ''
+        showToast('Failed to crop screenshot.')
+      }
       document.removeEventListener('keydown', escHandler, { capture: true })
     }
     pendingRegionCapture = true
@@ -626,11 +638,14 @@ async function handleSubmit(description: string) {
 // ── Message listener ─────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
   if (msg.kind === 'CAPTURE_TAB_RESULT') {
-    document.dispatchEvent(new CustomEvent('klavity-capture-result', { detail: msg.dataUrl }))
+    document.dispatchEvent(new CustomEvent('klavity-capture-result', { detail: { dataUrl: msg.dataUrl, error: msg.error } }))
     if (pendingFullCapture) {
       pendingFullCapture = false
       const host = shadowRoot?.host as HTMLElement | undefined
       if (host) host.style.display = ''
+      if (!msg.dataUrl) {
+        showToast(msg.error ? `Screen capture failed: ${msg.error}` : 'Screen capture failed. Check extension permissions.')
+      }
     }
     if (!pendingRegionCapture && shadowRoot?.querySelector('.klavity-overlay')) {
       addScreenshot(msg.dataUrl)
