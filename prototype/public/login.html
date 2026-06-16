@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in · Klav</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#0c0a08;--ink-2:#15110d;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;--indigo:#8b8bf5;--indigo-deep:#6366f1;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11);
+--display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(90% 60% at 50% 0%,rgba(139,139,245,.12),transparent 60%)}
+a{color:inherit}
+.card{position:relative;z-index:2;width:100%;max-width:400px;background:var(--ink-2);border:1px solid var(--line);border-radius:20px;padding:34px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:22px;margin-bottom:24px;letter-spacing:-.02em}
+.brand .spark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:16px;background:linear-gradient(135deg,var(--indigo-deep),#a78bfa)}
+h1{font-family:var(--display);font-weight:450;font-size:27px;letter-spacing:-.02em;margin-bottom:6px}
+.sub{font-size:14px;color:var(--paper-dim);margin-bottom:22px;line-height:1.5}
+label{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint);display:block;margin-bottom:7px}
+input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:12px;padding:13px 15px;color:var(--paper);font-family:var(--body);font-size:15px;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--indigo)}
+input.code{font-family:var(--mono);font-size:24px;letter-spacing:.32em;text-align:center}
+.btn{width:100%;margin-top:16px;font-family:var(--body);font-weight:600;font-size:15px;padding:13px;border-radius:12px;border:none;cursor:pointer;color:#0c0a08;background:linear-gradient(135deg,#a9a9ff,var(--indigo));box-shadow:0 10px 26px rgba(139,139,245,.3)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{font-size:13px;margin-top:14px;min-height:18px}
+.msg.err{color:var(--rose)} .msg.ok{color:var(--green)}
+.foot{margin-top:22px;font-size:12.5px;color:var(--paper-faint);text-align:center}
+.foot a{color:var(--paper-dim);text-decoration:none}.foot a:hover{color:var(--paper)}
+.dev{margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--indigo);background:var(--ink);border:1px dashed var(--line);border-radius:10px;padding:10px;text-align:center}
+.hide{display:none}
+.back{display:inline-flex;gap:7px;font-size:13px;color:var(--paper-faint);text-decoration:none;margin-bottom:20px}.back:hover{color:var(--paper-dim)}
+</style>
+</head>
+<body>
+<div class="card">
+  <a class="back" href="/">← Klav home</a>
+  <div class="brand"><span class="spark">⚡</span>Klav</div>
+
+  <div id="step-email">
+    <h1>Sign in</h1>
+    <p class="sub">We'll email you a 6-digit code. No password.</p>
+    <label>Work email</label>
+    <input id="email" type="email" placeholder="you@company.com" autocomplete="email" autofocus />
+    <button class="btn" id="sendBtn">Send me a code</button>
+    <div class="msg" id="emailMsg"></div>
+  </div>
+
+  <div id="step-code" class="hide">
+    <h1>Enter your code</h1>
+    <p class="sub">Sent to <span id="sentTo" style="color:var(--paper)"></span>. It expires in 10 minutes.</p>
+    <label>6-digit code</label>
+    <input id="code" class="code" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+    <button class="btn" id="verifyBtn">Verify & continue</button>
+    <div class="dev hide" id="devBox"></div>
+    <div class="msg" id="codeMsg"></div>
+    <div class="foot"><a href="#" id="resend">Use a different email</a></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id)
+let email = ""
+
+async function post(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+  return r.json()
+}
+function show(step) { $("step-email").classList.toggle("hide", step !== "email"); $("step-code").classList.toggle("hide", step !== "code") }
+function msg(id, text, ok) { const e = $(id); e.textContent = text; e.className = "msg " + (ok ? "ok" : "err") }
+
+$("sendBtn").onclick = async () => {
+  email = $("email").value.trim()
+  if (!email.includes("@")) { msg("emailMsg", "Enter a valid email."); return }
+  $("sendBtn").disabled = true; msg("emailMsg", "Sending…", true)
+  try {
+    const d = await post("/api/auth/request", { email })
+    if (d.error) throw new Error(d.error)
+    $("sentTo").textContent = email; show("code"); $("code").focus()
+    if (d.devCode) { $("devBox").classList.remove("hide"); $("devBox").textContent = "dev code: " + d.devCode }
+    else if (!d.emailed) msg("codeMsg", "Email couldn't be sent — check the server logs for your code.")
+  } catch (e) { msg("emailMsg", e.message) } finally { $("sendBtn").disabled = false }
+}
+$("verifyBtn").onclick = async () => {
+  const code = $("code").value.trim()
+  if (code.length !== 6) { msg("codeMsg", "Enter the 6-digit code."); return }
+  $("verifyBtn").disabled = true; msg("codeMsg", "Verifying…", true)
+  try {
+    const d = await post("/api/auth/verify", { email, code })
+    if (d.error) throw new Error(d.error)
+    location.href = d.redirect || "/dashboard"
+  } catch (e) { msg("codeMsg", e.message); $("verifyBtn").disabled = false }
+}
+$("code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("verifyBtn").click() })
+$("email").addEventListener("keydown", (e) => { if (e.key === "Enter") $("sendBtn").click() })
+$("resend").onclick = (e) => { e.preventDefault(); show("email"); $("email").focus() }
+</script>
+</body>
+</html>

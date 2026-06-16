@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard · Klav</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;--indigo:#8b8bf5;--indigo-deep:#6366f1;--amber:#e8a24a;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11);
+--display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height:100vh}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(80% 50% at 50% -5%,rgba(139,139,245,.08),transparent 60%)}
+a{color:inherit;text-decoration:none}
+.bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:rgba(12,10,8,.8);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1060px;margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em}
+.brand .spark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:15px;background:linear-gradient(135deg,var(--indigo-deep),#a78bfa)}
+.ws{margin-left:6px;padding-left:14px;border-left:1px solid var(--line);font-size:14px;color:var(--paper-dim)}
+.right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.who{font-size:13px;color:var(--paper-dim)}
+.rolepill{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px}
+.r-admin{background:rgba(139,139,245,.16);color:var(--indigo)} .r-user{background:var(--ink-3);color:var(--paper-faint)}
+.lo{font-size:13px;color:var(--paper-faint);cursor:pointer;background:none;border:none;font-family:var(--body)}.lo:hover{color:var(--paper-dim)}
+.wrap{max-width:1060px;margin:0 auto;padding:34px 24px}
+h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02em;margin-bottom:4px}
+.lead{color:var(--paper-dim);font-size:15px;margin-bottom:28px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;padding:22px}
+.card.full{grid-column:1/-1}
+.card h2{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.member{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)}
+.member:last-child{border-bottom:none}
+.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:11px;color:#fff;flex-shrink:0}
+.m-email{font-size:13.5px;flex:1}
+.invite{display:flex;gap:8px;margin-top:14px}
+.invite input{flex:1;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none}
+.invite input:focus{border-color:var(--indigo)}
+.btn{font-family:var(--body);font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px;border:none;cursor:pointer;transition:transform .1s}
+.btn:active{transform:translateY(1px)}
+.btn-indigo{color:#0c0a08;background:linear-gradient(135deg,#a9a9ff,var(--indigo))}
+.btn-ghost{color:var(--paper);background:transparent;border:1px solid var(--line)}.btn-ghost:hover{border-color:rgba(243,236,225,.3)}
+.act{display:flex;flex-direction:column;gap:10px}
+.row-act{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--ink);border:1px solid var(--line);border-radius:12px;transition:border-color .2s}
+.row-act:hover{border-color:var(--indigo)}
+.row-act .ico{font-size:20px}.row-act .t{font-size:14px;font-weight:600}.row-act .d{font-size:12px;color:var(--paper-faint)}
+.row-act .go{margin-left:auto;color:var(--indigo)}
+.demo{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.05));border-color:rgba(139,139,245,.3)}
+.demo h3{font-family:var(--display);font-weight:600;font-size:22px;margin-bottom:6px}
+.demo p{color:var(--paper-dim);font-size:14px;margin-bottom:16px;max-width:46ch}
+.msg{font-size:12.5px;color:var(--green);margin-top:8px;min-height:16px}
+.muted{color:var(--paper-faint);font-size:13px}
+.hide{display:none}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.ws{display:none}}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <a class="brand" href="/dashboard"><span class="spark">⚡</span>Klav</a>
+  <span class="ws" id="wsName">—</span>
+  <div class="right">
+    <span class="who" id="who"></span>
+    <button class="lo" id="logout">Log out</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <h1 id="hello">Dashboard</h1>
+  <p class="lead" id="lead">Loading your workspace…</p>
+
+  <div class="grid">
+    <!-- Live demo -->
+    <div class="card full demo">
+      <h3>Put your Sims on a page</h3>
+      <p>Open the live studio: drop in a transcript, watch a Sim review a page in their own words, and collect their feedback in the draft queue.</p>
+      <a class="btn btn-indigo" href="/app">Launch the Sims studio →</a>
+    </div>
+
+    <!-- People & Teams -->
+    <div class="card">
+      <h2>👥 People &amp; Teams</h2>
+      <div id="members"></div>
+      <div id="inviteWrap" class="hide">
+        <div class="invite">
+          <input id="inviteEmail" type="email" placeholder="teammate@company.com" />
+          <button class="btn btn-indigo" id="inviteBtn">Invite</button>
+        </div>
+        <div class="msg" id="inviteMsg"></div>
+        <div class="muted" style="margin-top:8px">Invited people sign in with an email code and join as a <b>User</b>.</div>
+      </div>
+      <div id="userNote" class="hide muted" style="margin-top:12px">You're a member of this workspace. Only admins can invite people.</div>
+    </div>
+
+    <!-- Sims -->
+    <div class="card">
+      <h2>🧬 Sims</h2>
+      <div class="act" id="simsAdmin">
+        <a class="row-act" href="/onboarding"><span class="ico">📝</span><div><div class="t">Add a transcript</div><div class="d">Extract new Sims from a customer call</div></div><span class="go">→</span></a>
+        <a class="row-act" href="/app"><span class="ico">🛠️</span><div><div class="t">Configure &amp; review Sims</div><div class="d">Edit personas, run live reviews</div></div><span class="go">→</span></a>
+      </div>
+      <div class="act hide" id="simsUser">
+        <a class="row-act" href="/app"><span class="ico">🧬</span><div><div class="t">Sims shared with you</div><div class="d">Open the studio to review your product</div></div><span class="go">→</span></a>
+      </div>
+    </div>
+
+    <!-- Bug tracker placeholder -->
+    <div class="card full">
+      <h2>🐛 Bug tracker <span class="muted" style="text-transform:none;letter-spacing:0">· coming soon</span></h2>
+      <div class="muted">Sim-filed reactions and manual Snap bugs will land here, tagged by source, filed to Jira / Linear / GitHub / Plane.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const COLORS = ["#6366f1","#e8a24a","#10b981","#ec4899","#06b6d4","#8b5cf6"]
+const col = (s) => COLORS[[...s].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length]
+const initials = (e) => e.slice(0,2).toUpperCase()
+const esc = (s) => String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))
+
+let state = null
+
+async function load() {
+  const r = await fetch("/api/me")
+  if (r.status === 401) { location.href = "/login"; return }
+  state = await r.json()
+  render()
+}
+function render() {
+  const role = state.active ? state.active.role : "user"
+  $("wsName").textContent = state.active ? state.active.name : "—"
+  $("who").textContent = state.email
+  $("hello").innerHTML = `Welcome back`
+  $("lead").innerHTML = `You're ${role === "admin" ? "an <b>Admin</b>" : "a <b>User</b>"} of <b>${esc(state.active ? state.active.name : "your workspace")}</b>.`
+  // members
+  $("members").innerHTML = state.members.map(m => `
+    <div class="member">
+      <div class="av" style="background:${col(m.email)}">${initials(m.email)}</div>
+      <span class="m-email">${esc(m.email)}${m.email===state.email?' <span class="muted">(you)</span>':''}</span>
+      <span class="rolepill ${m.role==="admin"?"r-admin":"r-user"}">${m.role}</span>
+    </div>`).join("")
+  // role-gated controls
+  const admin = role === "admin"
+  $("inviteWrap").classList.toggle("hide", !admin)
+  $("userNote").classList.toggle("hide", admin)
+  $("simsAdmin").classList.toggle("hide", !admin)
+  $("simsUser").classList.toggle("hide", admin)
+}
+
+$("inviteBtn") && ($("inviteBtn").onclick = async () => {
+  const email = $("inviteEmail").value.trim()
+  if (!email.includes("@")) { $("inviteMsg").textContent = "Enter a valid email."; $("inviteMsg").style.color="var(--rose)"; return }
+  $("inviteBtn").disabled = true
+  const r = await fetch("/api/team/invite", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ email }) })
+  const d = await r.json()
+  $("inviteBtn").disabled = false
+  if (d.error) { $("inviteMsg").style.color="var(--rose)"; $("inviteMsg").textContent = d.error; return }
+  $("inviteEmail").value = ""; $("inviteMsg").style.color="var(--green)"; $("inviteMsg").textContent = `Invited ${email} — they can sign in now.`
+  state.members = d.members; render()
+})
+$("logout").onclick = async () => { await fetch("/api/auth/logout", { method:"POST" }); location.href = "/" }
+load()
+</script>
+</body>
+</html>
