@@ -19,6 +19,27 @@ section for the bump rules.
   dark text on the lighter lavender button (where white would be illegible).
   (`prototype/public/{dashboard,login}.html`, `site/onboarding.html`)
 
+## [0.4.0] - 2026-06-17
+
+### Added
+- **Dashboard-on-login (Sims P1):** the post-login page is now a real overview
+  instead of a static "Welcome back". A new aggregate endpoint
+  `GET /api/dashboard?project=:id` (session-gated like other `/api/` routes)
+  returns `{ email, projects, active, members, sims, saying, tickets, activity,
+  counts }` in one round-trip. The project is **derived** for now
+  (`'proj_'+workspaceId`) so the UI is project-shaped before the P2 schema
+  lands. The page reuses the existing design system (nav, fonts, `.card`/`.grid`,
+  white-on-purple `.btn-indigo`) and adds: a **project switcher**, a "What your
+  Sims are saying" feed (recent `feedback` observations, falling back to persona
+  `insights_json` so it's never blank), a **Sims overview**, **Recent tickets**
+  (filed `feedback` with a tracker key), a **Live activity** feed
+  (`activity_events`; non-admins see only their own rows, admins see all), an
+  **invite-your-team** CTA (admin-only), and the Plane connection demoted into a
+  collapsed settings drawer. Reads only — no AI/vision, no schema migration. New
+  DB helpers `listActivity`, `listFeedback`, `dashboardCounts`.
+  (`prototype/server.ts`, `prototype/lib/db.ts`,
+  `prototype/public/dashboard.html`)
+
 ## [0.3.0] - 2026-06-17
 
 ### Added
