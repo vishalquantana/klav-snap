@@ -73,25 +73,38 @@ const RECONCILE_SYS =
 // via OpenRouter often returns empty content under json_object, so leave it OFF for
 // image calls and rely on the prompt + parseJSON's extraction instead.
 async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: { type: string; email?: string | null; projectId?: string | null }) {
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${KEY}`, "content-type": "application/json", "HTTP-Referer": BASE, "X-Title": "Klavity" },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages, usage: { include: true }, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
-  })
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  const t0 = Date.now()
+  const label = ctx?.type || "chat"
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), 90_000)  // never hang a request forever
+  let res: Response
+  try {
+    res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KEY}`, "content-type": "application/json", "HTTP-Referer": BASE, "X-Title": "Klavity" },
+      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages, usage: { include: true }, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
+      signal: ctl.signal,
+    })
+  } catch (e: any) {
+    clearTimeout(timer)
+    const ms = Date.now() - t0
+    if (e?.name === "AbortError") { console.error(`AI[${label}] TIMEOUT after ${ms}ms`); throw new Error("The model took too long (>90s). Please try again.") }
+    console.error(`AI[${label}] network error after ${ms}ms:`, e?.message || e); throw e
+  }
+  clearTimeout(timer)
+  if (!res.ok) { const body = (await res.text()).slice(0, 300); console.error(`AI[${label}] OpenRouter ${res.status} after ${Date.now() - t0}ms: ${body}`); throw new Error(`OpenRouter ${res.status}: ${body}`) }
   const data: any = await res.json()
   const content: string = data?.choices?.[0]?.message?.content ?? ""
   const u = data?.usage || {}
-  // Best-effort credit ledger — never let a logging failure break the request.
+  console.log(`AI[${label}] ok in ${Date.now() - t0}ms · ${u.prompt_tokens ?? "?"}/${u.completion_tokens ?? "?"} tok · $${u.cost ?? "?"}`)
+  // Best-effort credit ledger — FIRE-AND-FORGET so a slow/stuck insert can never hang the response.
   if (ctx) {
-    try {
-      await recordAiCall({
-        type: ctx.type, model: MODEL, actorEmail: ctx.email ?? null, projectId: ctx.projectId ?? null,
-        inputTokens: typeof u.prompt_tokens === "number" ? u.prompt_tokens : null,
-        outputTokens: typeof u.completion_tokens === "number" ? u.completion_tokens : null,
-        costUsd: typeof u.cost === "number" ? u.cost : null,
-      })
-    } catch (e: any) { console.error("recordAiCall failed:", e?.message || e) }
+    void recordAiCall({
+      type: ctx.type, model: MODEL, actorEmail: ctx.email ?? null, projectId: ctx.projectId ?? null,
+      inputTokens: typeof u.prompt_tokens === "number" ? u.prompt_tokens : null,
+      outputTokens: typeof u.completion_tokens === "number" ? u.completion_tokens : null,
+      costUsd: typeof u.cost === "number" ? u.cost : null,
+    }).catch((e: any) => console.error("recordAiCall failed:", e?.message || e))
   }
   return { content, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens } }
 }
