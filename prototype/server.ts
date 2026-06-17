@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded } from "./lib/db"
 import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
@@ -517,6 +517,8 @@ Bun.serve({
           projectId, title, rawText: text, sourceDate,
           speakers: Array.isArray(body.speakers) ? body.speakers.map(String) : null, addedBy: meT,
         })
+        // activity: a transcript was added to the project (actor = adder).
+        await insertActivity({ projectId, type: "transcript_added", actorEmail: meT, meta: { transcriptId, title } })
 
         // 2) AI CALL #1: extract personas from the transcript (existing helper).
         const { data: extractData, usage: extractUsage } = await extractPersonas(text)
@@ -539,6 +541,10 @@ Bun.serve({
         const reconcileUsages: any[] = []
         for (const simId of matchedSimIds) {
           if (await hasReconcileRun(simId, transcriptId)) continue // COST GUARD: never re-reconcile a (sim,transcript) pair
+          // Legacy backfill BEFORE reconcile: a pre-P3a Sim has insights_json but zero sim_traits.
+          // Seed them first so the LLM reconcile sees existing traits (real reinforce/refine/contradict
+          // evolution) and rebuildInsightsJson never wipes the Sim's prior insights. Idempotent.
+          await ensureTraitsSeeded(simId)
           const current = await listTraits(simId, { activeOnly: true })
           const { ops, usage } = await reconcileSim(current, text)
           reconcileUsages.push(usage)
@@ -551,7 +557,7 @@ Bun.serve({
           await markReconcileRun(simId, transcriptId)
           await rebuildInsightsJson(simId)
           opsApplied += res.traitWrites.length
-          await insertActivity({ projectId, type: "sim_reconciled", actorEmail: meT, simId, meta: { transcriptId, ops: res.traitWrites.length } })
+          await insertActivity({ projectId, type: "sim_evolved", actorEmail: meT, simId, meta: { transcriptId, ops: res.traitWrites.length } })
         }
 
         return json({

@@ -757,11 +757,75 @@ export async function markReconcileRun(simId: string, transcriptId: string): Pro
   })
 }
 
+// Lazy "legacy import" backfill (§2.4 step 4 semantics, applied at reconcile time so it also covers
+// Sims saved after the P2 migration). A Sim created/saved before P3a has a populated `insights_json`
+// but ZERO `sim_traits` rows — so the first reconcile could only `add` (no traits to evolve) and
+// `rebuildInsightsJson` would then OVERWRITE insights_json with only the freshly-extracted traits,
+// silently discarding the Sim's prior insights. This seeds one active trait + a 'create' trait_event
+// per existing insight, anchored to a synthetic `legacy_import` transcript id (source_date ≈ the
+// persona's created_at, so citations render "(legacy import)"). IDEMPOTENT: only runs when the Sim
+// has zero existing traits, so a second call is a no-op. Returns the number of traits seeded.
+//
+// Accepts BOTH insight shapes seen in the wild:
+//  - legacy EXTRACT_SYS / brief shape: { kind, text, quote }
+//  - P3a cache shape (insightsFromTraits): { traitId, kind, text, quote, speaker, sourceTranscriptId, strength }
+export async function ensureTraitsSeeded(simId: string): Promise<number> {
+  // Guard: only seed when there are NO traits at all (any status) — so reinforce/refine evolution
+  // is possible afterward and we never double-seed.
+  const existing = await listTraits(simId) // all statuses
+  if (existing.length) return 0
+
+  const r = await db!.execute({ sql: "SELECT project_id, insights_json, created_at FROM personas WHERE id=?", args: [simId] })
+  if (!r.rows.length) return 0
+  const row = r.rows[0] as any
+  const projectId = String(row.project_id)
+  const createdAt = Number(row.created_at) || Date.now()
+  let insights: any[] = []
+  try { insights = row.insights_json ? JSON.parse(String(row.insights_json)) : [] } catch { insights = [] }
+  if (!Array.isArray(insights) || !insights.length) return 0
+
+  const validKinds = new Set(["pain", "want", "love"])
+  let seeded = 0
+  for (const ins of insights) {
+    const kind = String(ins?.kind || "")
+    if (!validKinds.has(kind)) continue
+    const text = String(ins?.text || ins?.quote || "").trim()
+    if (!text) continue
+    const quote = String(ins?.quote || ins?.text || "").trim() || text
+    const now = Date.now()
+    const trait: Trait = {
+      id: "trait_" + crypto.randomUUID(),
+      simId, projectId, kind: kind as TraitKind, text,
+      status: "active", strength: Number(ins?.strength) > 0 ? Number(ins.strength) : 1,
+      srcTranscriptId: "legacy_import", srcQuote: quote, srcQuoteOffset: null,
+      srcSpeaker: ins?.speaker != null ? String(ins.speaker) : null,
+      createdAt, updatedAt: now,
+    }
+    await insertTrait(trait)
+    await insertTraitEvent({
+      traitId: trait.id, simId, transcriptId: "legacy_import", op: "create",
+      beforeText: null, afterText: text, quote, quoteOffset: null,
+      speaker: trait.srcSpeaker, sourceDate: createdAt, reason: "legacy import", createdAt: now,
+    })
+    seeded += 1
+  }
+  return seeded
+}
+
 // Recompute a persona's insights_json read cache from its ACTIVE sim_traits and persist it.
 // Keeps insights_json as the denormalized cache the dashboard/studio render from. Returns the cache.
+// DEFENSIVE no-op: if the active-trait set is empty while insights_json is currently non-empty, do
+// NOT overwrite — a zero-trait rebuild must never silently wipe a Sim's prior insights (C1 guard).
 export async function rebuildInsightsJson(simId: string) {
   const active = await listTraits(simId, { activeOnly: true })
   const insights = insightsFromTraits(active)
+  if (!insights.length) {
+    const cur = await db!.execute({ sql: "SELECT insights_json FROM personas WHERE id=?", args: [simId] })
+    const curJson = cur.rows.length ? (cur.rows[0] as any).insights_json : null
+    let curArr: any[] = []
+    try { curArr = curJson ? JSON.parse(String(curJson)) : [] } catch { curArr = [] }
+    if (Array.isArray(curArr) && curArr.length) return curArr // keep existing — don't wipe
+  }
   await db!.execute({
     sql: "UPDATE personas SET insights_json=?, updated_at=? WHERE id=?",
     args: [JSON.stringify(insights), Date.now(), simId],
