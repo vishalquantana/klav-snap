@@ -3,7 +3,7 @@ if (location.hostname === 'klavity.quantana.top' || location.hostname === 'local
   ;(window as any).__klavityExtensionId = chrome.runtime.id
 }
 
-import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload, ConsoleError, NetworkFailure } from '@klavity/core'
+import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload, ConsoleError, NetworkFailure, KlavConfig, KlavMonitoredProject } from '@klavity/core'
 import { Annotator } from '@klavity/core/annotator'
 import { cropDataUrl } from '@klavity/core/crop'
 
@@ -689,6 +689,23 @@ chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
   if (msg.kind === 'OPEN_MODAL') {
     openModal(msg.reportType)
   }
+
+  if (msg.kind === 'KLAV_CAPTURE_REVIEW_RESULT') {
+    document.dispatchEvent(new CustomEvent('klavity-review-capture', { detail: { dataUrl: msg.dataUrl, error: msg.error } }))
+    return
+  }
+
+  if (msg.kind === 'KLAV_CONFIG_UPDATED') {
+    klavConfig = msg.config
+    // A fresh config can mean new monitored URLs / a resumed review_mode — re-evaluate.
+    maybeActivate('config-update')
+    return
+  }
+
+  if (msg.kind === 'KLAV_NUDGE_ROUTE') {
+    klavOnRouteChange()
+    return
+  }
 })
 
 // ── Custom right-click menu ──────────────────────────────────────────────────
@@ -804,3 +821,317 @@ function handleContextMenu(e: MouseEvent) {
 }
 
 document.addEventListener('contextmenu', handleContextMenu)
+
+// ════════════════════════════════════════════════════════════════════════════
+// LIVE ACTIVATION (P3b, R5) — auto-comment on monitored URLs.
+//
+// Founder vision: the moment a logged-in teammate opens a monitored URL, the
+// project's Sims "jump out and comment". This module:
+//   1. reads the cached config (monitored patterns + review_mode + ext token);
+//   2. on document_idle AND on SPA route changes, checks the current URL against
+//      the allowlist patterns (mirroring the server's prefix/glob matcher);
+//   3. if matched + not paused: shows a one-time CONSENT prompt, then captures the
+//      visible tab and POSTs /api/sim/review via the background SW, rendering the
+//      returned reactions as comment bubbles in a DEDICATED shadow-DOM host;
+//   4. renders a persistent "Sims reviewing · pause" indicator (user pause = instant).
+//
+// Guardrails are enforced server-side (consent / allowlist / budget / dedupe);
+// here we DEBOUNCE to one review per route and never auto-activate on a chrome://
+// page (the content script simply isn't injected there) or without a token.
+//
+// MV3 honesty: the *token* and the cross-origin fetch live in the background SW.
+// This content script only talks to the SW via messages, so an evicted SW is
+// re-spawned on demand. We never store the token in the page.
+// ════════════════════════════════════════════════════════════════════════════
+
+let klavConfig: KlavConfig | null = null
+let klavReviewedRoutes = new Set<string>()   // debounce: one review per (path) per page-load
+let klavActivating = false
+let klavLastUrl = location.href
+let klavIndicatorEl: HTMLElement | null = null
+
+// Mirror of the server's patternMatchesUrl (db.ts) — prefix/glob ONLY, no regex.
+function klavNormUrl(u: string): string {
+  return String(u || '').trim()
+    .replace(/^https?:\/\//i, '')   // strip scheme
+    .replace(/[?#].*$/, '')         // strip query + fragment (path-only, §5)
+    .replace(/\/+$/, '')            // strip trailing slash
+    .toLowerCase()
+}
+function klavPatternMatches(pattern: string, url: string): boolean {
+  const p = klavNormUrl(pattern)
+  const u = klavNormUrl(url)
+  if (!p) return false
+  if (!p.includes('*')) return u === p || u.startsWith(p + '/')
+  const esc = p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
+  return new RegExp('^' + esc).test(u)
+}
+
+// First accessible project whose enabled allowlist matches the current URL and is
+// NOT admin-paused (review_mode 'paused'). Returns null if none — the common case.
+function klavMatchProject(url: string): KlavMonitoredProject | null {
+  if (!klavConfig?.token) return null
+  for (const p of klavConfig.projects) {
+    if (p.reviewMode === 'paused') continue
+    if (p.monitoredUrls.some((pat) => klavPatternMatches(pat, url))) return p
+  }
+  return null
+}
+
+// Per-project user-pause flag, mirrored from the server's monitoring_consent. Stored
+// locally so a pause stops activation INSTANTLY (no round-trip) and survives reloads.
+function klavPauseKey(projectId: string): string { return `klavPaused:${projectId}` }
+async function klavIsUserPaused(projectId: string): Promise<boolean> {
+  try { const r = await chrome.storage.local.get(klavPauseKey(projectId)); return !!r[klavPauseKey(projectId)] } catch { return false }
+}
+async function klavSetUserPaused(projectId: string, paused: boolean): Promise<void> {
+  try { await chrome.storage.local.set({ [klavPauseKey(projectId)]: paused }) } catch { /* ignore */ }
+}
+function klavConsentKey(projectId: string): string { return `klavConsent:${projectId}` }
+async function klavHasConsent(projectId: string): Promise<boolean> {
+  try { const r = await chrome.storage.local.get(klavConsentKey(projectId)); return r[klavConsentKey(projectId)] === 'granted' } catch { return false }
+}
+async function klavSetConsent(projectId: string, status: 'granted' | 'paused' | 'revoked'): Promise<void> {
+  try { await chrome.storage.local.set({ [klavConsentKey(projectId)]: status }) } catch { /* ignore */ }
+}
+
+function klavSend<T = any>(msg: BackgroundMessage): Promise<T> {
+  return new Promise((resolve) => {
+    try { chrome.runtime.sendMessage(msg, (resp) => { void chrome.runtime.lastError; resolve(resp as T) }) }
+    catch { resolve(undefined as T) }
+  })
+}
+
+// A cheap DOM signature so server-side dedupe is per content-state, not just per path.
+function klavDomSig(): string {
+  const t = (document.title || '').slice(0, 80)
+  const n = document.querySelectorAll('main, [role="main"], h1, h2, button, a').length
+  return `${t}~${n}`
+}
+
+// ── Dedicated shadow-DOM host for Sim comment bubbles + the pause indicator ──
+let klavHostRoot: ShadowRoot | null = null
+function klavGetHost(): ShadowRoot {
+  if (!klavHostRoot) {
+    const host = document.createElement('div')
+    host.id = 'klavity-sims-host'
+    document.documentElement.appendChild(host)
+    klavHostRoot = host.attachShadow({ mode: 'open' })
+    const style = document.createElement('style')
+    style.textContent = `
+      :host{all:initial;}
+      .klav-stack{position:fixed;right:18px;bottom:64px;z-index:2147483646;display:flex;flex-direction:column;gap:10px;max-width:340px;font-family:system-ui,-apple-system,sans-serif;pointer-events:none;}
+      .klav-bubble{pointer-events:auto;background:#FBF6EE;color:#2D2A26;border-radius:14px;box-shadow:0 10px 34px rgba(40,30,20,.22);padding:12px 14px;border:1px solid #EFE9DE;opacity:0;transform:translateY(8px);transition:opacity .25s ease,transform .25s ease;}
+      .klav-bubble.in{opacity:1;transform:translateY(0);}
+      .klav-bhead{display:flex;align-items:center;gap:9px;margin-bottom:6px;}
+      .klav-av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0;}
+      .klav-nm{font-size:13px;font-weight:700;color:#2D2A26;}
+      .klav-sev{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;background:#F2ECE2;color:#8A6D3B;}
+      .klav-obs{font-size:13px;line-height:1.4;color:#3D3833;}
+      .klav-cite{margin-top:6px;font-size:11px;color:#8A837A;font-style:italic;}
+      .klav-bclose{position:absolute;top:6px;right:8px;border:none;background:transparent;color:#B4ABA0;font-size:15px;cursor:pointer;}
+      .klav-indicator{position:fixed;right:18px;bottom:18px;z-index:2147483647;pointer-events:auto;display:flex;align-items:center;gap:8px;background:#2D2A26;color:#FBF6EE;border-radius:999px;padding:7px 12px 7px 11px;box-shadow:0 6px 22px rgba(0,0,0,.28);font-family:system-ui,-apple-system,sans-serif;font-size:12.5px;font-weight:600;}
+      .klav-dot{width:8px;height:8px;border-radius:50%;background:#7CD08F;box-shadow:0 0 0 0 rgba(124,208,143,.6);animation:klavpulse 1.8s infinite;}
+      .klav-indicator.paused .klav-dot{background:#C9A14A;animation:none;}
+      @keyframes klavpulse{0%{box-shadow:0 0 0 0 rgba(124,208,143,.55)}70%{box-shadow:0 0 0 7px rgba(124,208,143,0)}100%{box-shadow:0 0 0 0 rgba(124,208,143,0)}}
+      .klav-pausebtn{border:none;background:rgba(251,246,238,.14);color:#FBF6EE;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer;}
+      .klav-pausebtn:hover{background:rgba(251,246,238,.24);}
+      .klav-consent{position:fixed;right:18px;bottom:18px;z-index:2147483647;pointer-events:auto;max-width:330px;background:#FBF6EE;color:#2D2A26;border-radius:16px;box-shadow:0 14px 44px rgba(40,30,20,.26);border:1px solid #EFE9DE;padding:16px 16px 14px;font-family:system-ui,-apple-system,sans-serif;}
+      .klav-consent h4{margin:0 0 6px;font-size:14px;}
+      .klav-consent p{margin:0 0 12px;font-size:12.5px;line-height:1.45;color:#6B655C;}
+      .klav-crow{display:flex;gap:8px;}
+      .klav-cprimary{flex:1;border:none;background:#A98BD6;color:#fff;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;}
+      .klav-cprimary:hover{background:#9A78CF;}
+      .klav-cghost{border:none;background:#F2ECE2;color:#3D3833;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;}
+    `
+    klavHostRoot.appendChild(style)
+    const stack = document.createElement('div')
+    stack.className = 'klav-stack'
+    stack.id = 'klav-stack'
+    klavHostRoot.appendChild(stack)
+  }
+  return klavHostRoot
+}
+
+function klavRenderBubble(r: { simName: string; initials: string; accent: string; observation?: string; severity?: string; citation?: any }) {
+  const root = klavGetHost()
+  const stack = root.getElementById('klav-stack')!
+  const b = document.createElement('div')
+  b.className = 'klav-bubble'
+  b.style.position = 'relative'
+  const cite = r.citation?.sourceQuote
+    ? `<div class="klav-cite">“${String(r.citation.sourceQuote).slice(0, 90)}”${r.citation.speaker ? ' — ' + r.citation.speaker : ''}</div>` : ''
+  const sev = r.severity ? `<span class="klav-sev">${r.severity}</span>` : ''
+  b.innerHTML = `
+    <button class="klav-bclose" aria-label="Dismiss">×</button>
+    <div class="klav-bhead">
+      <div class="klav-av" style="background:${r.accent || '#A98BD6'}">${(r.initials || r.simName || '?').slice(0, 2)}</div>
+      <div class="klav-nm">${r.simName || 'Sim'}</div>${sev}
+    </div>
+    <div class="klav-obs">${(r.observation || '').replace(/</g, '&lt;')}</div>
+    ${cite}
+  `
+  b.querySelector('.klav-bclose')!.addEventListener('click', () => b.remove())
+  stack.appendChild(b)
+  requestAnimationFrame(() => b.classList.add('in'))
+  // Auto-dismiss after a while so bubbles don't pile up across routes.
+  setTimeout(() => { b.classList.remove('in'); setTimeout(() => b.remove(), 300) }, 16000)
+}
+
+function klavClearBubbles() {
+  const stack = klavHostRoot?.getElementById('klav-stack')
+  if (stack) stack.innerHTML = ''
+}
+
+// Persistent indicator. paused=true → amber dot + "resume"; else green pulse + "pause".
+function klavRenderIndicator(projectId: string, paused: boolean) {
+  const root = klavGetHost()
+  klavIndicatorEl?.remove()
+  const el = document.createElement('div')
+  el.className = 'klav-indicator' + (paused ? ' paused' : '')
+  el.innerHTML = `<span class="klav-dot"></span><span>${paused ? 'Sims paused' : 'Sims reviewing'}</span><button class="klav-pausebtn">${paused ? 'Resume' : 'Pause'}</button>`
+  el.querySelector('.klav-pausebtn')!.addEventListener('click', async () => {
+    const nowPaused = !paused
+    // Instant local stop, then mirror to the server (source of truth).
+    await klavSetUserPaused(projectId, nowPaused)
+    await klavSetConsent(projectId, nowPaused ? 'paused' : 'granted')
+    klavRenderIndicator(projectId, nowPaused)
+    if (nowPaused) klavClearBubbles()
+    void klavSend({ kind: 'KLAV_CONSENT', projectId, status: nowPaused ? 'paused' : 'granted' })
+    if (!nowPaused) maybeActivate('resume')
+  })
+  root.appendChild(el)
+  klavIndicatorEl = el
+}
+
+// First-capture consent prompt (gate c). Resolves true once the user grants.
+function klavConsentPrompt(project: KlavMonitoredProject): Promise<boolean> {
+  return new Promise((resolve) => {
+    const root = klavGetHost()
+    const el = document.createElement('div')
+    el.className = 'klav-consent'
+    el.innerHTML = `
+      <h4>Let your Sims review this page?</h4>
+      <p>${project.name}'s Sims can comment on <b>${location.pathname}</b>. We capture only this page (a viewport screenshot, path only — no query strings) and only on monitored URLs. You can pause anytime.</p>
+      <div class="klav-crow">
+        <button class="klav-cprimary">Allow Sims to review</button>
+        <button class="klav-cghost">Not now</button>
+      </div>`
+    const done = (granted: boolean) => { el.remove(); resolve(granted) }
+    el.querySelector('.klav-cprimary')!.addEventListener('click', async () => {
+      await klavSetConsent(project.id, 'granted')
+      void klavSend({ kind: 'KLAV_CONSENT', projectId: project.id, status: 'granted' })
+      done(true)
+    })
+    el.querySelector('.klav-cghost')!.addEventListener('click', async () => {
+      // "Not now" = user pause (don't nag again this session until they resume).
+      await klavSetUserPaused(project.id, true)
+      done(false)
+    })
+    root.appendChild(el)
+  })
+}
+
+// Capture the visible tab via the background SW (token + captureVisibleTab live there).
+function klavCapture(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const onResult = (ev: Event) => {
+      const { dataUrl } = (ev as CustomEvent).detail as { dataUrl: string; error?: string }
+      resolve(dataUrl || null)
+    }
+    document.addEventListener('klavity-review-capture', onResult, { once: true })
+    void klavSend({ kind: 'KLAV_CAPTURE_REVIEW' })
+    setTimeout(() => { document.removeEventListener('klavity-review-capture', onResult); resolve(null) }, 4000)
+  })
+}
+
+// A small, non-spammy notice (used for budgetExhausted / admin-paused gate replies).
+function klavNotice(text: string) {
+  const root = klavGetHost()
+  const stack = root.getElementById('klav-stack')!
+  const n = document.createElement('div')
+  n.className = 'klav-bubble in'
+  n.style.position = 'relative'
+  n.innerHTML = `<div class="klav-obs" style="color:#6B655C">${text}</div>`
+  stack.appendChild(n)
+  setTimeout(() => { n.classList.remove('in'); setTimeout(() => n.remove(), 300) }, 6000)
+}
+
+// ── The activation entry point. Debounced to one review per route. ──
+async function maybeActivate(_reason: string) {
+  if (klavActivating) return
+  if (!klavConfig?.token) return
+  const url = location.href
+  const project = klavMatchProject(url)
+  // Off-allowlist → tear down any indicator and stop (we NEVER capture off-allowlist).
+  if (!project) { klavIndicatorEl?.remove(); klavIndicatorEl = null; return }
+
+  const routeKey = klavNormUrl(url)
+  const paused = await klavIsUserPaused(project.id)
+  klavRenderIndicator(project.id, paused)
+  if (paused) return
+  if (klavReviewedRoutes.has(routeKey)) return  // debounce: already reviewed this route
+
+  // Gate c (client mirror): first capture needs consent. Server re-checks authoritatively.
+  if (!(await klavHasConsent(project.id))) {
+    const granted = await klavConsentPrompt(project)
+    if (!granted) return
+  }
+
+  klavActivating = true
+  klavReviewedRoutes.add(routeKey)
+  try {
+    const dataUrl = await klavCapture()
+    if (!dataUrl) return
+    const resp = await klavSend<{ ok: boolean; status: number; body: any }>({
+      kind: 'KLAV_REVIEW', projectId: project.id, url, domSig: klavDomSig(), screenshotDataUrl: dataUrl,
+    })
+    const body = resp?.body || {}
+    if (resp?.ok && Array.isArray(body.reviews)) {
+      for (const rv of body.reviews) {
+        for (const r of (rv.reactions || [])) {
+          klavRenderBubble({ simName: rv.simName, initials: rv.initials, accent: rv.accent, observation: r.observation, severity: r?.suggestedBug?.severity, citation: r.citation })
+        }
+      }
+    } else if (body.reason === 'needsConsent') {
+      // server says no consent on record — clear local cache so we re-prompt next route.
+      await klavSetConsent(project.id, 'revoked'); klavReviewedRoutes.delete(routeKey)
+    } else if (body.reason === 'budgetExhausted') {
+      klavNotice('Sims hit today’s review budget — paused until tomorrow.')
+      klavRenderIndicator(project.id, true)
+    } else if (body.reason === 'paused' || body.reason === 'userPaused') {
+      klavRenderIndicator(project.id, true)
+    }
+    // 'offAllowlist' / 'alreadyReviewed' → silent (no spam).
+  } finally {
+    klavActivating = false
+  }
+}
+
+// ── SPA navigation backstop. The static <all_urls> content script fires once at
+//    document_idle; SPAs swap routes without a reload, so we also watch history +
+//    poll location as a backstop (tabs.onUpdated is the background-side complement).
+function klavOnRouteChange() {
+  if (location.href === klavLastUrl) return
+  klavLastUrl = location.href
+  klavClearBubbles()
+  void maybeActivate('spa-nav')
+}
+;(function klavPatchHistory() {
+  const wrap = (fn: any) => function (this: any, ...args: any[]) { const r = fn.apply(this, args); queueMicrotask(klavOnRouteChange); return r }
+  history.pushState = wrap(history.pushState)
+  history.replaceState = wrap(history.replaceState)
+  window.addEventListener('popstate', klavOnRouteChange)
+  // Polling backstop for SPAs that mutate the URL without History API (rare but real).
+  setInterval(klavOnRouteChange, 1500)
+})()
+
+// ── Bootstrap: pull the cached config from the SW, then evaluate the current URL. ──
+async function klavBootstrap() {
+  // Only meaningful on real http(s) pages — on chrome:// the content script isn't injected anyway.
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return
+  const resp = await klavSend<{ ok: boolean; config: KlavConfig | null }>({ kind: 'KLAV_GET_CONFIG' })
+  klavConfig = resp?.config ?? null
+  await maybeActivate('boot')
+}
+void klavBootstrap()
