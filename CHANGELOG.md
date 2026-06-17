@@ -10,6 +10,17 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.13.0] — 2026-06-18
+
+### Added
+- **Persona insight quality — specificity + recurrence/regression.** Extracted Sim
+  insights now name the concrete UX/technical issue (area, a closed issue-type enum,
+  and severity), not just a feeling. A new `reopen` op reactivates a previously
+  resolved trait when the same issue resurfaces, so the Sim detects regressions —
+  when a resolved pain comes back, it reacts with the implied disappointment
+  ("raised before ... and it's back"). Recurrence/regression is derived from the
+  immutable trait-events timeline; severity guides (does not auto-file) bug severity.
+
 ## [0.12.1] — 2026-06-18
 
 ### Added

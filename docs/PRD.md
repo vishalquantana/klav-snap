@@ -1,6 +1,6 @@
 # Klavity — Product Requirements (PRD)
 
-> **Version:** `0.12.1` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-18
+> **Version:** `0.13.0` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-18
 >
 > This is the single source of truth for the product version. It moves in lockstep
 > with [`CHANGELOG.md`](../CHANGELOG.md) and every `package.json` + the extension
@@ -81,3 +81,14 @@ manifests + this PRD header, then commit and tag `vX.Y.Z`.
 - Sign in with GitHub (OAuth) in extension + web app — reduce sign-up friction.
 - Wire the reusable Sim component (`@klavity/core/sim`) into live surfaces.
 - Phase 3: Klavity OS autonomous UAT agent (design pending).
+
+### Note — regression detection is prospective
+
+The `reopen` trait op (v0.13.0) enables recurrence/regression detection: when a
+previously resolved trait resurfaces, the Sim reacts with the implied disappointment
+("raised before ... and it's back"). This is **prospective only** — it requires a
+clean `resolve` event followed by a `reopen` on a connected trait lineage.
+
+**Legacy-import traits are excluded.** Traits created via `legacy_import` have no
+resolving events in their timeline, so the regression signal cannot fire for them.
+Severity in extracted insights guides (but does not auto-file) bug severity.
