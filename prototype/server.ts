@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts } from "./lib/db"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
 import { uploadScreenshotMeta, type UploadedScreenshot } from "./lib/s3"
@@ -382,6 +382,117 @@ Bun.serve({
         const members = active ? await membersOf(active.workspaceId) : []
         return json({ email: me, workspaces: ms, active, members })
       }
+      // ── dashboard-on-login aggregate (P1): one round-trip, reads only, no AI/vision. ──
+      // Derived single project ('proj_'+workspaceId) until the P2 schema lands; UI is already project-shaped.
+      if (req.method === "GET" && path === "/api/dashboard") {
+        try {
+          const ms = await membershipsFor(me)
+          const active = ms[0] || null
+          if (!active) {
+            // No workspace yet — return an empty-but-valid shape so the UI renders skeleton/empty states.
+            return json({ email: me, projects: [], active: null, members: [], sims: [], saying: [], tickets: [], activity: [], counts: { feedback: 0, tickets: 0, activity: 0 } })
+          }
+          const wid = active.workspaceId
+          const projectId = "proj_" + wid
+          const role = active.role
+          const isAdmin = role === "admin"
+
+          // projects / active — DERIVED single project, shaped like the real thing for the switcher.
+          const projectName = active.name || "Default Project"
+          const projects = [{ id: projectId, name: projectName }]
+          const activeOut = { id: projectId, name: projectName, role }
+
+          // members — reuse existing workspace membership read.
+          const members = await membersOf(wid)
+
+          // Reads run in parallel (each is an indexed query).
+          const [personas, feedbackTickets, activityRows, sayingFeedback] = await Promise.all([
+            listPersonas(wid),
+            listFeedback(projectId, { withTicketOnly: true, limit: 12 }),
+            // Non-admins see only their own activity (own-rows-only); admins see all.
+            listActivity(projectId, { actorEmail: isAdmin ? null : me, limit: 25 }),
+            // Recent observations (any feedback row with text), newest-first, for the "saying" feed.
+            listFeedback(projectId, { limit: 12 }),
+          ])
+
+          // Index personas for name/role/accent lookups by sim_id.
+          const personaById = new Map(personas.map(p => [p.id, p]))
+          const lastActiveBySim = new Map<string, number>()
+          for (const ev of activityRows) {
+            if (ev.simId && !lastActiveBySim.has(ev.simId)) lastActiveBySim.set(ev.simId, ev.createdAt)
+          }
+
+          // sims — the project's personas with a last-active hint from activity_events.
+          const sims = personas.map(p => ({
+            id: p.id, name: p.name, role: p.role, type: p.type,
+            initials: p.initials || p.name.slice(0, 2).toUpperCase(),
+            accent: p.accent || "#6366f1",
+            insightsCount: Array.isArray(p.insights) ? p.insights.length : 0,
+            lastActiveAt: lastActiveBySim.get(p.id) ?? null,
+          }))
+
+          // saying — "what your Sims are saying": recent feedback observations first; if none yet,
+          // fall back to personas' insights_json so a new user never sees a blank feed.
+          let saying = sayingFeedback
+            .filter(f => f.observation)
+            .map(f => {
+              const p = f.simId ? personaById.get(f.simId) : null
+              return {
+                source: "feedback" as const,
+                simId: f.simId, simName: p?.name ?? null,
+                initials: p?.initials || (p?.name?.slice(0, 2).toUpperCase()) || null,
+                accent: p?.accent ?? "#6366f1",
+                text: f.observation, sentiment: f.sentiment,
+                urlPath: f.urlPath, createdAt: f.createdAt,
+              }
+            })
+          if (!saying.length) {
+            // fallback: most recent insight per persona (so it's never blank for a fresh project).
+            const fb: any[] = []
+            for (const p of personas) {
+              const ins = Array.isArray(p.insights) ? p.insights : []
+              const top = ins[0]
+              if (top && (top.text || top.quote)) {
+                fb.push({
+                  source: "insight" as const,
+                  simId: p.id, simName: p.name,
+                  initials: p.initials || p.name.slice(0, 2).toUpperCase(),
+                  accent: p.accent || "#6366f1",
+                  text: top.text || top.quote, kind: top.kind || null,
+                  createdAt: p.updatedAt,
+                })
+              }
+            }
+            saying = fb.slice(0, 12) as any
+          }
+
+          // tickets — filed feedback (has a tracker key), newest-first, with sim attribution.
+          const tickets = feedbackTickets.map(f => {
+            const p = f.simId ? personaById.get(f.simId) : null
+            return {
+              id: f.id, simName: p?.name ?? null,
+              title: f.observation, severity: f.severity,
+              urlPath: f.urlPath, planeIssueKey: f.planeIssueKey,
+              planeIssueUrl: f.planeIssueUrl, createdAt: f.createdAt,
+            }
+          })
+
+          // activity — recent events (already own-rows-scoped for non-admins above).
+          const activity = activityRows.map(ev => {
+            const p = ev.simId ? personaById.get(ev.simId) : null
+            return {
+              id: ev.id, type: ev.type, actorEmail: ev.actorEmail,
+              simName: p?.name ?? null, urlPath: ev.urlPath, createdAt: ev.createdAt,
+            }
+          })
+
+          const counts = await dashboardCounts(projectId)
+          return json({ email: me, projects, active: activeOut, members, sims, saying, tickets, activity, counts })
+        } catch (e: any) {
+          return json({ error: e?.message || "dashboard failed" }, 500)
+        }
+      }
+
       // Returns the current session ID as a Bearer token — the extension uses this to sync sims.
       if (req.method === "GET" && path === "/api/extension-token") {
         const sid = parseCookies(req.headers.get("cookie"))["klav_session"]

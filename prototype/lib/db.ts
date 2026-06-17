@@ -269,3 +269,78 @@ export async function insertActivity(a: ActivityInsert): Promise<string> {
   })
   return id
 }
+
+// ── dashboard reads (P1) — indexed, project-scoped, newest-first. Reads only. ──
+export type ActivityRow = {
+  id: string; projectId: string; type: string; actorEmail: string | null; simId: string | null
+  urlHost: string | null; urlPath: string | null; feedbackId: string | null
+  screenshotId: string | null; meta: any; createdAt: number
+}
+function rowToActivity(x: any): ActivityRow {
+  return {
+    id: String(x.id), projectId: String(x.project_id), type: String(x.type),
+    actorEmail: x.actor_email != null ? String(x.actor_email) : null,
+    simId: x.sim_id != null ? String(x.sim_id) : null,
+    urlHost: x.url_host != null ? String(x.url_host) : null,
+    urlPath: x.url_path != null ? String(x.url_path) : null,
+    feedbackId: x.feedback_id != null ? String(x.feedback_id) : null,
+    screenshotId: x.screenshot_id != null ? String(x.screenshot_id) : null,
+    meta: x.meta_json ? JSON.parse(String(x.meta_json)) : null,
+    createdAt: Number(x.created_at),
+  }
+}
+// Recent activity for a project, newest-first. Non-admins pass actorEmail to see only their own rows
+// (uses evt_actor_idx); admins omit it to see all (uses evt_proj_idx).
+export async function listActivity(projectId: string, opts: { actorEmail?: string | null; limit?: number } = {}): Promise<ActivityRow[]> {
+  const limit = opts.limit ?? 20
+  const r = opts.actorEmail
+    ? await db!.execute({ sql: "SELECT * FROM activity_events WHERE project_id=? AND actor_email=? ORDER BY created_at DESC LIMIT ?", args: [projectId, opts.actorEmail, limit] })
+    : await db!.execute({ sql: "SELECT * FROM activity_events WHERE project_id=? ORDER BY created_at DESC LIMIT ?", args: [projectId, limit] })
+  return r.rows.map(rowToActivity)
+}
+
+export type FeedbackRow = {
+  id: string; projectId: string; simId: string | null; actorEmail: string | null
+  urlHost: string | null; urlPath: string | null; observation: string | null
+  sentiment: string | null; severity: string | null; screenshotId: string | null
+  planeIssueKey: string | null; planeIssueUrl: string | null; createdAt: number
+}
+function rowToFeedback(x: any): FeedbackRow {
+  return {
+    id: String(x.id), projectId: String(x.project_id),
+    simId: x.sim_id != null ? String(x.sim_id) : null,
+    actorEmail: x.actor_email != null ? String(x.actor_email) : null,
+    urlHost: x.url_host != null ? String(x.url_host) : null,
+    urlPath: x.url_path != null ? String(x.url_path) : null,
+    observation: x.observation != null ? String(x.observation) : null,
+    sentiment: x.sentiment != null ? String(x.sentiment) : null,
+    severity: x.severity != null ? String(x.severity) : null,
+    screenshotId: x.screenshot_id != null ? String(x.screenshot_id) : null,
+    planeIssueKey: x.plane_issue_key != null ? String(x.plane_issue_key) : null,
+    planeIssueUrl: x.plane_issue_url != null ? String(x.plane_issue_url) : null,
+    createdAt: Number(x.created_at),
+  }
+}
+// Recent feedback for a project, newest-first (uses fb_proj_idx). withTicketOnly → only rows that
+// reached the tracker (plane_issue_key set) — i.e. filed tickets.
+export async function listFeedback(projectId: string, opts: { withTicketOnly?: boolean; limit?: number } = {}): Promise<FeedbackRow[]> {
+  const limit = opts.limit ?? 20
+  const r = opts.withTicketOnly
+    ? await db!.execute({ sql: "SELECT * FROM feedback WHERE project_id=? AND plane_issue_key IS NOT NULL ORDER BY created_at DESC LIMIT ?", args: [projectId, limit] })
+    : await db!.execute({ sql: "SELECT * FROM feedback WHERE project_id=? ORDER BY created_at DESC LIMIT ?", args: [projectId, limit] })
+  return r.rows.map(rowToFeedback)
+}
+
+// Cheap headline counts for the dashboard (indexed scans).
+export async function dashboardCounts(projectId: string): Promise<{ feedback: number; tickets: number; activity: number }> {
+  const [fb, tk, ev] = await Promise.all([
+    db!.execute({ sql: "SELECT COUNT(*) AS n FROM feedback WHERE project_id=?", args: [projectId] }),
+    db!.execute({ sql: "SELECT COUNT(*) AS n FROM feedback WHERE project_id=? AND plane_issue_key IS NOT NULL", args: [projectId] }),
+    db!.execute({ sql: "SELECT COUNT(*) AS n FROM activity_events WHERE project_id=?", args: [projectId] }),
+  ])
+  return {
+    feedback: Number((fb.rows[0] as any).n),
+    tickets: Number((tk.rows[0] as any).n),
+    activity: Number((ev.rows[0] as any).n),
+  }
+}
