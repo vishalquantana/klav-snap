@@ -886,10 +886,44 @@ function renderDrafts(){
   wrap.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { drafts = drafts.filter(x => x.id != b.dataset.rm); renderDrafts() })
   updateFlow()
 }
-function saveDrafts(){
+// Build the issue description a saved Sim reaction files to the tracker.
+function draftDescription(d){
+  const bug = d.rx.suggestedBug
+  const who = `${d.sim.name}${d.sim.role ? " · " + d.sim.role : ""}`
+  let body = `Sim reaction from ${who}: ${d.rx.observation}`
+  if (bug) body += `\n\n🐛 ${bug.title} (${bug.severity})\n${bug.body || ""}`
+  return body
+}
+// POST one saved draft to /api/feedback so studio reviews persist (and file to the tracker
+// when a Plane connection exists). Best-effort: the optimistic UI still marks it saved on failure.
+async function fileDraft(d){
+  const fd = new FormData()
+  fd.append("description", draftDescription(d))
+  fd.append("page_url", "https://studio.klavity.local/acme-finance/overview")
+  fd.append("observation", d.rx.observation || "")
+  if (d.rx.sentiment) fd.append("sentiment", d.rx.sentiment)
+  if (d.sim && d.sim.id) fd.append("sim_id", d.sim.id)
+  if (d.rx.suggestedBug) {
+    fd.append("severity", d.rx.suggestedBug.severity || "")
+    fd.append("suggested_bug", JSON.stringify(d.rx.suggestedBug))
+  }
+  try {
+    const r = await fetch("/api/feedback", { method: "POST", body: fd })
+    const data = await r.json().catch(() => ({}))
+    if (r.ok && (data.jira_key || data.id)) return String(data.jira_key || data.id)
+  } catch (_) { /* persistence is best-effort */ }
+  return null
+}
+async function saveDrafts(){
+  const toSave = drafts.filter(d => !d.saved && d.selected)
+  if (!toSave.length) { setStatus("draftStatus", "Nothing selected."); return }
   let n = 0
-  drafts.forEach(d => { if (!d.saved && d.selected) { d.saved = true; n++; if (d.rx.suggestedBug) d.key = "KS-" + (100 + Math.floor((performance.now() + d.id * 7) % 800)) } })
-  renderDrafts()
+  for (const d of toSave) {
+    const key = await fileDraft(d)
+    d.saved = true; n++
+    if (key) d.key = key
+    renderDrafts()
+  }
   setStatus("draftStatus", n ? `Saved ${n} to Klavity — bugs filed to your tracker.` : "Nothing selected.")
   if (n) finishGuide()
 }
