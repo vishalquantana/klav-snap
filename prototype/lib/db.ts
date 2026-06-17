@@ -199,6 +199,25 @@ export async function applySchema(c: Client) {
     `CREATE INDEX IF NOT EXISTS ai_calls_type_idx ON ai_calls (type, created_at)`,
   ]
   for (const s of stmts) await c.execute(s)
+
+  // ── additive (idempotent) columns — added after the P3a tables were deployed, so existing prod
+  // DBs need these ALTERed in on every boot (migrateV2 early-returns when migrated_v2 is already
+  // set, so these MUST live here, mirroring the accounts.domain pattern in initDb). ──
+  const newTraitCols: Array<[string, string]> = [
+    ["sim_traits", "area"],
+    ["sim_traits", "issue_type"],
+    ["sim_traits", "severity"],
+    ["trait_events", "area"],
+    ["trait_events", "issue_type"],
+    ["trait_events", "severity"],
+  ]
+  for (const [table, col] of newTraitCols) {
+    if (!(await columnExists(c, table, col))) {
+      await c.execute(`ALTER TABLE ${table} ADD COLUMN ${col} TEXT`).catch((e) =>
+        console.warn(`${table}.${col} ALTER skipped:`, e?.message || e),
+      )
+    }
+  }
 }
 
 // ── schema_meta helpers ──
