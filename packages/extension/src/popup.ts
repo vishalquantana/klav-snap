@@ -123,7 +123,12 @@ async function renderSignedIn() {
     const saved = await getSelectedProjectId()
     const active = pickProject(projects, saved)
     activeProjectId = active?.id ?? null
-    sel.innerHTML = projects.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')
+    sel.replaceChildren(...projects.map((p) => {
+      const opt = document.createElement('option')
+      opt.value = p.id
+      opt.textContent = p.name
+      return opt
+    }))
     sel.value = activeProjectId ?? ''
     sel.style.display = projects.length > 1 ? 'inline-block' : 'none'
     sel.addEventListener('change', async () => {
@@ -146,10 +151,13 @@ async function renderSims(s: KlavitySettings, projectId: string | null = null) {
   let sims: Sim[] = simsData.klavSims ?? []
   const simsList = $('sims-list')
 
-  if (s.backendUrl && s.klavToken) {
+  const cfg = await getConfig()
+  const token = cfg?.token || s.klavToken
+  const base = cfg?.backendUrl || s.backendUrl
+  if (base && token) {
     try {
       const q = projectId ? `?project=${encodeURIComponent(projectId)}` : ''
-      const r = await fetch(`${s.backendUrl}/api/personas${q}`, { headers: { Authorization: `Bearer ${s.klavToken}` } })
+      const r = await fetch(`${base}/api/personas${q}`, { headers: { Authorization: `Bearer ${token}` } })
       if (r.ok) {
         const d = await r.json()
         if (Array.isArray(d.personas) && d.personas.length) {
@@ -172,7 +180,7 @@ async function renderSims(s: KlavitySettings, projectId: string | null = null) {
       <a class="empty-link" id="add-sim-link" href="#" style="text-align:center;">+ Open Sim Studio →</a>`
     $('add-sim-link')?.addEventListener('click', (e) => {
       e.preventDefault()
-      chrome.tabs.create({ url: `${s.backendUrl || 'https://klavity.quantana.top'}/app` })
+      chrome.tabs.create({ url: `${base || 'https://klavity.quantana.top'}/app` })
     })
     return
   }
