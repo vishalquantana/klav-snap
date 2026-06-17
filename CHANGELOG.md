@@ -10,7 +10,15 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
-## [Unreleased]
+## [0.9.0] — 2026-06-18
+
+### Added
+- **AI credit logging + `/opsadmin` dashboard.** Every OpenRouter call is now
+  recorded (model, real credit cost via `usage.include`, token counts, actor,
+  project) in a new `ai_calls` ledger. A private, server-rendered `/opsadmin`
+  page (gated to the `OPS_ADMIN_EMAILS` allowlist; 404 to everyone else) shows
+  total spend, a 30-day daily-spend chart, today-vs-cap (`OPS_DAILY_CAP_USD`),
+  per-project and per-type/model breakdowns, and a recent-calls log.
 
 ### Fixed
 - **Sims Studio: Import/Your Sims tabs were unclickable** — the tabs used inline
