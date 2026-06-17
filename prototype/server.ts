@@ -310,6 +310,7 @@ Bun.serve({
         if (!sid) return json({ error: "No session." }, 401)
         return json({ token: sid })
       }
+
       // workspace (team) connection — read by any member, written by admins
       if (path === "/api/integration") {
         const ms = await membershipsFor(me); const active = ms[0]

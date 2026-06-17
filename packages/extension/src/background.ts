@@ -187,6 +187,7 @@ chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
   // PING — lets the web app check if the extension is installed + whether it has a token.
   if (msg.type === 'PING') {
     chrome.storage.sync.get('klavSettings', (result) => {
+      if (chrome.runtime.lastError) { sendResponse({ ok: false }); return }
       const s = result.klavSettings ?? {}
       sendResponse({ ok: true, klavToken: !!s.klavToken })
     })
@@ -198,9 +199,11 @@ chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
     return
   }
   chrome.storage.sync.get('klavSettings', (result) => {
+    if (chrome.runtime.lastError) { sendResponse({ ok: false, error: chrome.runtime.lastError.message }); return }
     const current = result.klavSettings ?? {}
     const updated = { ...current, klavToken: msg.token, backendUrl: msg.backendUrl || '' }
     chrome.storage.sync.set({ klavSettings: updated }, () => {
+      if (chrome.runtime.lastError) { sendResponse({ ok: false, error: chrome.runtime.lastError.message }); return }
       sendResponse({ ok: true })
     })
   })
