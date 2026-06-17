@@ -12,6 +12,48 @@ section for the bump rules.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-17
+
+### Added
+- **Sim provenance + evolution (Sims P3a):** insights are now normalized to a
+  durable, provenance-tracked model so every reaction is traceable to the exact
+  quote, speaker, transcript, and date that produced it. Three additive tables —
+  `transcripts` (persisted; `source_date` drives "(Sarah, 2026-06-12)" citations),
+  `sim_traits` (normalized pain/want/love with a **stable `trait_id` citation
+  key**; `insights_json` kept as a read cache), and `trait_events` (append-only
+  audit of what changed) — plus a `reconcile_runs` cost-guard cache.
+  (`prototype/lib/db.ts`, `prototype/lib/provenance.ts`)
+- **Transcript → reconcile pipeline:** `POST /api/transcripts` (project-scoped,
+  cookie or Bearer) persists the transcript, extracts personas, conservatively
+  matches them to existing Sims (confident auto-apply; fuzzy/ambiguous →
+  `needsConfirm`), then runs **one `reconcileSim()` LLM call per matched Sim**
+  (gated by `reconcile_runs` so a `(sim, transcript)` pair is never re-run, and
+  never the whole library) emitting structured ops (add/reinforce/refine/
+  contradict/supersede) each anchored to a verbatim quote → applied to
+  `sim_traits` + appended to `trait_events` → `insights_json` rebuilt.
+  (`prototype/server.ts`)
+- **Feedback citations (R8):** `REACT_SYS` now returns `citedTraitIds`;
+  `/api/react` resolves them to `{quote, speaker, sourceDate, transcriptId}`,
+  `/api/feedback` persists the resolved citation on the feedback row and appends
+  a citation line to the Plane issue body. Graceful empty citation when no
+  documented trait drove the reaction. (`prototype/server.ts`)
+- **Studio citation chips:** a Sim's reaction (in the live bubble and the draft
+  queue) renders a provenance chip — `from: "<quote>" — <speaker>, <date>` —
+  from the resolved citation; absent gracefully when there is none. Saved drafts
+  forward `cited_trait_ids` so persisted feedback keeps its provenance.
+  (`prototype/public/index.html`)
+- **Per-Sim "Evolution" timeline:** each saved Sim card gains an expandable
+  Evolution view listing that Sim's `trait_events` **newest-first** — the op,
+  the new trait text, and the driving quote/transcript/date — backed by a new
+  `GET /api/sims/:id/evolution` (project-scoped, authorizes Sim↔project).
+  Reuses the studio's existing design system. (`prototype/server.ts`,
+  `prototype/public/index.html`)
+
+### Notes
+- P3a is **provenance + studio UI only** — no live activation, monitored URLs,
+  consent, screenshots, or extension changes (those land in P3b). Additive;
+  existing flows unchanged.
+
 ## [0.5.0] - 2026-06-17
 
 ### Added

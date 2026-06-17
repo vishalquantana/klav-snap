@@ -186,6 +186,32 @@
   .draft .savedtag{font-size:9px;color:var(--green);margin-top:4px}
   .savebar{width:100%;margin-top:10px;font-size:12px;padding:9px;border-radius:8px;background:var(--indigo);color:#fff;border:none;cursor:pointer}
 
+  /* ── citation chip (R8 provenance): "from: '<quote>' — <speaker>, <date>" on a Sim's reaction ── */
+  .cite{display:block;margin-top:5px;font-size:9.5px;line-height:1.4;color:var(--paper-faint);
+    background:var(--ink-4);border:1px solid var(--line);border-left:2px solid var(--indigo);
+    border-radius:6px;padding:4px 7px}
+  .cite .cq{color:var(--paper-dim);font-style:italic}
+  .cite .cw{color:var(--indigo);font-weight:700;font-style:normal}
+  .rbubble .cite{margin-top:6px;background:rgba(99,102,241,.10)}
+
+  /* ── per-Sim Evolution timeline (R8 trait_events) ── */
+  .ds-evo-toggle{font-size:9px;font-weight:700;color:var(--indigo);background:none;border:none;cursor:pointer;
+    padding:0;margin-top:6px;display:inline-flex;align-items:center;gap:4px}
+  .ds-evo{margin-top:7px;border-top:1px dashed var(--line-2);padding-top:7px}
+  .evo-item{position:relative;padding:0 0 9px 14px;border-left:2px solid var(--line-2);margin-left:3px}
+  .evo-item:last-child{padding-bottom:0}
+  .evo-item::before{content:"";position:absolute;left:-5px;top:2px;width:8px;height:8px;border-radius:50%;
+    background:var(--indigo);border:2px solid var(--ink-2)}
+  .evo-op{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:1px 6px;
+    border-radius:6px;background:var(--ink-4);color:var(--paper-dim)}
+  .evo-op.op-add{background:rgba(15,157,107,.14);color:var(--green)}
+  .evo-op.op-refine,.evo-op.op-reinforce{background:rgba(37,99,235,.14);color:var(--blue)}
+  .evo-op.op-contradict,.evo-op.op-supersede{background:rgba(219,39,119,.14);color:var(--rose)}
+  .evo-text{font-size:10px;color:var(--paper);margin-top:3px;line-height:1.4}
+  .evo-src{font-size:9px;color:var(--paper-faint);margin-top:3px;line-height:1.4}
+  .evo-src .cq{font-style:italic;color:var(--paper-dim)}
+  .evo-empty{font-size:9.5px;color:var(--paper-faint);padding:2px 0}
+
   /* ── the ONE progress rail (single number line) ── */
   #rail{display:flex;align-items:stretch;gap:0;background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:6px;margin-bottom:16px}
   #rail .rstep{flex:1;display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:10px}
@@ -619,7 +645,9 @@ function renderDock(newIndex = -1) {
           <div class="ds-insights">${shown.length ? shown.map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ") : (onlyCriticalInsights && ins.length ? '<span style="opacity:.6">No critical insights</span>' : "")}</div>
           <button class="reviewbtn" data-i="${i}">Have ${esc(s.name.split(" ")[0])} review this page →</button>
           ${s._saved
-            ? `<div class="ds-savedtag">✓ Saved to library <button class="ds-delbtn" data-del="${i}">Remove</button></div>`
+            ? `<div class="ds-savedtag">✓ Saved to library <button class="ds-delbtn" data-del="${i}">Remove</button></div>
+               <button class="ds-evo-toggle" data-evo="${i}">📜 Evolution</button>
+               <div class="ds-evo" id="evo-${i}" style="display:none"></div>`
             : `<button class="ds-savebtn" data-savesim="${i}">Save Sim to library →</button>`}
         </div>`
     }
@@ -648,6 +676,8 @@ function wireDock() {
     await apiDeleteSim(sims[i])
     sims.splice(i, 1); renderDock()
   })
+  // Per-Sim Evolution timeline: lazy-load this Sim's trait_events (newest-first) on first expand.
+  dock.querySelectorAll("[data-evo]").forEach(b => b.onclick = () => toggleEvolution(Number(b.dataset.evo), b))
   dock.querySelectorAll("[data-avup]").forEach(b => b.onclick = () => { dock.querySelector(`[data-avfile="${b.dataset.avup}"]`).click() })
   dock.querySelectorAll("[data-avfile]").forEach(inp => inp.onchange = (e) => onAvatar(Number(inp.dataset.avfile), e))
   dock.querySelectorAll("[data-accent]").forEach(inp => inp.oninput = (e) => {
@@ -712,6 +742,55 @@ function onAvatar(i, e) {
 
 function badge(kind){const c=kind==="pain"?"#f38ba8":kind==="want"?"#89b4fa":"#a6e3a1";return `<span style="color:${c};font-weight:700">${kind}</span>`}
 
+// R8 provenance: render the citation that drove a Sim's reaction →
+// "from: '<quote>' — <speaker>, <date>". Graceful: returns "" when no resolved citation.
+function fmtDate(ms){ if(!ms) return ""; try{ return new Date(Number(ms)).toISOString().slice(0,10) }catch(_){ return "" } }
+function citeChip(c){
+  if (!c || !c.sourceQuote) return ""
+  const who = c.speaker ? esc(c.speaker) : ""
+  const date = fmtDate(c.sourceDate)
+  const attr = [who, date].filter(Boolean).join(", ")
+  return `<span class="cite"><span class="cw">from:</span> <span class="cq">“${esc(c.sourceQuote)}”</span>${attr ? ` — ${attr}` : ""}</span>`
+}
+
+// ── Per-Sim "Evolution" timeline (R8 trait_events) ──
+// Expandable on each saved Sim card. Lazy-loads GET /api/sims/:id/evolution (newest-first) and renders
+// what changed (op), the new trait text, and the driving quote/transcript/date. Graceful empty state.
+const evoOpen = new Set()
+async function toggleEvolution(i, btn){
+  const sim = sims[i]
+  const box = $("evo-" + i)
+  if (!box) return
+  const id = sim._id || sim.id
+  if (box.style.display !== "none") { box.style.display = "none"; evoOpen.delete(id); return }
+  box.style.display = "block"; evoOpen.add(id)
+  if (box.dataset.loaded === "1") return // cached after first fetch
+  box.innerHTML = `<div class="evo-empty">Loading evolution…</div>`
+  try {
+    const r = await fetch(`/api/sims/${encodeURIComponent(id)}/evolution`)
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(data.error || "load failed")
+    box.innerHTML = renderEvolution(data.events || [])
+    box.dataset.loaded = "1"
+  } catch (e) {
+    box.innerHTML = `<div class="evo-empty">Couldn’t load evolution: ${esc(e.message)}</div>`
+  }
+}
+function renderEvolution(events){
+  if (!events.length) return `<div class="evo-empty">No transcript-driven changes yet. Add a transcript that mentions this Sim to start their timeline.</div>`
+  return events.map(e => {
+    const src = e.transcriptTitle || "transcript"
+    const date = fmtDate(e.sourceDate)
+    const who = e.speaker ? esc(e.speaker) : ""
+    const attr = [who, date].filter(Boolean).join(", ")
+    return `<div class="evo-item">
+      <span class="evo-op op-${esc(e.op)}">${esc(e.op)}</span>
+      <div class="evo-text">${esc(e.afterText || e.beforeText || "")}</div>
+      <div class="evo-src">${e.quote ? `<span class="cq">“${esc(e.quote)}”</span> — ` : ""}${esc(src)}${attr ? ` (${attr})` : ""}</div>
+    </div>`
+  }).join("")
+}
+
 const reviewing = new Set()
 async function review(i) {
   if (reviewing.has(i)) return
@@ -744,8 +823,10 @@ async function review(i) {
       setStatus("reactStatus", `⚡ [cache] ${sim.name.split(" ")[0]} gave ${cachedReact.reactions.length} reaction(s) (${devCacheCount()} entries cached)`)
       playReactions(sim, cachedReact.reactions)
     } else {
+      // Send the saved Sim's stable id so the server can resolve citedTraitIds → citation
+      // ({quote, speaker, sourceDate}). Unsaved Sims have no _id → server returns null citation (graceful).
       const r = await fetch("/api/react", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ persona: sim, imageB64, mediaType: "image/png", pageUrl }) })
+        body: JSON.stringify({ persona: { ...sim, id: sim._id || sim.id || null }, imageB64, mediaType: "image/png", pageUrl }) })
       const data = await r.json()
       if (data.error) throw new Error(data.error)
       devCacheSet(reactKey, { reactions: data.reactions }); renderDevBar()
@@ -837,6 +918,7 @@ function showBubble(sim, rx, tailX) {
     <div class="bn" style="color:${sim.accent || "#89b4fa"}">${esc(sim.name)} · ${esc(sim.role)} ${rx.emoji || ""}</div>
     <div class="bo">${esc(rx.observation)}</div>
     ${bug ? `<div class="bbug"><div class="bt">🐛 ${esc(bug.title)} <span style="color:var(--paper-faint)">(${bug.severity})</span></div><div class="bd">${esc(bug.body)}</div></div>` : ""}
+    ${citeChip(rx.citation)}
     <div style="font-size:9.5px;color:var(--paper-faint);margin-top:7px;font-weight:600">↓ saved to your draft queue</div>`
   // dock below the stage so the mockup stays fully visible
   const bw = Math.min(320, W - 8)
@@ -876,6 +958,7 @@ function renderDrafts(){
       (d.saved ? "" : `<button class="drm" data-rm="${d.id}">×</button>`) + `</div>` +
       `<div class="dob">${esc(d.rx.observation)}</div>` +
       (bug ? `<div class="dbug">🐛 ${esc(bug.title)} (${esc(bug.severity)})</div>` : "") +
+      citeChip(d.rx.citation) +
       (d.saved ? `<div class="savedtag">✅ Saved to Klavity${d.key ? ` · filed ${d.key}` : ""}</div>` : "") +
       `</div>`
     wrap.appendChild(el)
@@ -902,7 +985,12 @@ async function fileDraft(d){
   fd.append("page_url", "https://studio.klavity.local/acme-finance/overview")
   fd.append("observation", d.rx.observation || "")
   if (d.rx.sentiment) fd.append("sentiment", d.rx.sentiment)
-  if (d.sim && d.sim.id) fd.append("sim_id", d.sim.id)
+  const simId = d.sim && (d.sim._id || d.sim.id)
+  if (simId) fd.append("sim_id", simId)
+  // R8: forward the reaction's cited trait ids so the persisted feedback row keeps its provenance
+  // (server resolves them → {quote, speaker, sourceDate} and appends a citation line to the Plane issue).
+  if (d.rx.citation && Array.isArray(d.rx.citation.citedTraitIds) && d.rx.citation.citedTraitIds.length)
+    fd.append("cited_trait_ids", JSON.stringify(d.rx.citation.citedTraitIds))
   if (d.rx.suggestedBug) {
     fd.append("severity", d.rx.suggestedBug.severity || "")
     fd.append("suggested_bug", JSON.stringify(d.rx.suggestedBug))

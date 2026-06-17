@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTraits, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson } from "./lib/db"
 import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
@@ -562,6 +562,47 @@ Bun.serve({
           usage: { extract: extractUsage, reconcile: reconcileUsages },
         }, 201)
       } catch (e: any) { return json({ error: e?.message || "transcript failed" }, 500) }
+    }
+
+    // ── Sim evolution timeline (P3a step 3) — project-scoped; cookie OR Bearer; admin or member. ──
+    // Returns this Sim's trait_events newest-first (what changed + new text + driving quote/transcript/date),
+    // enriched with the originating transcript's title so the studio can render the "Evolution" timeline.
+    // Graceful: a Sim with no transcript-driven history returns an empty events array.
+    {
+      const evoMatch = path.match(/^\/api\/sims\/([^/]+)\/evolution$/)
+      if (req.method === "GET" && evoMatch) {
+        const meE = (await sessionEmail(req)) || (await bearerEmail(req))
+        if (!meE) return json({ error: "Sign in to continue." }, 401)
+        const projE = await resolveProject(meE, url.searchParams.get("project"))
+        if (!projE) return json({ error: "No project." }, 400)
+        const simId = evoMatch[1]
+        // Authorize: the Sim must belong to the resolved project (no cross-project leakage).
+        const sims = await listPersonas(projE.id)
+        const sim = sims.find((p) => p.id === simId)
+        if (!sim) return json({ error: "Not found" }, 404)
+        try {
+          const events = await listTraitEvents(simId) // ASC from db
+          // Map transcript_id → title for human-readable provenance ("from <transcript>, <date>").
+          const titleById = new Map<string, string | null>()
+          for (const tr of await listTranscripts(projE.id)) titleById.set(tr.id, tr.title)
+          const timeline = events
+            .slice()
+            .reverse() // newest-first for the timeline view
+            .map((e) => ({
+              op: e.op,
+              afterText: e.afterText,
+              beforeText: e.beforeText,
+              quote: e.quote,
+              speaker: e.speaker,
+              sourceDate: e.sourceDate,
+              transcriptId: e.transcriptId,
+              transcriptTitle: titleById.has(e.transcriptId) ? titleById.get(e.transcriptId) : null,
+              reason: e.reason,
+              createdAt: e.createdAt,
+            }))
+          return json({ simId, name: sim.name, events: timeline })
+        } catch (e: any) { return json({ error: e?.message || "evolution failed" }, 500) }
+      }
     }
 
     // ── everything below requires a session ──
