@@ -160,6 +160,29 @@ export async function applySchema(c: Client) {
     `CREATE TABLE IF NOT EXISTS reconcile_runs (
        sim_id TEXT NOT NULL, transcript_id TEXT NOT NULL, created_at INTEGER NOT NULL,
        PRIMARY KEY (sim_id, transcript_id))`,
+
+    // ── Sims-dashboard P3b (additive): live URL activation surface (§2.2). ──
+    // MONITORED URLS — allowlist of url patterns (prefix/glob only, NO regex) where Sims may auto-comment.
+    `CREATE TABLE IF NOT EXISTS monitored_urls (
+       id TEXT PRIMARY KEY, project_id TEXT NOT NULL, url_pattern TEXT NOT NULL,
+       enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL,
+       UNIQUE(project_id, url_pattern))`,
+    `CREATE INDEX IF NOT EXISTS mon_url_proj_idx ON monitored_urls (project_id)`,
+    // MONITORING CONSENT — per-member-per-project consent before first capture (privacy, binding §5).
+    `CREATE TABLE IF NOT EXISTS monitoring_consent (
+       id TEXT PRIMARY KEY, project_id TEXT NOT NULL, email TEXT NOT NULL,
+       status TEXT NOT NULL,                  -- 'granted' | 'paused' | 'revoked'
+       granted_at INTEGER, updated_at INTEGER NOT NULL, UNIQUE(project_id, email))`,
+    // REVIEW COUNTS — per-project-per-day atomic budget counter (the cost-cap spine, §5).
+    `CREATE TABLE IF NOT EXISTS review_counts (
+       project_id TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0,
+       PRIMARY KEY (project_id, day))`,
+    // EXTENSION TOKENS — dedicated narrow-scope Bearer (R5 security pre-req): bound to email (+optional
+    // project), replaces reusing the raw 7-day session id. resolveBearer accepts these alongside sessions.
+    `CREATE TABLE IF NOT EXISTS extension_tokens (
+       token TEXT PRIMARY KEY, email TEXT NOT NULL, project_id TEXT,
+       created_at INTEGER NOT NULL, expires_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0)`,
+    `CREATE INDEX IF NOT EXISTS ext_tok_email_idx ON extension_tokens (email)`,
   ]
   for (const s of stmts) await c.execute(s)
 }
@@ -831,4 +854,143 @@ export async function rebuildInsightsJson(simId: string) {
     args: [JSON.stringify(insights), Date.now(), simId],
   })
   return insights
+}
+
+// ── monitored_urls / consent / review budget / extension tokens (P3b live activation) ──
+// project_id is the canonical 'proj_'+account id. Patterns are prefix/glob ONLY (no regex).
+
+export type MonitoredUrlRow = { id: string; projectId: string; urlPattern: string; enabled: boolean; createdAt: number }
+function rowToMonitoredUrl(x: any): MonitoredUrlRow {
+  return { id: String(x.id), projectId: String(x.project_id), urlPattern: String(x.url_pattern), enabled: Number(x.enabled) === 1, createdAt: Number(x.created_at) }
+}
+// All patterns for a project (admin view). enabledOnly → only rows the extension should act on.
+export async function listMonitoredUrls(projectId: string, opts: { enabledOnly?: boolean } = {}): Promise<MonitoredUrlRow[]> {
+  const r = opts.enabledOnly
+    ? await db!.execute({ sql: "SELECT * FROM monitored_urls WHERE project_id=? AND enabled=1 ORDER BY created_at ASC", args: [projectId] })
+    : await db!.execute({ sql: "SELECT * FROM monitored_urls WHERE project_id=? ORDER BY created_at ASC", args: [projectId] })
+  return r.rows.map(rowToMonitoredUrl)
+}
+// Add (or re-enable) a pattern. Idempotent via UNIQUE(project_id,url_pattern). Returns the row id.
+export async function addMonitoredUrl(projectId: string, urlPattern: string, enabled = true): Promise<string> {
+  const id = "mon_" + crypto.randomUUID()
+  await db!.execute({
+    sql: `INSERT INTO monitored_urls (id,project_id,url_pattern,enabled,created_at) VALUES (?,?,?,?,?)
+          ON CONFLICT(project_id,url_pattern) DO UPDATE SET enabled=excluded.enabled`,
+    args: [id, projectId, urlPattern, enabled ? 1 : 0, Date.now()],
+  })
+  const r = await db!.execute({ sql: "SELECT id FROM monitored_urls WHERE project_id=? AND url_pattern=?", args: [projectId, urlPattern] })
+  return r.rows.length ? String((r.rows[0] as any).id) : id
+}
+export async function setMonitoredUrlEnabled(projectId: string, id: string, enabled: boolean): Promise<void> {
+  await db!.execute({ sql: "UPDATE monitored_urls SET enabled=? WHERE project_id=? AND id=?", args: [enabled ? 1 : 0, projectId, id] })
+}
+export async function removeMonitoredUrl(projectId: string, id: string): Promise<void> {
+  await db!.execute({ sql: "DELETE FROM monitored_urls WHERE project_id=? AND id=?", args: [projectId, id] })
+}
+
+// matchMonitored: prefix/glob ONLY (NO regex). A pattern matches `url` on host+path when, after
+// normalizing both (strip scheme, query, fragment, trailing slash), the url starts with the pattern's
+// literal prefix — with '*' acting as a wildcard for any run of characters. Examples:
+//   'app.example.com/billing'   matches 'https://app.example.com/billing/invoices?x=1'
+//   'app.example.com/*/settings' matches 'app.example.com/team/settings'
+// Returns the matched MonitoredUrlRow (first enabled match) or null.
+function normForMatch(u: string): string {
+  let s = String(u || "").trim()
+  s = s.replace(/^https?:\/\//i, "")          // strip scheme
+  s = s.replace(/[?#].*$/, "")                // strip query + fragment (path-only, §5)
+  s = s.replace(/\/+$/, "")                   // strip trailing slash(es)
+  return s.toLowerCase()
+}
+function globToRegExp(pattern: string): RegExp {
+  // Escape everything except '*', which becomes '.*'. Anchored at start (prefix match), open at end.
+  const esc = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")
+  return new RegExp("^" + esc)
+}
+export function patternMatchesUrl(pattern: string, url: string): boolean {
+  const p = normForMatch(pattern)
+  const u = normForMatch(url)
+  if (!p) return false
+  if (!p.includes("*")) return u === p || u.startsWith(p + "/")  // prefix on a path boundary
+  return globToRegExp(p).test(u)
+}
+export async function matchMonitored(projectId: string, url: string): Promise<MonitoredUrlRow | null> {
+  const rows = await listMonitoredUrls(projectId, { enabledOnly: true })
+  for (const row of rows) if (patternMatchesUrl(row.urlPattern, url)) return row
+  return null
+}
+
+// ── monitoring consent (per-member-per-project) ──
+export type ConsentRow = { projectId: string; email: string; status: string; grantedAt: number | null; updatedAt: number }
+export async function getConsent(projectId: string, email: string): Promise<ConsentRow | null> {
+  const r = await db!.execute({ sql: "SELECT * FROM monitoring_consent WHERE project_id=? AND email=?", args: [projectId, email] })
+  if (!r.rows.length) return null
+  const x = r.rows[0] as any
+  return { projectId: String(x.project_id), email: String(x.email), status: String(x.status), grantedAt: x.granted_at != null ? Number(x.granted_at) : null, updatedAt: Number(x.updated_at) }
+}
+// Upsert consent status. granted_at is stamped the first time status becomes 'granted' and preserved after.
+export async function setConsent(projectId: string, email: string, status: 'granted' | 'paused' | 'revoked'): Promise<void> {
+  const now = Date.now()
+  const existing = await getConsent(projectId, email)
+  const grantedAt = status === "granted" ? (existing?.grantedAt ?? now) : (existing?.grantedAt ?? null)
+  await db!.execute({
+    sql: `INSERT INTO monitoring_consent (id,project_id,email,status,granted_at,updated_at) VALUES (?,?,?,?,?,?)
+          ON CONFLICT(project_id,email) DO UPDATE SET status=excluded.status, granted_at=excluded.granted_at, updated_at=excluded.updated_at`,
+    args: ["con_" + projectId + "_" + email, projectId, email, status, grantedAt, now],
+  })
+}
+
+// ── project review_mode (user/admin pause) ──
+export async function getReviewMode(projectId: string): Promise<string | null> {
+  const r = await db!.execute({ sql: "SELECT review_mode FROM projects WHERE id=?", args: [projectId] })
+  return r.rows.length ? String((r.rows[0] as any).review_mode) : null
+}
+export async function setReviewMode(projectId: string, mode: 'auto' | 'ready' | 'paused'): Promise<void> {
+  await db!.execute({ sql: "UPDATE projects SET review_mode=?, updated_at=? WHERE id=?", args: [mode, Date.now(), projectId] })
+}
+
+// tryConsumeReviewBudget: ATOMIC per-project-per-day budget cap (§5). Returns true iff it incremented
+// the day's count to a value <= budget (i.e. the caller is allowed to spend one review); false when the
+// day is already at/over budget. The UPDATE … WHERE count<budget is the atomic gate: only one writer can
+// take the row from (budget-1)→budget. budget<=0 always denies. Row is lazily created at count=0 first.
+export async function tryConsumeReviewBudget(projectId: string, day: string, budget: number): Promise<boolean> {
+  if (!Number.isFinite(budget) || budget <= 0) return false
+  await db!.execute({
+    sql: "INSERT INTO review_counts (project_id,day,count) VALUES (?,?,0) ON CONFLICT(project_id,day) DO NOTHING",
+    args: [projectId, day],
+  })
+  const r = await db!.execute({
+    sql: "UPDATE review_counts SET count=count+1 WHERE project_id=? AND day=? AND count<?",
+    args: [projectId, day, budget],
+  })
+  return Number(r.rowsAffected) > 0
+}
+// Read the current day's consumed count (0 if no row yet).
+export async function reviewBudgetUsed(projectId: string, day: string): Promise<number> {
+  const r = await db!.execute({ sql: "SELECT count FROM review_counts WHERE project_id=? AND day=?", args: [projectId, day] })
+  return r.rows.length ? Number((r.rows[0] as any).count) : 0
+}
+
+// ── extension tokens (dedicated narrow-scope Bearer, R5 pre-req) ──
+// Issue (or rotate) a token bound to email (+optional project). Replaces reusing the raw session id.
+export async function issueExtensionToken(email: string, projectId?: string | null, ttlMs?: number | null): Promise<string> {
+  const token = "ext_" + crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "")
+  const now = Date.now()
+  const expiresAt = ttlMs && ttlMs > 0 ? now + ttlMs : null
+  await db!.execute({
+    sql: "INSERT INTO extension_tokens (token,email,project_id,created_at,expires_at,revoked) VALUES (?,?,?,?,?,0)",
+    args: [token, email, projectId ?? null, now, expiresAt],
+  })
+  return token
+}
+// Resolve a dedicated extension token → email, honoring revoked + expiry. Returns null if not an ext token.
+export async function getExtensionTokenEmail(token: string): Promise<string | null> {
+  const r = await db!.execute({ sql: "SELECT email, expires_at, revoked FROM extension_tokens WHERE token=?", args: [token] })
+  if (!r.rows.length) return null
+  const x = r.rows[0] as any
+  if (Number(x.revoked) === 1) return null
+  if (x.expires_at != null && Number(x.expires_at) < Date.now()) return null
+  return String(x.email)
+}
+export async function revokeExtensionToken(token: string): Promise<void> {
+  await db!.execute({ sql: "UPDATE extension_tokens SET revoked=1 WHERE token=?", args: [token] })
 }

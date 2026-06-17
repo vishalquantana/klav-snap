@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken } from "./lib/db"
 import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
@@ -211,12 +211,16 @@ async function sessionEmail(req: Request): Promise<string | null> {
   if (!sid) return null
   return getSession(sid)
 }
-// Identify a request authenticated by an `Authorization: Bearer <session id>` header (the extension).
+// Identify a request authenticated by an `Authorization: Bearer <token>` header (the extension).
+// R5 security pre-req: prefer a dedicated narrow-scope extension token (ext_…); fall back to the raw
+// 7-day session id for back-compat with already-connected extensions/popups until they re-sync.
 async function bearerEmail(req: Request): Promise<string | null> {
   const h = req.headers.get("authorization") || ""
   const m = h.match(/^Bearer\s+(.+)$/i)
   if (!m || !db) return null
-  return getSession(m[1])
+  const tok = m[1]
+  if (tok.startsWith("ext_")) return getExtensionTokenEmail(tok)
+  return (await getExtensionTokenEmail(tok)) || (await getSession(tok))
 }
 
 // Resolve the project a request targets: explicit ?project=:id if accessible, else the caller's
@@ -496,6 +500,25 @@ Bun.serve({
         }
       }
       return json({ error: "Not found" }, 404)
+    }
+
+    // ── extension config sync (P3b) — cookie OR Bearer. Returns, for every project the caller can see,
+    // the enabled monitored url patterns + that project's review_mode, plus a freshly-issued dedicated
+    // extension token bound to the caller. The extension caches this to decide where to auto-activate.
+    if (req.method === "GET" && path === "/api/extension/config") {
+      const meX = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meX) return json({ error: "Sign in to continue." }, 401)
+      const projects = await listProjects(meX)
+      const out = []
+      for (const p of projects) {
+        const access = await projectAccess(meX, p.id)
+        if (!access) continue // project-scoped via projectAccess
+        const patterns = (await listMonitoredUrls(p.id, { enabledOnly: true })).map(m => m.urlPattern)
+        out.push({ id: p.id, name: p.name, reviewMode: p.reviewMode, monitoredUrls: patterns })
+      }
+      // Dedicated narrow-scope token (R5): replaces reusing the raw session id as the Bearer.
+      const extToken = await issueExtensionToken(meX, null, SESSION_DAYS * 24 * 60 * 60 * 1000)
+      return json({ email: meX, token: extToken, projects: out })
     }
 
     // ── transcripts → reconcile (P3a) — project-scoped via resolveProject; cookie OR Bearer; admin or member ──
@@ -832,8 +855,8 @@ Bun.serve({
         // The creator is an account admin → implicit project-admin via projectAccess; no extra row needed.
         return json({ project: { id: created.id, name: created.name, accountId: created.accountId, status: created.status, role: "admin" } }, 201)
       }
-      // Project detail + members (projectAccess-gated) and project-scoped invite (R4).
-      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite)?$/)
+      // Project detail + members (projectAccess-gated) and project-scoped invite (R4) + monitored-urls (P3b).
+      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/monitored-urls(?:\/[^/]+)?)?$/)
       if (projMatch) {
         const pid = projMatch[1]
         const sub = projMatch[2] || ""
@@ -841,6 +864,34 @@ Bun.serve({
         if (!access) return json({ error: "No access to this project." }, 403)
         const proj = await projectById(pid)
         if (!proj) return json({ error: "Not found." }, 404)
+
+        // Monitored URLs (R5 allowlist) — admin-only manage; project-scoped via projectAccess.
+        if (sub.startsWith("/monitored-urls")) {
+          if (access !== "admin") return json({ error: "Only project admins can manage monitored URLs." }, 403)
+          const midMatch = sub.match(/^\/monitored-urls\/([^/]+)$/)
+          if (req.method === "GET" && !midMatch) {
+            return json({ monitoredUrls: await listMonitoredUrls(pid) })
+          }
+          if (req.method === "POST" && !midMatch) {
+            const body = await req.json().catch(() => ({}))
+            const pattern = String(body.urlPattern || body.url_pattern || "").trim()
+            if (!pattern) return json({ error: "urlPattern is required." }, 400)
+            if (/[?#]/.test(pattern)) return json({ error: "Patterns are path-only (no query/fragment)." }, 400)
+            const enabled = body.enabled === undefined ? true : !!body.enabled
+            await addMonitoredUrl(pid, pattern, enabled)
+            return json({ ok: true, monitoredUrls: await listMonitoredUrls(pid) }, 201)
+          }
+          if (req.method === "DELETE" && midMatch) {
+            await removeMonitoredUrl(pid, midMatch[1])
+            return json({ ok: true, monitoredUrls: await listMonitoredUrls(pid) })
+          }
+          if (req.method === "POST" && midMatch) {
+            const body = await req.json().catch(() => ({}))
+            await setMonitoredUrlEnabled(pid, midMatch[1], !!body.enabled)
+            return json({ ok: true, monitoredUrls: await listMonitoredUrls(pid) })
+          }
+          return json({ error: "Not found" }, 404)
+        }
 
         if (req.method === "GET" && sub === "") {
           return json({ project: { id: proj.id, name: proj.name, accountId: proj.accountId, status: proj.status, reviewMode: proj.reviewMode, observabilityMode: proj.observabilityMode, reviewBudgetDaily: proj.reviewBudgetDaily }, role: access, members: await membersOfProject(pid) })
