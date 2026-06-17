@@ -883,24 +883,29 @@ function rowToTrait(x: any): Trait {
     srcQuoteOffset: x.src_quote_offset != null ? Number(x.src_quote_offset) : null,
     srcSpeaker: x.src_speaker != null ? String(x.src_speaker) : null,
     createdAt: Number(x.created_at), updatedAt: Number(x.updated_at),
+    area: x.area != null ? String(x.area) : null,
+    issueType: x.issue_type != null ? String(x.issue_type) : null,
+    severity: x.severity != null ? String(x.severity) : null,
   }
 }
 // Insert a brand-new trait. Accepts a fully-formed Trait (e.g. a TraitWrite{mode:'insert'}.trait).
 export async function insertTrait(t: Trait): Promise<string> {
   await db!.execute({
-    sql: `INSERT INTO sim_traits (id,sim_id,project_id,kind,text,status,strength,src_transcript_id,src_quote,src_quote_offset,src_speaker,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO sim_traits (id,sim_id,project_id,kind,text,status,strength,src_transcript_id,src_quote,src_quote_offset,src_speaker,area,issue_type,severity,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [t.id, t.simId, t.projectId, t.kind, t.text, t.status, t.strength,
-           t.srcTranscriptId, t.srcQuote, t.srcQuoteOffset ?? null, t.srcSpeaker ?? null, t.createdAt, t.updatedAt],
+           t.srcTranscriptId, t.srcQuote, t.srcQuoteOffset ?? null, t.srcSpeaker ?? null,
+           t.area ?? null, t.issueType ?? null, t.severity ?? null, t.createdAt, t.updatedAt],
   })
   return t.id
 }
-// Update a trait's mutable columns (text/status/strength/provenance/updatedAt) — used by reconcile writes.
+// Update a trait's mutable columns (text/status/strength/provenance/updatedAt + typed fields) — used by reconcile writes.
 export async function updateTrait(t: Trait): Promise<void> {
   await db!.execute({
-    sql: `UPDATE sim_traits SET kind=?,text=?,status=?,strength=?,src_transcript_id=?,src_quote=?,src_quote_offset=?,src_speaker=?,updated_at=? WHERE id=?`,
+    sql: `UPDATE sim_traits SET kind=?,text=?,status=?,strength=?,src_transcript_id=?,src_quote=?,src_quote_offset=?,src_speaker=?,area=?,issue_type=?,severity=?,updated_at=? WHERE id=?`,
     args: [t.kind, t.text, t.status, t.strength, t.srcTranscriptId, t.srcQuote,
-           t.srcQuoteOffset ?? null, t.srcSpeaker ?? null, t.updatedAt, t.id],
+           t.srcQuoteOffset ?? null, t.srcSpeaker ?? null,
+           t.area ?? null, t.issueType ?? null, t.severity ?? null, t.updatedAt, t.id],
   })
 }
 export async function listTraits(simId: string, opts: { activeOnly?: boolean } = {}): Promise<Trait[]> {
@@ -914,16 +919,17 @@ export async function listTraits(simId: string, opts: { activeOnly?: boolean } =
 export async function insertTraitEvent(e: TraitEventRow): Promise<string> {
   const id = "tev_" + crypto.randomUUID()
   await db!.execute({
-    sql: `INSERT INTO trait_events (id,trait_id,sim_id,transcript_id,op,before_text,after_text,quote,quote_offset,speaker,source_date,reason,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO trait_events (id,trait_id,sim_id,transcript_id,op,before_text,after_text,quote,quote_offset,speaker,source_date,reason,area,issue_type,severity,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [id, e.traitId, e.simId, e.transcriptId, e.op, e.beforeText ?? null, e.afterText ?? null,
-           e.quote, e.quoteOffset ?? null, e.speaker ?? null, e.sourceDate, e.reason ?? null, e.createdAt],
+           e.quote, e.quoteOffset ?? null, e.speaker ?? null, e.sourceDate, e.reason ?? null,
+           e.area ?? null, e.issueType ?? null, e.severity ?? null, e.createdAt],
   })
   return id
 }
-export async function listTraitEvents(simId: string): Promise<TraitEventRow[]> {
-  const r = await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? ORDER BY created_at ASC", args: [simId] })
-  return r.rows.map((x: any): TraitEventRow => ({
+
+function rowToTraitEvent(x: any): TraitEventRow {
+  return {
     traitId: String(x.trait_id), simId: String(x.sim_id), transcriptId: String(x.transcript_id),
     op: String(x.op) as TraitEventRow["op"],
     beforeText: x.before_text != null ? String(x.before_text) : null,
@@ -933,6 +939,49 @@ export async function listTraitEvents(simId: string): Promise<TraitEventRow[]> {
     sourceDate: Number(x.source_date),
     reason: x.reason != null ? String(x.reason) : null,
     createdAt: Number(x.created_at),
+    area: x.area != null ? String(x.area) : null,
+    issueType: x.issue_type != null ? String(x.issue_type) : null,
+    severity: x.severity != null ? String(x.severity) : null,
+  }
+}
+
+// List trait_events for a sim. Optional { traitId } narrows to a single trait's events (react path
+// can fetch one trait's audit chain without a full sim scan).
+export async function listTraitEvents(simId: string, opts: { traitId?: string } = {}): Promise<TraitEventRow[]> {
+  const r = opts.traitId
+    ? await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? AND trait_id=? ORDER BY created_at ASC", args: [simId, opts.traitId] })
+    : await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? ORDER BY created_at ASC", args: [simId] })
+  return r.rows.map(rowToTraitEvent)
+}
+
+// Return recently contradicted/superseded traits for the reopen feed (RECONCILE_SYS context).
+// Ordered newest-first by updated_at; limit defaults to 20.
+export type RecentlyResolvedTrait = {
+  id: string
+  kind: string
+  text: string
+  area: string | null
+  issueType: string | null
+  severity: string | null
+  status: string
+  updatedAt: number
+}
+export async function getRecentlyResolvedTraits(simId: string, limit = 20): Promise<RecentlyResolvedTrait[]> {
+  const r = await db!.execute({
+    sql: `SELECT id, kind, text, area, issue_type, severity, status, updated_at
+          FROM sim_traits WHERE sim_id=? AND status IN ('contradicted','superseded')
+          ORDER BY updated_at DESC LIMIT ?`,
+    args: [simId, limit],
+  })
+  return r.rows.map((x: any): RecentlyResolvedTrait => ({
+    id: String(x.id),
+    kind: String(x.kind),
+    text: String(x.text),
+    area: x.area != null ? String(x.area) : null,
+    issueType: x.issue_type != null ? String(x.issue_type) : null,
+    severity: x.severity != null ? String(x.severity) : null,
+    status: String(x.status),
+    updatedAt: Number(x.updated_at),
   }))
 }
 
