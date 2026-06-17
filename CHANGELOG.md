@@ -12,6 +12,13 @@ section for the bump rules.
 
 ## [Unreleased]
 
+### Fixed
+- **Light theme:** primary (purple) buttons now use white text instead of
+  near-black across the dashboard, login, and onboarding pages — dark text on
+  the deeper light-mode purple read as low-contrast/muddy. Dark mode keeps its
+  dark text on the lighter lavender button (where white would be illegible).
+  (`prototype/public/{dashboard,login}.html`, `site/onboarding.html`)
+
 ## [0.3.0] - 2026-06-17
 
 ### Added
