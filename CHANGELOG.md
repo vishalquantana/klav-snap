@@ -12,6 +12,24 @@ section for the bump rules.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-17
+
+### Added
+- **Company domain is now persisted** on the account (was collected in onboarding
+  but dropped). Additive `accounts.domain` column (idempotent `ALTER` for existing
+  accounts), `setAccountDomain` helper, and an admin-gated `POST /api/account/domain`
+  the onboarding calls after signup. (`prototype/lib/db.ts`, `prototype/server.ts`,
+  `site/onboarding.html`)
+
+### Changed
+- **Onboarding "Add to Chrome" tile is now functional** — it runs the real extension
+  CONNECT handshake (links your installed extension to the account) instead of just
+  linking to `/app`, with an honest "install it first" fallback when the extension
+  isn't detected. (`site/onboarding.html`)
+- **Landing page "how it works"** step 2 now reflects the shipped live model — Sims
+  auto-comment on your monitored product URL (not just "while you browse"), and notes
+  the no-transcript Six Thinking Hats on-ramp. (`site/index.html`)
+
 ## [0.8.0] - 2026-06-17
 
 ### Added

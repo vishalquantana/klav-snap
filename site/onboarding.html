@@ -196,7 +196,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <div class="chiplist" id="urlChips"></div>
           <div class="err" id="s2err"></div>
           <div class="tiles" style="margin-top:18px">
-            <a class="tile sel" href="/app" target="_blank" rel="noopener"><div class="ti">🧩</div><h3>Add Klavity to Chrome</h3><p>Required for live Sims on your real pages. One click, then you're connected.</p></a>
+            <div class="tile sel" id="chromeTile" onclick="connectExtension()"><div class="ti">🧩</div><h3>Connect the Klavity extension</h3><p id="chromeMsg">Required for live Sims on your real pages — click to connect (or install it first).</p></div>
             <div class="tile alt"><div class="ti">&lt;/&gt;</div><h3>Or embed the widget</h3><p>One script tag for any web app — no extension needed.</p></div>
           </div>
           <div class="row"><button class="btn btn-indigo" onclick="go(3)">Save &amp; continue →</button><span class="skip" onclick="go(3)">I'll add a URL later</span></div>
@@ -326,7 +326,37 @@ async function applyProjectName(){
         method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name })
       })
     }
+    const domain = ($('domain').value || '').trim().toLowerCase()
+    if (domain) {
+      await jsonFetch('/api/account/domain', {
+        method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ domain })
+      })
+    }
   } catch(e){ /* non-fatal: continue onboarding regardless */ }
+}
+
+// Connect the Klavity extension (reuses the CONNECT handshake; works on klavity.quantana.top where
+// the content script exposes window.__klavityExtensionId). Honest fallback when not installed.
+async function connectExtension(){
+  const msg = $('chromeMsg')
+  const extId = (typeof chrome !== 'undefined') && window.__klavityExtensionId
+  if (!extId) {
+    msg.innerHTML = 'Klavity extension not detected. <a href="https://github.com/vishalquantana/klav-snap#install" target="_blank" rel="noopener" style="color:var(--indigo)">Install it</a>, then click to connect.'
+    return
+  }
+  msg.textContent = 'Connecting…'
+  try {
+    const r = await fetch('/api/extension-token', { redirect: 'manual' })
+    if (!r.ok) throw new Error('sign in first')
+    const { token } = await r.json()
+    const resp = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(extId, { type: 'CONNECT', token, backendUrl: location.origin }, (result) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve(result)
+      })
+    })
+    if (resp && resp.ok) { msg.textContent = '✓ Extension connected — your Sims can now go live on monitored URLs.' }
+    else throw new Error('the extension rejected the connection')
+  } catch(e){ msg.textContent = 'Couldn’t connect: ' + e.message }
 }
 
 // ── Step 2: monitored URLs (real POST/DELETE against the resolved project) ──

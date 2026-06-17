@@ -10,6 +10,11 @@ export async function initDb() {
   if (!db) { console.warn("⚠  No TURSO_DATABASE_URL — login is disabled."); return }
   await applySchema(db)
   await migrateV2(db)
+  // additive (idempotent): accounts.domain — added after the P2 migration, so existing prod
+  // accounts need it ALTERed in; fresh DBs already have it from the accounts CREATE above.
+  if (!(await columnExists(db, "accounts", "domain"))) {
+    await db.execute("ALTER TABLE accounts ADD COLUMN domain TEXT").catch((e) => console.warn("accounts.domain ALTER skipped:", e?.message || e))
+  }
   console.log("✓ Turso connected, schema ready")
 }
 
@@ -111,7 +116,7 @@ export async function applySchema(c: Client) {
     `CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT)`,
     // COMPANY (was workspaces; accounts.id REUSES old workspace id — no re-login, no integrations rewrite).
     `CREATE TABLE IF NOT EXISTS accounts (
-       id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_email TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+       id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_email TEXT NOT NULL, domain TEXT, created_at INTEGER NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS account_members (
        id TEXT PRIMARY KEY, account_id TEXT NOT NULL, email TEXT NOT NULL,
        account_role TEXT NOT NULL,           -- 'owner' | 'admin' | 'member'
@@ -385,6 +390,12 @@ export async function hasAnyMembership(email: string): Promise<boolean> {
 }
 
 // On first login: ensure account + owner account_member + default project + project-admin member. Idempotent.
+// Persist the company domain on an account (used to tell clients from your own team).
+export async function setAccountDomain(accountId: string, domain: string): Promise<void> {
+  if (!db) return
+  await db.execute({ sql: "UPDATE accounts SET domain=? WHERE id=?", args: [domain || null, accountId] })
+}
+
 export async function ensureAccount(email: string): Promise<Membership[]> {
   const existing = await membershipsFor(email)
   if (existing.length) return existing
