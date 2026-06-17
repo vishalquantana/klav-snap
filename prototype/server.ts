@@ -252,6 +252,7 @@ function renderOpsAdmin(d: {
   byTypeModel: { type: string; model: string; cost: number; calls: number }[]
   recent: { id: string; createdAt: number; type: string; model: string; actorEmail: string | null; projectId: string | null; inputTokens: number | null; outputTokens: number | null; costUsd: number | null; ok: boolean }[]
   today: number; cap: number; offset: number
+  modelMix: { choices: { id: string; label: string; price: string; weight: number; pct: number }[] }
 }): string {
   const maxDaily = Math.max(0.0001, ...d.daily.map(x => x.cost))
   const bars = d.daily.slice().reverse().map(x => {
@@ -289,6 +290,8 @@ function renderOpsAdmin(d: {
   .meter{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:8px}
   .meter i{display:block;height:100%;background:var(--accent)}
   .pager{margin-top:10px;display:flex;gap:16px}.pager a{color:var(--accent);text-decoration:none}
+  input[type=number]{background:#0b0c10;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;width:80px;text-align:right}
+  button{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:8px 14px;font-weight:600;cursor:pointer}
 </style></head><body><div class="wrap">
   <h1>AI credits — Ops</h1><p class="sub">Every OpenRouter call, with real credit cost. Private to ops admins.</p>
   <div class="cards">
@@ -296,6 +299,15 @@ function renderOpsAdmin(d: {
     <div class="card"><b>${d.totals.callCount}</b><span>Total calls</span></div>
     <div class="card"><b>${d.totals.totalInputTokens.toLocaleString()}</b><span>Input tokens</span></div>
     <div class="card"><b>${d.totals.totalOutputTokens.toLocaleString()}</b><span>Output tokens</span></div>
+  </div>
+  <div class="panel"><h2>Model mix</h2>
+    <p class="sub" style="margin:-4px 0 12px">Relative weights — each AI call picks a model at random by weight. Set 0 to disable. Saved live (no redeploy).</p>
+    <form method="POST" action="/opsadmin/model-mix">
+      <table><thead><tr><th>Model</th><th>Price in/out /Mtok</th><th class="r">Weight</th><th class="r">Share</th></tr></thead><tbody>
+      ${d.modelMix.choices.map(c => `<tr><td>${escapeHtml(c.label)}<br><small class="sub">${escapeHtml(c.id)}</small></td><td class="sub">${escapeHtml(c.price)}</td><td class="r"><input type="number" name="${escapeHtml(c.id)}" value="${c.weight}" min="0" step="1"></td><td class="r">${c.pct}%</td></tr>`).join("")}
+      </tbody></table>
+      <div style="margin-top:12px"><button type="submit">Save mix</button></div>
+    </form>
   </div>
   <div class="panel"><h2>Today vs daily cap</h2>
     <div>${fmtUsd(d.today)} <span style="color:var(--mut)">/ ${fmtUsd(d.cap)} (${todayPct}%)</span></div>
@@ -973,8 +985,20 @@ Bun.serve({
       const [totals, daily, byProject, byTypeModel, recent, today] = await Promise.all([
         opsTotals(), opsDaily(30), opsByProject(), opsByTypeModel(), opsRecentCalls(50, offset), opsTodaySpend(),
       ])
-      const html = renderOpsAdmin({ totals, daily, byProject, byTypeModel, recent, today, cap: OPS_DAILY_CAP_USD, offset })
+      const weights = await getActiveWeights()
+      const pct = weightsToPct(weights, MODEL_CHOICE_IDS)
+      const modelMix = { choices: MODEL_CHOICES.map(c => ({ id: c.id, label: c.label, price: c.price, weight: Number(weights[c.id]) || 0, pct: pct[c.id] })) }
+      const html = renderOpsAdmin({ totals, daily, byProject, byTypeModel, recent, today, cap: OPS_DAILY_CAP_USD, offset, modelMix })
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } })
+    }
+    if (req.method === "POST" && path === "/opsadmin/model-mix") {
+      if (!me || !isOpsAdmin(me)) return new Response("Not found", { status: 404 }) // hide route from non-ops
+      const form = await req.formData()
+      const raw: Record<string, unknown> = {}
+      for (const id of MODEL_CHOICE_IDS) raw[id] = form.get(id)
+      await setModelWeights(parseWeightsForm(raw, MODEL_CHOICE_IDS))
+      await refreshWeightsCache()
+      return redirect("/opsadmin")
     }
     if (req.method === "GET" && path === "/app") return me ? file(PUB + "/index.html") : redirect("/login")
     if (req.method === "GET" && path === "/onboarding") {
