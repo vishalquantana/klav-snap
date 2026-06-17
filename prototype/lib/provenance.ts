@@ -6,8 +6,8 @@
 
 export type TraitKind = "pain" | "want" | "love"
 export type TraitStatus = "active" | "superseded" | "contradicted"
-export type ReconcileOpName = "add" | "reinforce" | "refine" | "contradict" | "supersede"
-export type TraitEventOp = "create" | "reinforce" | "refine" | "contradict" | "supersede"
+export type ReconcileOpName = "add" | "reinforce" | "refine" | "contradict" | "supersede" | "reopen"
+export type TraitEventOp = "create" | "reinforce" | "refine" | "contradict" | "supersede" | "reopen"
 
 // A trait as it lives in `sim_traits`.
 export type Trait = {
@@ -24,10 +24,13 @@ export type Trait = {
   srcSpeaker: string | null
   createdAt: number
   updatedAt: number
+  area?: string | null
+  issueType?: string | null
+  severity?: string | null
 }
 
 // The structured op an LLM reconcile returns. `traitId` targets an existing trait for
-// reinforce/refine/contradict/supersede; `add` creates a new trait (traitId ignored).
+// reinforce/refine/contradict/supersede/reopen; `add` creates a new trait (traitId ignored).
 export type ReconcileOp = {
   op: ReconcileOpName
   kind: TraitKind
@@ -37,6 +40,9 @@ export type ReconcileOp = {
   speaker?: string | null
   traitId?: string
   reason?: string
+  area?: string | null
+  issueType?: string | null
+  severity?: string | null
 }
 
 // Context the caller supplies: the transcript this reconcile pass is grounded in + id/clock fns.
@@ -70,6 +76,9 @@ export type TraitEventRow = {
   sourceDate: number
   reason: string | null
   createdAt: number
+  area?: string | null
+  issueType?: string | null
+  severity?: string | null
 }
 
 export type ReconcileResult = {
@@ -132,6 +141,9 @@ export function applyReconcileOps(
     sourceDate: ctx.sourceDate,
     reason: reason ?? o.reason ?? null,
     createdAt: now,
+    area: o.area ?? null,
+    issueType: o.issueType ?? null,
+    severity: o.severity ?? null,
   })
 
   const mkTrait = (o: ReconcileOp): Trait => ({
@@ -148,6 +160,9 @@ export function applyReconcileOps(
     srcSpeaker: o.speaker ?? null,
     createdAt: now,
     updatedAt: now,
+    area: o.area ?? null,
+    issueType: o.issueType ?? null,
+    severity: o.severity ?? null,
   })
 
   const addNew = (o: ReconcileOp) => {
@@ -174,6 +189,9 @@ export function applyReconcileOps(
         targetActive.srcQuoteOffset = o.quoteOffset ?? null
         targetActive.srcSpeaker = o.speaker ?? null
         targetActive.updatedAt = now
+        targetActive.area = o.area ?? null
+        targetActive.issueType = o.issueType ?? null
+        targetActive.severity = o.severity ?? null
         traitWrites.push({ mode: "update", trait: { ...targetActive } })
         traitEvents.push(baseEvt(targetActive.id, "reinforce", targetActive.text, targetActive.text, o))
         break
@@ -188,6 +206,9 @@ export function applyReconcileOps(
         targetActive.srcQuoteOffset = o.quoteOffset ?? null
         targetActive.srcSpeaker = o.speaker ?? null
         targetActive.updatedAt = now
+        targetActive.area = o.area ?? null
+        targetActive.issueType = o.issueType ?? null
+        targetActive.severity = o.severity ?? null
         traitWrites.push({ mode: "update", trait: { ...targetActive } })
         traitEvents.push(baseEvt(targetActive.id, "refine", before, targetActive.text, o))
         break
@@ -224,6 +245,27 @@ export function applyReconcileOps(
         traitEvents.push(baseEvt(replacement.id, "create", null, replacement.text, o))
         break
       }
+      case "reopen": {
+        // reopen reactivates a currently contradicted or superseded trait (same id).
+        // If the target doesn't exist or is already active, fall back to addNew.
+        const targetResolved = o.traitId ? byId.get(o.traitId) : undefined
+        const isResolved = targetResolved && (targetResolved.status === "contradicted" || targetResolved.status === "superseded")
+        if (!isResolved) { addNew(o); break }
+        targetResolved.status = "active"
+        targetResolved.strength += 1
+        targetResolved.text = o.text
+        targetResolved.srcTranscriptId = ctx.transcriptId
+        targetResolved.srcQuote = o.quote
+        targetResolved.srcQuoteOffset = o.quoteOffset ?? null
+        targetResolved.srcSpeaker = o.speaker ?? null
+        targetResolved.updatedAt = now
+        targetResolved.area = o.area ?? null
+        targetResolved.issueType = o.issueType ?? null
+        targetResolved.severity = o.severity ?? null
+        traitWrites.push({ mode: "update", trait: { ...targetResolved } })
+        traitEvents.push(baseEvt(targetResolved.id, "reopen", null, targetResolved.text, o))
+        break
+      }
     }
   }
 
@@ -242,6 +284,9 @@ export type InsightCacheItem = {
   speaker: string | null
   sourceTranscriptId: string
   strength: number
+  area: string | null
+  issueType: string | null
+  severity: string | null
 }
 export function insightsFromTraits(activeTraits: Trait[]): InsightCacheItem[] {
   return activeTraits
@@ -254,5 +299,54 @@ export function insightsFromTraits(activeTraits: Trait[]): InsightCacheItem[] {
       speaker: t.srcSpeaker,
       sourceTranscriptId: t.srcTranscriptId,
       strength: t.strength,
+      area: t.area ?? null,
+      issueType: t.issueType ?? null,
+      severity: t.severity ?? null,
     }))
+}
+
+// Pure recurrence computation from a chronologically-ordered list of trait_events for ONE trait line.
+// "raised" = create/add/reinforce/refine/reopen ops.
+// "resolved" = contradict/supersede ops.
+// regressed = true iff at least one raise event occurs AFTER a resolution event.
+// priorResolvedAt = the sourceDate of the first resolution that was subsequently followed by a raise.
+export type RecurrenceInfo = {
+  firstRaised: number | null
+  lastRaised: number | null
+  timesRaised: number
+  regressed: boolean
+  priorResolvedAt: number | null
+}
+
+const RAISE_OPS = new Set<TraitEventOp>(["create", "reinforce", "refine", "reopen"])
+const RESOLVE_OPS = new Set<TraitEventOp>(["contradict", "supersede"])
+
+export function recurrenceFromEvents(events: TraitEventRow[]): RecurrenceInfo {
+  if (events.length === 0) {
+    return { firstRaised: null, lastRaised: null, timesRaised: 0, regressed: false, priorResolvedAt: null }
+  }
+
+  let firstRaised: number | null = null
+  let lastRaised: number | null = null
+  let timesRaised = 0
+  let regressed = false
+  let priorResolvedAt: number | null = null
+  let lastResolvedAt: number | null = null
+
+  for (const evt of events) {
+    if (RAISE_OPS.has(evt.op)) {
+      timesRaised += 1
+      if (firstRaised === null) firstRaised = evt.sourceDate
+      lastRaised = evt.sourceDate
+      // if there was a prior resolution before this raise, we have regression
+      if (lastResolvedAt !== null && !regressed) {
+        regressed = true
+        priorResolvedAt = lastResolvedAt
+      }
+    } else if (RESOLVE_OPS.has(evt.op)) {
+      lastResolvedAt = evt.sourceDate
+    }
+  }
+
+  return { firstRaised, lastRaised, timesRaised, regressed, priorResolvedAt }
 }
