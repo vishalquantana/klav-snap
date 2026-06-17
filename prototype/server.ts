@@ -324,20 +324,21 @@ async function resolveCitations(simId: string | null, citedTraitIds: any): Promi
   }
 }
 
-// One-line human citation for the Plane issue body: “Cited from Sarah's profile: “…” (Sarah, 2026-06-12)”.
-// When recurrence.regressed is true, appends a “Raised before YYYY-MM-DD → recurred YYYY-MM-DD” line.
+// One-line human citation for the Plane issue body: "Cited from Sarah's profile: "…" (Sarah, 2026-06-12)".
+// When recurrence.regressed is true, appends a "Raised before YYYY-MM-DD → recurred YYYY-MM-DD" line.
 function citationLine(c: {
   sourceQuote: string | null; speaker?: string | null; sourceDate: number | null;
-  recurrence?: { regressed: boolean; priorResolvedAt: number | null; lastRaised: number | null } | null
+  recurrence?: { regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null
 }): string | null {
   if (!c.sourceQuote) return null
   const date = c.sourceDate ? new Date(c.sourceDate).toISOString().slice(0, 10) : null
   const who = c.speaker || null
   const attr = who && date ? ` (${who}, ${date})` : who ? ` (${who})` : date ? ` (${date})` : ""
-  let line = `Cited from Sim profile: “${c.sourceQuote}”${attr}`
+  let line = `Cited from Sim profile: "${c.sourceQuote}"${attr}`
   // Append regression annotation only when regressed (not on mere recurrence).
-  if (c.recurrence?.regressed && c.recurrence.priorResolvedAt && c.recurrence.lastRaised) {
-    const raisedDate = new Date(c.recurrence.priorResolvedAt).toISOString().slice(0, 10)
+  // X = firstRaised (when the issue was originally raised), Y = lastRaised (when it recurred).
+  if (c.recurrence?.regressed && c.recurrence.firstRaised && c.recurrence.lastRaised) {
+    const raisedDate = new Date(c.recurrence.firstRaised).toISOString().slice(0, 10)
     const againDate = new Date(c.recurrence.lastRaised).toISOString().slice(0, 10)
     line += ` | Raised before ${raisedDate} → again ${againDate}`
   }
@@ -1120,15 +1121,16 @@ Bun.serve({
             eventsByTrait.set(e.traitId, arr)
           }
           // For each trait, compute which events are the "regression" event (first raise after a resolve).
-          const regressionEventCreatedAt = new Set<number>()
-          for (const [, traitEvents] of eventsByTrait) {
+          // Key is composite "traitId:createdAt" to avoid collision when two events share a timestamp.
+          const regressionEventKeys = new Set<string>()
+          for (const [traitId, traitEvents] of eventsByTrait) {
             const rec = recurrenceFromEvents(traitEvents)
             if (!rec.regressed || rec.priorResolvedAt == null) continue
             // The regression event is the first raise-op event whose sourceDate > priorResolvedAt.
             const RAISE_OPS_SET = new Set(["create", "reinforce", "refine", "reopen"])
             for (const te of traitEvents) {
               if (RAISE_OPS_SET.has(te.op) && te.sourceDate > rec.priorResolvedAt) {
-                regressionEventCreatedAt.add(te.createdAt)
+                regressionEventKeys.add(`${te.traitId}:${te.createdAt}`)
                 break
               }
             }
@@ -1152,7 +1154,7 @@ Bun.serve({
               issueType: e.issueType ?? null,
               severity: e.severity ?? null,
               // isRegression: true marks a post-resolution reopen/reinforce so the UI can highlight it.
-              isRegression: regressionEventCreatedAt.has(e.createdAt),
+              isRegression: regressionEventKeys.has(`${e.traitId}:${e.createdAt}`),
             }))
           return json({ simId, name: sim.name, events: timeline })
         } catch (e: any) { return json({ error: e?.message || "evolution failed" }, 500) }
