@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember } from "./lib/db"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
 import { uploadScreenshotMeta, type UploadedScreenshot } from "./lib/s3"
@@ -109,6 +109,22 @@ async function bearerEmail(req: Request): Promise<string | null> {
   return getSession(m[1])
 }
 
+// Resolve the project a request targets: explicit ?project=:id if accessible, else the caller's
+// first accessible project. Returns null if the caller has no accessible project. Gated by projectAccess.
+async function resolveProject(email: string, requested?: string | null): Promise<{ id: string; access: 'admin' | 'member' } | null> {
+  if (requested) {
+    const a = await projectAccess(email, requested)
+    if (a) return { id: requested, access: a }
+    return null
+  }
+  const projects = await listProjects(email)
+  for (const p of projects) {
+    const a = await projectAccess(email, p.id)
+    if (a) return { id: p.id, access: a }
+  }
+  return null
+}
+
 Bun.serve({
   port: PORT,
   idleTimeout: 180,
@@ -143,7 +159,7 @@ Bun.serve({
         const { email } = await req.json()
         const e = String(email || "").trim().toLowerCase()
         if (!e || !e.includes("@")) return json({ error: "Enter a valid email." }, 400)
-        const invited = (await membershipsFor(e)).length > 0
+        const invited = await hasAnyMembership(e)
         if (!emailAllowed(e) && !invited) return json({ error: "This email isn't on the access list. Ask an admin to invite you." }, 403)
         const code = otp()
         await createOtp(e, code, Date.now() + 10 * 60 * 1000)
@@ -162,7 +178,7 @@ Bun.serve({
         const c = String(code || "").trim()
         if (!(await verifyOtp(e, c))) return json({ error: "Invalid or expired code." }, 401)
         await upsertUser(e)
-        await ensureWorkspace(e)
+        await ensureAccount(e)
         const sid = token()
         await createSession(sid, e, Date.now() + SESSION_DAYS * 86400 * 1000)
         return json({ ok: true, redirect: "/dashboard", token: sid }, 200, { "Set-Cookie": cookie("klav_session", sid, SESSION_DAYS * 86400, SECURE) })
@@ -186,8 +202,8 @@ Bun.serve({
         let planeToken = "", planeWorkspace = "", planeProject = "", planeHost = "https://api.plane.so"
         const email = await bearerEmail(req)
         if (email) {
-          const ms = await membershipsFor(email)
-          const stored = (await getIntegration("user", email)) || (ms[0] ? await getIntegration("workspace", ms[0].workspaceId) : null)
+          const proj = await resolveProject(email, url.searchParams.get("project"))
+          const stored = (await getIntegration("user", email)) || (proj ? await getIntegration("project", proj.id) : null)
           if (stored?.config?.token_enc) {
             planeToken = await decryptSecret(stored.config.token_enc)
             planeWorkspace = stored.config.workspace; planeProject = stored.config.projectId
@@ -222,12 +238,13 @@ Bun.serve({
         let feedbackId: string | null = null
         if (db) {
           try {
-            // Actor: Bearer (extension) or cookie session (studio). Workspace → 'proj_'+wid project id.
+            // Actor: Bearer (extension) or cookie session (studio). Resolve to a real project
+            // (?project= if accessible, else the caller's first project).
             const actor = email || (await sessionEmail(req))
-            const ms = actor ? await membershipsFor(actor) : []
-            const wid = ms[0]?.workspaceId
-            if (wid) {
-              const projectId = "proj_" + wid
+            const reqProject = String(form.get("project_id") || "") || url.searchParams.get("project")
+            const resolved = actor ? await resolveProject(actor, reqProject) : null
+            if (resolved) {
+              const projectId = resolved.id
               // Path-only URL: strip query + fragment (privacy by structure).
               let urlHost: string | null = null, urlPath: string | null = null
               if (pageUrl) { try { const u = new URL(pageUrl); urlHost = u.host; urlPath = u.pathname } catch { urlPath = pageUrl.split(/[?#]/)[0] || null } }
@@ -306,10 +323,9 @@ Bun.serve({
     if (path === "/api/personas" || path.startsWith("/api/personas/")) {
       const me2 = (await sessionEmail(req)) || (await bearerEmail(req))
       if (!me2) return json({ error: "Sign in to continue." }, 401)
-      const ms2 = await membershipsFor(me2)
-      const ws2 = ms2[0]
-      if (!ws2) return json({ error: "No workspace." }, 400)
-      const wid = ws2.workspaceId
+      const proj2 = await resolveProject(me2, url.searchParams.get("project"))
+      if (!proj2) return json({ error: "No project." }, 400)
+      const wid = proj2.id
 
       if (req.method === "GET" && path === "/api/personas") {
         const personas = await listPersonas(wid)
@@ -386,24 +402,29 @@ Bun.serve({
       // Derived single project ('proj_'+workspaceId) until the P2 schema lands; UI is already project-shaped.
       if (req.method === "GET" && path === "/api/dashboard") {
         try {
-          const ms = await membershipsFor(me)
-          const active = ms[0] || null
-          if (!active) {
-            // No workspace yet — return an empty-but-valid shape so the UI renders skeleton/empty states.
+          // Real projects (P2). Honor ?project=:id (projectAccess-gated); default to the first.
+          const allProjects = await listProjects(me)
+          if (!allProjects.length) {
+            // No project yet — return an empty-but-valid shape so the UI renders skeleton/empty states.
             return json({ email: me, projects: [], active: null, members: [], sims: [], saying: [], tickets: [], activity: [], counts: { feedback: 0, tickets: 0, activity: 0 } })
           }
-          const wid = active.workspaceId
-          const projectId = "proj_" + wid
-          const role = active.role
-          const isAdmin = role === "admin"
+          const requested = url.searchParams.get("project")
+          const resolved = await resolveProject(me, requested)
+          if (!resolved) return json({ error: "No access to this project." }, 403)
+          const projectId = resolved.id
+          const access = resolved.access
+          const role = access === "admin" ? "admin" : "user" // legacy vocab for the dashboard UI
+          const isAdmin = access === "admin"
 
-          // projects / active — DERIVED single project, shaped like the real thing for the switcher.
-          const projectName = active.name || "Default Project"
-          const projects = [{ id: projectId, name: projectName }]
+          // projects / active — REAL projects from the projects table.
+          const activeProj = await projectById(projectId)
+          const projectName = activeProj?.name || "Default Project"
+          const projects = allProjects.map(p => ({ id: p.id, name: p.name }))
           const activeOut = { id: projectId, name: projectName, role }
 
-          // members — reuse existing workspace membership read.
-          const members = await membersOf(wid)
+          // members — project roster (project_members), mapped to legacy admin|user for the UI.
+          const members = (await membersOfProject(projectId)).map(m => ({ email: m.email, role: m.role === "admin" ? "admin" : "user", createdAt: m.createdAt }))
+          const wid = projectId // reads below are all project-scoped on the project id
 
           // Reads run in parallel (each is an indexed query).
           const [personas, feedbackTickets, activityRows, sayingFeedback] = await Promise.all([
@@ -500,23 +521,23 @@ Bun.serve({
         return json({ token: sid })
       }
 
-      // workspace (team) connection — read by any member, written by admins
+      // project (team) connection — read by any member, written by project admins
       if (path === "/api/integration") {
-        const ms = await membershipsFor(me); const active = ms[0]
-        if (!active) return json({ error: "No workspace." }, 400)
+        const proj = await resolveProject(me, url.searchParams.get("project"))
+        if (!proj) return json({ error: "No project." }, 400)
         if (req.method === "GET") {
-          const cur = await getIntegration("workspace", active.workspaceId)
+          const cur = await getIntegration("project", proj.id)
           return json({ integration: cur?.integration ?? null, config: cur ? redactPlane(cur.config) : null })
         }
         if (req.method === "POST") {
-          if ((await roleIn(active.workspaceId, me)) !== "admin") return json({ error: "Only admins can set the team connection." }, 403)
+          if (proj.access !== "admin") return json({ error: "Only admins can set the team connection." }, 403)
           const form = await req.formData()
           const cfg = planeConfigFromForm(form) as PlaneStored
           const tok = String(form.get("token") || "")
-          const existing = await getIntegration("workspace", active.workspaceId)
+          const existing = await getIntegration("project", proj.id)
           cfg.token_enc = tok ? await encryptSecret(tok) : (existing?.config?.token_enc ?? "")
           if (!cfg.token_enc) return json({ error: "Token is required." }, 400)
-          await setIntegration("workspace", active.workspaceId, "plane", cfg)
+          await setIntegration("project", proj.id, "plane", cfg)
           return json({ ok: true, config: redactPlane(cfg) })
         }
       }
@@ -537,17 +558,69 @@ Bun.serve({
           return json({ ok: true, config: redactPlane(cfg) })
         }
       }
-      // admin invites a user to the active workspace
+      // admin invites a user — legacy alias for the project-scoped invite on the caller's first project
       if (req.method === "POST" && path === "/api/team/invite") {
         const { email, role } = await req.json()
         const inv = String(email || "").trim().toLowerCase()
         if (!inv.includes("@")) return json({ error: "Enter a valid email." }, 400)
+        const proj = await resolveProject(me, null)
+        if (!proj) return json({ error: "No project." }, 400)
+        if (proj.access !== "admin") return json({ error: "Only admins can invite." }, 403)
+        const p = await projectById(proj.id)
+        await addProjectMember(proj.id, p!.accountId, inv, role === "admin" ? "admin" : "member", me)
+        return json({ ok: true, members: await membersOfProject(proj.id) })
+      }
+
+      // ── projects (P2) ──
+      // List the caller's projects.
+      if (req.method === "GET" && path === "/api/projects") {
+        const projects = await listProjects(me)
+        const out = []
+        for (const p of projects) {
+          const access = await projectAccess(me, p.id)
+          out.push({ id: p.id, name: p.name, accountId: p.accountId, status: p.status, role: access })
+        }
+        return json({ projects: out })
+      }
+      // Create a project (account owner/admin only).
+      if (req.method === "POST" && path === "/api/projects") {
         const ms = await membershipsFor(me)
         const active = ms[0]
-        if (!active) return json({ error: "No workspace." }, 400)
-        if ((await roleIn(active.workspaceId, me)) !== "admin") return json({ error: "Only admins can invite." }, 403)
-        await addMember(active.workspaceId, inv, role === "admin" ? "admin" : "user")
-        return json({ ok: true, members: await membersOf(active.workspaceId) })
+        if (!active) return json({ error: "No account." }, 400)
+        if ((await roleIn(active.workspaceId, me)) !== "admin") return json({ error: "Only owners/admins can create projects." }, 403)
+        const body = await req.json().catch(() => ({}))
+        const name = String(body.name || "").trim()
+        if (!name) return json({ error: "Project name is required." }, 400)
+        const created = await createProject(active.workspaceId, name)
+        // The creator is an account admin → implicit project-admin via projectAccess; no extra row needed.
+        return json({ project: { id: created.id, name: created.name, accountId: created.accountId, status: created.status, role: "admin" } }, 201)
+      }
+      // Project detail + members (projectAccess-gated) and project-scoped invite (R4).
+      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite)?$/)
+      if (projMatch) {
+        const pid = projMatch[1]
+        const sub = projMatch[2] || ""
+        const access = await projectAccess(me, pid)
+        if (!access) return json({ error: "No access to this project." }, 403)
+        const proj = await projectById(pid)
+        if (!proj) return json({ error: "Not found." }, 404)
+
+        if (req.method === "GET" && sub === "") {
+          return json({ project: { id: proj.id, name: proj.name, accountId: proj.accountId, status: proj.status, reviewMode: proj.reviewMode, observabilityMode: proj.observabilityMode, reviewBudgetDaily: proj.reviewBudgetDaily }, role: access, members: await membersOfProject(pid) })
+        }
+        if (req.method === "GET" && sub === "/members") {
+          return json({ members: await membersOfProject(pid) })
+        }
+        if (req.method === "POST" && sub === "/invite") {
+          if (access !== "admin") return json({ error: "Only project admins can invite." }, 403)
+          const body = await req.json().catch(() => ({}))
+          const inv = String(body.email || "").trim().toLowerCase()
+          const role = body.role === "admin" ? "admin" : "member"
+          if (!inv.includes("@")) return json({ error: "Enter a valid email." }, 400)
+          await addProjectMember(pid, proj.accountId, inv, role, me)
+          return json({ ok: true, members: await membersOfProject(pid) })
+        }
+        return json({ error: "Not found" }, 404)
       }
       // brief → one persona (no transcript needed)
       if (req.method === "POST" && path === "/api/persona/brief") {
