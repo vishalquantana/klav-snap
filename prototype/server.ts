@@ -1,8 +1,8 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureWorkspace, membershipsFor, membersOf, roleIn, addMember, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity } from "./lib/db"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
-import { uploadScreenshot } from "./lib/s3"
+import { uploadScreenshotMeta, type UploadedScreenshot } from "./lib/s3"
 import { buildIssueHtml } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
 import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
@@ -124,7 +124,11 @@ Bun.serve({
     if (req.method === "GET" && path === "/") return file(import.meta.dir + "/../local.html")
     if (req.method === "GET" && path === "/local") return file(import.meta.dir + "/../local.html")
     if (req.method === "GET" && path === "/home") return redirect("/")
-    if (req.method === "GET" && path === "/login") return file(PUB + "/login.html")
+    if (req.method === "GET" && path === "/login") {
+      // Already signed in → skip the login page and land on the dashboard.
+      if (await sessionEmail(req)) return redirect("/dashboard")
+      return file(PUB + "/login.html")
+    }
     if (req.method === "GET" && path === "/sim-emotions") return file(PUB + "/sim-emotions.html")
     if (req.method === "GET" && path === "/sim-identity") return file(PUB + "/sim-identity.html")
     if (req.method === "GET" && path === "/sim-options") return file(PUB + "/sim-options.html")
@@ -201,10 +205,14 @@ Bun.serve({
         // Upload screenshots (cap 5, 8MB each) to object storage.
         const files = form.getAll("screenshots").filter((f): f is File => f instanceof File).slice(0, 5)
         const imageUrls: string[] = []
+        const uploaded: Array<UploadedScreenshot & { bytes: number }> = []
         for (const f of files) {
           if (f.type && !f.type.startsWith("image/")) return json({ error: `Screenshot ${f.name} is not an image.` }, 400)
           if (f.size > 8 * 1024 * 1024) return json({ error: `Screenshot ${f.name} exceeds 8MB.` }, 400)
-          imageUrls.push(await uploadScreenshot(await f.arrayBuffer(), f.type || "image/png"))
+          const buf = await f.arrayBuffer()
+          const meta = await uploadScreenshotMeta(buf, f.type || "image/png")
+          imageUrls.push(meta.url)
+          uploaded.push({ ...meta, bytes: buf.byteLength })
         }
 
         const description_html = buildIssueHtml(description, pageUrl, imageUrls)
@@ -219,11 +227,58 @@ Bun.serve({
         const webBase = planeHost === "https://api.plane.so" ? "https://app.plane.so" : planeHost
         const issueId = String(data.id ?? "")
         const seq = data.sequence_id != null ? String(data.sequence_id) : ""
+        const issueUrl = `${webBase}/${planeWorkspace}/projects/${planeProject}/issues/${issueId ? issueId + "/" : ""}`
+
+        // ── persist to our durable ledger (P0) — best-effort, never fails the user's submission ──
+        if (db) {
+          try {
+            // Actor: Bearer (extension) or cookie session (studio). Workspace → 'proj_'+wid project id.
+            const actor = email || (await sessionEmail(req))
+            const ms = actor ? await membershipsFor(actor) : []
+            const wid = ms[0]?.workspaceId
+            if (wid) {
+              const projectId = "proj_" + wid
+              // Path-only URL: strip query + fragment (privacy by structure).
+              let urlHost: string | null = null, urlPath: string | null = null
+              if (pageUrl) { try { const u = new URL(pageUrl); urlHost = u.host; urlPath = u.pathname } catch { urlPath = pageUrl.split(/[?#]/)[0] || null } }
+
+              let screenshotId: string | null = null
+              if (uploaded[0]) {
+                screenshotId = await insertScreenshot({
+                  projectId, s3Key: uploaded[0].key, bucket: uploaded[0].bucket,
+                  contentType: uploaded[0].contentType, acl: uploaded[0].acl,
+                  bytes: uploaded[0].bytes, ownerEmail: actor,
+                })
+              }
+
+              const simId = String(form.get("sim_id") || "") || null
+              const observation = String(form.get("observation") || "") || description
+              const sentiment = String(form.get("sentiment") || "") || null
+              const severity = String(form.get("severity") || "") || null
+              let suggestedBug: any = null
+              const sbRaw = String(form.get("suggested_bug") || "")
+              if (sbRaw) { try { suggestedBug = JSON.parse(sbRaw) } catch { /* keep null */ } }
+
+              const feedbackId = await insertFeedback({
+                projectId, simId, actorEmail: actor, urlHost, urlPath,
+                observation, sentiment, severity, screenshotId, suggestedBug,
+                planeIssueKey: seq || issueId || null, planeIssueUrl: issueUrl,
+              })
+              await insertActivity({
+                projectId, type: "feedback_filed", actorEmail: actor, simId,
+                urlHost, urlPath, feedbackId, screenshotId,
+              })
+            }
+          } catch (persistErr: any) {
+            console.error("feedback persistence (non-fatal):", persistErr?.message || persistErr)
+          }
+        }
+
         return json({
           id: issueId,
           // Omit jira_key when Plane gives no sequence_id, so the extension's `?? id` fallback fires.
           ...(seq ? { jira_key: seq } : {}),
-          issue_url: `${webBase}/${planeWorkspace}/projects/${planeProject}/issues/${issueId ? issueId + "/" : ""}`,
+          issue_url: issueUrl,
         })
       } catch (e: any) {
         return json({ error: e?.message || "feedback failed" }, 500)
@@ -292,7 +347,13 @@ Bun.serve({
 
     if (req.method === "GET" && path === "/dashboard") return me ? file(PUB + "/dashboard.html") : redirect("/login")
     if (req.method === "GET" && path === "/app") return me ? file(PUB + "/index.html") : redirect("/login")
-    if (req.method === "GET" && path === "/onboarding") return me ? file(SITE + "/onboarding.html") : redirect("/login")
+    if (req.method === "GET" && path === "/onboarding") {
+      if (!me) return redirect("/login")
+      // R9 fix: a logged-in user who already has a workspace must not be dumped back into
+      // "create workspace · step 1 of 5" — send them to the dashboard instead.
+      if ((await membershipsFor(me)).length > 0) return redirect("/dashboard")
+      return file(SITE + "/onboarding.html")
+    }
 
     if (path.startsWith("/api/")) {
       if (!me) return needLogin()
