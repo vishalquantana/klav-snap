@@ -12,6 +12,16 @@ section for the bump rules.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-17
+
+### Fixed
+- **Extension manifest:** `externally_connectable` used the invalid match
+  pattern `http://localhost:*` (no path / port wildcard), which made Chrome
+  refuse to load the unpacked extension ("Invalid match pattern … Empty
+  path."). Changed to `http://localhost/*` (valid; match patterns ignore the
+  port, so it still covers any localhost dev port). Latent since v0.3.0; only
+  surfaced on the first real unpacked load. (`packages/extension/manifest.json`)
+
 ## [0.7.0] - 2026-06-17
 
 ### Added
