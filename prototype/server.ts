@@ -1,8 +1,8 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall } from "./lib/db"
 import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
-import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
+import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
 import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib/s3"
 import { buildIssueHtml, escapeHtml } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
@@ -15,6 +15,7 @@ const BASE = process.env.KLAV_BASE_URL || `http://localhost:${PORT}`
 const SECURE = BASE.startsWith("https")
 const DEV_SHOW_OTP = process.env.KLAV_DEV_SHOW_OTP === "1"
 const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+const OPS_DAILY_CAP_USD = Number(process.env.OPS_DAILY_CAP_USD || 50)
 const SITE = import.meta.dir + "/../site"
 const PUB = import.meta.dir + "/public"
 const SESSION_DAYS = 7
@@ -71,16 +72,27 @@ const RECONCILE_SYS =
 // jsonMode forces structured output — safe for text calls, but Gemini's vision path
 // via OpenRouter often returns empty content under json_object, so leave it OFF for
 // image calls and rely on the prompt + parseJSON's extraction instead.
-async function chat(messages: any[], maxTokens: number, jsonMode = false) {
+async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: { type: string; email?: string | null; projectId?: string | null }) {
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { Authorization: `Bearer ${KEY}`, "content-type": "application/json", "HTTP-Referer": BASE, "X-Title": "Klavity" },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages, usage: { include: true }, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
   })
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`)
   const data: any = await res.json()
   const content: string = data?.choices?.[0]?.message?.content ?? ""
   const u = data?.usage || {}
+  // Best-effort credit ledger — never let a logging failure break the request.
+  if (ctx) {
+    try {
+      await recordAiCall({
+        type: ctx.type, model: MODEL, actorEmail: ctx.email ?? null, projectId: ctx.projectId ?? null,
+        inputTokens: typeof u.prompt_tokens === "number" ? u.prompt_tokens : null,
+        outputTokens: typeof u.completion_tokens === "number" ? u.completion_tokens : null,
+        costUsd: typeof u.cost === "number" ? u.cost : null,
+      })
+    } catch (e: any) { console.error("recordAiCall failed:", e?.message || e) }
+  }
   return { content, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens } }
 }
 function parseJSON(s: string) {
@@ -100,18 +112,18 @@ function parseJSON(s: string) {
     throw new Error("Model did not return valid JSON")
   }
 }
-async function extractPersonas(transcript: string) {
-  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000)
+async function extractPersonas(transcript: string, ctx?: { email?: string | null; projectId?: string | null }) {
+  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000, false, { type: "extract", ...ctx })
   return { data: parseJSON(content), usage }
 }
-async function reactToPage(persona: any, imageB64: string, mediaType: string, pageUrl: string) {
+async function reactToPage(persona: any, imageB64: string, mediaType: string, pageUrl: string, ctx?: { email?: string | null; projectId?: string | null }) {
   const { content, usage } = await chat([
     { role: "system", content: REACT_SYS },
     { role: "user", content: [
       { type: "text", text: "You are this persona:\n" + JSON.stringify(persona, null, 2) + `\n\nReact to this screenshot of ${pageUrl || "(unknown URL)"}.` },
       { type: "image_url", image_url: { url: `data:${mediaType};base64,${imageB64}` } },
     ] },
-  ], 2500)
+  ], 2500, false, { type: "react", ...ctx })
   return { data: parseJSON(content), usage }
 }
 
@@ -119,14 +131,14 @@ async function reactToPage(persona: any, imageB64: string, mediaType: string, pa
 // currentTraits is the Sim's ACTIVE sim_traits; returns the structured op list (LLM-free apply is
 // done by applyReconcileOps in the route). The route MUST gate this on hasReconcileRun() so we never
 // re-reconcile a (sim,transcript) pair nor touch the whole library.
-async function reconcileSim(currentTraits: Trait[], transcript: string) {
+async function reconcileSim(currentTraits: Trait[], transcript: string, ctx?: { email?: string | null; projectId?: string | null }) {
   const traitsForLLM = currentTraits.map((t) => ({ traitId: t.id, kind: t.kind, text: t.text, strength: t.strength }))
   const { content, usage } = await chat([
     { role: "system", content: RECONCILE_SYS },
     { role: "user", content:
         "CURRENT TRAITS (JSON):\n" + JSON.stringify(traitsForLLM, null, 2) +
         "\n\nNEW TRANSCRIPT:\n\n" + transcript },
-  ], 3000)
+  ], 3000, false, { type: "reconcile", ...ctx })
   const data = parseJSON(content)
   const rawOps: any[] = Array.isArray(data?.ops) ? data.ops : []
   const valid = new Set(["add", "reinforce", "refine", "contradict", "supersede"])
@@ -767,7 +779,7 @@ Bun.serve({
         await insertActivity({ projectId, type: "transcript_added", actorEmail: meT, meta: { transcriptId, title } })
 
         // 2) AI CALL #1: extract personas from the transcript (existing helper).
-        const { data: extractData, usage: extractUsage } = await extractPersonas(text)
+        const { data: extractData, usage: extractUsage } = await extractPersonas(text, { email: meT, projectId })
         const extracted: any[] = Array.isArray(extractData?.personas) ? extractData.personas : []
 
         // 3) conservative match → existing project Sims. Confident → auto-apply; fuzzy/ambiguous → needsConfirm.
@@ -792,7 +804,7 @@ Bun.serve({
           // evolution) and rebuildInsightsJson never wipes the Sim's prior insights. Idempotent.
           await ensureTraitsSeeded(simId)
           const current = await listTraits(simId, { activeOnly: true })
-          const { ops, usage } = await reconcileSim(current, text)
+          const { ops, usage } = await reconcileSim(current, text, { email: meT, projectId })
           reconcileUsages.push(usage)
           const res = applyReconcileOps(current, ops, { simId, projectId, transcriptId, sourceDate })
           for (const w of res.traitWrites) {
@@ -1189,7 +1201,8 @@ Bun.serve({
           if (!brief || String(brief).trim().length < 4) return json({ error: "Describe your user in a sentence." }, 400)
           const sys = "Create ONE believable user persona (a \"Sim\") from the user's brief. Invent a plausible first+last name and a role. " +
             "Respond with ONLY a JSON object, no prose: {\"persona\":{\"name\":string,\"role\":string,\"type\":\"client\"|\"internal\",\"initials\":string(2 uppercase letters),\"accent\":string(hex colour like #6366f1),\"summary\":string,\"insights\":[{\"kind\":\"pain\"|\"want\"|\"love\",\"text\":string,\"quote\":string}]}} with exactly 3 insights; each quote is a short first-person line this persona might actually say."
-          const { content, usage } = await chat([{ role: "system", content: sys }, { role: "user", content: "Brief: " + brief }], 1200, true)
+          const meB = (await sessionEmail(req)) || (await bearerEmail(req))
+          const { content, usage } = await chat([{ role: "system", content: sys }, { role: "user", content: "Brief: " + brief }], 1200, true, { type: "persona", email: meB })
           const data = parseJSON(content)
           return json({ persona: data.persona, usage })
         } catch (e: any) { return json({ error: e?.message || "create failed" }, 500) }
@@ -1199,7 +1212,8 @@ Bun.serve({
         try {
           const { transcript } = await req.json()
           if (!transcript || transcript.trim().length < 20) return json({ error: "Transcript too short" }, 400)
-          const { data, usage } = await extractPersonas(transcript)
+          const meE = (await sessionEmail(req)) || (await bearerEmail(req))
+          const { data, usage } = await extractPersonas(transcript, { email: meE })
           return json({ personas: data.personas || [], usage })
         } catch (e: any) { return json({ error: e?.message || "extract failed" }, 500) }
       }
@@ -1207,7 +1221,8 @@ Bun.serve({
         try {
           const { persona, imageB64, mediaType, pageUrl } = await req.json()
           if (!persona || !imageB64) return json({ error: "persona and imageB64 required" }, 400)
-          const { data, usage } = await reactToPage(persona, imageB64, mediaType || "image/png", pageUrl || "")
+          const meRx = (await sessionEmail(req)) || (await bearerEmail(req))
+          const { data, usage } = await reactToPage(persona, imageB64, mediaType || "image/png", pageUrl || "", { email: meRx })
           const reactions = data.reactions || []
           // Resolve each reaction's citedTraitIds → {quote, speaker, sourceDate, transcriptId} so the
           // studio review→feedback path can carry citations forward. simId is the persona's stable id.
