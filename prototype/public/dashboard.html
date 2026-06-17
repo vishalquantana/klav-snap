@@ -240,10 +240,15 @@ const ACT_VERB = { feedback_filed:"filed feedback", review_run:"ran a review", s
 
 let state = null
 
+function activeProjectParam() {
+  try { return new URLSearchParams(location.search).get("project") } catch (e) { return null }
+}
+
 async function load() {
   let data
   try {
-    const r = await fetch("/api/dashboard")
+    const pid = activeProjectParam()
+    const r = await fetch("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
     if (r.status === 401) { location.href = "/login"; return }
     data = await r.json()
   } catch (e) { data = null }
@@ -287,8 +292,13 @@ function renderSwitcher() {
   const projects = state.projects || []
   const activeId = state.active ? state.active.id : null
   sel.innerHTML = projects.map(p => `<option value="${esc(p.id)}"${p.id===activeId?" selected":""}>${esc(p.name)}</option>`).join("") || `<option>—</option>`
-  // single project for now; the switcher is rendered as the real control for when P2 lands.
+  // Functional switcher (P2): >1 project → enabled; switching reloads the dashboard for ?project=.
   sel.disabled = projects.length <= 1
+  sel.onchange = () => {
+    const pid = sel.value
+    if (!pid || pid === activeId) return
+    location.href = "/dashboard?project=" + encodeURIComponent(pid)
+  }
 }
 
 function emptyState(em, text, cta) {
@@ -388,9 +398,11 @@ function renderActivity() {
   }).join("") + `</div>`
 }
 
+function projQuery() { const p = state && state.active ? state.active.id : null; return p ? "?project=" + encodeURIComponent(p) : "" }
+
 async function loadConn(admin) {
   try {
-    const r = await fetch("/api/integration")
+    const r = await fetch("/api/integration" + projQuery())
     if (!r.ok) return
     const c = (await r.json()).config
     if (!c) return
@@ -412,7 +424,7 @@ $("cn-save") && ($("cn-save").onclick = async () => {
   fd.set("workspace", $("cn-workspace").value.trim())
   fd.set("project_id", $("cn-project").value.trim())
   $("cn-save").disabled = true
-  const r = await fetch("/api/integration", { method: "POST", body: fd })
+  const r = await fetch("/api/integration" + projQuery(), { method: "POST", body: fd })
   const d = await r.json().catch(() => ({}))
   $("cn-save").disabled = false
   const msg = $("cn-msg")
