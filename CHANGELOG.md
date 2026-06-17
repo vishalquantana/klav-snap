@@ -10,6 +10,35 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.13.0] — 2026-06-18
+
+### Added
+- **Klavity Cloud ticket management.** Every Sim report now has an editable **status**
+  (`open` / `in_progress` / `done`), **assignee** (free-text email or name), and **notes**
+  field. Changes persist immediately via `PATCH /api/feedback/:id`; any project member can
+  update; the dashboard ticket list shows status and assignee inline.
+- **Pluggable connector system.** A new `prototype/lib/connectors/` adapter registry
+  supports five external destinations — **webhook**, **Plane**, **GitHub Issues**,
+  **Jira**, and **Linear** — each with a typed `validate` + `createIssue` interface.
+  Connector configs are stored encrypted at rest; secrets are never returned to the client
+  (redacted + `has<Field>` flag).
+- **Manual copy-to-external per ticket.** Admins can push a Klavity ticket to any
+  configured connector via a "Copy to…" action in the ticket detail panel.
+  A linked badge appears after export; re-export inserts a new history row.
+- **Auto-copy on file.** Each connector has an optional **auto-copy** toggle: when
+  enabled, every new ticket is automatically pushed to that destination as a
+  fire-and-forget operation (never blocks the response).
+- **Dashboard ticket detail panel.** Ticket rows are now expandable — clicking a row
+  reveals the status segmented control, assignee input, notes textarea, export badges,
+  and the "Copy to…" action all inline.
+- **Connectors manager in project settings.** Replaces the old single Plane form with a
+  full connector list (type, name, auto-copy + enabled toggles, delete) and an
+  "Add destination" form that dynamically renders the selected type's fields (secret
+  fields shown as password inputs with "leave blank to keep" UX).
+- **Plane auto-migration.** On boot, existing per-project Plane `integrations` rows are
+  migrated once into the new `connectors` table (`auto_copy=1`, `enabled=1`) so
+  existing auto-mirror behaviour is preserved without reconfiguration.
+
 ## [0.12.1] — 2026-06-18
 
 ### Added

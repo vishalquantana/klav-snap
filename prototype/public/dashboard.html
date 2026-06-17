@@ -158,6 +158,61 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .obs .d{font-size:12px;color:var(--paper-faint);margin-top:3px;font-family:var(--mono)}
 .obs .shot{margin-left:auto;color:var(--indigo);font-size:12px;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:var(--body)}
 .obs .shot:hover{text-decoration:underline}
+
+/* ticket detail panel */
+.tkt-wrap{display:flex;flex-direction:column;gap:0}
+.row-tkt{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--ink);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:border-color .2s;user-select:none}
+.row-tkt:hover{border-color:var(--indigo)}
+.row-tkt.open{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent}
+.row-tkt .ico{font-size:18px;flex-shrink:0}
+.row-tkt .body{flex:1;min-width:0}
+.row-tkt .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-tkt .d{font-size:12px;color:var(--paper-faint);margin-top:2px}
+.row-tkt .go{margin-left:auto;color:var(--indigo);font-size:12px;white-space:nowrap;flex-shrink:0}
+.tkt-detail{background:var(--ink);border:1px solid var(--line);border-top:none;border-bottom-left-radius:12px;border-bottom-right-radius:12px;padding:14px 15px;display:none;flex-direction:column;gap:12px}
+.tkt-detail.show{display:flex}
+.tkt-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tkt-status-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint);margin-right:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:none;background:transparent;color:var(--paper-faint);font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;cursor:pointer;transition:background .15s}
+.seg button.active{background:var(--indigo);color:#fff}
+[data-theme="dark"] .seg button.active{color:#0c0a08}
+.seg button:not(.active):hover{background:var(--ink-3)}
+.tkt-fields{display:flex;gap:10px;flex-wrap:wrap}
+.tkt-field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+.tkt-field label{font-size:11px;color:var(--paper-faint)}
+.tkt-field input,.tkt-field textarea{background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--paper);font-family:var(--body);font-size:13px;outline:none;resize:vertical}
+.tkt-field input:focus,.tkt-field textarea:focus{border-color:var(--indigo)}
+.tkt-field textarea{min-height:60px}
+.tkt-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tkt-badges{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.exp-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:var(--ink-3);border:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--paper-faint);text-decoration:none}
+.exp-badge:hover{border-color:var(--indigo);color:var(--indigo)}
+.exp-badge .exp-err{color:var(--rose)}
+.tkt-copy{display:flex;align-items:center;gap:8px;margin-top:4px}
+.tkt-copy select{appearance:none;background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:7px 28px 7px 10px;color:var(--paper);font-family:var(--body);font-size:13px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.tkt-copy select:focus{border-color:var(--indigo)}
+.tkt-err{font-size:12px;color:var(--rose)}
+.tkt-msg{font-size:12px;color:var(--paper-faint)}
+.tkt-gap{margin-top:4px}
+
+/* connectors manager */
+.conn-cloud{display:flex;align-items:center;gap:10px;padding:14px 15px;background:var(--ink);border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.conn-cloud .pause-l{flex:1}
+.conn-list{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.conn-row{padding:13px 15px;background:var(--ink);border:1px solid var(--line);border-radius:12px}
+.conn-row-head{display:flex;align-items:center;gap:10px}
+.conn-row-head .conn-name{font-size:13.5px;font-weight:600;flex:1}
+.conn-row-head .conn-type{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:20px;background:var(--ink-3);color:var(--paper-faint)}
+.conn-row-head .tog{margin-left:0}
+.conn-add{background:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+.conn-add-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.conn-add-head select{appearance:none;flex:1;background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:8px 28px 8px 10px;color:var(--paper);font-family:var(--body);font-size:13px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.conn-add-head select:focus{border-color:var(--indigo)}
+.conn-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.conn-fields .field-full{grid-column:1/-1}
+@media(max-width:760px){.conn-fields{grid-template-columns:1fr}}
+.conn-name-row{margin-bottom:10px}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.sims{grid-template-columns:1fr}.ws{display:none}.conngrid{grid-template-columns:1fr}}
 
 .theme-toggle{position:fixed;right:16px;bottom:16px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12)}
@@ -289,29 +344,46 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     </div>
   </details>
 
-  <!-- Bug tracking: Klavity Cloud (default) + optional external tracker -->
+  <!-- Bug tracking: Klavity Cloud (default) + pluggable connectors -->
   <details class="drawer" id="settingsDrawer">
     <summary>⚙️ Project settings — bug tracking <span class="caret">›</span></summary>
     <div class="drawer-in">
-      <div class="pausebox" style="margin-bottom:16px">
+      <!-- Klavity Cloud primary card -->
+      <div class="conn-cloud">
         <div class="pause-l">
           <div class="pause-t"><span class="dot on"></span> Klavity Cloud <span class="chip k-love" style="margin-left:4px">Default</span></div>
           <div class="pause-d">Every Sim report is stored and tracked right here in Klavity — see them under <b>Recent tickets</b> above. Nothing to configure. This is the recommended home for your bugs.</div>
         </div>
       </div>
-      <div class="flbl" style="margin-bottom:8px">Optional — mirror to an external tracker</div>
-      <div class="muted" style="margin-bottom:14px">Prefer to also push reports into Plane? Connect it below and filed reports will mirror there too. Leave blank to keep everything in Klavity Cloud. The token is encrypted at rest and never sent to a browser.</div>
+      <!-- Admin: connectors list + add form -->
       <div id="connAdmin" class="hide">
-        <div class="conngrid">
-          <div><label class="flbl">API Token</label><input id="cn-token" type="password" placeholder="•••• leave blank to keep existing" /></div>
-          <div><label class="flbl">Host</label><input id="cn-host" type="url" placeholder="https://api.plane.so" /></div>
-          <div><label class="flbl">Workspace Slug</label><input id="cn-workspace" placeholder="acme" /></div>
-          <div><label class="flbl">Project ID</label><input id="cn-project" placeholder="proj_abc123" /></div>
+        <div class="flbl" style="margin-bottom:10px">External destinations <span class="muted">(optional — push copies to other trackers)</span></div>
+        <div id="connList" class="conn-list"></div>
+        <div id="connAddWrap" class="conn-add hide">
+          <div class="conn-add-head">
+            <select id="connTypeSelect"><option value="">— select type —</option></select>
+            <button class="btn btn-ghost btn-sm" id="connAddCancel">Cancel</button>
+          </div>
+          <div class="conn-name-row">
+            <label class="flbl">Name</label>
+            <input id="connNewName" type="text" placeholder="e.g. Prod Jira" style="width:100%;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--paper);font-family:var(--body);font-size:13px;outline:none" />
+          </div>
+          <div id="connNewFields" class="conn-fields"></div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="connNewAutoCopy" /> Auto-copy new tickets
+            </label>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+            <button class="btn btn-indigo btn-sm" id="connSaveNew">Add destination</button>
+            <span class="msg" id="connAddMsg" style="margin:0"></span>
+          </div>
         </div>
-        <button class="btn btn-indigo" id="cn-save" style="margin-top:14px">Save connection</button>
-        <div class="msg" id="cn-msg"></div>
+        <button class="btn btn-ghost btn-sm" id="connAddBtn" style="margin-top:8px">+ Add destination</button>
+        <div class="msg" id="connMsg"></div>
       </div>
-      <div id="connUser" class="hide muted">Only admins can configure the tracker connection.<span id="connStatus"></span></div>
+      <!-- Non-admin: read-only note -->
+      <div id="connUser" class="hide muted">Only admins can configure external tracker connections.<span id="connStatus"></span></div>
     </div>
   </details>
 </div>
@@ -384,7 +456,7 @@ function render() {
   $("settingsDrawer").classList.toggle("hide", false)
   $("connAdmin").classList.toggle("hide", !admin)
   $("connUser").classList.toggle("hide", admin)
-  loadConn(admin)
+  loadConnectors(admin)
 
   // P3b admin-only: live-Sims config (monitored URLs + pause) and named observability.
   $("liveDrawer").classList.toggle("hide", !admin)
@@ -628,24 +700,200 @@ function renderMembers(admin) {
     </div>`).join("")
 }
 
+const STATUS_LABELS = { open: "Open", in_progress: "In Progress", done: "Done" }
+
 function renderTickets() {
   const tickets = state.tickets || []
+  const admin = state.active && state.active.role === "admin"
   $("ticketCount").textContent = tickets.length ? tickets.length : ""
   if (!tickets.length) {
     $("tickets").innerHTML = emptyState("🐛", "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
     return
   }
-  $("tickets").innerHTML = `<div class="list">` + tickets.map(t => {
-    const link = t.planeIssueUrl
-      ? `<a class="go" href="${esc(t.planeIssueUrl)}" target="_blank" rel="noopener">${esc(t.planeIssueKey?("#"+t.planeIssueKey):"View")} ↗</a>`
-      : (t.planeIssueKey?`<span class="go">#${esc(t.planeIssueKey)}</span>`:"")
-    const sub = [t.simName?("by "+t.simName):"", t.urlPath?esc(t.urlPath):"", ago(t.createdAt)].filter(Boolean).join(" · ")
-    return `<div class="row-act">
+  const wrap = document.createElement("div")
+  wrap.className = "tkt-wrap"
+  tickets.forEach(t => {
+    const ticketId = t.id
+    // Build export badges from t.exports
+    const exports = t.exports || []
+    // Also show legacy plane issue if present
+    const legacyBadge = (!exports.length && t.planeIssueUrl)
+      ? `<a class="exp-badge" href="${esc(t.planeIssueUrl)}" target="_blank" rel="noopener">plane · ${esc(t.planeIssueKey || "View")} ↗</a>`
+      : ""
+    const sub = [t.simName ? ("by " + t.simName) : "", t.urlPath ? esc(t.urlPath) : "", ago(t.createdAt)].filter(Boolean).join(" · ")
+    const statusLabel = STATUS_LABELS[t.status] || esc(t.status || "open")
+    // Summary line: show status if not open
+    const statusPart = (t.status && t.status !== "open") ? `<span class="chip" style="margin-left:6px;font-size:9px">${statusLabel}</span>` : ""
+    const assigneePart = t.assignee ? `<span class="muted" style="font-size:11px;margin-left:6px">→ ${esc(t.assignee)}</span>` : ""
+
+    const rowEl = document.createElement("div")
+    rowEl.className = "row-tkt"
+    rowEl.setAttribute("data-id", ticketId)
+    rowEl.innerHTML = `
       <span class="ico">🐛</span>
-      <div class="body"><div class="t">${esc(t.title||"Untitled report")}</div><div class="d">${sub}</div></div>
-      ${link}
-    </div>`
-  }).join("") + `</div>`
+      <div class="body">
+        <div class="t">${esc(t.title || "Untitled report")}${statusPart}${assigneePart}</div>
+        <div class="d">${sub}</div>
+      </div>
+      <span class="go" aria-label="Expand">›</span>`
+
+    const detailEl = document.createElement("div")
+    detailEl.className = "tkt-detail"
+    detailEl.setAttribute("data-id", ticketId)
+
+    // Status segmented control
+    const statuses = ["open", "in_progress", "done"]
+    const curStatus = t.status || "open"
+    const segBtns = statuses.map(s =>
+      `<button class="seg-btn${s===curStatus?" active":""}" data-status="${s}">${STATUS_LABELS[s]}</button>`
+    ).join("")
+
+    // Export badges HTML
+    let badgesHtml = exports.map(exp =>
+      exp.externalUrl
+        ? `<a class="exp-badge" href="${esc(exp.externalUrl)}" target="_blank" rel="noopener">${esc(exp.type)} · ${esc(exp.externalKey||"View")} ↗</a>`
+        : `<span class="exp-badge"><span class="exp-err">${esc(exp.type)} failed</span></span>`
+    ).join("") + legacyBadge
+
+    // Copy-to dropdown: only if admin and there are connectors
+    const projectConnectors = state._connectors || []
+    const copySelect = admin && projectConnectors.length
+      ? `<select class="copy-sel">${projectConnectors.map(c => `<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.type)})</option>`).join("")}</select>
+         <button class="btn btn-ghost btn-sm copy-btn">Copy to…</button>`
+      : ""
+
+    detailEl.innerHTML = `
+      <div class="tkt-status-row">
+        <span class="tkt-status-lbl">Status</span>
+        <div class="seg">${segBtns}</div>
+      </div>
+      <div class="tkt-fields">
+        <div class="tkt-field">
+          <label>Assignee</label>
+          <input type="text" class="assignee-inp" placeholder="email or name" value="${esc(t.assignee||"")}" />
+        </div>
+        <div class="tkt-field" style="flex:2;min-width:200px">
+          <label>Notes</label>
+          <textarea class="notes-ta" placeholder="management notes…">${esc(t.notes||"")}</textarea>
+        </div>
+      </div>
+      <div class="tkt-actions">
+        <div class="tkt-badges">${badgesHtml}</div>
+        <button class="btn btn-ghost btn-sm save-meta-btn">Save</button>
+      </div>
+      <div class="tkt-gap tkt-copy">${copySelect}</div>
+      <div class="tkt-err hide tkt-err-el"></div>
+      <div class="tkt-msg hide tkt-msg-el"></div>`
+
+    // Wire up status buttons
+    detailEl.querySelectorAll(".seg-btn").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation()
+        const newStatus = btn.getAttribute("data-status")
+        const r = await fetch("/api/feedback/" + encodeURIComponent(ticketId), {
+          method: "PATCH", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ status: newStatus })
+        }).catch(() => null)
+        const d = r ? await r.json().catch(() => ({})) : {}
+        if (d.ok) {
+          detailEl.querySelectorAll(".seg-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-status") === newStatus))
+          // Update state
+          const tkt = (state.tickets || []).find(x => x.id === ticketId)
+          if (tkt) tkt.status = newStatus
+          rowEl.querySelector(".t").innerHTML = `${esc(tkt.title || "Untitled report")}${(newStatus && newStatus !== "open") ? `<span class="chip" style="margin-left:6px;font-size:9px">${STATUS_LABELS[newStatus]}</span>` : ""}${tkt.assignee ? `<span class="muted" style="font-size:11px;margin-left:6px">→ ${esc(tkt.assignee)}</span>` : ""}`
+          showTktMsg(detailEl, "Saved.", false)
+        } else {
+          showTktMsg(detailEl, d.error || "Couldn't save.", true)
+        }
+      })
+    })
+
+    // Wire up save-meta (assignee + notes)
+    detailEl.querySelector(".save-meta-btn").addEventListener("click", async (ev) => {
+      ev.stopPropagation()
+      const assignee = detailEl.querySelector(".assignee-inp").value.trim()
+      const notes = detailEl.querySelector(".notes-ta").value.trim()
+      const r = await fetch("/api/feedback/" + encodeURIComponent(ticketId), {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ assignee: assignee || null, notes: notes || null })
+      }).catch(() => null)
+      const d = r ? await r.json().catch(() => ({})) : {}
+      if (d.ok) {
+        const tkt = (state.tickets || []).find(x => x.id === ticketId)
+        if (tkt) { tkt.assignee = assignee || null; tkt.notes = notes || null }
+        const curSt = tkt ? (tkt.status || "open") : "open"
+        rowEl.querySelector(".t").innerHTML = `${esc(tkt ? (tkt.title || "Untitled report") : "Untitled")}${(curSt && curSt !== "open") ? `<span class="chip" style="margin-left:6px;font-size:9px">${STATUS_LABELS[curSt]}</span>` : ""}${assignee ? `<span class="muted" style="font-size:11px;margin-left:6px">→ ${esc(assignee)}</span>` : ""}`
+        showTktMsg(detailEl, "Saved.", false)
+      } else {
+        showTktMsg(detailEl, d.error || "Couldn't save.", true)
+      }
+    })
+
+    // Wire up copy-to button
+    const copyBtn = detailEl.querySelector(".copy-btn")
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async (ev) => {
+        ev.stopPropagation()
+        const sel = detailEl.querySelector(".copy-sel")
+        const connectorId = sel ? sel.value : null
+        if (!connectorId) return
+        copyBtn.disabled = true
+        const r = await fetch("/api/feedback/" + encodeURIComponent(ticketId) + "/export", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ connectorId })
+        }).catch(() => null)
+        copyBtn.disabled = false
+        const d = r ? await r.json().catch(() => ({})) : {}
+        if (d.ok && d.export) {
+          const exp = d.export
+          const badgesDiv = detailEl.querySelector(".tkt-badges")
+          if (badgesDiv) {
+            const newBadge = document.createElement("a")
+            newBadge.className = "exp-badge"
+            if (exp.externalUrl) {
+              newBadge.href = exp.externalUrl; newBadge.target = "_blank"; newBadge.rel = "noopener"
+              newBadge.textContent = exp.type + " · " + (exp.externalKey || "View") + " ↗"
+            } else {
+              newBadge.innerHTML = `<span class="exp-err">${esc(exp.type)} ${esc(exp.status === "failed" ? ("failed: " + (exp.error || "")) : "")}</span>`
+            }
+            badgesDiv.appendChild(newBadge)
+          }
+          if (exp.status === "failed") showTktMsg(detailEl, "Export failed: " + (exp.error || "unknown"), true)
+          else showTktMsg(detailEl, "Copied!", false)
+        } else {
+          showTktMsg(detailEl, d.error || "Export failed.", true)
+        }
+      })
+    }
+
+    // Toggle expand/collapse
+    rowEl.addEventListener("click", () => {
+      const isOpen = detailEl.classList.contains("show")
+      detailEl.classList.toggle("show", !isOpen)
+      rowEl.classList.toggle("open", !isOpen)
+      rowEl.querySelector(".go").textContent = isOpen ? "›" : "‹"
+    })
+    // Prevent detail interactions from collapsing
+    detailEl.addEventListener("click", ev => ev.stopPropagation())
+
+    wrap.appendChild(rowEl)
+    wrap.appendChild(detailEl)
+  })
+  $("tickets").innerHTML = ""
+  $("tickets").appendChild(wrap)
+}
+
+function showTktMsg(detailEl, msg, isErr) {
+  const errEl = detailEl.querySelector(".tkt-err-el")
+  const msgEl = detailEl.querySelector(".tkt-msg-el")
+  if (isErr) {
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove("hide") }
+    if (msgEl) msgEl.classList.add("hide")
+  } else {
+    if (msgEl) { msgEl.textContent = msg; msgEl.classList.remove("hide") }
+    if (errEl) errEl.classList.add("hide")
+    setTimeout(() => { if (msgEl) msgEl.classList.add("hide") }, 2500)
+  }
 }
 
 function renderActivity() {
@@ -682,37 +930,150 @@ function linkProjects() {
   })
 }
 
-async function loadConn(admin) {
+// ── Connectors manager ──
+let connectorTypes = []  // from GET /api/projects/:id/connectors
+
+async function loadConnectors(admin) {
+  if (!curProjId()) return
   try {
-    const r = await fetch("/api/integration" + projQuery())
+    const r = await fetch(projPath("/connectors"))
     if (!r.ok) return
-    const c = (await r.json()).config
-    if (!c) return
-    if (admin) {
-      $("cn-host").value = c.host || "https://api.plane.so"
-      $("cn-workspace").value = c.workspace || ""
-      $("cn-project").value = c.projectId || ""
-      if (c.hasToken) $("cn-token").placeholder = "•••• saved — leave blank to keep"
-    } else {
-      $("connStatus").textContent = c.hasToken ? ` Connected to Plane workspace "${esc(c.workspace)}".` : ""
-    }
+    const d = await r.json()
+    state._connectors = d.connectors || []
+    connectorTypes = d.types || []
+    renderConnectors(admin)
   } catch {}
 }
-$("cn-save") && ($("cn-save").onclick = async () => {
-  const fd = new FormData()
-  const tok = $("cn-token").value.trim()
-  if (tok) fd.set("token", tok)
-  fd.set("host", $("cn-host").value.trim() || "https://api.plane.so")
-  fd.set("workspace", $("cn-workspace").value.trim())
-  fd.set("project_id", $("cn-project").value.trim())
-  $("cn-save").disabled = true
-  const r = await fetch("/api/integration" + projQuery(), { method: "POST", body: fd })
-  const d = await r.json().catch(() => ({}))
-  $("cn-save").disabled = false
-  const msg = $("cn-msg")
-  if (d.error) { msg.style.color = "var(--rose)"; msg.textContent = d.error; return }
-  $("cn-token").value = ""; $("cn-token").placeholder = "•••• saved — leave blank to keep"
-  msg.style.color = "var(--green)"; msg.textContent = "✓ Connection saved (encrypted)."
+
+function renderConnectors(admin) {
+  const conns = state._connectors || []
+  const listEl = $("connList")
+  if (!listEl) return
+  if (!conns.length) {
+    listEl.innerHTML = `<div class="muted" style="padding:4px 2px;font-size:13px">No external destinations yet. Add one below to push copies of Klavity tickets to Jira, Plane, GitHub, Linear, or a webhook.</div>`
+  } else {
+    listEl.innerHTML = ""
+    conns.forEach(c => {
+      const row = document.createElement("div")
+      row.className = "conn-row"
+      const acOn = c.autoCopy && c.enabled
+      const enOn = c.enabled
+      row.innerHTML = `<div class="conn-row-head">
+        <span class="conn-name">${esc(c.name)}</span>
+        <span class="conn-type">${esc(c.type)}</span>
+        <button class="tog${enOn?" on":""}" title="${enOn?"Disable":"Enable"}" data-cid="${esc(c.id)}" data-field="enabled" data-val="${enOn?1:0}">${enOn?"enabled":"disabled"}</button>
+        <button class="tog${acOn?" on":""}" title="Auto-copy toggle" data-cid="${esc(c.id)}" data-field="autoCopy" data-val="${acOn?1:0}">auto</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:4px" data-del="${esc(c.id)}" aria-label="Delete connector">✕</button>
+      </div>`
+      listEl.appendChild(row)
+    })
+    // Wire toggles
+    listEl.querySelectorAll("button[data-field]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const cid = btn.getAttribute("data-cid")
+        const field = btn.getAttribute("data-field")
+        const curVal = btn.getAttribute("data-val") === "1"
+        const newVal = !curVal
+        const patch = {}
+        patch[field] = newVal
+        const r = await fetch(projPath("/connectors/" + encodeURIComponent(cid)), {
+          method: "PATCH", headers: { "content-type": "application/json" },
+          body: JSON.stringify(patch)
+        }).catch(() => null)
+        const d = r ? await r.json().catch(() => ({})) : {}
+        if (d.ok) {
+          await loadConnectors(true)
+        } else {
+          const msg = $("connMsg")
+          if (msg) { msg.style.color = "var(--rose)"; msg.textContent = d.error || "Couldn't update." }
+        }
+      })
+    })
+    // Wire deletes
+    listEl.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Delete this connector?")) return
+        const cid = btn.getAttribute("data-del")
+        const r = await fetch(projPath("/connectors/" + encodeURIComponent(cid)), { method: "DELETE" }).catch(() => null)
+        const d = r ? await r.json().catch(() => ({})) : {}
+        if (d.ok) {
+          await loadConnectors(true)
+        } else {
+          const msg = $("connMsg")
+          if (msg) { msg.style.color = "var(--rose)"; msg.textContent = d.error || "Couldn't delete." }
+        }
+      })
+    })
+  }
+  // Populate type selector
+  const tsel = $("connTypeSelect")
+  if (tsel && connectorTypes.length) {
+    tsel.innerHTML = `<option value="">— select type —</option>` + connectorTypes.map(t =>
+      `<option value="${esc(t.type)}">${esc(t.label)}</option>`
+    ).join("")
+  }
+}
+
+function renderConnectorFields(type) {
+  const fieldsEl = $("connNewFields")
+  if (!fieldsEl) return
+  const ct = connectorTypes.find(t => t.type === type)
+  if (!ct) { fieldsEl.innerHTML = ""; return }
+  fieldsEl.innerHTML = ct.fields.map(f => {
+    const full = f.key === "host" || f.label.toLowerCase().includes("url") ? ' class="field-full"' : ''
+    const savedNote = f.secret ? ` placeholder="${esc(f.placeholder || "")} (leave blank to keep saved)"` : ` placeholder="${esc(f.placeholder || "")}"`
+    return `<div${full}><label class="flbl">${esc(f.label)}${f.required ? " *" : ""}</label>
+      <input type="${f.secret ? "password" : "text"}" data-fkey="${esc(f.key)}" ${savedNote}
+        style="width:100%;background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--paper);font-family:var(--body);font-size:13px;outline:none" />
+    </div>`
+  }).join("")
+}
+
+$("connTypeSelect") && ($("connTypeSelect").onchange = () => {
+  renderConnectorFields($("connTypeSelect").value)
+})
+
+$("connAddBtn") && ($("connAddBtn").onclick = () => {
+  $("connAddWrap").classList.remove("hide")
+  $("connAddBtn").classList.add("hide")
+})
+
+$("connAddCancel") && ($("connAddCancel").onclick = () => {
+  $("connAddWrap").classList.add("hide")
+  $("connAddBtn").classList.remove("hide")
+  $("connAddMsg").textContent = ""
+})
+
+$("connSaveNew") && ($("connSaveNew").onclick = async () => {
+  const type = $("connTypeSelect").value
+  const name = ($("connNewName").value || "").trim()
+  const autoCopy = $("connNewAutoCopy").checked
+  const msg = $("connAddMsg")
+  if (!type) { msg.style.color = "var(--rose)"; msg.textContent = "Select a type."; return }
+  if (!name) { msg.style.color = "var(--rose)"; msg.textContent = "Enter a name."; return }
+  // Collect fields
+  const config = {}
+  $("connNewFields").querySelectorAll("input[data-fkey]").forEach(inp => {
+    const v = inp.value.trim()
+    if (v) config[inp.getAttribute("data-fkey")] = v
+  })
+  $("connSaveNew").disabled = true
+  const r = await fetch(projPath("/connectors"), {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type, name, config, autoCopy })
+  }).catch(() => null)
+  $("connSaveNew").disabled = false
+  const d = r ? await r.json().catch(() => ({})) : {}
+  if (d.ok) {
+    msg.style.color = "var(--green)"; msg.textContent = "✓ Connector added."
+    $("connAddWrap").classList.add("hide"); $("connAddBtn").classList.remove("hide")
+    $("connNewName").value = ""; $("connNewAutoCopy").checked = false; $("connNewFields").innerHTML = ""
+    await loadConnectors(true)
+    // Re-render tickets so copy-to dropdown picks up new connector
+    renderTickets()
+  } else {
+    msg.style.color = "var(--rose)"; msg.textContent = d.error || "Couldn't add connector."
+  }
 })
 
 $("inviteBtn") && ($("inviteBtn").onclick = async () => {
