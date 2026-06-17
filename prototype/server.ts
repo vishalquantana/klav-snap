@@ -304,6 +304,12 @@ Bun.serve({
         const members = active ? await membersOf(active.workspaceId) : []
         return json({ email: me, workspaces: ms, active, members })
       }
+      // Returns the current session ID as a Bearer token — the extension uses this to sync sims.
+      if (req.method === "GET" && path === "/api/extension-token") {
+        const sid = parseCookies(req.headers.get("cookie"))["klav_session"]
+        if (!sid) return json({ error: "No session." }, 401)
+        return json({ token: sid })
+      }
       // workspace (team) connection — read by any member, written by admins
       if (path === "/api/integration") {
         const ms = await membershipsFor(me); const active = ms[0]
