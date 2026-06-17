@@ -178,3 +178,21 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
     return true
   }
 })
+
+// ── External messages from the Klavity web app ───────────────────────────────
+// Receives { type: 'CONNECT', token: string, backendUrl: string } from Sim Studio.
+// Merges the token + backendUrl into klavSettings so the popup can sync sims.
+chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
+  if (!msg || msg.type !== 'CONNECT' || !msg.token) {
+    sendResponse({ ok: false, error: 'invalid message' })
+    return
+  }
+  chrome.storage.sync.get('klavSettings', (result) => {
+    const current = result.klavSettings ?? {}
+    const updated = { ...current, klavToken: msg.token, backendUrl: msg.backendUrl || '' }
+    chrome.storage.sync.set({ klavSettings: updated }, () => {
+      sendResponse({ ok: true })
+    })
+  })
+  return true // keep channel open for async sendResponse
+})
