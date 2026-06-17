@@ -10,6 +10,17 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.14.0] — 2026-06-18
+
+### Added
+- **Smart feedback triggering + dedup (extension).** Sims now react not just on
+  navigation but on real viewport change — new dynamic content (e.g. a chat reply,
+  debounced so it fires once when streaming settles) and scroll-reveal (the
+  homepage "feedback as you scroll" experience) — while a host-aware structural
+  content signature + per-route cap + cooldown + capture rate-limit handling stop
+  the user being flooded with duplicate reactions on the same view. Server review
+  gate, budget, and consent are unchanged.
+
 ## [0.12.1] — 2026-06-18
 
 ### Added
