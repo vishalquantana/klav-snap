@@ -5,6 +5,7 @@
 import { test, expect, afterAll } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { randomUUID } from "node:crypto"
 import { unlinkSync } from "node:fs"
 import {
   applyReconcileOps,
@@ -17,7 +18,14 @@ import {
 // DB-backed tests below use the db module's OWN client (captured from TURSO_DATABASE_URL at import).
 // Set the env to a fresh local file BEFORE the first `import("./db")` so the cached module binds to it,
 // then drive applySchema/migrateV2/helpers all through that same client (no second connection).
-const DB_FILE = join(tmpdir(), `klav-prov-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
+const DB_FILE = join(tmpdir(), `klav-prov-${Date.now()}-${randomUUID()}.db`)
+// Start from a guaranteed-clean file: drop any leftover DB + WAL/SHM sidecars from a prior
+// (possibly crashed/interrupted) run so seeded personas with fixed ids can't collide. The DB
+// module captures its client from TURSO_DATABASE_URL at import, so set the env BEFORE loadDb().
+function rmDbFile() {
+  for (const suffix of ["", "-wal", "-shm"]) { try { unlinkSync(DB_FILE + suffix) } catch {} }
+}
+rmDbFile()
 process.env.TURSO_DATABASE_URL = "file:" + DB_FILE
 delete process.env.TURSO_AUTH_TOKEN
 async function loadDb() {
@@ -26,7 +34,7 @@ async function loadDb() {
   await m.migrateV2(m.db!)
   return m
 }
-afterAll(() => { try { unlinkSync(DB_FILE) } catch {} })
+afterAll(rmDbFile)
 
 const SIM = "sim_sarah"
 const PROJ = "proj_acme"
@@ -175,7 +183,8 @@ test("ops targeting a missing/inactive trait fall back to a new active trait (no
 test("ensureTraitsSeeded: legacy insights → active traits + create events; idempotent; enables reinforce/refine", async () => {
   const dbMod = await loadDb()
   {
-    const SID = "sim_legacy", PID = "proj_acme"
+    // Unique persona id per run so the shared file DB can't collide on a re-run / leftover state.
+    const SID = "sim_legacy_" + randomUUID(), PID = "proj_acme"
     // Legacy persona: insights_json populated, NO sim_traits rows. Legacy EXTRACT_SYS shape {kind,text,quote}.
     const legacyInsights = JSON.stringify([
       { kind: "pain", text: "Export is slow", quote: "It takes forever to export" },
@@ -248,7 +257,8 @@ test("ensureTraitsSeeded: legacy insights → active traits + create events; ide
 // insights_json is currently non-empty (defensive against any future zero-trait path).
 test("rebuildInsightsJson does NOT wipe insights_json when there are zero active traits", async () => {
   const dbMod = await loadDb()
-  const SID = "sim_noactive", PID = "proj_acme"
+  // Unique persona id per run so the shared file DB can't collide on a re-run / leftover state.
+  const SID = "sim_noactive_" + randomUUID(), PID = "proj_acme"
   const insights = JSON.stringify([{ kind: "pain", text: "Slow export", quote: "It takes forever" }])
   await dbMod.db!.execute({
     sql: `INSERT INTO personas (id,project_id,name,role,type,initials,accent,summary,insights_json,avatar,created_at,updated_at)
