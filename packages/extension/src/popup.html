@@ -76,9 +76,34 @@
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #89b4fa;outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+    /* ── Auth (signed-out) ── */
+    .auth{padding:18px 16px;}
+    .auth h2{font-size:15px;font-weight:700;margin-bottom:4px;}
+    .auth p{font-size:12px;color:var(--paper-faint);margin-bottom:14px;line-height:1.45;}
+    .auth input{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;font-size:14px;background:var(--ink-2);color:var(--paper);margin-bottom:9px;}
+    .auth .btn-primary{width:100%;padding:11px;border:none;border-radius:10px;background:var(--indigo);color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
+    .auth .btn-primary:disabled{opacity:.55;cursor:default;}
+    .auth .btn-ghost{width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--paper-dim);font-size:13px;cursor:pointer;margin-top:8px;}
+    .auth .auth-err{color:#E94F37;font-size:12px;margin-top:8px;min-height:1em;}
+    .auth .hidden{display:none;}
 </style>
 </head>
 <body>
+  <!-- Signed-out (auth) -->
+  <div id="view-auth" class="auth" style="display:none;">
+    <h2>Sign in to Klavity</h2>
+    <p id="auth-sub">Checking your session…</p>
+    <div id="auth-form" class="hidden">
+      <input id="auth-email" type="email" placeholder="you@company.com" autocomplete="email" />
+      <input id="auth-code" type="text" inputmode="numeric" placeholder="6-digit code" class="hidden" />
+      <button id="auth-submit" class="btn-primary">Send code</button>
+      <button id="auth-silent" class="btn-ghost">Use my site login</button>
+      <div id="auth-err" class="auth-err"></div>
+    </div>
+  </div>
+
+  <!-- Signed-in -->
+  <div id="view-app" style="display:none;">
   <!-- Header -->
   <div class="header">
     <div class="header-left">
@@ -132,6 +157,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     </a>
   </div>
 
+  </div>
   <script type="module" src="./popup.ts"></script>
 </body>
 </html>
