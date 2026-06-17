@@ -42,6 +42,10 @@
   body { font-family: system-ui, -apple-system, sans-serif; background: var(--ink); color: var(--paper); padding: 20px; }
   .wrap { max-width: 1180px; margin: 0 auto; }
   .head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .ext-btn { font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--ink-2); color: var(--paper); cursor: pointer; transition: background .15s, color .15s; }
+  .ext-btn:hover:not(:disabled) { border-color: var(--indigo); color: var(--indigo); }
+  .ext-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .ext-btn.connected { background: rgba(15,157,107,.12); border-color: var(--green); color: var(--green); }
   .logo { width: 34px; height: 34px; border-radius: 9px; overflow: hidden; flex-shrink: 0; }
   h1 { font-size: 19px; font-weight: 800; }
   .sub { font-size: 12px; color: var(--paper-faint); }
@@ -279,7 +283,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <h1>Klavity · Sims Studio</h1>
       <div class="sub">Add a Sim, then watch one review this page and file what it finds.</div>
     </div>
-    <a href="/dashboard" style="margin-left:auto;font-size:13px;color:var(--blue);text-decoration:none">← Dashboard</a>
+    <button class="ext-btn" id="connectExtBtn" disabled style="margin-left:auto">Checking extension…</button>
+    <div id="connectStatus" class="status" style="margin:0;min-height:0"></div>
+    <a href="/dashboard" style="font-size:13px;color:var(--blue);text-decoration:none">← Dashboard</a>
   </div>
 
   <!-- THE single number line (the only step numbers on the page) -->
@@ -1108,6 +1114,74 @@ $("appLogo").addEventListener("click", () => {
 renderDevBar()
 if (devEnabled) devLoadSims()
 loadSavedSims()
+
+// ── Connect Extension ──
+;(async function initConnectBtn() {
+  const btn = $('connectExtBtn')
+  if (!btn) return
+
+  // Check if already connected (token saved in extension storage).
+  // We can't read chrome.storage from here, so we detect connection state
+  // by checking if the extension is installed AND we have a valid token cookie.
+  const extId = (window).__klavityExtensionId
+
+  if (!extId) {
+    btn.textContent = 'Extension not installed'
+    btn.disabled = true
+    return
+  }
+
+  // Check if extension already has a token by sending a ping
+  try {
+    const pong = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(extId, { type: 'PING' }, (resp) => resolve(resp))
+    })
+    if (pong?.klavToken) {
+      btn.textContent = '✓ Extension connected'
+      btn.classList.add('connected')
+      btn.disabled = false
+      btn.onclick = null // already connected, clicking re-connects
+    }
+  } catch { /* extension not responding to ping, show connect */ }
+
+  if (!btn.classList.contains('connected')) {
+    btn.textContent = 'Connect Extension'
+    btn.disabled = false
+  }
+
+  btn.onclick = async () => {
+    btn.disabled = true
+    btn.textContent = 'Connecting…'
+    try {
+      const r = await fetch('/api/extension-token')
+      if (!r.ok) throw new Error('Not signed in')
+      const { token } = await r.json()
+      const resp = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          extId,
+          { type: 'CONNECT', token, backendUrl: location.origin },
+          (result) => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message))
+            else resolve(result)
+          }
+        )
+      })
+      if (resp?.ok) {
+        btn.textContent = '✓ Extension connected'
+        btn.classList.add('connected')
+        btn.disabled = false
+      } else {
+        throw new Error('Extension rejected connection')
+      }
+    } catch (e) {
+      btn.disabled = false
+      btn.textContent = 'Connect Extension'
+      const st = $('connectStatus')
+      if (st) { st.textContent = 'Failed: ' + e.message; st.className = 'status err' }
+      setTimeout(() => { if (st) { st.textContent = ''; st.className = 'status' } }, 4000)
+    }
+  }
+})()
 </script>
 </body>
 </html>

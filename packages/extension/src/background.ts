@@ -180,10 +180,20 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
 })
 
 // ── External messages from the Klavity web app ───────────────────────────────
-// Receives { type: 'CONNECT', token: string, backendUrl: string } from Sim Studio.
-// Merges the token + backendUrl into klavSettings so the popup can sync sims.
+// Receives PING or { type: 'CONNECT', token: string, backendUrl: string } from Sim Studio.
 chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
-  if (!msg || msg.type !== 'CONNECT' || !msg.token) {
+  if (!msg) { sendResponse({ ok: false }); return }
+
+  // PING — lets the web app check if the extension is installed + whether it has a token.
+  if (msg.type === 'PING') {
+    chrome.storage.sync.get('klavSettings', (result) => {
+      const s = result.klavSettings ?? {}
+      sendResponse({ ok: true, klavToken: !!s.klavToken })
+    })
+    return true
+  }
+
+  if (msg.type !== 'CONNECT' || !msg.token) {
     sendResponse({ ok: false, error: 'invalid message' })
     return
   }
@@ -194,5 +204,5 @@ chrome.runtime.onMessageExternal.addListener((msg, _sender, sendResponse) => {
       sendResponse({ ok: true })
     })
   })
-  return true // keep channel open for async sendResponse
+  return true
 })
