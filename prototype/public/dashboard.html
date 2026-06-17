@@ -36,6 +36,18 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .switcher .sw-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint)}
 .proj-select{appearance:none;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 34px 9px 13px;color:var(--paper);font-family:var(--body);font-weight:600;font-size:14px;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
 .proj-select:focus{border-color:var(--indigo)}
+/* inline "new project" creator under the switcher */
+.newproj{display:flex;align-items:center;gap:8px;margin-top:10px}
+.newproj input{background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none;min-width:200px}
+.newproj input:focus{border-color:var(--indigo)}
+
+/* metrics row — the "dashboard feel": at-a-glance counts up top */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px}
+.stat .n{font-family:var(--display);font-weight:500;font-size:32px;line-height:1;letter-spacing:-.02em}
+.stat .l{margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);display:flex;align-items:center;gap:6px}
+.stat .l .ic{font-size:13px}
+@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}}
 
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;padding:22px}
@@ -60,8 +72,8 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .muted{color:var(--paper-faint);font-size:13px}
 .hide{display:none}
 
-/* "what your sims are saying" feed */
-.saying{display:flex;flex-direction:column;gap:12px}
+/* "what your sims are saying" feed — capped so it never dominates the page */
+.saying{display:flex;flex-direction:column;gap:12px;max-height:360px;overflow-y:auto;padding-right:4px}
 .say{display:flex;gap:12px;padding:13px 15px;background:var(--ink);border:1px solid var(--line);border-radius:14px}
 .say .body{flex:1;min-width:0}
 .say .name{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -133,6 +145,9 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .urlrow .pat.off{color:var(--paper-faint);text-decoration:line-through}
 .urlrow .x{background:none;border:none;color:var(--paper-faint);cursor:pointer;font-size:16px;padding:2px 6px;line-height:1}
 .urlrow .x:hover{color:var(--rose)}
+.urlrow .edit{background:none;border:none;color:var(--paper-faint);cursor:pointer;font-size:13px;padding:2px 6px;line-height:1}
+.urlrow .edit:hover{color:var(--indigo)}
+.urlrow input.patedit{flex:1;min-width:0;background:var(--ink-2);border:1px solid var(--indigo);border-radius:8px;padding:7px 10px;color:var(--paper);font-family:var(--mono);font-size:12.5px;outline:none}
 .tog{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--paper-faint);cursor:pointer}
 .tog.on{background:rgba(15,157,107,.16);color:var(--green);border-color:transparent}
 /* observability rows */
@@ -167,19 +182,29 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <h1 id="hello">Dashboard</h1>
       <p class="lead" id="lead">Loading your project…</p>
     </div>
-    <div class="switcher">
-      <span class="sw-lbl">Project</span>
-      <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
+    <div>
+      <div class="switcher">
+        <span class="sw-lbl">Project</span>
+        <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
+      </div>
+      <div class="newproj hide" id="newProj">
+        <input id="newProjName" type="text" placeholder="New project name" maxlength="60" />
+        <button class="btn btn-indigo btn-sm" id="newProjCreate">Create</button>
+        <button class="btn btn-ghost btn-sm" id="newProjCancel">Cancel</button>
+      </div>
+      <div class="msg" id="newProjMsg" style="text-align:right"></div>
     </div>
   </div>
 
-  <div class="grid">
-    <!-- What your Sims are saying -->
-    <div class="card full">
-      <h2>💬 What your Sims are saying</h2>
-      <div id="saying"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
-    </div>
+  <!-- Metrics row — at-a-glance counts (feedback, sims, team, tickets) -->
+  <div class="stats" id="stats">
+    <div class="stat"><div class="n" id="stFeedback">—</div><div class="l"><span class="ic">💬</span>Feedback received</div></div>
+    <div class="stat"><div class="n" id="stSims">—</div><div class="l"><span class="ic">🧬</span>Active Sims</div></div>
+    <div class="stat"><div class="n" id="stTeam">—</div><div class="l"><span class="ic">👥</span>Teammates</div></div>
+    <div class="stat"><div class="n" id="stTickets">—</div><div class="l"><span class="ic">🐛</span>Tickets filed</div></div>
+  </div>
 
+  <div class="grid">
     <!-- Sims overview -->
     <div class="card">
       <h2>🧬 Your Sims <span class="count" id="simsCount"></span></h2>
@@ -211,6 +236,12 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <div class="card">
       <h2>📡 Live activity <span class="count" id="actCount"></span></h2>
       <div id="activity"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
+    </div>
+
+    <!-- What your Sims are saying (capped, scrollable) -->
+    <div class="card full">
+      <h2>💬 What your Sims are saying</h2>
+      <div id="saying"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
     <!-- Launch studio CTA -->
@@ -258,11 +289,18 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     </div>
   </details>
 
-  <!-- Demoted: Plane connection settings drawer -->
+  <!-- Bug tracking: Klavity Cloud (default) + optional external tracker -->
   <details class="drawer" id="settingsDrawer">
-    <summary>⚙️ Project settings — bug tracker (Plane) <span class="caret">›</span></summary>
+    <summary>⚙️ Project settings — bug tracking <span class="caret">›</span></summary>
     <div class="drawer-in">
-      <div class="muted" style="margin-bottom:14px">Configure the project's Plane connection once — teammates just sign into the Snap extension and file reports here. The token is encrypted at rest and never sent to a browser.</div>
+      <div class="pausebox" style="margin-bottom:16px">
+        <div class="pause-l">
+          <div class="pause-t"><span class="dot on"></span> Klavity Cloud <span class="chip k-love" style="margin-left:4px">Default</span></div>
+          <div class="pause-d">Every Sim report is stored and tracked right here in Klavity — see them under <b>Recent tickets</b> above. Nothing to configure. This is the recommended home for your bugs.</div>
+        </div>
+      </div>
+      <div class="flbl" style="margin-bottom:8px">Optional — mirror to an external tracker</div>
+      <div class="muted" style="margin-bottom:14px">Prefer to also push reports into Plane? Connect it below and filed reports will mirror there too. Leave blank to keep everything in Klavity Cloud. The token is encrypted at rest and never sent to a browser.</div>
       <div id="connAdmin" class="hide">
         <div class="conngrid">
           <div><label class="flbl">API Token</label><input id="cn-token" type="password" placeholder="•••• leave blank to keep existing" /></div>
@@ -332,11 +370,13 @@ function render() {
     : "Create your first Sim to get started."
 
   renderSwitcher()
+  renderStats()
   renderSaying()
   renderSims(admin)
   renderMembers(admin)
   renderTickets()
   renderActivity()
+  linkProjects()
 
   // role-gated controls
   $("inviteWrap").classList.toggle("hide", !admin)
@@ -350,6 +390,15 @@ function render() {
   $("liveDrawer").classList.toggle("hide", !admin)
   $("obsDrawer").classList.toggle("hide", !admin)
   if (admin) { loadLive(); loadObs() }
+}
+
+// ── Metrics row — real totals from the dashboard `counts`, plus live array lengths ──
+function renderStats() {
+  const c = (state && state.counts) || {}
+  $("stFeedback").textContent = c.feedback ?? 0
+  $("stSims").textContent = (state.sims || []).length
+  $("stTeam").textContent = (state.members || []).length
+  $("stTickets").textContent = c.tickets ?? 0
 }
 
 const curProjId = () => (state && state.active ? state.active.id : null)
@@ -390,27 +439,54 @@ $("pauseBtn").onclick = async () => {
   msg.style.color = "var(--green)"; msg.textContent = next === "paused" ? "✓ Sims paused project-wide." : "✓ Sims resumed."
 }
 
+let curUrls = []
 function renderUrls(urls) {
+  curUrls = urls || []
   const wrap = $("urlList")
-  if (!urls.length) { wrap.innerHTML = `<div class="muted" style="padding:4px 2px">No monitored URLs yet — add a path pattern below to let your Sims go live there.</div>`; return }
-  wrap.innerHTML = urls.map(u => {
+  if (!curUrls.length) { wrap.innerHTML = `<div class="muted" style="padding:4px 2px">No monitored URLs yet — add a path pattern below to let your Sims go live there.</div>`; return }
+  wrap.innerHTML = curUrls.map(u => {
     const on = u.enabled !== 0 && u.enabled !== false
-    return `<div class="urlrow">
+    return `<div class="urlrow" data-id="${esc(u.id)}">
       <span class="pat${on?"":" off"}">${esc(u.urlPattern)}</span>
-      <button class="tog${on?" on":""}" data-id="${esc(u.id)}" data-on="${on?1:0}">${on?"enabled":"disabled"}</button>
-      <button class="x" data-del="${esc(u.id)}" aria-label="Remove">✕</button>
+      <button class="edit" title="Edit pattern" aria-label="Edit pattern">✎</button>
+      <button class="tog${on?" on":""}" data-on="${on?1:0}">${on?"enabled":"disabled"}</button>
+      <button class="x" aria-label="Remove">✕</button>
     </div>`
   }).join("")
-  wrap.querySelectorAll(".tog").forEach(b => b.onclick = async () => {
-    const id = b.getAttribute("data-id"); const on = b.getAttribute("data-on") === "1"
-    const r = await fetch(projPath("/monitored-urls/" + encodeURIComponent(id)), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: !on }) })
-    const d = await r.json().catch(() => ({})); if (d.monitoredUrls) renderUrls(d.monitoredUrls)
+  wrap.querySelectorAll(".urlrow").forEach(row => {
+    const id = row.getAttribute("data-id")
+    const patch = async (body) => {
+      const r = await fetch(projPath("/monitored-urls/" + encodeURIComponent(id)), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+      const d = await r.json().catch(() => ({}))
+      if (d.error) { $("urlMsg").style.color = "var(--rose)"; $("urlMsg").textContent = d.error; return false }
+      $("urlMsg").textContent = ""; if (d.monitoredUrls) renderUrls(d.monitoredUrls)
+      return true
+    }
+    row.querySelector(".tog").onclick = () => patch({ enabled: row.querySelector(".tog").getAttribute("data-on") !== "1" })
+    row.querySelector(".x").onclick = async () => {
+      const r = await fetch(projPath("/monitored-urls/" + encodeURIComponent(id)), { method: "DELETE" })
+      const d = await r.json().catch(() => ({})); if (d.monitoredUrls) renderUrls(d.monitoredUrls)
+    }
+    row.querySelector(".edit").onclick = () => startUrlEdit(row, patch)
   })
-  wrap.querySelectorAll(".x").forEach(b => b.onclick = async () => {
-    const id = b.getAttribute("data-del")
-    const r = await fetch(projPath("/monitored-urls/" + encodeURIComponent(id)), { method: "DELETE" })
-    const d = await r.json().catch(() => ({})); if (d.monitoredUrls) renderUrls(d.monitoredUrls)
-  })
+}
+// Inline-edit a pattern: swap the label for an input, commit on Enter/blur, cancel on Esc.
+function startUrlEdit(row, patch) {
+  const span = row.querySelector(".pat")
+  if (!span || row.querySelector(".patedit")) return
+  const cur = span.textContent
+  const input = document.createElement("input")
+  input.className = "patedit"; input.type = "text"; input.value = cur
+  span.replaceWith(input); input.focus(); input.select()
+  let done = false
+  const finish = async (save) => {
+    if (done) return; done = true
+    const val = input.value.trim()
+    if (save && val && val !== cur) { const ok = await patch({ urlPattern: val }); if (!ok) renderUrls(curUrls) }
+    else renderUrls(curUrls)
+  }
+  input.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); finish(true) } else if (e.key === "Escape") { e.preventDefault(); finish(false) } }
+  input.onblur = () => finish(true)
 }
 $("urlAdd").onclick = async () => {
   const pattern = $("urlInput").value.trim()
@@ -467,14 +543,30 @@ function renderSwitcher() {
   const sel = $("projSwitch")
   const projects = state.projects || []
   const activeId = state.active ? state.active.id : null
-  sel.innerHTML = projects.map(p => `<option value="${esc(p.id)}"${p.id===activeId?" selected":""}>${esc(p.name)}</option>`).join("") || `<option>—</option>`
-  // Functional switcher (P2): >1 project → enabled; switching reloads the dashboard for ?project=.
-  sel.disabled = projects.length <= 1
+  const isAdmin = state.active && state.active.role === "admin"
+  let opts = projects.map(p => `<option value="${esc(p.id)}"${p.id===activeId?" selected":""}>${esc(p.name)}</option>`).join("")
+  if (isAdmin) opts += `<option value="__new__">＋ New project…</option>`
+  sel.innerHTML = opts || `<option>—</option>`
+  // Always enabled: switch between projects, or create a new one (admins).
+  sel.disabled = false
   sel.onchange = () => {
     const pid = sel.value
+    if (pid === "__new__") { sel.value = activeId || ""; openNewProject(); return }
     if (!pid || pid === activeId) return
     location.href = "/dashboard?project=" + encodeURIComponent(pid)
   }
+}
+function openNewProject() { $("newProj").classList.remove("hide"); $("newProjName").value = ""; $("newProjMsg").textContent = ""; $("newProjName").focus() }
+function closeNewProject() { $("newProj").classList.add("hide"); $("newProjMsg").textContent = "" }
+async function createProject() {
+  const name = $("newProjName").value.trim()
+  if (!name) { $("newProjMsg").style.color = "var(--rose)"; $("newProjMsg").textContent = "Enter a project name."; return }
+  $("newProjCreate").disabled = true
+  const r = await fetch("/api/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) })
+  const d = await r.json().catch(() => ({}))
+  $("newProjCreate").disabled = false
+  if (d.error || !d.project) { $("newProjMsg").style.color = "var(--rose)"; $("newProjMsg").textContent = d.error || "Couldn't create project."; return }
+  location.href = "/dashboard?project=" + encodeURIComponent(d.project.id)
 }
 
 function emptyState(em, text, cta) {
@@ -576,6 +668,20 @@ function renderActivity() {
 
 function projQuery() { const p = state && state.active ? state.active.id : null; return p ? "?project=" + encodeURIComponent(p) : "" }
 
+// Carry the active project onto every "/app" link so the studio opens the SAME project
+// (not the account default). Preserves any #hash. Runs after each render.
+function linkProjects() {
+  const pid = curProjId()
+  if (!pid) return
+  document.querySelectorAll('a[href^="/app"]').forEach(a => {
+    const raw = a.getAttribute("href") || ""
+    if (/[?&]project=/.test(raw)) return
+    const [base, hash] = raw.split("#")
+    const sep = base.includes("?") ? "&" : "?"
+    a.setAttribute("href", base + sep + "project=" + encodeURIComponent(pid) + (hash ? "#" + hash : ""))
+  })
+}
+
 async function loadConn(admin) {
   try {
     const r = await fetch("/api/integration" + projQuery())
@@ -620,6 +726,9 @@ $("inviteBtn") && ($("inviteBtn").onclick = async () => {
   $("inviteEmail").value = ""; $("inviteMsg").style.color="var(--green)"; $("inviteMsg").textContent = `Invited ${email} — they can sign in now.`
   state.members = d.members; renderMembers(state.active && state.active.role === "admin")
 })
+$("newProjCreate") && ($("newProjCreate").onclick = createProject)
+$("newProjCancel") && ($("newProjCancel").onclick = closeNewProject)
+$("newProjName") && ($("newProjName").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); createProject() } else if (e.key === "Escape") closeNewProject() })
 $("logout").onclick = async () => { await fetch("/api/auth/logout", { method:"POST" }); location.href = "/" }
 load()
 </script>

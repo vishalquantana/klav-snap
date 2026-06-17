@@ -454,10 +454,16 @@ $("transcript").value = SAMPLE
 
 let sims = []
 
+// Active project (carried via ?project= on the dashboard's "Launch studio" link).
+// Scopes every project-bound API call so the studio shows/saves to the right project,
+// not the account's default one. No param → server falls back to the first project.
+function studioProjectId() { try { return new URLSearchParams(location.search).get("project") } catch (e) { return null } }
+function pq(path) { const p = studioProjectId(); if (!p) return path; return path + (path.includes("?") ? "&" : "?") + "project=" + encodeURIComponent(p) }
+
 // ── Backend persona persistence ──
 async function apiSaveSim(sim) {
   const method = sim._id ? "PUT" : "POST"
-  const url = sim._id ? `/api/personas/${sim._id}` : "/api/personas"
+  const url = sim._id ? pq(`/api/personas/${sim._id}`) : pq("/api/personas")
   const r = await fetch(url, { method, headers: { "content-type": "application/json" },
     body: JSON.stringify({ name: sim.name, role: sim.role, type: sim.type,
       initials: sim.initials || sim.name.slice(0,2).toUpperCase(),
@@ -470,11 +476,11 @@ async function apiSaveSim(sim) {
 }
 async function apiDeleteSim(sim) {
   if (!sim._id) return
-  await fetch(`/api/personas/${sim._id}`, { method: "DELETE" })
+  await fetch(pq(`/api/personas/${sim._id}`), { method: "DELETE" })
 }
 async function loadSavedSims() {
   try {
-    const r = await fetch("/api/personas")
+    const r = await fetch(pq("/api/personas"))
     if (!r.ok) return
     const d = await r.json()
     if (!Array.isArray(d.personas) || !d.personas.length) return
@@ -1002,7 +1008,7 @@ async function fileDraft(d){
     fd.append("suggested_bug", JSON.stringify(d.rx.suggestedBug))
   }
   try {
-    const r = await fetch("/api/feedback", { method: "POST", body: fd })
+    const r = await fetch(pq("/api/feedback"), { method: "POST", body: fd })
     const data = await r.json().catch(() => ({}))
     if (r.ok && (data.jira_key || data.id)) return String(data.jira_key || data.id)
   } catch (_) { /* persistence is best-effort */ }

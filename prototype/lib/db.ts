@@ -1033,6 +1033,11 @@ export async function addMonitoredUrl(projectId: string, urlPattern: string, ena
 export async function setMonitoredUrlEnabled(projectId: string, id: string, enabled: boolean): Promise<void> {
   await db!.execute({ sql: "UPDATE monitored_urls SET enabled=? WHERE project_id=? AND id=?", args: [enabled ? 1 : 0, projectId, id] })
 }
+// Edit a pattern in place. UNIQUE(project_id,url_pattern) means renaming onto an existing
+// pattern throws a constraint error — the caller surfaces that as a friendly message.
+export async function setMonitoredUrlPattern(projectId: string, id: string, urlPattern: string): Promise<void> {
+  await db!.execute({ sql: "UPDATE monitored_urls SET url_pattern=? WHERE project_id=? AND id=?", args: [urlPattern, projectId, id] })
+}
 export async function removeMonitoredUrl(projectId: string, id: string): Promise<void> {
   await db!.execute({ sql: "DELETE FROM monitored_urls WHERE project_id=? AND id=?", args: [projectId, id] })
 }

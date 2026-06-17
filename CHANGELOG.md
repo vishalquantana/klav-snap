@@ -10,7 +10,7 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
-## [0.10.0] — 2026-06-18
+## [0.12.0] — 2026-06-18
 
 ### Added
 - **Weighted model mix in `/opsadmin`.** Ops admins can set a relative-weight mix
@@ -20,6 +20,40 @@ section for the bump rules.
   a live A/B comparison. Weights persist in `schema_meta` (no redeploy) and seed a
   qwen3-heavy default (qwen3-vl 50 / gemini-2.5-flash 40 / gemini-3.1-flash-lite 10)
   on first boot. New `POST /opsadmin/model-mix` route, 404-gated like the dashboard.
+
+## [0.11.1] — 2026-06-18
+
+### Fixed
+- **Studio now respects the active project.** Opening the Sims Studio from the
+  dashboard carried no project, so it always showed/saved to the account's default
+  project — a new project appeared to show the old project's Sims. The dashboard's
+  "/app" links now carry `?project=<id>` (preserving any `#hash`), and the studio
+  scopes all project-bound calls (`/api/personas` list/create/update/delete and
+  `/api/feedback`) to that project. `/api/extract` and `/api/react` are stateless
+  and unchanged.
+
+## [0.11.0] — 2026-06-18
+
+### Added
+- **Dashboard metrics row** — at-a-glance counts up top: Feedback received, Active
+  Sims, Teammates, Tickets filed (real totals from `/api/dashboard` `counts`).
+- **Editable monitored URLs** — admins can rename a monitored URL pattern in place
+  on the dashboard (✎ → edit, Enter/blur to save, Esc to cancel). New
+  `setMonitoredUrlPattern` + `POST /api/projects/:id/monitored-urls/:mid` now
+  accepts `urlPattern` (path-only, UNIQUE-safe) in addition to `enabled`.
+- **New-project from the switcher** — the project dropdown now offers "＋ New
+  project…" (admins), creating a project inline via `POST /api/projects` and
+  switching to it. The switcher is always enabled, not just with >1 project.
+
+### Changed
+- **Bug tracking reframed around Klavity Cloud** — Project settings now present
+  Klavity Cloud as the default home for Sim reports (nothing to configure), with
+  Plane demoted to an optional external mirror. Aligns with the direction of
+  keeping tracking in Klavity Cloud.
+- **"What your Sims are saying"** moved below the metrics + operational cards and
+  capped to a scrollable height so it no longer dominates the dashboard.
+
+> Note: 0.10.0 is reserved by the in-flight in-extension sign-in branch.
 
 ## [0.9.0] — 2026-06-18
 
