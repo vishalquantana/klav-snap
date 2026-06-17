@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights } from "./lib/db"
 import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
@@ -7,6 +7,7 @@ import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib
 import { buildIssueHtml, escapeHtml } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
 import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
+import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -21,6 +22,18 @@ const PUB = import.meta.dir + "/public"
 const SESSION_DAYS = 7
 
 await initDb()
+
+// Model mix (/opsadmin): in-process cache of the weighted model selection. Seed the qwen3-heavy
+// default on first boot ONLY (never clobber weights set later via the UI).
+let weightsCache: Record<string, number> = {}
+let weightsCacheAt = 0
+async function refreshWeightsCache() { weightsCache = await getModelWeights(); weightsCacheAt = Date.now() }
+async function getActiveWeights(): Promise<Record<string, number>> {
+  if (Date.now() - weightsCacheAt > 30_000) await refreshWeightsCache()
+  return weightsCache
+}
+if (Object.keys(await getModelWeights()).length === 0) await setModelWeights(DEFAULT_WEIGHTS)
+await refreshWeightsCache()
 
 // ── AI (OpenRouter) ──
 const EXTRACT_SYS =
@@ -75,6 +88,7 @@ const RECONCILE_SYS =
 async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: { type: string; email?: string | null; projectId?: string | null }) {
   const t0 = Date.now()
   const label = ctx?.type || "chat"
+  const model = pickModel(await getActiveWeights(), MODEL_CHOICE_IDS, MODEL, Math.random())
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), 90_000)  // never hang a request forever
   let res: Response
@@ -82,7 +96,7 @@ async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: 
     res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { Authorization: `Bearer ${KEY}`, "content-type": "application/json", "HTTP-Referer": BASE, "X-Title": "Klavity" },
-      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages, usage: { include: true }, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, messages, usage: { include: true }, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
       signal: ctl.signal,
     })
   } catch (e: any) {
@@ -100,7 +114,7 @@ async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: 
   // Best-effort credit ledger — FIRE-AND-FORGET so a slow/stuck insert can never hang the response.
   if (ctx) {
     void recordAiCall({
-      type: ctx.type, model: MODEL, actorEmail: ctx.email ?? null, projectId: ctx.projectId ?? null,
+      type: ctx.type, model, actorEmail: ctx.email ?? null, projectId: ctx.projectId ?? null,
       inputTokens: typeof u.prompt_tokens === "number" ? u.prompt_tokens : null,
       outputTokens: typeof u.completion_tokens === "number" ? u.completion_tokens : null,
       costUsd: typeof u.cost === "number" ? u.cost : null,
