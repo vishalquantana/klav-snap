@@ -535,9 +535,17 @@ Bun.serve({
           const proj = await resolveProject(email, url.searchParams.get("project"))
           const stored = (await getIntegration("user", email)) || (proj ? await getIntegration("project", proj.id) : null)
           if (stored?.config?.token_enc) {
-            planeToken = await decryptSecret(stored.config.token_enc)
-            planeWorkspace = stored.config.workspace; planeProject = stored.config.projectId
-            planeHost = (stored.config.host || "https://api.plane.so").replace(/\/+$/, "")
+            // Guard: if the project already has a migrated auto-copy Plane connector, the
+            // fire-and-forget hook (below) will handle the Plane push. Loading creds here
+            // would cause double-filing — one from the legacy inline push, one from the hook.
+            const hasPlaneConnector = proj
+              ? (await listAutoCopyConnectors(proj.id)).some(c => c.type === "plane")
+              : false
+            if (!hasPlaneConnector) {
+              planeToken = await decryptSecret(stored.config.token_enc)
+              planeWorkspace = stored.config.workspace; planeProject = stored.config.projectId
+              planeHost = (stored.config.host || "https://api.plane.so").replace(/\/+$/, "")
+            }
           }
         }
         if (!planeToken) { // direct mode (Phase 1): creds forwarded in the form
