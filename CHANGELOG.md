@@ -10,6 +10,17 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.10.0] — 2026-06-18
+
+### Added
+- **Weighted model mix in `/opsadmin`.** Ops admins can set a relative-weight mix
+  across a curated OpenRouter shortlist (Qwen3-VL, Gemini 2.5 Flash, Gemini 3.1
+  Flash-Lite, Claude Haiku 4.5, GPT-5 mini); every AI call picks a model by weight
+  and records it in the `ai_calls` ledger, turning the "By type & model" panel into
+  a live A/B comparison. Weights persist in `schema_meta` (no redeploy) and seed a
+  qwen3-heavy default (qwen3-vl 50 / gemini-2.5-flash 40 / gemini-3.1-flash-lite 10)
+  on first boot. New `POST /opsadmin/model-mix` route, 404-gated like the dashboard.
+
 ## [0.9.0] — 2026-06-18
 
 ### Added
