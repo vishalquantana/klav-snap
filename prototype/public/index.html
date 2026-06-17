@@ -43,6 +43,10 @@
   .wrap { max-width: 1180px; margin: 0 auto; }
   .head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
   .ext-btn { font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--ink-2); color: var(--paper); cursor: pointer; transition: background .15s, color .15s; }
+  .studio-proj { display: none; align-items: center; gap: 7px; }
+  .studio-proj .spl { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--paper-faint); font-family: ui-monospace, monospace; }
+  .studio-proj select { appearance: none; background: var(--ink-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 26px 7px 11px; color: var(--paper); font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; outline: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; }
+  .studio-proj select:focus { border-color: var(--blue); }
   .ext-btn:hover:not(:disabled) { border-color: var(--indigo); color: var(--indigo); }
   .ext-btn:disabled { opacity: .45; cursor: not-allowed; }
   .ext-btn.connected { background: rgba(15,157,107,.12); border-color: var(--green); color: var(--green); }
@@ -309,9 +313,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <h1>Klavity · Sims Studio</h1>
       <div class="sub">Add a Sim, then watch one review this page and file what it finds.</div>
     </div>
-    <button class="ext-btn" id="connectExtBtn" disabled style="margin-left:auto">Checking extension…</button>
+    <div class="studio-proj" id="studioProj" style="margin-left:auto">
+      <span class="spl">Project</span>
+      <select id="studioProjSwitch" aria-label="Active project"></select>
+    </div>
+    <button class="ext-btn" id="connectExtBtn" disabled>Checking extension…</button>
     <div id="connectStatus" class="status" style="margin:0;min-height:0"></div>
-    <a href="/dashboard" style="font-size:13px;color:var(--blue);text-decoration:none">← Dashboard</a>
+    <a href="/dashboard" id="backDash" style="font-size:13px;color:var(--blue);text-decoration:none">← Dashboard</a>
   </div>
 
   <!-- THE single number line (the only step numbers on the page) -->
@@ -1310,6 +1318,24 @@ $("appLogo").addEventListener("click", () => {
     logoTimer = setTimeout(() => { logoClicks = 0 }, 1500)
   }
 })
+
+// Studio project badge + switcher — shows the active project and lets you switch.
+// Reuses the same project list as the dashboard; switching reloads the studio scoped
+// to the chosen project. Also makes "← Dashboard" return to the same project.
+async function loadStudioProjects() {
+  const wrap = $("studioProj"), sel = $("studioProjSwitch"), back = $("backDash")
+  if (!sel) return
+  let projects = []
+  try { const r = await fetch("/api/projects"); if (r.ok) projects = (await r.json()).projects || [] } catch (e) {}
+  if (!projects.length) return
+  const active = studioProjectId() || projects[0].id
+  const escAttr = (s) => String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))
+  sel.innerHTML = projects.map(p => `<option value="${escAttr(p.id)}"${p.id === active ? " selected" : ""}>${escAttr(p.name || "Project")}</option>`).join("")
+  wrap.style.display = "flex"
+  sel.onchange = () => { const pid = sel.value; if (pid && pid !== active) location.href = "/app?project=" + encodeURIComponent(pid) }
+  if (back) back.href = "/dashboard?project=" + encodeURIComponent(active)
+}
+loadStudioProjects()
 
 renderDevBar()
 if (devEnabled) devLoadSims()

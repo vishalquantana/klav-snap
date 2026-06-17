@@ -10,6 +10,18 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.12.1] — 2026-06-18
+
+### Added
+- **Project badge + switcher in the Sims Studio header.** The studio now shows the
+  active project name and lets you switch projects inline (reloads `/app?project=`),
+  and "← Dashboard" returns you to the same project. Closes the gap where you
+  couldn't tell which project the studio was scoped to.
+
+### Changed
+- Dashboard metric "Active Sims" → **"Sims"** (it counts all Sims in the project,
+  not just recently-active ones — the label was overstated).
+
 ## [0.12.0] — 2026-06-18
 
 ### Added
