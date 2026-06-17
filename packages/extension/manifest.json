@@ -3,7 +3,7 @@
   "name": "Klavity Snap",
   "version": "0.9.0",
   "description": "Right-click to file annotated bug reports to Jira, Linear, GitHub, or Plane.",
-  "permissions": ["activeTab", "storage", "scripting", "tabs"],
+  "permissions": ["activeTab", "storage", "scripting", "tabs", "cookies"],
   "host_permissions": [
     "https://*.atlassian.net/*",
     "https://api.linear.app/*",
