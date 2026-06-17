@@ -1,8 +1,8 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend } from "./lib/db"
 import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
-import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
+import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
 import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib/s3"
 import { buildIssueHtml, escapeHtml } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
@@ -15,6 +15,7 @@ const BASE = process.env.KLAV_BASE_URL || `http://localhost:${PORT}`
 const SECURE = BASE.startsWith("https")
 const DEV_SHOW_OTP = process.env.KLAV_DEV_SHOW_OTP === "1"
 const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+const OPS_DAILY_CAP_USD = Number(process.env.OPS_DAILY_CAP_USD || 50)
 const SITE = import.meta.dir + "/../site"
 const PUB = import.meta.dir + "/public"
 const SESSION_DAYS = 7
@@ -71,16 +72,27 @@ const RECONCILE_SYS =
 // jsonMode forces structured output — safe for text calls, but Gemini's vision path
 // via OpenRouter often returns empty content under json_object, so leave it OFF for
 // image calls and rely on the prompt + parseJSON's extraction instead.
-async function chat(messages: any[], maxTokens: number, jsonMode = false) {
+async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: { type: string; email?: string | null; projectId?: string | null }) {
   const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: { Authorization: `Bearer ${KEY}`, "content-type": "application/json", "HTTP-Referer": BASE, "X-Title": "Klavity" },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages, usage: { include: true }, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }),
   })
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`)
   const data: any = await res.json()
   const content: string = data?.choices?.[0]?.message?.content ?? ""
   const u = data?.usage || {}
+  // Best-effort credit ledger — never let a logging failure break the request.
+  if (ctx) {
+    try {
+      await recordAiCall({
+        type: ctx.type, model: MODEL, actorEmail: ctx.email ?? null, projectId: ctx.projectId ?? null,
+        inputTokens: typeof u.prompt_tokens === "number" ? u.prompt_tokens : null,
+        outputTokens: typeof u.completion_tokens === "number" ? u.completion_tokens : null,
+        costUsd: typeof u.cost === "number" ? u.cost : null,
+      })
+    } catch (e: any) { console.error("recordAiCall failed:", e?.message || e) }
+  }
   return { content, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens } }
 }
 function parseJSON(s: string) {
@@ -100,18 +112,18 @@ function parseJSON(s: string) {
     throw new Error("Model did not return valid JSON")
   }
 }
-async function extractPersonas(transcript: string) {
-  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000)
+async function extractPersonas(transcript: string, ctx?: { email?: string | null; projectId?: string | null }) {
+  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000, false, { type: "extract", ...ctx })
   return { data: parseJSON(content), usage }
 }
-async function reactToPage(persona: any, imageB64: string, mediaType: string, pageUrl: string) {
+async function reactToPage(persona: any, imageB64: string, mediaType: string, pageUrl: string, ctx?: { email?: string | null; projectId?: string | null }) {
   const { content, usage } = await chat([
     { role: "system", content: REACT_SYS },
     { role: "user", content: [
       { type: "text", text: "You are this persona:\n" + JSON.stringify(persona, null, 2) + `\n\nReact to this screenshot of ${pageUrl || "(unknown URL)"}.` },
       { type: "image_url", image_url: { url: `data:${mediaType};base64,${imageB64}` } },
     ] },
-  ], 2500)
+  ], 2500, false, { type: "react", ...ctx })
   return { data: parseJSON(content), usage }
 }
 
@@ -119,14 +131,14 @@ async function reactToPage(persona: any, imageB64: string, mediaType: string, pa
 // currentTraits is the Sim's ACTIVE sim_traits; returns the structured op list (LLM-free apply is
 // done by applyReconcileOps in the route). The route MUST gate this on hasReconcileRun() so we never
 // re-reconcile a (sim,transcript) pair nor touch the whole library.
-async function reconcileSim(currentTraits: Trait[], transcript: string) {
+async function reconcileSim(currentTraits: Trait[], transcript: string, ctx?: { email?: string | null; projectId?: string | null }) {
   const traitsForLLM = currentTraits.map((t) => ({ traitId: t.id, kind: t.kind, text: t.text, strength: t.strength }))
   const { content, usage } = await chat([
     { role: "system", content: RECONCILE_SYS },
     { role: "user", content:
         "CURRENT TRAITS (JSON):\n" + JSON.stringify(traitsForLLM, null, 2) +
         "\n\nNEW TRANSCRIPT:\n\n" + transcript },
-  ], 3000)
+  ], 3000, false, { type: "reconcile", ...ctx })
   const data = parseJSON(content)
   const rawOps: any[] = Array.isArray(data?.ops) ? data.ops : []
   const valid = new Set(["add", "reinforce", "refine", "contradict", "supersede"])
@@ -205,6 +217,72 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
 }
 function file(path: string) { return new Response(Bun.file(path)) }
 function redirect(loc: string, headers: Record<string, string> = {}) { return new Response(null, { status: 302, headers: { Location: loc, ...headers } }) }
+function fmtUsd(n: number): string { return "$" + (Number(n) || 0).toFixed(4) }
+function renderOpsAdmin(d: {
+  totals: { totalCost: number; totalInputTokens: number; totalOutputTokens: number; callCount: number }
+  daily: { day: string; cost: number; calls: number }[]
+  byProject: { projectId: string | null; projectName: string | null; cost: number; calls: number }[]
+  byTypeModel: { type: string; model: string; cost: number; calls: number }[]
+  recent: { id: string; createdAt: number; type: string; model: string; actorEmail: string | null; projectId: string | null; inputTokens: number | null; outputTokens: number | null; costUsd: number | null; ok: boolean }[]
+  today: number; cap: number; offset: number
+}): string {
+  const maxDaily = Math.max(0.0001, ...d.daily.map(x => x.cost))
+  const bars = d.daily.slice().reverse().map(x => {
+    const h = Math.round((x.cost / maxDaily) * 100)
+    return `<div class="bar" title="${escapeHtml(x.day)} · ${fmtUsd(x.cost)} · ${x.calls} calls"><i style="height:${h}%"></i><small>${escapeHtml(x.day.slice(5))}</small></div>`
+  }).join("")
+  const projRows = d.byProject.map(p =>
+    `<tr><td>${escapeHtml(p.projectName || p.projectId || "—")}</td><td class="r">${fmtUsd(p.cost)}</td><td class="r">${p.calls}</td></tr>`).join("") || `<tr><td colspan="3">No data</td></tr>`
+  const tmRows = d.byTypeModel.map(t =>
+    `<tr><td>${escapeHtml(t.type)}</td><td>${escapeHtml(t.model)}</td><td class="r">${fmtUsd(t.cost)}</td><td class="r">${t.calls}</td></tr>`).join("") || `<tr><td colspan="4">No data</td></tr>`
+  const recRows = d.recent.map(c => {
+    const when = new Date(c.createdAt).toISOString().replace("T", " ").slice(0, 19)
+    return `<tr><td>${escapeHtml(when)}</td><td>${escapeHtml(c.type)}</td><td>${escapeHtml(c.actorEmail || "—")}</td><td>${escapeHtml(c.projectId || "—")}</td><td class="r">${c.inputTokens ?? "—"}/${c.outputTokens ?? "—"}</td><td class="r">${c.costUsd != null ? fmtUsd(c.costUsd) : "—"}</td></tr>`
+  }).join("") || `<tr><td colspan="6">No calls yet</td></tr>`
+  const prev = d.offset > 0 ? `<a href="/opsadmin?offset=${Math.max(0, d.offset - 50)}">← newer</a>` : ""
+  const next = d.recent.length === 50 ? `<a href="/opsadmin?offset=${d.offset + 50}">older →</a>` : ""
+  const todayPct = Math.min(100, Math.round((d.today / Math.max(0.0001, d.cap)) * 100))
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Klavity Ops — AI credits</title>
+<style>
+  :root{--bg:#0b0c10;--card:#15171e;--ink:#e8eaf0;--mut:#9aa3b2;--line:#262a35;--accent:#6366f1}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:32px 20px}
+  h1{font-size:20px;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 24px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card b{display:block;font-size:22px}.card span{color:var(--mut);font-size:12px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px}
+  .panel h2{font-size:14px;margin:0 0 12px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600}.r{text-align:right;font-variant-numeric:tabular-nums}
+  .chart{display:flex;align-items:flex-end;gap:4px;height:140px}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .bar i{display:block;width:70%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+  .bar small{color:var(--mut);font-size:9px;margin-top:4px;transform:rotate(-45deg);white-space:nowrap}
+  .meter{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:8px}
+  .meter i{display:block;height:100%;background:var(--accent)}
+  .pager{margin-top:10px;display:flex;gap:16px}.pager a{color:var(--accent);text-decoration:none}
+</style></head><body><div class="wrap">
+  <h1>AI credits — Ops</h1><p class="sub">Every OpenRouter call, with real credit cost. Private to ops admins.</p>
+  <div class="cards">
+    <div class="card"><b>${fmtUsd(d.totals.totalCost)}</b><span>Total spend</span></div>
+    <div class="card"><b>${d.totals.callCount}</b><span>Total calls</span></div>
+    <div class="card"><b>${d.totals.totalInputTokens.toLocaleString()}</b><span>Input tokens</span></div>
+    <div class="card"><b>${d.totals.totalOutputTokens.toLocaleString()}</b><span>Output tokens</span></div>
+  </div>
+  <div class="panel"><h2>Today vs daily cap</h2>
+    <div>${fmtUsd(d.today)} <span style="color:var(--mut)">/ ${fmtUsd(d.cap)} (${todayPct}%)</span></div>
+    <div class="meter"><i style="width:${todayPct}%"></i></div>
+    <p class="sub" style="margin:8px 0 0">Display only — the hard cap is enforced by OpenRouter on the API key.</p>
+  </div>
+  <div class="panel"><h2>Daily spend (30d)</h2><div class="chart">${bars || '<span class="sub">No data</span>'}</div></div>
+  <div class="panel"><h2>By project</h2><table><thead><tr><th>Project</th><th class="r">Cost</th><th class="r">Calls</th></tr></thead><tbody>${projRows}</tbody></table></div>
+  <div class="panel"><h2>By type &amp; model</h2><table><thead><tr><th>Type</th><th>Model</th><th class="r">Cost</th><th class="r">Calls</th></tr></thead><tbody>${tmRows}</tbody></table></div>
+  <div class="panel"><h2>Recent calls</h2><table><thead><tr><th>When (UTC)</th><th>Type</th><th>Actor</th><th>Project</th><th class="r">In/Out tok</th><th class="r">Cost</th></tr></thead><tbody>${recRows}</tbody></table>
+    <div class="pager">${prev}${next}</div>
+  </div>
+</div></body></html>`
+}
 async function sessionEmail(req: Request): Promise<string | null> {
   if (!db) return null
   const sid = parseCookies(req.headers.get("cookie"))["klav_session"]
@@ -767,7 +845,7 @@ Bun.serve({
         await insertActivity({ projectId, type: "transcript_added", actorEmail: meT, meta: { transcriptId, title } })
 
         // 2) AI CALL #1: extract personas from the transcript (existing helper).
-        const { data: extractData, usage: extractUsage } = await extractPersonas(text)
+        const { data: extractData, usage: extractUsage } = await extractPersonas(text, { email: meT, projectId })
         const extracted: any[] = Array.isArray(extractData?.personas) ? extractData.personas : []
 
         // 3) conservative match → existing project Sims. Confident → auto-apply; fuzzy/ambiguous → needsConfirm.
@@ -792,7 +870,7 @@ Bun.serve({
           // evolution) and rebuildInsightsJson never wipes the Sim's prior insights. Idempotent.
           await ensureTraitsSeeded(simId)
           const current = await listTraits(simId, { activeOnly: true })
-          const { ops, usage } = await reconcileSim(current, text)
+          const { ops, usage } = await reconcileSim(current, text, { email: meT, projectId })
           reconcileUsages.push(usage)
           const res = applyReconcileOps(current, ops, { simId, projectId, transcriptId, sourceDate })
           for (const w of res.traitWrites) {
@@ -862,6 +940,15 @@ Bun.serve({
     const needLogin = () => (req.method === "GET" ? redirect("/login") : json({ error: "Sign in to continue." }, 401))
 
     if (req.method === "GET" && path === "/dashboard") return me ? file(PUB + "/dashboard.html") : redirect("/login")
+    if (req.method === "GET" && path === "/opsadmin") {
+      if (!me || !isOpsAdmin(me)) return new Response("Not found", { status: 404 }) // hide route from non-ops
+      const offset = Math.max(0, Number(url.searchParams.get("offset") || 0) || 0)
+      const [totals, daily, byProject, byTypeModel, recent, today] = await Promise.all([
+        opsTotals(), opsDaily(30), opsByProject(), opsByTypeModel(), opsRecentCalls(50, offset), opsTodaySpend(),
+      ])
+      const html = renderOpsAdmin({ totals, daily, byProject, byTypeModel, recent, today, cap: OPS_DAILY_CAP_USD, offset })
+      return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } })
+    }
     if (req.method === "GET" && path === "/app") return me ? file(PUB + "/index.html") : redirect("/login")
     if (req.method === "GET" && path === "/onboarding") {
       // The new onboarding is the signup wizard for LOGGED-OUT users (email → OTP → name project inline).
@@ -1189,7 +1276,8 @@ Bun.serve({
           if (!brief || String(brief).trim().length < 4) return json({ error: "Describe your user in a sentence." }, 400)
           const sys = "Create ONE believable user persona (a \"Sim\") from the user's brief. Invent a plausible first+last name and a role. " +
             "Respond with ONLY a JSON object, no prose: {\"persona\":{\"name\":string,\"role\":string,\"type\":\"client\"|\"internal\",\"initials\":string(2 uppercase letters),\"accent\":string(hex colour like #6366f1),\"summary\":string,\"insights\":[{\"kind\":\"pain\"|\"want\"|\"love\",\"text\":string,\"quote\":string}]}} with exactly 3 insights; each quote is a short first-person line this persona might actually say."
-          const { content, usage } = await chat([{ role: "system", content: sys }, { role: "user", content: "Brief: " + brief }], 1200, true)
+          const meB = (await sessionEmail(req)) || (await bearerEmail(req))
+          const { content, usage } = await chat([{ role: "system", content: sys }, { role: "user", content: "Brief: " + brief }], 1200, true, { type: "persona", email: meB })
           const data = parseJSON(content)
           return json({ persona: data.persona, usage })
         } catch (e: any) { return json({ error: e?.message || "create failed" }, 500) }
@@ -1199,7 +1287,8 @@ Bun.serve({
         try {
           const { transcript } = await req.json()
           if (!transcript || transcript.trim().length < 20) return json({ error: "Transcript too short" }, 400)
-          const { data, usage } = await extractPersonas(transcript)
+          const meE = (await sessionEmail(req)) || (await bearerEmail(req))
+          const { data, usage } = await extractPersonas(transcript, { email: meE })
           return json({ personas: data.personas || [], usage })
         } catch (e: any) { return json({ error: e?.message || "extract failed" }, 500) }
       }
@@ -1207,7 +1296,8 @@ Bun.serve({
         try {
           const { persona, imageB64, mediaType, pageUrl } = await req.json()
           if (!persona || !imageB64) return json({ error: "persona and imageB64 required" }, 400)
-          const { data, usage } = await reactToPage(persona, imageB64, mediaType || "image/png", pageUrl || "")
+          const meRx = (await sessionEmail(req)) || (await bearerEmail(req))
+          const { data, usage } = await reactToPage(persona, imageB64, mediaType || "image/png", pageUrl || "", { email: meRx })
           const reactions = data.reactions || []
           // Resolve each reaction's citedTraitIds → {quote, speaker, sourceDate, transcriptId} so the
           // studio review→feedback path can carry citations forward. simId is the persona's stable id.

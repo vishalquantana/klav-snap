@@ -23,6 +23,14 @@ export function emailAllowed(email: string): boolean {
   return domains.includes(dom)
 }
 
+// Ops super-admin allowlist for /opsadmin. Distinct from project/account roles. Fail closed:
+// an empty or unset OPS_ADMIN_EMAILS means nobody qualifies.
+export function isOpsAdmin(email: string | null | undefined): boolean {
+  if (!email) return false
+  const list = (process.env.OPS_ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
+  return list.includes(email.toLowerCase())
+}
+
 export function cookie(name: string, val: string, maxAge: number, secure: boolean): string {
   return `${name}=${val}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`
 }

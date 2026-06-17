@@ -188,6 +188,15 @@ export async function applySchema(c: Client) {
        token TEXT PRIMARY KEY, email TEXT NOT NULL, project_id TEXT,
        created_at INTEGER NOT NULL, expires_at INTEGER, revoked INTEGER NOT NULL DEFAULT 0)`,
     `CREATE INDEX IF NOT EXISTS ext_tok_email_idx ON extension_tokens (email)`,
+    // AI-CALL LEDGER — one row per OpenRouter call for the /opsadmin credit dashboard. Additive,
+    // idempotent. cost_usd comes from OpenRouter's usage.cost (real credit $); null if absent.
+    `CREATE TABLE IF NOT EXISTS ai_calls (
+       id TEXT PRIMARY KEY, created_at INTEGER NOT NULL, type TEXT NOT NULL, model TEXT NOT NULL,
+       actor_email TEXT, project_id TEXT, input_tokens INTEGER, output_tokens INTEGER,
+       cost_usd REAL, ok INTEGER NOT NULL DEFAULT 1)`,
+    `CREATE INDEX IF NOT EXISTS ai_calls_created_idx ON ai_calls (created_at)`,
+    `CREATE INDEX IF NOT EXISTS ai_calls_proj_idx ON ai_calls (project_id, created_at)`,
+    `CREATE INDEX IF NOT EXISTS ai_calls_type_idx ON ai_calls (type, created_at)`,
   ]
   for (const s of stmts) await c.execute(s)
 }
@@ -712,6 +721,87 @@ export async function dashboardCounts(projectId: string): Promise<{ feedback: nu
     tickets: Number((tk.rows[0] as any).n),
     activity: Number((ev.rows[0] as any).n),
   }
+}
+
+// ── AI-call ledger (/opsadmin) ── one row per OpenRouter call; reads are global (not project-scoped).
+export type AiCallInsert = {
+  type: string; model: string; actorEmail?: string | null; projectId?: string | null
+  inputTokens?: number | null; outputTokens?: number | null; costUsd?: number | null; ok?: boolean
+}
+export type AiCallRow = {
+  id: string; createdAt: number; type: string; model: string
+  actorEmail: string | null; projectId: string | null
+  inputTokens: number | null; outputTokens: number | null; costUsd: number | null; ok: boolean
+}
+
+export async function recordAiCall(a: AiCallInsert): Promise<void> {
+  const id = "ai_" + crypto.randomUUID()
+  await db!.execute({
+    sql: `INSERT INTO ai_calls (id,created_at,type,model,actor_email,project_id,input_tokens,output_tokens,cost_usd,ok)
+          VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    args: [id, Date.now(), a.type, a.model, a.actorEmail ?? null, a.projectId ?? null,
+           a.inputTokens ?? null, a.outputTokens ?? null, a.costUsd ?? null, a.ok === false ? 0 : 1],
+  })
+}
+
+export async function opsTotals(): Promise<{ totalCost: number; totalInputTokens: number; totalOutputTokens: number; callCount: number }> {
+  const r = await db!.execute(
+    `SELECT COALESCE(SUM(cost_usd),0) AS cost, COALESCE(SUM(input_tokens),0) AS inp,
+            COALESCE(SUM(output_tokens),0) AS outp, COUNT(*) AS n FROM ai_calls`)
+  const x = r.rows[0] as any
+  return { totalCost: Number(x.cost), totalInputTokens: Number(x.inp), totalOutputTokens: Number(x.outp), callCount: Number(x.n) }
+}
+
+export async function opsDaily(days = 30): Promise<{ day: string; cost: number; calls: number }[]> {
+  const sinceMs = Date.now() - days * 86400000
+  const r = await db!.execute({
+    sql: `SELECT date(created_at/1000,'unixepoch') AS day, COALESCE(SUM(cost_usd),0) AS cost, COUNT(*) AS calls
+          FROM ai_calls WHERE created_at >= ? GROUP BY day ORDER BY day DESC`,
+    args: [sinceMs],
+  })
+  return r.rows.map((x: any) => ({ day: String(x.day), cost: Number(x.cost), calls: Number(x.calls) }))
+}
+
+export async function opsByProject(): Promise<{ projectId: string | null; projectName: string | null; cost: number; calls: number }[]> {
+  const r = await db!.execute(
+    `SELECT a.project_id AS pid, p.name AS name, COALESCE(SUM(a.cost_usd),0) AS cost, COUNT(*) AS calls
+     FROM ai_calls a LEFT JOIN projects p ON p.id = a.project_id
+     GROUP BY a.project_id, p.name ORDER BY cost DESC`)
+  return r.rows.map((x: any) => ({
+    projectId: x.pid != null ? String(x.pid) : null,
+    projectName: x.name != null ? String(x.name) : null,
+    cost: Number(x.cost), calls: Number(x.calls),
+  }))
+}
+
+export async function opsByTypeModel(): Promise<{ type: string; model: string; cost: number; calls: number }[]> {
+  const r = await db!.execute(
+    `SELECT type, model, COALESCE(SUM(cost_usd),0) AS cost, COUNT(*) AS calls
+     FROM ai_calls GROUP BY type, model ORDER BY cost DESC`)
+  return r.rows.map((x: any) => ({ type: String(x.type), model: String(x.model), cost: Number(x.cost), calls: Number(x.calls) }))
+}
+
+function rowToAiCall(x: any): AiCallRow {
+  return {
+    id: String(x.id), createdAt: Number(x.created_at), type: String(x.type), model: String(x.model),
+    actorEmail: x.actor_email != null ? String(x.actor_email) : null,
+    projectId: x.project_id != null ? String(x.project_id) : null,
+    inputTokens: x.input_tokens != null ? Number(x.input_tokens) : null,
+    outputTokens: x.output_tokens != null ? Number(x.output_tokens) : null,
+    costUsd: x.cost_usd != null ? Number(x.cost_usd) : null,
+    ok: Number(x.ok) === 1,
+  }
+}
+
+export async function opsRecentCalls(limit = 50, offset = 0): Promise<AiCallRow[]> {
+  const r = await db!.execute({ sql: `SELECT * FROM ai_calls ORDER BY created_at DESC LIMIT ? OFFSET ?`, args: [limit, offset] })
+  return r.rows.map(rowToAiCall)
+}
+
+export async function opsTodaySpend(): Promise<number> {
+  const r = await db!.execute(
+    `SELECT COALESCE(SUM(cost_usd),0) AS cost FROM ai_calls WHERE date(created_at/1000,'unixepoch') = date('now')`)
+  return Number((r.rows[0] as any).cost)
 }
 
 // ── transcripts / sim_traits / trait_events (P3a provenance) ──
