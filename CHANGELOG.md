@@ -12,6 +12,56 @@ section for the bump rules.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-17
+
+### Added
+- **Live Sim activation — auto-comment on visit (Sims P3b, R5):** when a signed-in
+  teammate with the Snap extension opens a project's **monitored URL**, that
+  project's Sims now auto-comment in-character on the page. The extension caches
+  the allowlist + a **dedicated narrow-scope extension token** from
+  `GET /api/extension/config` (synced on install/startup/CONNECT, not popup-open),
+  gates a static `<all_urls>` content script on the cached allowlist + token, and
+  on a match `captureVisibleTab` → `POST /api/sim/review`. A persistent in-page
+  "Sims reviewing · pause" indicator is always visible while active.
+  (`packages/extension/*`, `prototype/server.ts`)
+- **Guardrailed review pipeline:** `POST /api/sim/review` runs binding gates **in
+  order** — auth + project access, allowlist match, per-member consent, `(sim,
+  url, dom)` dedupe, and a final **atomic per-project daily budget** consume — so
+  nothing is captured off-allowlist and a blocked request never burns budget or
+  vision cost. On budget exhaustion the project auto-pauses and the admin is
+  notified. Screenshots are stored **private** (30-day) with a durable
+  `screenshots` ledger row. (`prototype/server.ts`, `prototype/lib/s3.ts`)
+- **Privacy by structure:** new `monitored_urls` (allowlist; path-only patterns,
+  query/fragment rejected), `monitoring_consent` (per-member-per-project
+  `granted|paused|revoked`), and `projects.review_mode` / `review_budget_daily` /
+  `observability_mode`. `POST /api/consent` records consent and **user-pause**
+  (instant, reversible); `GET /api/screenshots/:id` returns a membership-checked,
+  short-lived **signed URL** for private Sim captures (public direct URL for Snap
+  reports). (`prototype/lib/db.ts`, `prototype/server.ts`)
+- **Admin monitored-URLs config (web):** an admin-only "Live Sims" drawer in the
+  dashboard adds/removes/enables monitored URL patterns (wired to
+  `/api/projects/:id/monitored-urls`), with an explainer that Sims auto-comment
+  there and capture is allowlist-only. (`prototype/public/dashboard.html`)
+- **Admin pause toggle (web):** a project-level **Pause / Resume Sims** control
+  (wired to `POST /api/projects/:id/pause`) reflecting `review_mode`; admin-pause
+  is project-wide, complementary to per-teammate user-pause via consent.
+  (`prototype/public/dashboard.html`)
+- **Named observability (R6):** an admin-only Activity view showing **who ran
+  which Sim on which path** from `activity_events` `review_run` rows (named per
+  the locked founder decision), each with a **View screenshot** action that opens
+  the private capture via the signed `GET /api/screenshots/:id`. Backed by a new
+  admin-gated `GET /api/projects/:id/activity` (defaults to `review_run`;
+  `observability_mode='aggregate'` strips identities server-side for the future
+  sellability toggle). The capture guardrails — consent-first, allowlist-only,
+  path-only URLs, private screenshots — are surfaced in the UI and remain binding.
+  (`prototype/lib/db.ts`, `prototype/server.ts`, `prototype/public/dashboard.html`)
+
+### Notes
+- Auto-comment is the default experience; engineering bounds runaway (debounce,
+  dedupe, daily budget cap, user/admin pause). Pricing is a separate workstream
+  (measure real per-review cost, then price). Additive; existing flows + tests
+  (`pnpm -r test`, `bun test prototype/lib/`) stay green.
+
 ## [0.6.0] - 2026-06-17
 
 ### Added

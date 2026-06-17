@@ -636,11 +636,17 @@ function rowToActivity(x: any): ActivityRow {
 }
 // Recent activity for a project, newest-first. Non-admins pass actorEmail to see only their own rows
 // (uses evt_actor_idx); admins omit it to see all (uses evt_proj_idx).
-export async function listActivity(projectId: string, opts: { actorEmail?: string | null; limit?: number } = {}): Promise<ActivityRow[]> {
+export async function listActivity(projectId: string, opts: { actorEmail?: string | null; types?: string[]; limit?: number } = {}): Promise<ActivityRow[]> {
   const limit = opts.limit ?? 20
+  // Optional type filter (R6 named observability: e.g. types=['review_run']). Inlined IN-list — values are
+  // server-controlled enum strings, never user input.
+  const typeFilter = opts.types && opts.types.length
+    ? ` AND type IN (${opts.types.map(() => "?").join(",")})`
+    : ""
+  const typeArgs = opts.types && opts.types.length ? opts.types : []
   const r = opts.actorEmail
-    ? await db!.execute({ sql: "SELECT * FROM activity_events WHERE project_id=? AND actor_email=? ORDER BY created_at DESC LIMIT ?", args: [projectId, opts.actorEmail, limit] })
-    : await db!.execute({ sql: "SELECT * FROM activity_events WHERE project_id=? ORDER BY created_at DESC LIMIT ?", args: [projectId, limit] })
+    ? await db!.execute({ sql: `SELECT * FROM activity_events WHERE project_id=? AND actor_email=?${typeFilter} ORDER BY created_at DESC LIMIT ?`, args: [projectId, opts.actorEmail, ...typeArgs, limit] })
+    : await db!.execute({ sql: `SELECT * FROM activity_events WHERE project_id=?${typeFilter} ORDER BY created_at DESC LIMIT ?`, args: [projectId, ...typeArgs, limit] })
   return r.rows.map(rowToActivity)
 }
 

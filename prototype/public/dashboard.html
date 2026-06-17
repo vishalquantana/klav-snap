@@ -120,6 +120,29 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .conngrid input:focus{border-color:var(--indigo)}
 .flbl{display:block;font-size:12px;color:var(--paper-faint);margin-bottom:5px}
 
+/* live-sims: pause toggle + url rows (P3b) */
+.pausebox{display:flex;align-items:center;gap:14px;background:var(--ink);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.pause-l{flex:1;min-width:0}
+.pause-t{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.pause-d{font-size:12.5px;color:var(--paper-faint);margin-top:3px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(15,157,107,.18)}
+.dot.off{background:var(--amber);box-shadow:0 0 0 3px rgba(217,131,36,.18)}
+.urlrow{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--ink);border:1px solid var(--line);border-radius:12px}
+.urlrow .pat{flex:1;min-width:0;font-family:var(--mono);font-size:12.5px;word-break:break-all}
+.urlrow .pat.off{color:var(--paper-faint);text-decoration:line-through}
+.urlrow .x{background:none;border:none;color:var(--paper-faint);cursor:pointer;font-size:16px;padding:2px 6px;line-height:1}
+.urlrow .x:hover{color:var(--rose)}
+.tog{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:1px solid var(--line);background:transparent;color:var(--paper-faint);cursor:pointer}
+.tog.on{background:rgba(15,157,107,.16);color:var(--green);border-color:transparent}
+/* observability rows */
+.obs{display:flex;align-items:flex-start;gap:12px;padding:13px 15px;background:var(--ink);border:1px solid var(--line);border-radius:12px}
+.obs .ico{font-size:16px;flex-shrink:0;margin-top:1px}
+.obs .body{flex:1;min-width:0}
+.obs .t{font-size:13.5px;font-weight:600}
+.obs .d{font-size:12px;color:var(--paper-faint);margin-top:3px;font-family:var(--mono)}
+.obs .shot{margin-left:auto;color:var(--indigo);font-size:12px;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:var(--body)}
+.obs .shot:hover{text-decoration:underline}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.sims{grid-template-columns:1fr}.ws{display:none}.conngrid{grid-template-columns:1fr}}
 
 .theme-toggle{position:fixed;right:16px;bottom:16px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12)}
@@ -197,6 +220,43 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <a class="btn btn-indigo" href="/app">Launch the Sims studio →</a>
     </div>
   </div>
+
+  <!-- Admin: Live Sims — monitored URLs + pause (P3b, R5). Admin-only. -->
+  <details class="drawer hide" id="liveDrawer">
+    <summary>📡 Live Sims — monitored URLs & pause <span class="caret">›</span></summary>
+    <div class="drawer-in">
+      <div class="muted" style="margin-bottom:14px">When a teammate (with the Snap extension, signed in) opens a URL that matches a pattern below, this project's Sims <b>auto-comment in-character</b> on that page — popping up and filing what they think. Capture happens <b>only</b> on these allowlisted paths, each member consents before their first capture, and screenshots are private.</div>
+
+      <!-- Pause toggle -->
+      <div class="pausebox">
+        <div class="pause-l">
+          <div class="pause-t">Sims status</div>
+          <div class="pause-d" id="pauseDesc">—</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="pauseBtn" disabled>—</button>
+      </div>
+      <div class="msg" id="pauseMsg"></div>
+
+      <!-- Monitored URL patterns -->
+      <div class="flbl" style="margin-top:18px;margin-bottom:8px">Monitored URL patterns <span class="muted">(path-only · prefix or <code>*</code> glob — no query/fragment)</span></div>
+      <div id="urlList" class="list" style="margin-bottom:12px"></div>
+      <div class="invite">
+        <input id="urlInput" type="text" placeholder="https://app.acme.com/billing*" />
+        <button class="btn btn-indigo" id="urlAdd">Add</button>
+      </div>
+      <div class="msg" id="urlMsg"></div>
+    </div>
+  </details>
+
+  <!-- Admin: Observability (R6) — named activity feed of who ran which Sim on which path. Admin-only. -->
+  <details class="drawer hide" id="obsDrawer">
+    <summary>👁️ Observability — Sim review activity <span class="caret">›</span></summary>
+    <div class="drawer-in">
+      <div class="muted" style="margin-bottom:6px">Every live Sim review, <b>named</b>: which teammate triggered which Sim on which path. Click <b>View screenshot</b> for the private capture (a short-lived signed link). URLs are path-only; off-allowlist navigation is never recorded.</div>
+      <div class="muted" id="obsMode" style="margin-bottom:14px"></div>
+      <div id="obsList" class="list"></div>
+    </div>
+  </details>
 
   <!-- Demoted: Plane connection settings drawer -->
   <details class="drawer" id="settingsDrawer">
@@ -285,6 +345,122 @@ function render() {
   $("connAdmin").classList.toggle("hide", !admin)
   $("connUser").classList.toggle("hide", admin)
   loadConn(admin)
+
+  // P3b admin-only: live-Sims config (monitored URLs + pause) and named observability.
+  $("liveDrawer").classList.toggle("hide", !admin)
+  $("obsDrawer").classList.toggle("hide", !admin)
+  if (admin) { loadLive(); loadObs() }
+}
+
+const curProjId = () => (state && state.active ? state.active.id : null)
+const projPath = (suffix) => "/api/projects/" + encodeURIComponent(curProjId()) + suffix
+
+// ── Pause toggle + monitored URLs (R5) ──
+async function loadLive() {
+  // project detail gives review_mode; monitored-urls gives the allowlist patterns.
+  try {
+    const [pr, ur] = await Promise.all([
+      fetch(projPath("")).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(projPath("/monitored-urls")).then(r => r.ok ? r.json() : null).catch(() => null),
+    ])
+    renderPause(pr && pr.project ? pr.project.reviewMode : "auto")
+    renderUrls((ur && ur.monitoredUrls) || [])
+  } catch {}
+}
+
+let curMode = "auto"
+function renderPause(mode) {
+  curMode = mode || "auto"
+  const paused = curMode === "paused"
+  const desc = $("pauseDesc"); const btn = $("pauseBtn")
+  desc.innerHTML = paused
+    ? `<span class="dot off"></span> <b>Paused</b> — Sims are not auto-commenting on any page.`
+    : `<span class="dot on"></span> <b>Live</b> — Sims auto-comment on monitored URLs (mode: ${esc(curMode)}).`
+  btn.textContent = paused ? "Resume Sims" : "Pause Sims"
+  btn.disabled = false
+}
+$("pauseBtn").onclick = async () => {
+  const next = curMode === "paused" ? "auto" : "paused"
+  $("pauseBtn").disabled = true
+  const r = await fetch(projPath("/pause"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: next }) })
+  const d = await r.json().catch(() => ({}))
+  const msg = $("pauseMsg")
+  if (d.error) { msg.style.color = "var(--rose)"; msg.textContent = d.error; $("pauseBtn").disabled = false; return }
+  renderPause(d.reviewMode || next)
+  msg.style.color = "var(--green)"; msg.textContent = next === "paused" ? "✓ Sims paused project-wide." : "✓ Sims resumed."
+}
+
+function renderUrls(urls) {
+  const wrap = $("urlList")
+  if (!urls.length) { wrap.innerHTML = `<div class="muted" style="padding:4px 2px">No monitored URLs yet — add a path pattern below to let your Sims go live there.</div>`; return }
+  wrap.innerHTML = urls.map(u => {
+    const on = u.enabled !== 0 && u.enabled !== false
+    return `<div class="urlrow">
+      <span class="pat${on?"":" off"}">${esc(u.urlPattern)}</span>
+      <button class="tog${on?" on":""}" data-id="${esc(u.id)}" data-on="${on?1:0}">${on?"enabled":"disabled"}</button>
+      <button class="x" data-del="${esc(u.id)}" aria-label="Remove">✕</button>
+    </div>`
+  }).join("")
+  wrap.querySelectorAll(".tog").forEach(b => b.onclick = async () => {
+    const id = b.getAttribute("data-id"); const on = b.getAttribute("data-on") === "1"
+    const r = await fetch(projPath("/monitored-urls/" + encodeURIComponent(id)), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: !on }) })
+    const d = await r.json().catch(() => ({})); if (d.monitoredUrls) renderUrls(d.monitoredUrls)
+  })
+  wrap.querySelectorAll(".x").forEach(b => b.onclick = async () => {
+    const id = b.getAttribute("data-del")
+    const r = await fetch(projPath("/monitored-urls/" + encodeURIComponent(id)), { method: "DELETE" })
+    const d = await r.json().catch(() => ({})); if (d.monitoredUrls) renderUrls(d.monitoredUrls)
+  })
+}
+$("urlAdd").onclick = async () => {
+  const pattern = $("urlInput").value.trim()
+  const msg = $("urlMsg")
+  if (!pattern) { msg.style.color = "var(--rose)"; msg.textContent = "Enter a URL pattern."; return }
+  $("urlAdd").disabled = true
+  const r = await fetch(projPath("/monitored-urls"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ urlPattern: pattern }) })
+  const d = await r.json().catch(() => ({}))
+  $("urlAdd").disabled = false
+  if (d.error) { msg.style.color = "var(--rose)"; msg.textContent = d.error; return }
+  $("urlInput").value = ""; msg.style.color = "var(--green)"; msg.textContent = "✓ Added — Sims will auto-comment there."
+  renderUrls(d.monitoredUrls || [])
+}
+
+// ── Named observability (R6) ──
+async function loadObs() {
+  try {
+    const r = await fetch(projPath("/activity?type=review_run&limit=50"))
+    if (!r.ok) { $("obsList").innerHTML = `<div class="muted">Couldn't load activity.</div>`; return }
+    const d = await r.json()
+    $("obsMode").innerHTML = d.named
+      ? `Observability is <b>named</b> (founder default). Guardrails: consent before first capture · allowlist-only · path-only URLs · private screenshots.`
+      : `Observability is <b>aggregate</b> — teammate identities are hidden.`
+    renderObs(d.events || [], d.named)
+  } catch { $("obsList").innerHTML = `<div class="muted">Couldn't load activity.</div>` }
+}
+function renderObs(events, named) {
+  if (!events.length) { $("obsList").innerHTML = `<div class="empty"><div class="em">👁️</div><p>No Sim reviews yet. When a teammate visits a monitored URL, the run shows up here — who, which Sim, which path.</p></div>`; return }
+  $("obsList").innerHTML = events.map(e => {
+    const who = named && e.actorEmail ? esc(e.actorEmail) : "A teammate"
+    const sim = e.simName ? `Sim <b>${esc(e.simName)}</b>` : "Sims"
+    const sub = [e.urlPath ? esc(e.urlPath) : "", ago(e.createdAt)].filter(Boolean).join(" · ")
+    const shot = e.screenshotId ? `<button class="shot" data-shot="${esc(e.screenshotId)}">View screenshot ↗</button>` : ""
+    return `<div class="obs">
+      <span class="ico">👁️</span>
+      <div class="body"><div class="t">${who} ran ${sim}</div><div class="d">${sub}</div></div>
+      ${shot}
+    </div>`
+  }).join("")
+  $("obsList").querySelectorAll(".shot").forEach(b => b.onclick = async () => {
+    const id = b.getAttribute("data-shot"); const orig = b.textContent
+    b.disabled = true; b.textContent = "opening…"
+    try {
+      const r = await fetch("/api/screenshots/" + encodeURIComponent(id))
+      const d = await r.json().catch(() => ({}))
+      if (d.url) window.open(d.url, "_blank", "noopener")
+      else { b.textContent = d.error || "unavailable"; return }
+    } catch { b.textContent = "error" }
+    b.disabled = false; b.textContent = orig
+  })
 }
 
 function renderSwitcher() {

@@ -1078,7 +1078,7 @@ Bun.serve({
         return json({ project: { id: created.id, name: created.name, accountId: created.accountId, status: created.status, role: "admin" } }, 201)
       }
       // Project detail + members (projectAccess-gated) and project-scoped invite (R4) + monitored-urls (P3b).
-      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/monitored-urls(?:\/[^/]+)?)?$/)
+      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/monitored-urls(?:\/[^/]+)?)?$/)
       if (projMatch) {
         const pid = projMatch[1]
         const sub = projMatch[2] || ""
@@ -1113,6 +1113,33 @@ Bun.serve({
             return json({ ok: true, monitoredUrls: await listMonitoredUrls(pid) })
           }
           return json({ error: "Not found" }, 404)
+        }
+
+        // Named observability (R6) — admin-only Activity view: WHO ran WHICH Sim on WHICH path, with the
+        // private screenshot id (viewable via signed GET /api/screenshots/:id). Default focus = review_run
+        // rows (live auto-comment runs) per the locked "named" decision; ?type=all widens to every event.
+        // observability_mode='aggregate' (future sellability toggle) strips actor_email server-side.
+        if (sub === "/activity") {
+          if (req.method !== "GET") return json({ error: "Not found" }, 404)
+          if (access !== "admin") return json({ error: "Only project admins can view observability." }, 403)
+          const typeParam = (url.searchParams.get("type") || "review_run").trim()
+          const types = typeParam === "all" ? undefined : [typeParam]
+          const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50))
+          const rows = await listActivity(pid, { types, limit })
+          const personas = await listPersonas(pid)
+          const pById = new Map(personas.map((p) => [p.id, p]))
+          const named = proj.observabilityMode !== "aggregate" // founder default 'named'
+          const events = rows.map((ev) => {
+            const p = ev.simId ? pById.get(ev.simId) : null
+            return {
+              id: ev.id, type: ev.type,
+              actorEmail: named ? ev.actorEmail : null, // (f) aggregate mode strips identity
+              simId: ev.simId, simName: p?.name ?? null,
+              urlPath: ev.urlPath, urlHost: ev.urlHost,
+              screenshotId: ev.screenshotId, meta: ev.meta, createdAt: ev.createdAt,
+            }
+          })
+          return json({ observabilityMode: proj.observabilityMode, named, events })
         }
 
         if (req.method === "GET" && sub === "") {
