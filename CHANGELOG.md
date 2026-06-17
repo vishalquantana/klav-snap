@@ -12,6 +12,22 @@ section for the bump rules.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-17
+
+### Added
+- **Connect Extension (Sims sync):** a one-click "Connect Extension" button in
+  the Sims Studio header links the web app to the Chrome extension without OTP
+  when you're already signed in. The content script exposes
+  `window.__klavityExtensionId`; the Studio fetches the current session token
+  (`GET /api/extension-token`) and pushes it to the extension via
+  `chrome.runtime.sendMessage` (gated by `externally_connectable` for
+  `klavity.quantana.top` + `localhost`). The background merges the token +
+  backend URL into `chrome.storage.sync`, so the popup auto-syncs your saved
+  Sims on every open. A PING handshake reflects the already-connected state on
+  load, and the button surfaces a clear "Not signed in" state when the session
+  is missing. (`packages/extension/{manifest.json,src/content.ts,src/background.ts}`,
+  `prototype/server.ts`, `prototype/public/index.html`)
+
 ## [0.2.0] - 2026-06-17
 
 ### Added
@@ -51,6 +67,7 @@ Snap → Sims → OS).
 - **Light theme by default** with a dark-mode toggle across app + extension.
 - Deploy tooling for `klav.quantana.top` (Bun + Caddy + systemd).
 
-[Unreleased]: https://github.com/vishalquantana/klav-snap/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/vishalquantana/klav-snap/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/vishalquantana/klav-snap/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vishalquantana/klav-snap/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vishalquantana/klav-snap/releases/tag/v0.1.0
