@@ -72,7 +72,7 @@
     .footer{display:flex;align-items:center;justify-content:center;padding:10px 16px;border-top:1px solid var(--line);}
     .footer a{font-size:12px;color:var(--paper-faint);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .12s;}
     .footer a:hover{color:var(--paper-dim);}
-  
+
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #89b4fa;outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
@@ -86,6 +86,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     .auth .btn-ghost{width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--paper-dim);font-size:13px;cursor:pointer;margin-top:8px;}
     .auth .auth-err{color:#E94F37;font-size:12px;margin-top:8px;min-height:1em;}
     .auth .hidden{display:none;}
+    .proj-select{font-size:11px;color:var(--paper-dim);background:var(--ink-3);border:1px solid var(--line);border-radius:7px;padding:3px 6px;max-width:130px;}
+    .signout-btn{font-size:11px;color:var(--paper-faint);background:none;border:none;cursor:pointer;}
+    .signout-btn:hover{color:var(--paper-dim);}
 </style>
 </head>
 <body>
@@ -109,6 +112,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <div class="header-left">
       <div class="logo"><svg width="22" height="22" viewBox="0 0 48 48" style="border-radius:7px;display:block"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><span>Klavity</span></div>
       <span class="status-dot" id="status-dot"></span>
+      <select class="proj-select" id="proj-select" style="display:none;"></select>
       <span class="status-label" id="status-label">Loading…</span>
     </div>
     <button class="settings-btn" id="open-options" title="Settings">
@@ -155,6 +159,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       Open tracker
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
     </a>
+    <button class="signout-btn" id="signout-btn" style="margin-left:auto;">Sign out</button>
   </div>
 
   </div>

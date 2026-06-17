@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS } from '@klavity/core'
 import type { KlavitySettings } from '@klavity/core'
-import { trySilentLogin, requestCode, verifyCode, isSignedIn } from './auth'
+import { trySilentLogin, requestCode, verifyCode, isSignedIn, getConfig, getSelectedProjectId, setSelectedProjectId, pickProject, signOut } from './auth'
 
 interface Sim { id: string; name: string; role: string; accent: string; initials: string; enabled: boolean }
 interface Recent { type: string; desc: string; issueKey: string; issueUrl: string; ts: number }
@@ -21,7 +21,7 @@ function showAuth() { $('view-auth').style.display = 'block'; $('view-app').styl
 function showApp() { $('view-auth').style.display = 'none'; $('view-app').style.display = 'block'; void renderSignedIn() }
 
 function promptForCode() {
-  $('auth-sub').textContent = "Enter your email and we’ll send a 6-digit code."
+  $('auth-sub').textContent = "Enter your email and we'll send a 6-digit code."
   $('auth-form').classList.remove('hidden')
 }
 
@@ -113,19 +113,43 @@ async function renderSignedIn() {
   $('btn-bug').addEventListener('click', () => openModal('bug'))
   $('btn-feat').addEventListener('click', () => openModal('feature'))
 
-  await renderSims(s)
+  // ── Project picker ──
+  const config = await getConfig()
+  const projects = config?.projects ?? []
+  const sel = $('proj-select') as HTMLSelectElement
+  let activeProjectId: string | null = null
+
+  if (projects.length) {
+    const saved = await getSelectedProjectId()
+    const active = pickProject(projects, saved)
+    activeProjectId = active?.id ?? null
+    sel.innerHTML = projects.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')
+    sel.value = activeProjectId ?? ''
+    sel.style.display = projects.length > 1 ? 'inline-block' : 'none'
+    sel.addEventListener('change', async () => {
+      activeProjectId = sel.value
+      await setSelectedProjectId(activeProjectId)
+      await renderSims(s, activeProjectId)
+    })
+  }
+
+  // Sign out
+  $('signout-btn').addEventListener('click', async () => { await signOut(); location.reload() })
+
+  await renderSims(s, activeProjectId)
   await renderRecent()
 }
 
 // ── Sims (project-scoped fetch added in Task 4) ──────────────────────────
-async function renderSims(s: KlavitySettings) {
+async function renderSims(s: KlavitySettings, projectId: string | null = null) {
   const simsData = await chrome.storage.local.get('klavSims')
   let sims: Sim[] = simsData.klavSims ?? []
   const simsList = $('sims-list')
 
   if (s.backendUrl && s.klavToken) {
     try {
-      const r = await fetch(`${s.backendUrl}/api/personas`, { headers: { Authorization: `Bearer ${s.klavToken}` } })
+      const q = projectId ? `?project=${encodeURIComponent(projectId)}` : ''
+      const r = await fetch(`${s.backendUrl}/api/personas${q}`, { headers: { Authorization: `Bearer ${s.klavToken}` } })
       if (r.ok) {
         const d = await r.json()
         if (Array.isArray(d.personas) && d.personas.length) {
