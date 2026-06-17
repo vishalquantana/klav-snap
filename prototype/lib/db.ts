@@ -437,6 +437,13 @@ export async function createProject(accountId: string, name: string): Promise<Pr
   return p!
 }
 
+// Rename a project (name only). Used by the signup onboarding to name the auto-created Default Project
+// without spawning a duplicate. Caller must enforce projectAccess('admin'). Returns the updated row.
+export async function renameProject(projectId: string, name: string): Promise<ProjectRow | null> {
+  await db!.execute({ sql: "UPDATE projects SET name=?, updated_at=? WHERE id=?", args: [name, Date.now(), projectId] })
+  return projectById(projectId)
+}
+
 // §2.3 effective role: max(account_role, project_role); account owner/admin ⇒ implicit project-admin.
 export async function projectAccess(email: string, projectId: string): Promise<'admin' | 'member' | null> {
   const proj = await projectById(projectId)

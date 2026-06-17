@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById } from "./lib/db"
 import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies } from "./lib/auth"
@@ -863,10 +863,11 @@ Bun.serve({
     if (req.method === "GET" && path === "/dashboard") return me ? file(PUB + "/dashboard.html") : redirect("/login")
     if (req.method === "GET" && path === "/app") return me ? file(PUB + "/index.html") : redirect("/login")
     if (req.method === "GET" && path === "/onboarding") {
-      if (!me) return redirect("/login")
-      // R9 fix: a logged-in user who already has a workspace must not be dumped back into
-      // "create workspace · step 1 of 5" — send them to the dashboard instead.
-      if ((await membershipsFor(me)).length > 0) return redirect("/dashboard")
+      // The new onboarding is the signup wizard for LOGGED-OUT users (email → OTP → name project inline).
+      // R9/P0 intent preserved: a logged-in user who already has a membership must not get stuck on
+      // onboarding — send them to the dashboard. Logged-out (or logged-in-without-membership) users can
+      // sign up inline, so we SERVE the page rather than bouncing to /login.
+      if (me && (await membershipsFor(me)).length > 0) return redirect("/dashboard")
       return file(SITE + "/onboarding.html")
     }
 
@@ -1078,7 +1079,7 @@ Bun.serve({
         return json({ project: { id: created.id, name: created.name, accountId: created.accountId, status: created.status, role: "admin" } }, 201)
       }
       // Project detail + members (projectAccess-gated) and project-scoped invite (R4) + monitored-urls (P3b).
-      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/monitored-urls(?:\/[^/]+)?)?$/)
+      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/rename|\/monitored-urls(?:\/[^/]+)?)?$/)
       if (projMatch) {
         const pid = projMatch[1]
         const sub = projMatch[2] || ""
@@ -1156,6 +1157,17 @@ Bun.serve({
           if (!inv.includes("@")) return json({ error: "Enter a valid email." }, 400)
           await addProjectMember(pid, proj.accountId, inv, role, me)
           return json({ ok: true, members: await membersOfProject(pid) })
+        }
+        // Rename a project (name only) — admin-gated. The signup onboarding calls this on the user's
+        // auto-created Default Project to set the name they chose, instead of creating a duplicate.
+        if (sub === "/rename") {
+          if (req.method !== "POST" && req.method !== "PATCH") return json({ error: "Not found" }, 404)
+          if (access !== "admin") return json({ error: "Only project admins can rename." }, 403)
+          const body = await req.json().catch(() => ({}))
+          const name = String(body.name || "").trim()
+          if (!name) return json({ error: "Project name is required." }, 400)
+          const updated = await renameProject(pid, name)
+          return json({ project: { id: updated!.id, name: updated!.name, accountId: updated!.accountId, status: updated!.status, role: access } })
         }
         return json({ error: "Not found" }, 404)
       }
