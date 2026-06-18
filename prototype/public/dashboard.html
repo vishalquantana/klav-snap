@@ -689,15 +689,21 @@ function renderSims(admin) {
     $("sims").innerHTML = emptyState("🧬", "No Sims yet. Extract personas from a customer call to bring your Sims to life.", `<a class="btn btn-indigo btn-sm" href="/app#add-transcript">Add a transcript →</a>`)
     return
   }
-  $("sims").innerHTML = `<div class="sims">` + sims.map(s => `
-    <a class="sim" href="/app">
+  const pid = curProjId()
+  $("sims").innerHTML = `<div class="sims">` + sims.map(s => {
+    const href = pid
+      ? "/app?project=" + encodeURIComponent(pid) + "&sim=" + encodeURIComponent(s.id)
+      : "/app?sim=" + encodeURIComponent(s.id)
+    return `
+    <a class="sim" href="${esc(href)}">
       <div class="av" style="background:${s.accent||col(s.name)}">${esc(s.initials||initials(s.name))}</div>
       <div class="body">
         <div class="name">${esc(s.name)}</div>
         <div class="role">${esc(s.role||"")}</div>
         <div class="la">${s.lastActiveAt?("active "+ago(s.lastActiveAt)):(s.insightsCount+" insight"+(s.insightsCount===1?"":"s"))}</div>
       </div>
-    </a>`).join("") + `</div>`
+    </a>`
+  }).join("") + `</div>`
 }
 
 function renderMembers(admin) {

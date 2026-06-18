@@ -292,6 +292,33 @@
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+
+/* ── Focused single-Sim view ── */
+.fsv-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--indigo);background:none;border:none;cursor:pointer;padding:0;margin-bottom:18px}
+.fsv-back:hover{text-decoration:underline}
+.fsv-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:20px;background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px}
+.fsv-meta{flex:1;min-width:0}
+.fsv-name{font-size:18px;font-weight:800;margin-bottom:2px}
+.fsv-role{font-size:13px;color:var(--paper-faint);margin-bottom:6px}
+.fsv-summary{font-size:13px;color:var(--paper-dim);line-height:1.55}
+.fsv-section{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+.fsv-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--paper-faint);margin-bottom:14px}
+.fsv-insight{display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--ink-3);border-radius:10px;margin-bottom:10px}
+.fsv-insight:last-child{margin-bottom:0}
+.fsv-ins-top{display:flex;align-items:flex-start;gap:8px}
+.fsv-ins-text{flex:1;font-size:13px;color:var(--paper);line-height:1.45}
+.fsv-quote{font-size:11.5px;font-style:italic;color:var(--paper-dim);border-left:2px solid var(--indigo);padding-left:8px;margin-top:4px}
+.fsv-prov{font-size:11px;color:var(--paper-faint);margin-top:4px;font-family:ui-monospace,monospace}
+.fsv-tx-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--ink-3);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:border-color .2s;border:1px solid transparent}
+.fsv-tx-row:last-child{margin-bottom:0}
+.fsv-tx-row:hover{border-color:var(--indigo)}
+.fsv-tx-title{font-size:13px;font-weight:600;flex:1}
+.fsv-tx-meta{font-size:11px;color:var(--paper-faint);font-family:ui-monospace,monospace}
+.fsv-tx-expand{color:var(--indigo);font-size:12px;flex-shrink:0}
+.fsv-raw{margin-top:10px;background:var(--ink);border:1px solid var(--line-2);border-radius:10px;padding:14px;font-size:12px;font-family:ui-monospace,monospace;color:var(--paper-dim);white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;display:none}
+.fsv-raw.open{display:block}
+.fsv-raw-loading{font-size:12px;color:var(--paper-faint);padding:8px 0;display:none}
+.fsv-raw-loading.show{display:block}
 </style>
 </head>
 <body>
@@ -466,6 +493,7 @@ let sims = []
 // Scopes every project-bound API call so the studio shows/saves to the right project,
 // not the account's default one. No param → server falls back to the first project.
 function studioProjectId() { try { return new URLSearchParams(location.search).get("project") } catch (e) { return null } }
+function studioSimId() { try { return new URLSearchParams(location.search).get("sim") } catch (e) { return null } }
 function pq(path) { const p = studioProjectId(); if (!p) return path; return path + (path.includes("?") ? "&" : "?") + "project=" + encodeURIComponent(p) }
 
 // ── Backend persona persistence ──
@@ -500,8 +528,14 @@ async function loadSavedSims() {
         insights: p.insights, avatar: p.avatar || undefined })),
       ...sims.filter(s => !s._id || !savedIds.has(s._id)),
     ]
-    renderDock(); updateFlow()
-    if (sims.length) switchL1Tab('sims')
+    const targetSimId = studioSimId()
+    const focusSim = targetSimId ? sims.find(s => (s._id || s.id) === targetSimId) : null
+    if (focusSim) {
+      renderFocusedSim(focusSim)
+    } else {
+      renderDock(); updateFlow()
+      if (sims.length) switchL1Tab('sims')
+    }
   } catch(e) { /* not logged in or offline, no-op */ }
 }
 
@@ -805,6 +839,174 @@ function renderEvolution(events){
       <div class="evo-src">${e.quote ? `<span class="cq">“${esc(e.quote)}”</span> — ` : ""}${esc(src)}${attr ? ` (${attr})` : ""}</div>
     </div>`
   }).join("")
+}
+
+// ── Focused single-Sim view — rendered when ?sim=<id> is in the URL ──
+// Renders into #dock (inside #pane-sims). Shows header, provenance insights,
+// source transcripts (lazy), and evolution timeline (lazy, reuses renderEvolution).
+// The no-?sim= path is completely unchanged: renderDock() still runs for it.
+async function renderFocusedSim(sim) {
+  // Switch to the sims pane so #dock is visible
+  switchL1Tab('sims')
+  const dock = $("dock")
+  if (!dock) return
+  const pid = studioProjectId() || ""
+  const simId = sim._id || sim.id || ""
+
+  // Build static HTML for header + insights
+  const ins = sim.insights || []
+  const insHtml = ins.length ? ins.map(x => {
+    const kindColor = x.kind === "pain" ? "var(--rose)" : x.kind === "want" ? "var(--blue)" : "var(--green)"
+    const quoteHtml = x.quote
+      ? `<div class="fsv-quote">"${esc(x.quote)}"</div>`
+      : ""
+    const provHtml = x.sourceTranscriptId
+      ? `<div class="fsv-prov" data-txprov="${esc(x.sourceTranscriptId)}">from a transcript</div>`
+      : ""
+    return `<div class="fsv-insight">
+      <div class="fsv-ins-top">
+        <span class="chip k-${esc(x.kind)}" style="flex-shrink:0">${esc(x.kind)}</span>
+        <span class="fsv-ins-text">${esc(x.text || "")}</span>
+      </div>
+      ${quoteHtml}${provHtml}
+    </div>`
+  }).join("") : `<div style="font-size:13px;color:var(--paper-faint)">No insights yet.</div>`
+
+  dock.innerHTML = `
+    <button class="fsv-back" id="fsvBack">&#8592; All Sims</button>
+    <div class="fsv-header">
+      <div class="ds-av" style="background:${esc(sim.accent || "#6366f1")};width:48px;height:48px;font-size:16px;flex-shrink:0">${avatarInner(sim)}</div>
+      <div class="fsv-meta">
+        <div class="fsv-name">${esc(sim.name || "")}</div>
+        <div class="fsv-role">${esc(sim.role || "")}${sim.type ? ` <span class="ds-type ${sim.type === "client" ? "t-client" : "t-internal"}" style="font-size:10px">${esc(sim.type)}</span>` : ""}</div>
+        ${sim.summary ? `<div class="fsv-summary">${esc(sim.summary)}</div>` : ""}
+      </div>
+    </div>
+    <div class="fsv-section" id="fsvInsights">
+      <div class="fsv-section-title">Insights</div>
+      ${insHtml}
+    </div>
+    <div class="fsv-section" id="fsvTranscripts">
+      <div class="fsv-section-title">Source Transcripts</div>
+      <div id="fsvTxList"><div style="font-size:13px;color:var(--paper-faint)">Loading transcripts…</div></div>
+    </div>
+    <div class="fsv-section" id="fsvEvolution">
+      <div class="fsv-section-title">Evolution Timeline</div>
+      <div id="fsvEvoBox"><div style="font-size:13px;color:var(--paper-faint)">Loading evolution…</div></div>
+    </div>`
+
+  // Back link: clear ?sim= and reload with just the project
+  $("fsvBack").onclick = () => {
+    try {
+      const params = new URLSearchParams(location.search)
+      params.delete("sim")
+      const qs = params.toString()
+      location.href = "/app" + (qs ? "?" + qs : "")
+    } catch (e) {
+      location.href = "/app" + (pid ? "?project=" + encodeURIComponent(pid) : "")
+    }
+  }
+
+  // Lazy-load transcripts + evolution in parallel
+  const txListEl = $("fsvTxList")
+  const evoBoxEl = $("fsvEvoBox")
+
+  // Fetch source transcripts
+  let txMap = {}
+  if (simId) {
+    try {
+      const txUrl = "/api/sims/" + encodeURIComponent(simId) + "/transcripts" + (pid ? "?project=" + encodeURIComponent(pid) : "")
+      const r = await fetch(txUrl)
+      const data = await r.json().catch(() => ({}))
+      const txList = (data && data.transcripts) || []
+      // Build a map id -> title/date for provenance labels
+      txList.forEach(t => { txMap[t.id] = t })
+      if (!txListEl) { /* element gone */ }
+      else if (!txList.length) {
+        txListEl.innerHTML = `<div style="font-size:13px;color:var(--paper-faint)">No source transcripts found for this Sim.</div>`
+      } else {
+        txListEl.innerHTML = txList.map(t => {
+          const dateStr = t.sourceDate ? new Date(Number(t.sourceDate)).toISOString().slice(0, 10) : ""
+          const meta = [dateStr, t.addedBy ? ("by " + esc(t.addedBy)) : ""].filter(Boolean).join(" · ")
+          return `<div class="fsv-tx-row" data-txid="${esc(t.id)}">
+            <div class="fsv-tx-title">${esc(t.title || "Untitled transcript")}</div>
+            <div class="fsv-tx-meta">${esc(meta)}</div>
+            <span class="fsv-tx-expand">View ›</span>
+            <div class="fsv-raw-loading" id="txloading-${esc(t.id)}">Loading…</div>
+            <pre class="fsv-raw" id="txraw-${esc(t.id)}"></pre>
+          </div>`
+        }).join("")
+        // Wire click-to-expand for each transcript row
+        txListEl.querySelectorAll(".fsv-tx-row").forEach(row => {
+          row.addEventListener("click", async () => {
+            const tid = row.getAttribute("data-txid")
+            const rawEl = row.querySelector(".fsv-raw")
+            const loadingEl = row.querySelector(".fsv-raw-loading")
+            if (!rawEl) return
+            if (rawEl.classList.contains("open")) {
+              rawEl.classList.remove("open")
+              row.querySelector(".fsv-tx-expand").textContent = "View ›"
+              return
+            }
+            // Already fetched — just show
+            if (rawEl.dataset.loaded === "1") {
+              rawEl.classList.add("open")
+              row.querySelector(".fsv-tx-expand").textContent = "Hide ‹"
+              return
+            }
+            // Lazy-fetch rawText
+            if (loadingEl) loadingEl.classList.add("show")
+            try {
+              const txFetchUrl = "/api/transcripts/" + encodeURIComponent(tid) + (pid ? "?project=" + encodeURIComponent(pid) : "")
+              const tr = await fetch(txFetchUrl)
+              const td = await tr.json().catch(() => ({}))
+              if (!tr.ok) throw new Error(td.error || "load failed")
+              rawEl.textContent = td.rawText || "(no text)"
+              rawEl.dataset.loaded = "1"
+              rawEl.classList.add("open")
+              row.querySelector(".fsv-tx-expand").textContent = "Hide ‹"
+            } catch (e) {
+              rawEl.textContent = "Error loading transcript: " + esc(e.message)
+              rawEl.dataset.loaded = "1"
+              rawEl.classList.add("open")
+            } finally {
+              if (loadingEl) loadingEl.classList.remove("show")
+            }
+          })
+        })
+      }
+    } catch (e) {
+      if (txListEl) txListEl.innerHTML = `<div style="font-size:13px;color:var(--paper-faint)">Couldn't load transcripts: ${esc(e.message)}</div>`
+    }
+  } else {
+    if (txListEl) txListEl.innerHTML = `<div style="font-size:13px;color:var(--paper-faint)">No Sim ID — cannot load transcripts.</div>`
+  }
+
+  // Back-fill provenance labels on insights (after txMap is populated)
+  if (simId) {
+    dock.querySelectorAll("[data-txprov]").forEach(el => {
+      const txid = el.getAttribute("data-txprov")
+      const tx = txMap[txid]
+      if (tx) {
+        const dateStr = tx.sourceDate ? new Date(Number(tx.sourceDate)).toISOString().slice(0, 10) : ""
+        const parts = [esc(tx.title || "a transcript"), dateStr].filter(Boolean).join(" · ")
+        el.textContent = "from: " + parts
+      }
+    })
+  }
+
+  // Fetch evolution (reuse renderEvolution)
+  if (simId && evoBoxEl) {
+    try {
+      const evoUrl = "/api/sims/" + encodeURIComponent(simId) + "/evolution" + (pid ? "?project=" + encodeURIComponent(pid) : "")
+      const er = await fetch(evoUrl)
+      const edata = await er.json().catch(() => ({}))
+      if (!er.ok) throw new Error(edata.error || "load failed")
+      evoBoxEl.innerHTML = renderEvolution(edata.events || [])
+    } catch (e) {
+      evoBoxEl.innerHTML = `<div class="evo-empty">Couldn't load evolution: ${esc(e.message)}</div>`
+    }
+  }
 }
 
 const reviewing = new Set()
