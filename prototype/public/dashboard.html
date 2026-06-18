@@ -219,6 +219,17 @@ details.drawer .drawer-in{padding:0 22px 22px}
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+  .tkt-context{display:flex;flex-direction:column;gap:10px;padding-bottom:12px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+  .tkt-obs{font-size:14px;line-height:1.5;color:var(--paper)}
+  .tkt-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .tkt-bug{background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .tkt-bug-t{font-size:13px;font-weight:600;margin-bottom:4px}
+  .tkt-bug-b{font-size:13px;color:var(--paper-dim);line-height:1.5;white-space:pre-wrap}
+  .tkt-prov{font-size:12.5px;color:var(--paper-dim);font-style:italic;border-left:2px solid var(--line);padding-left:10px}
+  .tkt-meta-line{font-size:11px}
+  .tkt-shot{margin-top:2px}
+  .tkt-shot img{max-width:100%;border:1px solid var(--line);border-radius:10px;cursor:zoom-in;display:block}
+  .chip.sev-high{background:#3a1416;color:#ffb4ac}.chip.sev-medium{background:#3a2c10;color:#ffd79a}.chip.sev-low{background:#10261a;color:#9ae6b4}
 </style>
 </head>
 <body>
@@ -763,6 +774,15 @@ function renderTickets() {
       : ""
 
     detailEl.innerHTML = `
+      ${(t.observation || t.suggestedBug || t.sourceQuote || t.screenshotId) ? `
+      <div class="tkt-context">
+        ${t.observation ? `<div class="tkt-obs">${esc(t.observation)}</div>` : ""}
+        ${(t.severity || t.sentiment || t.simName) ? `<div class="tkt-chips">${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
+        ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">🐞 ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
+        ${t.sourceQuote ? `<div class="tkt-prov">"${esc(t.sourceQuote)}"${t.sourceDate ? ` · raised ${esc(ago(t.sourceDate))}` : ""}</div>` : ""}
+        <div class="tkt-meta-line muted">${t.urlPath ? esc(t.urlPath) : ""}${(t.urlPath && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>
+        ${t.screenshotId ? `<div class="tkt-shot" data-shot="${esc(t.screenshotId)}"><div class="muted" style="font-size:12px">Loading screenshot…</div></div>` : ""}
+      </div>` : ""}
       <div class="tkt-status-row">
         <span class="tkt-status-lbl">Status</span>
         <div class="seg">${segBtns}</div>
@@ -872,6 +892,7 @@ function renderTickets() {
       detailEl.classList.toggle("show", !isOpen)
       rowEl.classList.toggle("open", !isOpen)
       rowEl.querySelector(".go").textContent = isOpen ? "›" : "‹"
+      if (!isOpen) loadTktShot(detailEl)
     })
     // Prevent detail interactions from collapsing
     detailEl.addEventListener("click", ev => ev.stopPropagation())
@@ -881,6 +902,23 @@ function renderTickets() {
   })
   $("tickets").innerHTML = ""
   $("tickets").appendChild(wrap)
+}
+
+async function loadTktShot(detailEl) {
+  const box = detailEl.querySelector(".tkt-shot")
+  if (!box || box.getAttribute("data-loaded")) return
+  box.setAttribute("data-loaded", "1")
+  const id = box.getAttribute("data-shot")
+  try {
+    const r = await fetch("/api/screenshots/" + encodeURIComponent(id))
+    const d = await r.json().catch(() => ({}))
+    if (d.url) {
+      const img = document.createElement("img")
+      img.src = d.url; img.alt = "Sim screenshot"
+      img.addEventListener("click", () => window.open(d.url, "_blank", "noopener"))
+      box.innerHTML = ""; box.appendChild(img)
+    } else { box.innerHTML = '<div class="muted" style="font-size:12px">Screenshot unavailable</div>' }
+  } catch { box.innerHTML = '<div class="muted" style="font-size:12px">Screenshot error</div>' }
 }
 
 function showTktMsg(detailEl, msg, isErr) {

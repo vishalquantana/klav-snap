@@ -1440,23 +1440,24 @@ Bun.serve({
             // Fetch status/assignee via feedbackById in batch (single IN query via raw DB).
             db && ticketIds.length
               ? db.execute({
-                  sql: `SELECT id, status, assignee FROM feedback WHERE id IN (${ticketIds.map(() => "?").join(",")})`,
+                  sql: `SELECT id, status, assignee, notes FROM feedback WHERE id IN (${ticketIds.map(() => "?").join(",")})`,
                   args: ticketIds,
                 }).then(r => {
-                  const m: Record<string, { status: string; assignee: string | null }> = {}
+                  const m: Record<string, { status: string; assignee: string | null; notes: string | null }> = {}
                   for (const x of r.rows) {
                     m[String((x as any).id)] = {
                       status: (x as any).status ? String((x as any).status) : "open",
                       assignee: (x as any).assignee != null ? String((x as any).assignee) : null,
+                      notes: (x as any).notes != null ? String((x as any).notes) : null,
                     }
                   }
                   return m
                 })
-              : Promise.resolve({} as Record<string, { status: string; assignee: string | null }>),
+              : Promise.resolve({} as Record<string, { status: string; assignee: string | null; notes: string | null }>),
           ])
           const tickets = feedbackTickets.map(f => {
             const p = f.simId ? personaById.get(f.simId) : null
-            const meta = ticketMetaRows[f.id] ?? { status: "open", assignee: null }
+            const meta = ticketMetaRows[f.id] ?? { status: "open", assignee: null, notes: null }
             // Build exports: latest ok per connector
             const rawExports = ticketExportsMap[f.id] ?? []
             const seenConnector = new Set<string>()
@@ -1473,6 +1474,10 @@ Bun.serve({
               urlPath: f.urlPath, planeIssueKey: f.planeIssueKey,
               planeIssueUrl: f.planeIssueUrl, createdAt: f.createdAt,
               status: meta.status, assignee: meta.assignee, exports,
+              observation: f.observation, suggestedBug: f.suggestedBug,
+              sentiment: f.sentiment, screenshotId: f.screenshotId,
+              sourceQuote: f.sourceQuote, sourceDate: f.sourceDate,
+              notes: meta.notes,
             }
           })
 
