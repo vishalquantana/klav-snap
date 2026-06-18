@@ -42,10 +42,10 @@ await rawExec(`CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, name TE
 await rawExec(`CREATE TABLE IF NOT EXISTS account_members (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, email TEXT NOT NULL, account_role TEXT NOT NULL DEFAULT 'member', created_at INTEGER NOT NULL, UNIQUE(account_id, email))`)
 await rawExec(`CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', review_mode TEXT NOT NULL DEFAULT 'auto', review_budget_daily INTEGER, observability_mode TEXT NOT NULL DEFAULT 'named', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS project_members (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, email TEXT NOT NULL, project_role TEXT NOT NULL DEFAULT 'member', invited_by TEXT, created_at INTEGER NOT NULL, UNIQUE(project_id, email))`)
-await rawExec(`CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, sim_id TEXT, actor_email TEXT, url_host TEXT, url_path TEXT, observation TEXT, sentiment TEXT, severity TEXT, screenshot_id TEXT, plane_issue_key TEXT, plane_issue_url TEXT, status TEXT NOT NULL DEFAULT 'open', assignee TEXT, notes TEXT, updated_at INTEGER, created_at INTEGER NOT NULL)`)
+await rawExec(`CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, sim_id TEXT, actor_email TEXT, url_host TEXT, url_path TEXT, observation TEXT, sentiment TEXT, severity TEXT, screenshot_id TEXT, suggested_bug_json TEXT, cited_trait_ids_json TEXT, source_quote TEXT, source_transcript_id TEXT, source_date INTEGER, plane_issue_key TEXT, plane_issue_url TEXT, status TEXT NOT NULL DEFAULT 'open', assignee TEXT, notes TEXT, updated_at INTEGER, created_at INTEGER NOT NULL)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS connectors (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, type TEXT NOT NULL, name TEXT NOT NULL, config TEXT NOT NULL DEFAULT '{}', auto_copy INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, created_by TEXT)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS ticket_exports (id TEXT PRIMARY KEY, feedback_id TEXT NOT NULL, project_id TEXT NOT NULL, connector_id TEXT NOT NULL, type TEXT NOT NULL, external_key TEXT, external_url TEXT, status TEXT NOT NULL, error TEXT, created_at INTEGER NOT NULL, created_by TEXT)`)
-await rawExec(`CREATE TABLE IF NOT EXISTS activity_events (id TEXT PRIMARY KEY, project_id TEXT, type TEXT NOT NULL, actor_email TEXT, sim_id TEXT, url_host TEXT, url_path TEXT, feedback_id TEXT, screenshot_id TEXT, meta TEXT, created_at INTEGER NOT NULL)`)
+await rawExec(`CREATE TABLE IF NOT EXISTS activity_events (id TEXT PRIMARY KEY, project_id TEXT, type TEXT NOT NULL, actor_email TEXT, sim_id TEXT, url_host TEXT, url_path TEXT, feedback_id TEXT, screenshot_id TEXT, meta_json TEXT, created_at INTEGER NOT NULL)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS personas (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, role TEXT, type TEXT NOT NULL DEFAULT 'client', initials TEXT, accent TEXT, summary TEXT, insights_json TEXT, avatar TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`)
 // Also need model_weights in schema_meta for the server to work without errors
 await rawExec(`CREATE INDEX IF NOT EXISTS idx_fb_proj ON feedback(project_id)`)
@@ -348,3 +348,48 @@ test("GET /api/dashboard tickets include status, assignee, exports", async () =>
   expect("assignee" in ticket).toBe(true)
   expect(Array.isArray(ticket.exports)).toBe(true)
 })
+
+// ── Auto-copy hook fires exactly once (regression for the Plane double-file bug) ─
+// A local receiver counts the webhook POSTs the server subprocess sends. Filing one
+// feedback with a single auto_copy connector must produce exactly ONE export — if the
+// hook ever fires twice (or a legacy path double-files), hits/rows would be 2.
+test("auto-copy fires exactly once when filing feedback (no double-export)", async () => {
+  let hits = 0
+  const recv = Bun.serve({
+    port: 0,
+    fetch() { hits++; return new Response(JSON.stringify({ id: "recv-1" }), { status: 200, headers: { "content-type": "application/json" } }) },
+  })
+  try {
+    const recvUrl = `http://localhost:${recv.port}/hook`
+    // A single auto-copy webhook connector pointed at our receiver.
+    const cr = await api("POST", `/api/projects/${PROJECT_ID}/connectors`, {
+      type: "webhook", name: "AutoCopy Once", config: { url: recvUrl }, autoCopy: true,
+    }, ADMIN_SID)
+    expect(cr.status).toBe(201)
+    const cid = (await cr.json()).connector.id
+
+    // File a feedback → triggers the fire-and-forget auto-copy hook in POST /api/feedback.
+    const fd = new FormData()
+    fd.set("description", `auto-copy regression ${ts}`)
+    fd.set("project_id", PROJECT_ID)
+    const fr = await fetch(`${BASE}/api/feedback`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ADMIN_SID}`, cookie: authCookie(ADMIN_SID) },
+      body: fd,
+    })
+    expect(fr.ok).toBe(true)
+
+    // Wait for the fire-and-forget export row to land (≤3s).
+    const rows = async () =>
+      (await rawClient.execute({ sql: "SELECT status FROM ticket_exports WHERE connector_id=?", args: [cid] })).rows
+    for (let i = 0; i < 60 && (await rows()).length === 0; i++) await new Promise((r) => setTimeout(r, 50))
+    // Give any erroneous SECOND fire a chance to surface, then assert EXACTLY one.
+    await new Promise((r) => setTimeout(r, 300))
+    const landed = await rows()
+    expect(landed.length).toBe(1)
+    expect(String(landed[0].status)).toBe("ok")
+    expect(hits).toBe(1)
+  } finally {
+    recv.stop(true)
+  }
+}, 10000)

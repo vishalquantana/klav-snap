@@ -10,6 +10,17 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.15.4] — 2026-06-18
+
+### Added
+- **Auto-copy regression test.** `server.connectors.test.ts` now files a real feedback
+  with one `auto_copy` webhook connector (pointed at a local receiver) and asserts the
+  fire-and-forget hook produces **exactly one** export — guarding the Plane double-file
+  regression. It surfaced (and fixed) two latent fixtures in that test's hand-rolled
+  schema — `feedback` was missing `suggested_bug_json`/citation columns and
+  `activity_events` had `meta` instead of `meta_json` — so the real `/api/feedback`
+  persist+auto-copy path was never actually exercised there before.
+
 ## [0.15.3] — 2026-06-18
 
 ### Fixed
