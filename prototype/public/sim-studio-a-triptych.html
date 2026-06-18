@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity · Sims Studio — Triptych</title>
+<link rel="icon" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--ink-4:#e7e1d6;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--line:rgba(25,20,15,.12);--line-2:rgba(25,20,15,.18);--indigo:#6366f1;--indigo-deep:#4f46e5;--indigo-soft:#a5b4fc;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--blue:#2563eb;}
+[data-theme="dark"]{--ink:#0a0a0f;--ink-2:#11111a;--ink-3:#0d0d15;--ink-4:#1e1e2e;--paper:#cdd6f4;--paper-dim:#9399b2;--paper-faint:#6c7086;--line:#1e1e2e;--line-2:#313244;--indigo:#6366f1;--indigo-deep:#4f46e5;--indigo-soft:#a5b4fc;--amber:#e8a24a;--rose:#f38ba8;--green:#a6e3a1;--blue:#89b4fa;}
+
+:root{--display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── chips / labels ── */
+.chip{font-family:var(--body);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);background:var(--ink-3);border:1px solid var(--line);border-radius:20px;padding:3px 9px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.kind-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.kind-PAIN{color:var(--rose)} .kind-WANT{color:var(--amber)} .kind-LOVE{color:var(--green)}
+.dot-PAIN{background:var(--rose)} .dot-WANT{background:var(--amber)} .dot-LOVE{background:var(--green)}
+
+/* ── app bar ── */
+.appbar{flex:none;height:58px;display:flex;align-items:center;gap:14px;padding:0 18px;background:var(--ink-2);border-bottom:1px solid var(--line);z-index:20}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{display:block;border-radius:8px}
+.brand .name{font-family:var(--display);font-weight:500;font-size:16px;letter-spacing:-.01em}
+.brand .name b{font-weight:600}
+.brand .sep{color:var(--paper-faint);font-weight:300}
+.proj-chip{font-family:var(--body);font-size:12px;font-weight:600;color:var(--paper);background:var(--ink-3);border:1px solid var(--line);border-radius:20px;padding:5px 11px 5px 8px;display:flex;align-items:center;gap:7px}
+.proj-chip .pdot{width:16px;height:16px;border-radius:5px;background:linear-gradient(135deg,var(--indigo-deep),var(--indigo-soft));display:grid;place-items:center;color:#fff;font-size:9px;font-weight:800}
+.proj-chip .car{color:var(--paper-faint);font-size:10px}
+.spacer{flex:1}
+.barbtn{font-family:var(--body);font-size:12.5px;font-weight:600;color:var(--paper-dim);background:transparent;border:1px solid var(--line);border-radius:9px;padding:7px 12px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.18s}
+.barbtn:hover{border-color:var(--line-2);color:var(--paper);background:var(--ink-3)}
+.theme-ico{font-size:14px;line-height:1}
+
+/* ── triptych ── */
+.tri{flex:1;display:flex;min-height:0}
+.col{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.col-scroll{overflow-y:auto;flex:1;min-height:0}
+.col-scroll::-webkit-scrollbar{width:9px}
+.col-scroll::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+
+/* COLUMN 1 — list */
+.c1{width:288px;flex:none;background:var(--ink-2);border-right:1px solid var(--line)}
+.c1-head{flex:none;padding:16px 16px 12px}
+.c1-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.c1-top h2{font-family:var(--display);font-size:19px;font-weight:560;letter-spacing:-.01em}
+.ghostbtn{font-family:var(--body);font-size:11.5px;font-weight:600;color:var(--indigo-deep);background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;transition:.18s}
+.ghostbtn:hover{border-color:var(--indigo-soft);background:color-mix(in srgb,var(--indigo) 8%,transparent)}
+.search{position:relative}
+.search input{width:100%;font-family:var(--body);font-size:13px;color:var(--paper);background:var(--ink-3);border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 32px;outline:none;transition:.18s}
+.search input::placeholder{color:var(--paper-faint)}
+.search input:focus{border-color:var(--indigo-soft);background:var(--ink-2)}
+.search .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--paper-faint);font-size:13px;pointer-events:none}
+
+.simrow{display:flex;align-items:center;gap:11px;padding:11px 16px 11px 13px;border-left:3px solid transparent;cursor:pointer;transition:background .15s}
+.simrow:hover{background:var(--ink-3)}
+.simrow.sel{background:var(--ink-3);border-left-color:var(--indigo)}
+.avatar{flex:none;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-family:var(--body);letter-spacing:.01em}
+.simrow .avatar{width:38px;height:38px;font-size:13px}
+.simrow .meta{min-width:0;flex:1}
+.simrow .nm{font-weight:700;font-size:13.5px;letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+.simrow .ro{font-size:11.5px;color:var(--paper-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.simrow .mt{font-family:var(--mono);font-size:9.5px;color:var(--paper-faint);margin-top:2px}
+.type-pill{font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);border:1px solid var(--line);border-radius:10px;padding:1px 5px}
+
+.folder{margin-top:8px;border-top:1px solid var(--line)}
+.folder-head{display:flex;align-items:center;gap:8px;padding:13px 16px 10px;cursor:pointer;user-select:none}
+.folder-head .tw{font-size:10px;color:var(--paper-faint);transition:transform .2s;width:10px}
+.folder.open .folder-head .tw{transform:rotate(90deg)}
+.folder-head .fl{font-family:var(--body);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-dim)}
+.folder-head .cnt{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--paper-faint)}
+.folder-body{display:none}
+.folder.open .folder-body{display:block}
+.trow{display:flex;align-items:center;gap:9px;padding:8px 16px 8px 30px;cursor:pointer;transition:background .15s}
+.trow:hover{background:var(--ink-3)}
+.trow .tdoc{font-size:11px;color:var(--paper-faint)}
+.trow .tt{font-size:12px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--paper-dim)}
+.trow .td{font-family:var(--mono);font-size:9.5px;color:var(--paper-faint)}
+
+/* COLUMN 2 — detail */
+.c2{flex:1;min-width:0;background:var(--ink)}
+.c2-pad{padding:22px 26px 60px;max-width:760px}
+.id-card{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 30px rgba(25,20,15,.05);padding:20px 22px;display:flex;gap:18px;align-items:flex-start}
+.id-card .avatar{width:54px;height:54px;font-size:19px}
+.id-main{flex:1;min-width:0}
+.id-name{font-family:var(--display);font-size:27px;font-weight:520;letter-spacing:-.02em;line-height:1.1}
+.id-role-line{display:flex;align-items:center;gap:9px;margin-top:5px;flex-wrap:wrap}
+.id-role{font-size:13.5px;color:var(--paper-dim)}
+.id-summary{margin-top:13px;font-size:14.5px;color:var(--paper-dim);max-width:54ch;line-height:1.55}
+.id-meta{margin-top:11px;font-family:var(--mono);font-size:10.5px;color:var(--paper-faint);letter-spacing:.02em}
+
+.traits-wrap{margin-top:26px;display:flex;flex-direction:column;gap:22px}
+.tgroup-head{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.tgroup-head .lbl{font-family:var(--body);font-size:10.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.tgroup-head .ln{flex:1;height:1px;background:var(--line)}
+.tgroup-head .gc{font-family:var(--mono);font-size:10px;color:var(--paper-faint)}
+
+.trait{background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;transition:.16s;position:relative}
+.trait:hover{border-color:var(--line-2);transform:translateY(-1px);box-shadow:0 8px 22px rgba(25,20,15,.06)}
+.trait.sel{border-color:var(--indigo);box-shadow:0 0 0 3px color-mix(in srgb,var(--indigo) 22%,transparent)}
+.trait+.trait{margin-top:9px}
+.trait-text{font-size:14.5px;font-weight:500;color:var(--paper);line-height:1.45}
+.trait-foot{display:flex;align-items:center;gap:10px;margin-top:11px;flex-wrap:wrap}
+.prov{font-family:var(--mono);font-size:10px;color:var(--paper-faint);display:inline-flex;align-items:center;gap:5px;background:var(--ink-3);border:1px solid var(--line);border-radius:7px;padding:3px 8px}
+.prov .ar{color:var(--indigo)}
+.strength{display:flex;gap:3px;align-items:center}
+.strength .bar{width:14px;height:4px;border-radius:3px;background:var(--line-2)}
+.strength .bar.on{background:currentColor}
+.strength-lbl{font-family:var(--mono);font-size:9px;color:var(--paper-faint);letter-spacing:.06em;text-transform:uppercase}
+
+.c2-empty{padding:60px 26px;color:var(--paper-faint);font-size:14px;max-width:46ch}
+
+/* COLUMN 3 — inspector */
+.c3{width:368px;flex:none;background:var(--ink-2);border-left:1px solid var(--line)}
+.insp-head{flex:none;padding:16px 18px 0}
+.insp-title{font-family:var(--body);font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint)}
+.insp-trait{font-family:var(--display);font-size:16.5px;font-weight:520;letter-spacing:-.01em;margin-top:6px;line-height:1.25}
+.tabs{display:flex;gap:2px;margin-top:14px;border-bottom:1px solid var(--line)}
+.tab{font-family:var(--body);font-size:12.5px;font-weight:600;color:var(--paper-faint);background:none;border:none;padding:9px 12px;cursor:pointer;position:relative;transition:color .15s}
+.tab:hover{color:var(--paper-dim)}
+.tab.on{color:var(--paper)}
+.tab.on::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;border-radius:2px;background:var(--indigo)}
+.panel{display:none;padding:18px 18px 50px}
+.panel.on{display:block;animation:fade .2s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* source tab */
+.quote-block{border-left:3px solid var(--indigo);padding:6px 0 6px 16px;margin-bottom:18px}
+.quote-block .q{font-family:var(--display);font-size:18px;font-weight:420;font-style:italic;line-height:1.4;color:var(--paper)}
+.attr-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+.attr-row .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);width:78px;flex:none}
+.attr-row .v{font-size:13px;color:var(--paper);font-weight:500}
+.attr-row .v.mono{font-family:var(--mono);font-size:11.5px;font-weight:400;color:var(--paper-dim)}
+.spk{display:flex;align-items:center;gap:8px}
+.spk .avatar{width:24px;height:24px;font-size:9px}
+.viewlink{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--indigo-deep);text-decoration:none;margin-top:16px;cursor:pointer}
+.viewlink:hover{text-decoration:underline}
+.reinforce{margin-top:18px;background:var(--ink-3);border:1px solid var(--line);border-radius:10px;padding:11px 13px;display:flex;align-items:center;gap:10px}
+.reinforce .rn{font-family:var(--display);font-size:21px;font-weight:560;color:var(--rose)}
+.reinforce .rl{font-size:11.5px;color:var(--paper-dim);line-height:1.35}
+.reinforce .rl b{color:var(--paper);font-weight:700}
+
+/* evolution tab */
+.evo{position:relative;margin-left:6px;padding-left:22px}
+.evo::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line);border-radius:2px}
+.ev{position:relative;padding:0 0 22px}
+.ev::before{content:"";position:absolute;left:-21px;top:4px;width:11px;height:11px;border-radius:50%;background:var(--ink-2);border:2px solid var(--line-2)}
+.ev.create::before{border-color:var(--blue)}
+.ev.reinforce-d::before{border-color:var(--amber)}
+.ev.refine::before{border-color:var(--indigo);background:var(--indigo);box-shadow:0 0 0 4px color-mix(in srgb,var(--indigo) 20%,transparent)}
+.ev-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opbadge{font-family:var(--body);font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;border-radius:6px;padding:3px 7px}
+.op-REFINE{color:#fff;background:var(--indigo-deep)}
+.op-REINFORCE{color:var(--amber);background:color-mix(in srgb,var(--amber) 16%,transparent);border:1px solid color-mix(in srgb,var(--amber) 40%,transparent)}
+.op-CREATE{color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,transparent);border:1px solid color-mix(in srgb,var(--blue) 35%,transparent)}
+.ev-date{font-family:var(--mono);font-size:10px;color:var(--paper-faint)}
+.ev-src{font-family:var(--mono);font-size:9.5px;color:var(--paper-faint);margin-left:auto}
+.ev.refine{background:color-mix(in srgb,var(--indigo) 6%,transparent);border:1px solid color-mix(in srgb,var(--indigo) 28%,transparent);border-radius:12px;margin-left:-13px;padding:13px 14px;margin-bottom:22px}
+.ev.refine::before{left:-8px;top:17px}
+.ev-why{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--indigo-deep);margin-bottom:7px}
+.diff{margin-top:9px;font-size:12.5px;line-height:1.5}
+.diff .before{color:var(--paper-faint);text-decoration:line-through;text-decoration-color:var(--rose)}
+.diff .arrow{color:var(--paper-faint);margin:0 4px}
+.diff .after{color:var(--paper);font-weight:600}
+.ev-text{margin-top:8px;font-size:13px;color:var(--paper);font-weight:500;line-height:1.4}
+.ev-quote{margin-top:8px;font-style:italic;font-size:12px;color:var(--paper-dim);border-left:2px solid var(--line-2);padding-left:10px;line-height:1.4}
+.ev-spk{margin-top:7px;font-family:var(--mono);font-size:9.5px;color:var(--paper-faint)}
+
+/* transcript tab */
+.tr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.tr-meta{font-family:var(--mono);font-size:10px;color:var(--paper-faint)}
+.dialog{display:flex;flex-direction:column;gap:13px}
+.line{display:flex;gap:10px;font-size:13px;line-height:1.5}
+.line .who{font-weight:700;color:var(--paper-dim);flex:none;width:52px;font-size:12px;padding-top:1px}
+.line .said{color:var(--paper);flex:1}
+.line.sarah .who{color:var(--indigo-deep)}
+.hl{background:color-mix(in srgb,var(--amber) 30%,transparent);border-radius:4px;padding:1px 3px;box-shadow:0 0 0 1px color-mix(in srgb,var(--amber) 45%,transparent);font-weight:500}
+</style>
+</head>
+<body>
+
+<!-- APP BAR -->
+<header class="appbar">
+  <div class="brand">
+    <img src="/favicon.svg" width="28" height="28" alt="Klavity" />
+    <span class="name"><b>Klavity</b> <span class="sep">·</span> Sims Studio</span>
+  </div>
+  <div class="proj-chip"><span class="pdot">A</span>Acme Corp <span class="car">▾</span></div>
+  <div class="spacer"></div>
+  <button class="barbtn" id="themeToggle" aria-label="Toggle theme">
+    <span class="theme-ico" id="themeIco">☾</span><span id="themeLbl">Dark</span>
+  </button>
+</header>
+
+<!-- TRIPTYCH -->
+<div class="tri">
+
+  <!-- COLUMN 1 -->
+  <section class="col c1">
+    <div class="c1-head">
+      <div class="c1-top">
+        <h2>Sims</h2>
+        <button class="ghostbtn">+ New Sim</button>
+      </div>
+      <div class="search"><span class="si">⌕</span><input type="text" placeholder="Search sims & transcripts…" /></div>
+    </div>
+    <div class="col-scroll">
+      <div id="simList"></div>
+
+      <div class="folder open" id="trFolder">
+        <div class="folder-head" id="trFolderHead">
+          <span class="tw">▶</span>
+          <span class="fl">Transcripts</span>
+          <span class="cnt">4</span>
+        </div>
+        <div class="folder-body">
+          <div class="trow"><span class="tdoc">▤</span><span class="tt">Acme onboarding call</span><span class="td">May 12</span></div>
+          <div class="trow"><span class="tdoc">▤</span><span class="tt">Acme follow-up — checkout pain</span><span class="td">Jun 02</span></div>
+          <div class="trow"><span class="tdoc">▤</span><span class="tt">Marcus discovery</span><span class="td">May 20</span></div>
+          <div class="trow"><span class="tdoc">▤</span><span class="tt">QA triage sync</span><span class="td">Jun 10</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COLUMN 2 -->
+  <section class="col c2">
+    <div class="col-scroll">
+      <div class="c2-pad" id="detail"></div>
+    </div>
+  </section>
+
+  <!-- COLUMN 3 -->
+  <aside class="col c3">
+    <div class="insp-head">
+      <div class="insp-title">Attribution</div>
+      <div class="insp-trait" id="inspTrait">Gets blindsided by shipping costs</div>
+      <div class="tabs">
+        <button class="tab on" data-tab="source">Source</button>
+        <button class="tab" data-tab="evolution">Evolution</button>
+        <button class="tab" data-tab="transcript">Transcript</button>
+      </div>
+    </div>
+    <div class="col-scroll">
+      <!-- SOURCE -->
+      <div class="panel on" id="panel-source"></div>
+
+      <!-- EVOLUTION -->
+      <div class="panel" id="panel-evolution">
+        <div class="evo">
+          <div class="ev refine">
+            <div class="ev-why">↳ why this changed</div>
+            <div class="ev-top">
+              <span class="opbadge op-REFINE">Refine</span>
+              <span class="ev-date">2026-06-02</span>
+              <span class="ev-src">tr_02</span>
+            </div>
+            <div class="diff">
+              <span class="before">Checkout is confusing</span>
+              <span class="arrow">→</span>
+              <span class="after">Gets blindsided by shipping costs only shown at the final checkout step</span>
+            </div>
+            <div class="ev-quote">“I literally don't see the freight charge until I've already entered my card.”</div>
+            <div class="ev-spk">— Sarah Chen</div>
+          </div>
+
+          <div class="ev reinforce-d">
+            <div class="ev-top">
+              <span class="opbadge op-REINFORCE">Reinforce</span>
+              <span class="ev-date">2026-06-02</span>
+              <span class="ev-src">tr_02</span>
+            </div>
+            <div class="ev-text">Wants bulk-order CSV import <span style="color:var(--paper-faint);font-weight:400;font-size:11px">(2nd mention)</span></div>
+            <div class="ev-quote">“Still wish I could just bulk upload.”</div>
+            <div class="ev-spk">— Sarah Chen</div>
+          </div>
+
+          <div class="ev create">
+            <div class="ev-top">
+              <span class="opbadge op-CREATE">Create</span>
+              <span class="ev-date">2026-05-12</span>
+              <span class="ev-src">tr_01</span>
+            </div>
+            <div class="ev-text">Loves saved cart across devices</div>
+            <div class="ev-spk">— Sarah Chen</div>
+          </div>
+
+          <div class="ev create">
+            <div class="ev-top">
+              <span class="opbadge op-CREATE">Create</span>
+              <span class="ev-date">2026-05-12</span>
+              <span class="ev-src">tr_01</span>
+            </div>
+            <div class="ev-text">Checkout is confusing <span style="color:var(--paper-faint);font-weight:400;font-size:11px">(later refined)</span></div>
+            <div class="ev-spk">— Sarah Chen</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSCRIPT -->
+      <div class="panel" id="panel-transcript">
+        <div class="tr-head">
+          <span class="chip">tr_02</span>
+          <span class="tr-meta">Acme follow-up · 2026-06-02</span>
+        </div>
+        <div class="dialog">
+          <div class="line"><span class="who">Dan</span><span class="said">How's the new checkout treating you?</span></div>
+          <div class="line sarah"><span class="who">Sarah</span><span class="said">Honestly the freight thing is killing me. <span class="hl">I literally don't see the freight charge until I've already entered my card — every single time.</span> By then I've mentally committed.</span></div>
+          <div class="line"><span class="who">Dan</span><span class="said">Got it — so it's a surprise-at-the-end problem.</span></div>
+          <div class="line sarah"><span class="who">Sarah</span><span class="said">Exactly. Just show me shipping up front.</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────
+const SIMS = [
+  { id:'sarah', name:'Sarah Chen', role:'Procurement Lead · Acme Corp', type:'client', accent:'#6366f1', initials:'SC',
+    summary:'Buys in bulk, hates surprises at checkout, lives in spreadsheets.', meta:'3 traits · updated Jun 2', traitCount:3 },
+  { id:'marcus', name:'Marcus Webb', role:'Solo Founder · indie SaaS', type:'client', accent:'#d98324', initials:'MW',
+    summary:'Time-poor, mobile-first, abandons anything slow.', meta:'2 traits · updated May 20', traitCount:2 },
+  { id:'priya', name:'Priya Nair', role:'QA Engineer · Internal', type:'internal', accent:'#0f9d6b', initials:'PN',
+    summary:'Detail-obsessed, files everything, regression hawk.', meta:'4 traits · updated Jun 10', traitCount:4 },
+];
+
+const SARAH_TRAITS = [
+  { id:'pain', kind:'PAIN', strength:3, sevLabel:'high severity',
+    text:'Gets blindsided by shipping costs only shown at the final checkout step.',
+    short:'Gets blindsided by shipping costs',
+    quote:"I literally don't see the freight charge until I've already entered my card — every single time.",
+    speaker:'Sarah Chen', srcId:'tr_02', srcTitle:'Acme follow-up — checkout pain', date:'2026-06-02', prov:'↳ tr_02 · Jun 2', area:'checkout-flow' },
+  { id:'want', kind:'WANT', strength:2, sevLabel:'medium',
+    text:'Wants bulk-order CSV import instead of adding items one by one.',
+    short:'Wants bulk-order CSV import',
+    quote:"If I could just upload my purchase order as a CSV, you'd save me an hour a week.",
+    speaker:'Sarah Chen', srcId:'tr_01', srcTitle:'Acme onboarding call', date:'2026-05-12', prov:'↳ tr_01 · May 12', area:null },
+  { id:'love', kind:'LOVE', strength:1, sevLabel:null,
+    text:'Loves that the saved cart persists across devices.',
+    short:'Loves saved cart across devices',
+    quote:"The fact my cart was still there on my phone — chef's kiss.",
+    speaker:'Sarah Chen', srcId:'tr_01', srcTitle:'Acme onboarding call', date:'2026-05-12', prov:'↳ tr_01 · May 12', area:null },
+];
+
+const STUB_TRAITS = {
+  marcus:[
+    {kind:'PAIN',text:'Abandons slow-loading pages on mobile within seconds.'},
+    {kind:'WANT',text:'Wants a one-tap mobile signup, no email verification dance.'},
+  ],
+  priya:[
+    {kind:'PAIN',text:'Regression slips through because old tickets get auto-closed.'},
+    {kind:'PAIN',text:'No single view of which builds reopened a known bug.'},
+    {kind:'WANT',text:'Wants every closed bug linked to a re-test checkpoint.'},
+    {kind:'LOVE',text:'Loves the structured repro-steps template.'},
+  ],
+};
+
+// ── HELPERS ──────────────────────────────────────────
+function strengthBars(n,colorVar){
+  let h='<div class="strength" style="color:var('+colorVar+')">';
+  for(let i=0;i<3;i++) h+='<span class="bar'+(i<n?' on':'')+'"></span>';
+  h+='</div>';
+  return h;
+}
+const KINDVAR={PAIN:'--rose',WANT:'--amber',LOVE:'--green'};
+const KINDLABEL={PAIN:'Pain',WANT:'Want',LOVE:'Love'};
+let selectedSim='sarah', selectedTrait='pain';
+
+// ── COLUMN 1 RENDER ──────────────────────────────────
+function renderSimList(){
+  const el=document.getElementById('simList');
+  el.innerHTML=SIMS.map(s=>`
+    <div class="simrow ${s.id===selectedSim?'sel':''}" data-sim="${s.id}">
+      <div class="avatar" style="background:${s.accent}">${s.initials}</div>
+      <div class="meta">
+        <div class="nm">${s.name} <span class="type-pill">${s.type}</span></div>
+        <div class="ro">${s.role}</div>
+        <div class="mt">${s.meta}</div>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('.simrow').forEach(r=>r.addEventListener('click',()=>selectSim(r.dataset.sim)));
+}
+
+// ── COLUMN 2 RENDER ──────────────────────────────────
+function renderDetail(){
+  const s=SIMS.find(x=>x.id===selectedSim);
+  const el=document.getElementById('detail');
+  let html=`
+    <div class="id-card">
+      <div class="avatar" style="background:${s.accent}">${s.initials}</div>
+      <div class="id-main">
+        <div class="id-name">${s.name}</div>
+        <div class="id-role-line">
+          <span class="id-role">${s.role}</span>
+          <span class="chip">${s.type}</span>
+        </div>
+        <div class="id-summary">${s.summary}</div>
+        <div class="id-meta">${s.meta}</div>
+      </div>
+      <button class="ghostbtn">Edit persona</button>
+    </div>`;
+
+  if(s.id==='sarah'){
+    const groups={PAIN:[],WANT:[],LOVE:[]};
+    SARAH_TRAITS.forEach(t=>groups[t.kind].push(t));
+    html+='<div class="traits-wrap">';
+    ['PAIN','WANT','LOVE'].forEach(k=>{
+      const list=groups[k];
+      html+=`<div class="tgroup">
+        <div class="tgroup-head">
+          <span class="kind-dot dot-${k}"></span>
+          <span class="lbl kind-${k}">${KINDLABEL[k]}</span>
+          <span class="ln"></span>
+          <span class="gc">${list.length}</span>
+        </div>`;
+      list.forEach(t=>{
+        html+=`<div class="trait ${t.id===selectedTrait?'sel':''}" data-trait="${t.id}">
+          <div class="trait-text">${t.text}</div>
+          <div class="trait-foot">
+            <span class="prov"><span class="ar">↳</span>${t.prov.replace('↳ ','')}</span>
+            ${strengthBars(t.strength,KINDVAR[k])}
+            <span class="strength-lbl">${t.strength}×</span>
+          </div>
+        </div>`;
+      });
+      html+='</div>';
+    });
+    html+='</div>';
+  } else {
+    const stubs=STUB_TRAITS[s.id]||[];
+    const groups={PAIN:[],WANT:[],LOVE:[]};
+    stubs.forEach(t=>groups[t.kind].push(t));
+    html+='<div class="traits-wrap">';
+    ['PAIN','WANT','LOVE'].forEach(k=>{
+      if(!groups[k].length) return;
+      html+=`<div class="tgroup">
+        <div class="tgroup-head">
+          <span class="kind-dot dot-${k}"></span>
+          <span class="lbl kind-${k}">${KINDLABEL[k]}</span>
+          <span class="ln"></span>
+          <span class="gc">${groups[k].length}</span>
+        </div>`;
+      groups[k].forEach(t=>{
+        html+=`<div class="trait" style="cursor:default;opacity:.82">
+          <div class="trait-text">${t.text}</div>
+          <div class="trait-foot"><span class="prov" style="opacity:.7"><span class="ar">↳</span>provenance pending</span></div>
+        </div>`;
+      });
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+  el.innerHTML=html;
+  el.querySelectorAll('.trait[data-trait]').forEach(t=>t.addEventListener('click',()=>selectTrait(t.dataset.trait)));
+}
+
+// ── COLUMN 3 SOURCE RENDER ───────────────────────────
+function renderSource(){
+  const t=SARAH_TRAITS.find(x=>x.id===selectedTrait)||SARAH_TRAITS[0];
+  document.getElementById('inspTrait').textContent=t.short;
+  const reinforced = t.id==='pain';
+  document.getElementById('panel-source').innerHTML=`
+    <div class="quote-block">
+      <div class="q">“${t.quote}”</div>
+    </div>
+    <div class="attr-row">
+      <span class="k">Speaker</span>
+      <span class="v spk"><span class="avatar" style="background:#6366f1">SC</span>${t.speaker}</span>
+    </div>
+    <div class="attr-row">
+      <span class="k">Transcript</span>
+      <span class="v">${t.srcTitle}</span>
+    </div>
+    <div class="attr-row">
+      <span class="k">Date</span>
+      <span class="v mono">${t.date}</span>
+    </div>
+    <div class="attr-row">
+      <span class="k">Source ID</span>
+      <span class="v mono">${t.srcId}</span>
+    </div>
+    ${t.area?`<div class="attr-row"><span class="k">Area</span><span class="v mono">${t.area}</span></div>`:''}
+    <a class="viewlink" id="viewFull">View full transcript →</a>
+    ${reinforced?`<div class="reinforce">
+      <span class="rn">3×</span>
+      <span class="rl"><b>Reinforced across 3 mentions.</b> Strength grows each time Sarah raises it.</span>
+    </div>`:`<div class="reinforce">
+      <span class="rn">${t.strength}×</span>
+      <span class="rl"><b>${t.sevLabel?t.sevLabel:'noted once'}.</b> Heard ${t.strength} time${t.strength>1?'s':''} so far.</span>
+    </div>`}`;
+  document.getElementById('viewFull').addEventListener('click',()=>switchTab('transcript'));
+}
+
+// ── INTERACTIONS ─────────────────────────────────────
+function selectSim(id){
+  selectedSim=id;
+  if(id==='sarah') selectedTrait='pain';
+  renderSimList();
+  renderDetail();
+  if(id==='sarah') renderSource();
+  else {
+    document.getElementById('inspTrait').textContent='—';
+    document.getElementById('panel-source').innerHTML='<div style="color:var(--paper-faint);font-size:13px;line-height:1.6;padding:8px 0">No trait selected. This persona\'s traits are still awaiting full provenance attribution.</div>';
+  }
+}
+function selectTrait(id){
+  selectedTrait=id;
+  document.querySelectorAll('.trait[data-trait]').forEach(t=>t.classList.toggle('sel',t.dataset.trait===id));
+  renderSource();
+  switchTab('source');
+}
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='panel-'+name));
+}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+// transcript folder toggle
+document.getElementById('trFolderHead').addEventListener('click',()=>{
+  document.getElementById('trFolder').classList.toggle('open');
+});
+
+// theme toggle
+document.getElementById('themeToggle').addEventListener('click',()=>{
+  const html=document.documentElement;
+  const dark=html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('themeIco').textContent=dark?'☾':'☀';
+  document.getElementById('themeLbl').textContent=dark?'Dark':'Light';
+});
+
+// ── INIT ─────────────────────────────────────────────
+renderSimList();
+renderDetail();
+renderSource();
+</script>
+</body>
+</html>

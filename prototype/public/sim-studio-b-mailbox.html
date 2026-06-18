@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity · Sims Studio — Dual Mailbox</title>
+<link rel="icon" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--ink-4:#e7e1d6;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--line:rgba(25,20,15,.12);--line-2:rgba(25,20,15,.18);--indigo:#6366f1;--indigo-deep:#4f46e5;--indigo-soft:#a5b4fc;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--blue:#2563eb;}
+[data-theme="dark"]{--ink:#0a0a0f;--ink-2:#11111a;--ink-3:#0d0d15;--ink-4:#1e1e2e;--paper:#cdd6f4;--paper-dim:#9399b2;--paper-faint:#6c7086;--line:#1e1e2e;--line-2:#313244;--indigo:#6366f1;--indigo-deep:#4f46e5;--indigo-soft:#a5b4fc;--amber:#e8a24a;--rose:#f38ba8;--green:#a6e3a1;--blue:#89b4fa;}
+
+:root{--display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+
+/* kind colors helper */
+.k-PAIN{--kind:var(--rose)} .k-WANT{--kind:var(--amber)} .k-LOVE{--kind:var(--green)}
+
+/* ===== APP BAR ===== */
+.appbar{height:58px;display:flex;align-items:center;gap:14px;padding:0 18px;background:var(--ink-2);border-bottom:1px solid var(--line);position:relative;z-index:5}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:500;font-size:17px;letter-spacing:-.01em}
+.brand .dot{color:var(--paper-faint);font-weight:300}
+.brand img{display:block;border-radius:7px}
+.proj-chip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--paper);background:var(--ink-3);border:1px solid var(--line);border-radius:30px;padding:5px 12px 5px 9px}
+.proj-chip .pd{width:8px;height:8px;border-radius:50%;background:var(--indigo)}
+.spacer{flex:1}
+.appbar .meta{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint)}
+.tbtn{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-dim);background:var(--ink-3);border:1px solid var(--line);border-radius:30px;padding:7px 13px;cursor:pointer;transition:border-color .2s,color .2s}
+.tbtn:hover{border-color:var(--line-2);color:var(--paper)}
+
+/* ===== LAYOUT ===== */
+.shell{height:calc(100vh - 58px);display:flex;flex-direction:column}
+.upper{flex:1;display:flex;min-height:0}
+
+/* LEFT RAIL */
+.rail{width:262px;flex:0 0 262px;background:var(--ink-2);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.mbx{display:flex;gap:4px;padding:14px 14px 10px}
+.mbx button{flex:1;font-family:var(--body);font-size:12.5px;font-weight:600;color:var(--paper-dim);background:transparent;border:1px solid var(--line);border-radius:10px;padding:8px 6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .18s}
+.mbx button .ic{font-size:13px;opacity:.8}
+.mbx button .ct{font-family:var(--mono);font-size:10px;color:var(--paper-faint);background:var(--ink-3);border-radius:20px;padding:1px 6px}
+.mbx button:hover{border-color:var(--line-2);color:var(--paper)}
+.mbx button.on{background:var(--indigo);border-color:var(--indigo);color:#fff}
+.mbx button.on .ct{background:rgba(255,255,255,.2);color:#fff}
+.search{padding:2px 14px 12px;position:relative}
+.search input{width:100%;font-family:var(--body);font-size:13px;color:var(--paper);background:var(--ink-3);border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 32px;outline:none;transition:border-color .2s}
+.search input::placeholder{color:var(--paper-faint)}
+.search input:focus{border-color:var(--indigo-soft)}
+.search .si{position:absolute;left:25px;top:9px;color:var(--paper-faint);font-size:13px}
+.list{flex:1;overflow-y:auto;padding:0 8px 14px}
+.list-head{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-faint);padding:6px 8px 8px}
+
+/* mailbox rows */
+.row{display:flex;gap:11px;align-items:flex-start;padding:11px 10px;border-radius:12px;cursor:pointer;position:relative;transition:background .16s}
+.row:hover{background:var(--ink-3)}
+.row.sel{background:var(--ink-3);box-shadow:inset 3px 0 0 var(--indigo)}
+.row .unread{position:absolute;left:3px;top:50%;transform:translateY(-50%);width:7px;height:7px;border-radius:50%;background:var(--indigo)}
+.av{flex:0 0 38px;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff;letter-spacing:.02em}
+.row .body{min-width:0;flex:1}
+.row .nm{font-weight:600;font-size:13.5px;color:var(--paper);display:flex;align-items:center;gap:7px}
+.row .nm .tball{font-family:var(--mono);font-size:9px;color:var(--paper-faint);font-weight:500}
+.row .rl{font-size:11.5px;color:var(--paper-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .mt{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--paper-faint);margin-top:3px}
+.row.tr .nm{font-size:13px}
+.tr-ic{flex:0 0 38px;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--ink-4);color:var(--paper-dim);font-size:15px}
+.row .fed{font-size:11px;color:var(--paper-faint);margin-top:3px}
+.row .fed b{color:var(--paper-dim);font-weight:600}
+
+/* CENTER READING PANE */
+.pane{flex:1;min-width:0;overflow-y:auto;background:var(--ink);position:relative}
+.pane-inner{max-width:760px;margin:0 auto;padding:34px 40px 48px}
+
+/* persona letter */
+.letter-head{display:flex;gap:18px;align-items:flex-start;padding-bottom:24px;border-bottom:1px solid var(--line)}
+.letter-head .lav{flex:0 0 64px;width:64px;height:64px;border-radius:18px;display:grid;place-items:center;font-weight:700;font-size:23px;color:#fff}
+.letter-head h1{font-family:var(--display);font-weight:480;font-size:32px;letter-spacing:-.02em;line-height:1.05}
+.letter-head .role{font-size:14px;color:var(--paper-dim);margin-top:4px}
+.type-chip{display:inline-block;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-dim);border:1px solid var(--line-2);border-radius:20px;padding:3px 9px;margin-top:9px}
+.summary{font-family:var(--display);font-style:italic;font-size:16px;color:var(--paper-dim);margin-top:13px;line-height:1.45;max-width:54ch}
+.edit-btn{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-dim);background:var(--ink-2);border:1px solid var(--line);border-radius:30px;padding:8px 15px;cursor:pointer;transition:all .18s;white-space:nowrap}
+.edit-btn:hover{border-color:var(--indigo-soft);color:var(--paper)}
+
+.trait-group{margin-top:30px}
+.grp-label{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--kind);display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.grp-label::after{content:"";flex:1;height:1px;background:var(--line)}
+.grp-label .gd{width:8px;height:8px;border-radius:50%;background:var(--kind)}
+
+.trait{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px 20px;box-shadow:0 10px 30px rgba(25,20,15,.05);margin-bottom:14px;cursor:pointer;transition:border-color .2s,transform .15s;position:relative}
+.trait:hover{border-color:color-mix(in srgb,var(--kind) 40%,var(--line))}
+.trait.active{border-color:var(--kind);box-shadow:0 10px 30px rgba(25,20,15,.07),inset 0 0 0 1px color-mix(in srgb,var(--kind) 30%,transparent)}
+.trait .tk{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.trait .badge{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--kind);border-radius:20px;padding:3px 9px;font-weight:600}
+.trait .strength{display:flex;gap:3px;align-items:center}
+.trait .strength i{width:6px;height:6px;border-radius:50%;background:var(--kind);opacity:.25}
+.trait .strength i.on{opacity:1}
+.trait .strength .slab{font-family:var(--mono);font-size:9px;color:var(--paper-faint);margin-left:5px;letter-spacing:.06em;text-transform:uppercase}
+.trait .ttext{font-size:15.5px;color:var(--paper);font-weight:500;line-height:1.4}
+.trait .quote{margin-top:12px;font-family:var(--display);font-style:italic;font-size:15px;line-height:1.5;color:var(--paper)}
+.trait .quote .hl{background:color-mix(in srgb,var(--kind) 18%,transparent);box-shadow:0 0 0 2px color-mix(in srgb,var(--kind) 18%,transparent);border-radius:3px;padding:0 1px}
+.trait .src{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:var(--paper-dim);background:var(--ink-3);border:1px solid var(--line);border-radius:20px;padding:4px 10px;margin-top:13px}
+.trait .src .sd{width:6px;height:6px;border-radius:50%;background:var(--kind)}
+.trait .clue{position:absolute;right:18px;bottom:16px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint);opacity:0;transition:opacity .2s}
+.trait:hover .clue{opacity:1}
+
+/* TRANSCRIPT READING MODE */
+.tr-letter-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.tr-letter-head h1{font-family:var(--display);font-weight:480;font-size:27px;letter-spacing:-.02em}
+.tr-letter-head .submeta{font-family:var(--mono);font-size:11px;color:var(--paper-faint);margin-top:8px;display:flex;gap:14px;flex-wrap:wrap}
+.tr-letter-head .submeta b{color:var(--paper-dim);font-weight:600}
+.tr-stat{flex:0 0 auto;text-align:right}
+.tr-stat .big{font-family:var(--display);font-size:30px;color:var(--indigo);line-height:1}
+.tr-stat .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);margin-top:4px}
+
+.thread-wrap{display:flex;gap:26px;margin-top:24px}
+.thread{flex:1;min-width:0}
+.line{display:flex;gap:13px;margin-bottom:20px}
+.line .sp{flex:0 0 30px;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:11px;color:#fff}
+.line .sp.pm{background:var(--paper-faint)}
+.line .ltext{font-size:15px;line-height:1.6;color:var(--paper);padding-top:2px}
+.line .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:3px}
+.mark{position:relative;border-radius:4px;padding:1px 2px;background:color-mix(in srgb,var(--mk) 20%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--mk) 35%,transparent);cursor:pointer;transition:background .15s}
+.mark:hover{background:color-mix(in srgb,var(--mk) 34%,transparent)}
+.mark .tag{display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.06em;color:#fff;background:var(--mk);border-radius:10px;padding:0 5px;margin-left:4px;vertical-align:middle;position:relative;top:-1px}
+.mk-PAIN{--mk:var(--rose)} .mk-WANT{--mk:var(--amber)} .mk-LOVE{--mk:var(--green)}
+
+.extracted{flex:0 0 212px;width:212px;align-self:flex-start;position:sticky;top:0}
+.extracted .eh{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-faint);padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.extracted .eh b{color:var(--indigo)}
+.ex-card{display:flex;gap:9px;align-items:flex-start;padding:11px 4px;border-bottom:1px solid var(--line);cursor:pointer;transition:opacity .15s}
+.ex-card:hover{opacity:.78}
+.ex-card .ec-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;margin-top:5px;background:var(--ck)}
+.ec-PAIN{--ck:var(--rose)} .ec-WANT{--ck:var(--amber)} .ec-LOVE{--ck:var(--green)}
+.ex-card .ec-k{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ck);font-weight:600}
+.ex-card .ec-t{font-size:12px;color:var(--paper-dim);line-height:1.35;margin-top:2px}
+.ex-card .ec-arrow{font-size:11px;color:var(--paper-faint);margin-top:6px;font-family:var(--mono)}
+
+/* BOTTOM LINKED-PREVIEW STRIP */
+.strip{flex:0 0 184px;height:184px;background:var(--ink-2);border-top:1px solid var(--line);display:flex;align-items:stretch;padding:0;box-shadow:0 -8px 30px rgba(25,20,15,.04);position:relative;z-index:2}
+.strip-label{position:absolute;left:18px;top:11px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-faint);display:flex;align-items:center;gap:8px}
+.strip-label .lk{width:13px;height:13px;display:grid;place-items:center;color:var(--indigo)}
+.strip-cols{display:flex;width:100%;padding:34px 22px 18px;gap:0}
+
+/* strip: trait-source view */
+.sp-source{flex:1;min-width:0;padding-right:26px;border-right:1px solid var(--line);display:flex;flex-direction:column}
+.sp-source .ss-meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--paper-faint);display:flex;gap:10px;align-items:center;margin-bottom:9px}
+.sp-source .ss-meta .pill{background:var(--ink-3);border:1px solid var(--line);border-radius:20px;padding:2px 9px;color:var(--paper-dim)}
+.sp-source .ss-q{font-family:var(--display);font-style:italic;font-size:14.5px;line-height:1.5;color:var(--paper);overflow:hidden}
+.sp-source .ss-q .hh{background:color-mix(in srgb,var(--kc,var(--indigo)) 18%,transparent);border-radius:3px;padding:0 2px}
+.sp-source .ss-ctx{font-size:12.5px;color:var(--paper-faint);line-height:1.5;margin-top:6px}
+
+/* strip: timeline */
+.sp-timeline{flex:0 0 320px;width:320px;padding-left:26px}
+.sp-timeline .tl-h{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:18px}
+.tline{position:relative;padding-left:4px}
+.tline::before{content:"";position:absolute;left:7px;right:7px;top:6px;height:2px;background:var(--line-2)}
+.tdots{display:flex;justify-content:space-between;position:relative}
+.tnode{display:flex;flex-direction:column;align-items:center;gap:0;text-align:center;width:25%;position:relative}
+.tnode .nd{width:14px;height:14px;border-radius:50%;background:var(--ink-2);border:2px solid var(--paper-faint);z-index:1;margin-bottom:9px}
+.tnode.create .nd{border-color:var(--indigo)}
+.tnode.refine .nd{background:var(--indigo);border-color:var(--indigo);box-shadow:0 0 0 4px color-mix(in srgb,var(--indigo) 22%,transparent)}
+.tnode.reinforce .nd{border-color:var(--green)}
+.tnode .nk{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-dim);font-weight:600}
+.tnode.refine .nk{color:var(--indigo)}
+.tnode .ndt{font-family:var(--mono);font-size:8.5px;color:var(--paper-faint);margin-top:2px}
+.tnode .nx{font-size:10.5px;color:var(--paper-faint);line-height:1.3;margin-top:5px;max-width:13ch}
+.tnode.refine .nx{color:var(--paper-dim)}
+
+/* strip: fed-sims view */
+.sp-fed{display:flex;align-items:center;gap:22px;width:100%}
+.fed-card{display:flex;align-items:center;gap:12px;background:var(--ink-3);border:1px solid var(--line);border-radius:14px;padding:13px 18px 13px 13px}
+.fed-card .fav{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff}
+.fed-card .fn{font-weight:600;font-size:14px;color:var(--paper)}
+.fed-card .fr{font-size:11.5px;color:var(--paper-dim);margin-top:1px}
+.fed-card .fc{font-family:var(--mono);font-size:9.5px;color:var(--indigo);margin-top:5px;letter-spacing:.04em;text-transform:uppercase}
+.sp-fed .arrow{font-family:var(--display);font-size:22px;color:var(--paper-faint)}
+
+.hidden{display:none!important}
+.pane::-webkit-scrollbar,.list::-webkit-scrollbar{width:9px}
+.pane::-webkit-scrollbar-thumb,.list::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+</style>
+</head>
+<body>
+
+<!-- APP BAR -->
+<div class="appbar">
+  <div class="brand">
+    <img src="/favicon.svg" width="28" height="28" alt="Klavity" />
+    <span>Klavity <span class="dot">·</span> Sims Studio</span>
+  </div>
+  <span class="proj-chip"><span class="pd"></span>Acme Corp</span>
+  <div class="spacer"></div>
+  <span class="meta" id="paneMeta">Reading · Sarah Chen</span>
+  <button class="tbtn" id="themeToggle"><span id="themeIcon">☾</span> <span id="themeText">Dark</span></button>
+</div>
+
+<div class="shell">
+  <div class="upper">
+
+    <!-- LEFT RAIL -->
+    <aside class="rail">
+      <div class="mbx">
+        <button id="mbSims" class="on" onclick="setMailbox('sims')"><span class="ic">◍</span> Sims <span class="ct">3</span></button>
+        <button id="mbTr" onclick="setMailbox('transcripts')"><span class="ic">▤</span> Transcripts <span class="ct">4</span></button>
+      </div>
+      <div class="search">
+        <span class="si">⌕</span>
+        <input id="searchBox" placeholder="Search sims…" />
+      </div>
+
+      <!-- SIMS LIST -->
+      <div class="list" id="listSims">
+        <div class="list-head">Updated recently</div>
+
+        <div class="row sel" data-sim="sarah" onclick="selectSim('sarah',this)">
+          <span class="unread"></span>
+          <div class="av" style="background:#6366f1">SC</div>
+          <div class="body">
+            <div class="nm">Sarah Chen <span class="tball">3</span></div>
+            <div class="rl">Procurement Lead · Acme Corp</div>
+            <div class="mt">3 traits · updated Jun 2</div>
+          </div>
+        </div>
+
+        <div class="row" data-sim="priya" onclick="selectSim('priya',this)">
+          <span class="unread"></span>
+          <div class="av" style="background:#0f9d6b">PN</div>
+          <div class="body">
+            <div class="nm">Priya Nair <span class="tball">4</span></div>
+            <div class="rl">QA Engineer · Internal</div>
+            <div class="mt">4 traits · updated Jun 10</div>
+          </div>
+        </div>
+
+        <div class="row" data-sim="marcus" onclick="selectSim('marcus',this)">
+          <div class="av" style="background:#d98324">MW</div>
+          <div class="body">
+            <div class="nm">Marcus Webb <span class="tball">2</span></div>
+            <div class="rl">Solo Founder · indie SaaS</div>
+            <div class="mt">2 traits · updated May 20</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSCRIPTS LIST -->
+      <div class="list hidden" id="listTr">
+        <div class="list-head">Interview transcripts</div>
+
+        <div class="row tr" data-tr="tr_02" onclick="selectTranscript('tr_02',this)">
+          <div class="tr-ic">▤</div>
+          <div class="body">
+            <div class="nm">Acme follow-up — checkout pain</div>
+            <div class="mt">2026-06-02 · Sarah Chen</div>
+            <div class="fed">→ fed <b>Sarah Chen</b> · 1 refine + 1 reinforce</div>
+          </div>
+        </div>
+
+        <div class="row tr" data-tr="tr_01" onclick="selectTranscript('tr_01',this)">
+          <div class="tr-ic">▤</div>
+          <div class="body">
+            <div class="nm">Acme onboarding call</div>
+            <div class="mt">2026-05-12 · Sarah Chen, Dan (PM)</div>
+            <div class="fed">→ fed <b>Sarah Chen</b> · 2 traits</div>
+          </div>
+        </div>
+
+        <div class="row tr" data-tr="tr_03" onclick="selectTranscript('tr_03',this)">
+          <div class="tr-ic">▤</div>
+          <div class="body">
+            <div class="nm">Marcus discovery</div>
+            <div class="mt">2026-05-20 · Marcus Webb</div>
+            <div class="fed">→ fed <b>Marcus Webb</b></div>
+          </div>
+        </div>
+
+        <div class="row tr" data-tr="tr_04" onclick="selectTranscript('tr_04',this)">
+          <div class="tr-ic">▤</div>
+          <div class="body">
+            <div class="nm">QA triage sync</div>
+            <div class="mt">2026-06-10 · Priya Nair</div>
+            <div class="fed">→ fed <b>Priya Nair</b></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER READING PANE -->
+    <main class="pane">
+      <div class="pane-inner" id="paneInner"><!-- injected --></div>
+    </main>
+
+  </div>
+
+  <!-- BOTTOM LINKED-PREVIEW STRIP -->
+  <div class="strip">
+    <div class="strip-label"><span class="lk">⤳</span> <span id="stripTitle">Linked source</span></div>
+    <div class="strip-cols" id="stripCols"><!-- injected --></div>
+  </div>
+</div>
+
+<script>
+/* ============== DATA ============== */
+const SIMS = {
+  sarah:  {name:"Sarah Chen", role:"Procurement Lead · Acme Corp", type:"client", accent:"#6366f1", initials:"SC",
+           summary:"Buys in bulk, hates surprises at checkout, lives in spreadsheets.", meta:"3 traits · updated Jun 2"},
+  marcus: {name:"Marcus Webb", role:"Solo Founder · indie SaaS", type:"client", accent:"#d98324", initials:"MW",
+           summary:"Time-poor, mobile-first, abandons anything slow.", meta:"2 traits · updated May 20"},
+  priya:  {name:"Priya Nair", role:"QA Engineer · Internal", type:"internal", accent:"#0f9d6b", initials:"PN",
+           summary:"Detail-obsessed, files everything, regression hawk.", meta:"4 traits · updated Jun 10"},
+};
+
+/* Sarah's traits — fully fleshed */
+const SARAH_TRAITS = {
+  pain: {kind:"PAIN", strength:3, level:"high",
+    text:"Gets blindsided by shipping costs only shown at the final checkout step.",
+    quoteFull:"I literally don't see the freight charge until I've already entered my card — every single time.",
+    hl:"don't see the freight charge until I've already entered my card",
+    speaker:"Sarah", tr:"tr_02", date:"Jun 2", fulldate:"2026-06-02",
+    ctx:"Dan: So it's a surprise-at-the-end problem.",
+    timeline:"refine"},
+  want: {kind:"WANT", strength:2, level:"medium",
+    text:"Wants bulk-order CSV import instead of adding items one by one.",
+    quoteFull:"If I could just upload my purchase order as a CSV, you'd save me an hour a week.",
+    hl:"upload my purchase order as a CSV",
+    speaker:"Sarah", tr:"tr_01", date:"May 12", fulldate:"2026-05-12",
+    ctx:"…and honestly, still wish I could just bulk upload my PO as a CSV.",
+    timeline:"reinforce"},
+  love: {kind:"LOVE", strength:1, level:"low",
+    text:"Loves that the saved cart persists across devices.",
+    quoteFull:"The fact my cart was still there on my phone — chef's kiss.",
+    hl:"my cart was still there on my phone",
+    speaker:"Sarah", tr:"tr_01", date:"May 12", fulldate:"2026-05-12",
+    ctx:"Sarah: The fact my cart was still there on my phone — chef's kiss.",
+    timeline:"create"},
+};
+
+/* Sarah evolution timeline (newest→oldest will be reversed for display L→R oldest→newest) */
+const SARAH_EVOLUTION = [
+  {date:"May 12", kind:"create",    label:"Create",    src:"tr_01", note:'"checkout is confusing"'},
+  {date:"May 12", kind:"create",    label:"Create",    src:"tr_01", note:"saved-cart love"},
+  {date:"Jun 2",  kind:"reinforce", label:"Reinforce", src:"tr_02", note:"bulk CSV · 2nd mention"},
+  {date:"Jun 2",  kind:"refine",    label:"Refine",    src:"tr_02", note:'→ "blindsided by shipping costs at final step"'},
+];
+
+/* Transcripts */
+const TRANSCRIPTS = {
+  tr_02: {
+    title:"Acme follow-up — checkout pain", date:"2026-06-02",
+    speakers:"Sarah Chen · Dan (PM)", fed:"sarah", extractedCount:2,
+    lines:[
+      {who:"Dan (PM)", sp:"D", pm:true, html:"How's the new checkout treating you?"},
+      {who:"Sarah Chen", sp:"S", color:"#6366f1", html:'Honestly the freight thing is killing me. <span class="mark mk-PAIN" data-trait="pain" onclick="selectSimFromTranscript(\'sarah\',\'pain\')">I literally don\'t see the freight charge until I\'ve already entered my card — every single time.<span class="tag">→ PAIN</span></span> By then I\'ve mentally committed.'},
+      {who:"Dan (PM)", sp:"D", pm:true, html:"So it's a surprise-at-the-end problem."},
+      {who:"Sarah Chen", sp:"S", color:"#6366f1", html:'Exactly. Just show me shipping up front. And honestly, <span class="mark mk-WANT" data-trait="want" onclick="selectSimFromTranscript(\'sarah\',\'want\')">still wish I could just bulk upload my PO as a CSV<span class="tag">→ WANT ·2nd</span></span>.'},
+    ],
+    extracted:[
+      {kind:"PAIN", trait:"pain", text:"Blindsided by shipping costs at final checkout step", verb:"refined"},
+      {kind:"WANT", trait:"want", text:"Bulk-order CSV import", verb:"reinforced"},
+    ],
+  },
+  tr_01: {
+    title:"Acme onboarding call", date:"2026-05-12",
+    speakers:"Sarah Chen · Dan (PM)", fed:"sarah", extractedCount:2,
+    lines:[
+      {who:"Sarah Chen", sp:"S", color:"#6366f1", html:'<span class="mark mk-LOVE" data-trait="love" onclick="selectSimFromTranscript(\'sarah\',\'love\')">The fact my cart was still there on my phone — chef\'s kiss.<span class="tag">→ LOVE</span></span>'},
+      {who:"Sarah Chen", sp:"S", color:"#6366f1", html:'<span class="mark mk-WANT" data-trait="want" onclick="selectSimFromTranscript(\'sarah\',\'want\')">If I could just upload my purchase order as a CSV, you\'d save me an hour a week.<span class="tag">→ WANT</span></span>'},
+      {who:"Sarah Chen", sp:"S", color:"#6366f1", html:'…the checkout is kind of confusing though.'},
+    ],
+    extracted:[
+      {kind:"LOVE", trait:"love", text:"Saved cart persists across devices", verb:"created"},
+      {kind:"WANT", trait:"want", text:"Bulk-order CSV import", verb:"created"},
+    ],
+  },
+  tr_03: {
+    title:"Marcus discovery", date:"2026-05-20",
+    speakers:"Marcus Webb", fed:"marcus", extractedCount:2,
+    lines:[
+      {who:"Marcus Webb", sp:"M", color:"#d98324", html:'I\'m always on my phone between calls — <span class="mark mk-PAIN" data-trait="m1">if a page takes more than a second I just bounce<span class="tag">→ PAIN</span></span>.'},
+      {who:"Marcus Webb", sp:"M", color:"#d98324", html:'Give me one-tap everything. I don\'t have time to fill forms.'},
+    ],
+    extracted:[
+      {kind:"PAIN", trait:"m1", text:"Abandons slow-loading pages", verb:"created"},
+      {kind:"WANT", trait:"m2", text:"Mobile-first, one-tap flows", verb:"created"},
+    ],
+  },
+  tr_04: {
+    title:"QA triage sync", date:"2026-06-10",
+    speakers:"Priya Nair", fed:"priya", extractedCount:4,
+    lines:[
+      {who:"Priya Nair", sp:"P", color:"#0f9d6b", html:'I log every edge case — <span class="mark mk-LOVE" data-trait="p1">the audit trail on each ticket is genuinely the best part<span class="tag">→ LOVE</span></span>.'},
+      {who:"Priya Nair", sp:"P", color:"#0f9d6b", html:'But regressions slip when releases stack up too fast.'},
+    ],
+    extracted:[
+      {kind:"LOVE", trait:"p1", text:"Loves the per-ticket audit trail", verb:"created"},
+      {kind:"PAIN", trait:"p2", text:"Regressions slip on fast releases", verb:"created"},
+    ],
+  },
+};
+
+/* ============== STATE ============== */
+let mailbox = 'sims';
+let selectedSim = 'sarah';
+let selectedTrait = 'pain';   // default focus trait for strip
+let selectedTr = null;
+
+/* ============== RENDER: PERSONA LETTER ============== */
+function strengthDots(n){
+  let s='<span class="strength">';
+  for(let i=1;i<=3;i++) s+=`<i class="${i<=n?'on':''}"></i>`;
+  const lab = n===3?'high':n===2?'medium':'low';
+  s+=`<span class="slab">${lab}</span></span>`;
+  return s;
+}
+
+function renderTraitCard(key,t){
+  const q = t.quoteFull.replace(t.hl, `<span class="hl">${t.hl}</span>`);
+  const tball = SIMS.sarah.initials==='SC' ? 'Sarah' : '';
+  return `
+  <div class="trait k-${t.kind} ${selectedTrait===key?'active':''}" data-trait="${key}" onclick="selectTrait('${key}',this)">
+    <div class="tk">
+      <span class="badge">${t.kind}</span>
+      ${strengthDots(t.strength)}
+    </div>
+    <div class="ttext">${t.text}</div>
+    <div class="quote">“${q}”</div>
+    <div class="src"><span class="sd"></span>Sarah · ${t.tr} · ${t.date}</div>
+    <div class="clue">click → see source ↓</div>
+  </div>`;
+}
+
+function renderSarah(){
+  const s = SIMS.sarah;
+  const groups = [
+    {label:"Pain", kind:"PAIN", keys:["pain"]},
+    {label:"Want", kind:"WANT", keys:["want"]},
+    {label:"Love", kind:"LOVE", keys:["love"]},
+  ];
+  let body = '';
+  for(const g of groups){
+    body += `<div class="trait-group k-${g.kind}">
+      <div class="grp-label"><span class="gd"></span>${g.label}</div>
+      ${g.keys.map(k=>renderTraitCard(k,SARAH_TRAITS[k])).join('')}
+    </div>`;
+  }
+  return `
+  <div class="letter-head">
+    <div class="lav" style="background:${s.accent}">${s.initials}</div>
+    <div style="flex:1;min-width:0">
+      <h1>${s.name}</h1>
+      <div class="role">${s.role}</div>
+      <span class="type-chip">${s.type}</span>
+      <div class="summary">“${s.summary}”</div>
+    </div>
+    <button class="edit-btn">✎ Edit persona</button>
+  </div>
+  ${body}`;
+}
+
+function renderStubSim(key){
+  const s = SIMS[key];
+  return `
+  <div class="letter-head">
+    <div class="lav" style="background:${s.accent}">${s.initials}</div>
+    <div style="flex:1;min-width:0">
+      <h1>${s.name}</h1>
+      <div class="role">${s.role}</div>
+      <span class="type-chip">${s.type}</span>
+      <div class="summary">“${s.summary}”</div>
+    </div>
+    <button class="edit-btn">✎ Edit persona</button>
+  </div>
+  <div style="margin-top:34px;color:var(--paper-dim);font-size:14px">
+    <div class="grp-label" style="--kind:var(--paper-faint)"><span class="gd"></span>${s.meta.split('·')[0].trim()}</div>
+    <p style="max-width:48ch;color:var(--paper-faint);font-size:13.5px;margin-top:4px">
+      Traits for ${s.name.split(' ')[0]} were extracted from
+      <b style="color:var(--paper-dim)">${key==='marcus'?'tr_03 · Marcus discovery':'tr_04 · QA triage sync'}</b>.
+      Open the Transcripts mailbox to see the source conversation with phrases highlighted.
+    </p>
+  </div>`;
+}
+
+/* ============== RENDER: TRANSCRIPT ============== */
+function renderTranscript(id){
+  const t = TRANSCRIPTS[id];
+  const lines = t.lines.map(l=>`
+    <div class="line">
+      <div class="sp ${l.pm?'pm':''}" ${l.color?`style="background:${l.color}"`:''}>${l.sp}</div>
+      <div style="min-width:0">
+        <div class="who">${l.who}</div>
+        <div class="ltext">${l.html}</div>
+      </div>
+    </div>`).join('');
+
+  const fedSim = SIMS[t.fed];
+  const ex = t.extracted.map(e=>`
+    <div class="ex-card ec-${e.kind}" onclick="${t.fed==='sarah'?`selectSimFromTranscript('sarah','${e.trait}')`:`flashSim('${t.fed}')`}">
+      <span class="ec-dot"></span>
+      <div style="min-width:0">
+        <div class="ec-k">${e.kind} · ${e.verb}</div>
+        <div class="ec-t">${e.text}</div>
+        <div class="ec-arrow">→ fed ${fedSim.name.split(' ')[0]}</div>
+      </div>
+    </div>`).join('');
+
+  return `
+  <div class="tr-letter-head">
+    <div style="min-width:0">
+      <h1>${t.title}</h1>
+      <div class="submeta">
+        <span><b>${t.speakers}</b></span>
+        <span>${t.date}</span>
+        <span>→ fed <b>${fedSim.name}</b></span>
+      </div>
+    </div>
+    <div class="tr-stat">
+      <div class="big">${t.extractedCount}</div>
+      <div class="lbl">traits<br/>extracted</div>
+    </div>
+  </div>
+  <div class="thread-wrap">
+    <div class="thread">${lines}
+      <div style="font-family:var(--mono);font-size:10px;color:var(--paper-faint);letter-spacing:.05em;margin-top:6px">
+        ⌁ highlighted phrases were lifted verbatim into ${fedSim.name.split(' ')[0]}'s persona — full attribution kept.
+      </div>
+    </div>
+    <div class="extracted">
+      <div class="eh">Extracted · <b>${t.extractedCount} traits</b> → fed ${fedSim.name.split(' ')[0]}</div>
+      ${ex}
+    </div>
+  </div>`;
+}
+
+/* ============== RENDER: STRIP ============== */
+function renderStripForTrait(key){
+  const t = SARAH_TRAITS[key];
+  document.getElementById('stripTitle').textContent = 'Source · ' + t.tr;
+  const q = t.quoteFull.replace(t.hl, `<span class="hh">${t.hl}</span>`);
+
+  // evolution dots oldest→newest
+  const evo = SARAH_EVOLUTION.map(e=>`
+    <div class="tnode ${e.kind}">
+      <div class="nd"></div>
+      <div class="nk">${e.label}</div>
+      <div class="ndt">${e.date} · ${e.src}</div>
+      <div class="nx">${e.note}</div>
+    </div>`).join('');
+
+  document.getElementById('stripCols').style.setProperty('--kc', `var(--${t.kind==='PAIN'?'rose':t.kind==='WANT'?'amber':'green'})`);
+  document.getElementById('stripCols').innerHTML = `
+    <div class="sp-source" style="--kc:var(--${t.kind==='PAIN'?'rose':t.kind==='WANT'?'amber':'green'})">
+      <div class="ss-meta">
+        <span class="pill">${t.speaker} speaking</span>
+        <span>${t.tr} · ${t.fulldate}</span>
+      </div>
+      <div class="ss-q">“${q}”</div>
+      <div class="ss-ctx">${t.ctx}</div>
+    </div>
+    <div class="sp-timeline">
+      <div class="tl-h">Trait evolution · CREATE → REFINE</div>
+      <div class="tline"><div class="tdots">${evo}</div></div>
+    </div>`;
+}
+
+function renderStripForTranscript(id){
+  const t = TRANSCRIPTS[id];
+  const s = SIMS[t.fed];
+  document.getElementById('stripTitle').textContent = 'Linked · sims this fed';
+  document.getElementById('stripCols').innerHTML = `
+    <div class="sp-fed">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint)">${t.title}<br/><span style="color:var(--paper-dim)">${t.date}</span></div>
+      <span class="arrow">→</span>
+      <div class="fed-card">
+        <div class="fav" style="background:${s.accent}">${s.initials}</div>
+        <div>
+          <div class="fn">${s.name}</div>
+          <div class="fr">${s.role}</div>
+          <div class="fc">${t.extractedCount} trait${t.extractedCount>1?'s':''} extracted</div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;color:var(--paper-faint);max-width:30ch;line-height:1.45">
+        Every highlighted phrase in this conversation links to a trait in
+        <b style="color:var(--paper-dim)">${s.name.split(' ')[0]}'s</b> persona.
+      </div>
+    </div>`;
+}
+
+/* ============== INTERACTIONS ============== */
+function setMailbox(mb){
+  mailbox = mb;
+  document.getElementById('mbSims').classList.toggle('on', mb==='sims');
+  document.getElementById('mbTr').classList.toggle('on', mb==='transcripts');
+  document.getElementById('listSims').classList.toggle('hidden', mb!=='sims');
+  document.getElementById('listTr').classList.toggle('hidden', mb!=='transcripts');
+  document.getElementById('searchBox').placeholder = mb==='sims' ? 'Search sims…' : 'Search transcripts…';
+
+  if(mb==='sims'){
+    // restore last sim selection
+    selectSimByKey(selectedSim);
+  } else {
+    // default to tr_02 on entering transcripts
+    const target = selectedTr || 'tr_02';
+    const row = document.querySelector(`#listTr .row[data-tr="${target}"]`);
+    selectTranscript(target, row);
+  }
+}
+
+function clearSel(scope){ document.querySelectorAll(scope+' .row').forEach(r=>r.classList.remove('sel')); }
+
+function selectSim(key, rowEl){
+  selectedSim = key;
+  clearSel('#listSims');
+  if(rowEl) rowEl.classList.add('sel');
+  document.getElementById('paneMeta').textContent = 'Reading · ' + SIMS[key].name;
+  const inner = document.getElementById('paneInner');
+  if(key==='sarah'){
+    selectedTrait = 'pain';
+    inner.innerHTML = renderSarah();
+    renderStripForTrait('pain');
+  } else {
+    inner.innerHTML = renderStubSim(key);
+    // strip: show transcript that fed this sim
+    const trId = key==='marcus' ? 'tr_03' : 'tr_04';
+    renderStripForTranscript(trId);
+  }
+  document.querySelector('.pane').scrollTop = 0;
+}
+function selectSimByKey(key){
+  const row = document.querySelector(`#listSims .row[data-sim="${key}"]`);
+  selectSim(key, row);
+}
+
+function selectTrait(key, el){
+  selectedTrait = key;
+  document.querySelectorAll('.trait').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderStripForTrait(key);
+}
+
+function selectTranscript(id, rowEl){
+  selectedTr = id;
+  clearSel('#listTr');
+  if(rowEl) rowEl.classList.add('sel');
+  document.getElementById('paneMeta').textContent = 'Reading · ' + TRANSCRIPTS[id].title;
+  document.getElementById('paneInner').innerHTML = renderTranscript(id);
+  renderStripForTranscript(id);
+  document.querySelector('.pane').scrollTop = 0;
+}
+
+/* clicking a highlighted phrase / extracted card inside a Sarah transcript → jump to her persona + focus the trait */
+function selectSimFromTranscript(simKey, traitKey){
+  setMailbox('sims');
+  document.getElementById('mbSims').classList.add('on');
+  document.getElementById('mbTr').classList.remove('on');
+  document.getElementById('listSims').classList.remove('hidden');
+  document.getElementById('listTr').classList.add('hidden');
+  selectSimByKey(simKey);
+  if(simKey==='sarah' && SARAH_TRAITS[traitKey]){
+    const el = document.querySelector(`.trait[data-trait="${traitKey}"]`);
+    selectTrait(traitKey, el);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+function flashSim(key){ setMailbox('sims'); selectSimByKey(key); }
+
+/* search filter */
+document.getElementById('searchBox').addEventListener('input', e=>{
+  const q = e.target.value.toLowerCase();
+  const scope = mailbox==='sims' ? '#listSims' : '#listTr';
+  document.querySelectorAll(scope+' .row').forEach(r=>{
+    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+
+/* theme toggle */
+const html = document.documentElement;
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  const dark = html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme', dark?'light':'dark');
+  document.getElementById('themeIcon').textContent = dark?'☾':'☀';
+  document.getElementById('themeText').textContent = dark?'Dark':'Light';
+});
+
+/* init */
+selectSim('sarah', document.querySelector('#listSims .row[data-sim="sarah"]'));
+</script>
+</body>
+</html>
