@@ -949,6 +949,30 @@ export async function listTranscripts(projectId: string): Promise<TranscriptRow[
   return r.rows.map(rowToTranscript)
 }
 
+// Return a single transcript only if it belongs to projectId (parameterized WHERE id=? AND project_id=?).
+// Returns null when the transcript does not exist or belongs to a different project.
+export async function transcriptById(projectId: string, id: string): Promise<TranscriptRow | null> {
+  const r = await db!.execute({ sql: "SELECT * FROM transcripts WHERE id=? AND project_id=?", args: [id, projectId] })
+  return r.rows.length ? rowToTranscript(r.rows[0]) : null
+}
+
+// Distinct transcripts referenced by the sim's trait_events.transcriptId, excluding the
+// "legacy_import" sentinel, joined to the project's transcript rows, newest-first by sourceDate.
+export async function sourceTranscriptsForSim(
+  simId: string,
+  projectId: string,
+): Promise<{ id: string; title: string | null; sourceDate: number; addedBy: string }[]> {
+  const events = await listTraitEvents(simId)
+  const ids = [...new Set(events.map((e) => e.transcriptId).filter((t): t is string => !!t && t !== "legacy_import"))]
+  if (!ids.length) return []
+  const byId = new Map((await listTranscripts(projectId)).map((t) => [t.id, t]))
+  return ids
+    .map((id) => byId.get(id))
+    .filter((t): t is TranscriptRow => !!t)
+    .map((t) => ({ id: t.id, title: t.title, sourceDate: t.sourceDate, addedBy: t.addedBy }))
+    .sort((a, b) => b.sourceDate - a.sourceDate)
+}
+
 function rowToTrait(x: any): Trait {
   return {
     id: String(x.id), simId: String(x.sim_id), projectId: String(x.project_id),
