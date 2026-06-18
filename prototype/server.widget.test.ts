@@ -155,3 +155,10 @@ test("the minted token authorizes GET /api/personas via Bearer with CORS header"
   expect(r.status).toBe(200)
   expect(r.headers.get("access-control-allow-origin")).toBe("*")
 })
+
+test("GET /widget-connect serves HTML", async () => {
+  const r = await fetch(base + "/widget-connect?project=" + projectId + "&origin=https://app.acme.com")
+  expect(r.status).toBe(200)
+  expect((r.headers.get("content-type") || "")).toContain("text/html")
+  expect(await r.text()).toContain("klavity-widget-token")
+})

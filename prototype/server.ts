@@ -619,7 +619,16 @@ Bun.serve({
     if (req.method === "GET" && path === "/sim-identity") return file(PUB + "/sim-identity.html")
     if (req.method === "GET" && path === "/sim-options") return file(PUB + "/sim-options.html")
     if (req.method === "GET" && path === "/sim-component") return file(PUB + "/sim-component.html")
+    if (req.method === "GET" && path === "/sim-studio-a") return file(PUB + "/sim-studio-a-triptych.html")
+    if (req.method === "GET" && path === "/sim-studio-b") return file(PUB + "/sim-studio-b-mailbox.html")
+    if (req.method === "GET" && path === "/sim-studio-c") return file(PUB + "/sim-studio-c-evidence.html")
+    if (req.method === "GET" && path === "/sim-studio-hybrid") return file(PUB + "/sim-studio-hybrid.html")
     if (req.method === "GET" && path === "/snap-popup") return file(PUB + "/snap-popup.html")
+    if (req.method === "GET" && path === "/widget-connect") {
+      return new Response(Bun.file(PUB + "/widget-connect.html"), {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      })
+    }
     if (req.method === "GET" && path === "/intro-reel") return file(SITE + "/intro-reel.html")
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
 
