@@ -1042,6 +1042,8 @@ Bun.serve({
         if (!meR) return json({ ok: false, reason: "unauthorized", error: "Sign in to continue." }, 401)
         let projectId: string | null = null
         const requestedProject = String(body.projectId || "") || url.searchParams.get("project")
+        // Adhoc reviews must always supply a projectId — auto-resolution via allowlist is passive-only.
+        if (adhoc && !requestedProject) return json({ ok: false, reason: "unauthorized", error: "Pick a project to analyze this page." }, 401)
         if (requestedProject) {
           const a = await resolveProject(meR, requestedProject)
           if (a) projectId = a.id
@@ -1065,6 +1067,10 @@ Bun.serve({
         // Resolve target Sims first (project Sims, or the caller-supplied subset) so we can key dedupe.
         const projectSims = await listPersonas(projectId)
         const targetSims = reqSimIds.length ? projectSims.filter((p) => reqSimIds.includes(p.id)) : projectSims
+
+        // Short-circuit: if there are no sims to review, return success immediately without consuming budget.
+        if (targetSims.length === 0) return json({ ok: true, projectId, reviews: [] }, 200, WIDGET_CORS)
+
         const seenKeys = targetSims.map((s) => reviewDedupeKey(s.id, urlPath || "", domSig))
         const allSeen = targetSims.length > 0 && seenKeys.every((k) => reviewSeen(k))
 

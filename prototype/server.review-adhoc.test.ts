@@ -166,8 +166,8 @@ test("adhoc:true with valid projectId bypasses offAllowlist/needsConsent gates",
 }, 15000)
 
 // AUTH GATE ASSERTION:
-// Without a projectId, even with adhoc:true the server cannot resolve a project
-// for this URL (no monitored_urls), so it must return 401 unauthorized.
+// Without a projectId, adhoc:true hits the explicit adhoc guard (before project-resolution branches),
+// which immediately returns 401 unauthorized without attempting allowlist auto-resolution.
 test("adhoc:true without projectId returns 401 unauthorized", async () => {
   const r = await fetch(`${BASE}/api/sim/review`, {
     method: "POST",

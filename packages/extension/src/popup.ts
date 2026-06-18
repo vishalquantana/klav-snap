@@ -218,12 +218,12 @@ async function renderSignedIn() {
   // ── Ad-hoc "Analyze this page" ──
   const analyzeBtn = $('btn-analyze') as HTMLButtonElement
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  const unsupported = !activeTab?.url || /^(chrome|edge|about|view-source):|chrome\.google\.com\/webstore/.test(activeTab.url)
+  const unsupported = !activeTab?.url || /^(chrome|edge|about|view-source|chrome-extension|moz-extension|data|file):|chromewebstore\.google\.com|chrome\.google\.com\/webstore/.test(activeTab.url)
   if (unsupported) {
     analyzeBtn.disabled = true
     analyzeBtn.title = "Can't analyze this page"
   } else {
-    analyzeBtn.addEventListener('click', async () => {
+    analyzeBtn.onclick = async () => {
       const projectId = activeProjectId || projects[0]?.id || null
       if (!projectId || !activeTab?.id) return
       const tabId = activeTab.id
@@ -233,7 +233,7 @@ async function renderSignedIn() {
         if (cs?.js?.length) chrome.scripting.executeScript({ target: { tabId }, files: cs.js }).then(() => setTimeout(send, 300)).catch(() => {})
       })
       window.close()
-    })
+    }
   }
 
   // Sign out

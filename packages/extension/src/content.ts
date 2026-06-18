@@ -1121,7 +1121,7 @@ async function klavRunAdhoc(projectId: string): Promise<void> {
     if (!(await klavAdhocConfirm(domain))) return
     await klavAdhocRemember(domain)
   }
-  klavRenderIndicator(projectId, false)
+  klavNotice('Sims analyzing this page…')
   const dataUrl = await klavCapture()
   if (!dataUrl) { klavNotice("Couldn't capture this page — try again."); return }
   const resp = await klavSend<{ ok: boolean; status: number; body: any }>({
