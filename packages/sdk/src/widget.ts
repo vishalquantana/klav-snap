@@ -129,9 +129,25 @@ async function mount() {
 
   function renderBubble(name: string, accent: string, observation: string, sentiment: string) {
     const b = document.createElement("div")
-    b.style.cssText = "max-width:260px;background:#15110d;color:#f5f3ee;border:1px solid #574f45;border-left:3px solid " + accent + ";border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:8px"
+    b.style.cssText = "max-width:260px;background:#15110d;color:#f5f3ee;border:1px solid #574f45;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:8px"
+    b.style.borderLeftWidth = "3px"
+    b.style.borderLeftStyle = "solid"
+    b.style.borderLeftColor = accent
     const em = emotionFromSentiment(sentiment)
-    b.innerHTML = "<b>" + name + "</b> · <span style='color:#8a8076'>" + em + "</span><br>" + (observation || "")
+    // Build with DOM nodes — no innerHTML on server/LLM-sourced text (XSS guard).
+    const nameEl = document.createElement("b")
+    nameEl.textContent = name
+    const sep = document.createTextNode(" · ")
+    const emEl = document.createElement("span")
+    emEl.style.color = "#8a8076"
+    emEl.textContent = em
+    const br = document.createElement("br")
+    const obs = document.createTextNode(observation || "")
+    b.appendChild(nameEl)
+    b.appendChild(sep)
+    b.appendChild(emEl)
+    b.appendChild(br)
+    b.appendChild(obs)
     dock.insertBefore(b, dock.firstChild)
     setTimeout(() => b.remove(), 16000)
   }

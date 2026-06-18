@@ -168,3 +168,30 @@ test("GET /widget.js serves javascript", async () => {
   expect(r.status).toBe(200)
   expect((r.headers.get("content-type") || "")).toContain("javascript")
 })
+
+// FIX 1 regression: every error/gate response on widget routes must carry CORS headers so the
+// browser (cross-origin) can read the body. With a fresh project and no consent row the gate
+// returns needsConsent (412). Node's fetch ignores CORS enforcement, so we check the header is
+// present on the wire — that's what the browser needs.
+test("POST /api/sim/review gate-failure carries CORS header (error-CORS regression)", async () => {
+  // Mint a fresh Bearer token for the seeded project.
+  const tokenRes = await fetch(base + "/api/widget/token", {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: sessionCookie },
+    body: JSON.stringify({ projectId, origin: "https://app.acme.com" }),
+  })
+  expect(tokenRes.status).toBe(200)
+  const { token } = await tokenRes.json()
+
+  // Hit /api/sim/review with no consent row seeded → gate returns needsConsent 412.
+  const r = await fetch(base + "/api/sim/review", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer " + token },
+    body: JSON.stringify({ projectId, url: "https://app.acme.com/page", screenshotDataUrl: "" }),
+  })
+
+  // Must NOT be 200 (gate blocked).
+  expect(r.status).not.toBe(200)
+  // CORS header must be present on the error response so cross-origin browsers can read it.
+  expect(r.headers.get("access-control-allow-origin")).toBe("*")
+})
