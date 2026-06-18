@@ -10,6 +10,16 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.15.1] — 2026-06-18
+
+### Fixed
+- **Copy-to-external tickets now carry the Sim's name.** The auto-copy hook built a
+  leaner payload than the manual export, and `feedbackToTicketPayload` hardcoded
+  `simName: null` — so external tickets (webhook/Plane/GitHub/Jira/Linear) showed no
+  Sim attribution (confirmed live: the webhook payload had `"simName": null`). Both
+  paths now resolve the persona name from `simId` through one shared builder, and the
+  ticket body reads `Sim: <name>` instead of the raw id.
+
 ## [0.15.0] — 2026-06-18
 
 ### Added

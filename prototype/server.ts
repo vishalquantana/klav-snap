@@ -510,11 +510,12 @@ function splitUrl(pageUrl: string): { urlHost: string | null; urlPath: string | 
 }
 
 // Build a normalized TicketPayload from a feedback row for the connector adapters.
-function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }): TicketPayload {
+function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }, simName: string | null = null): TicketPayload {
   const title = fb.observation || "Sim report"
   const lines: string[] = []
   if (fb.observation) lines.push(fb.observation)
-  if (fb.simId) lines.push(`Sim: ${fb.simId}`)
+  if (simName) lines.push(`Sim: ${simName}`)
+  else if (fb.simId) lines.push(`Sim: ${fb.simId}`)
   const urlVal = fb.pageUrl ?? fb.urlPath ?? null
   if (urlVal) lines.push(`URL: ${urlVal}`)
   lines.push("Filed by Klavity Sims")
@@ -524,10 +525,17 @@ function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }
     body,
     severity: fb.severity ?? null,
     url: urlVal,
-    simName: null, // caller may enrich; kept null here for simplicity
+    simName,
     createdAt: fb.createdAt,
     klavityUrl: `${BASE}/dashboard?project=${project.id}`,
   }
+}
+
+// Resolve a Sim's display name from its id (best-effort; null if unknown). Used to enrich
+// both the manual export and the auto-copy payloads so external tickets show "Sim: <name>".
+async function resolveSimName(projectId: string, simId: string | null | undefined): Promise<string | null> {
+  if (!simId) return null
+  try { return (await listPersonas(projectId)).find((p) => p.id === simId)?.name ?? null } catch { return null }
 }
 
 // Redact secret fields in a connector config for client responses.
@@ -741,6 +749,13 @@ Bun.serve({
                 void (async () => {
                   try {
                     const autoCopyConnectors = await listAutoCopyConnectors(autoCopyProjectId)
+                    if (!autoCopyConnectors.length) return
+                    // Build the SAME rich payload the manual export uses (incl. resolved Sim name),
+                    // once, from the persisted row — so auto-copied and manually-copied tickets match.
+                    const autoCopyFb = await feedbackById(autoCopyProjectId, autoCopyFbId)
+                    if (!autoCopyFb) return
+                    const autoCopySimName = await resolveSimName(autoCopyProjectId, autoCopyFb.simId)
+                    const ticketPayload = feedbackToTicketPayload(autoCopyFb, { id: autoCopyProjectId }, autoCopySimName)
                     for (const c of autoCopyConnectors) {
                       const adapter = getConnector(c.type)
                       if (!adapter) continue
@@ -750,12 +765,6 @@ Bun.serve({
                         if (f.secret && c.config[f.key]) {
                           try { cfg[f.key] = await decryptSecret(c.config[f.key]) } catch { cfg[f.key] = "" }
                         }
-                      }
-                      const ticketPayload: TicketPayload = {
-                        title: autoCopyObservation || "Sim report",
-                        body: [autoCopyObservation, "Filed by Klavity Sims"].filter(Boolean).join("\n\n"),
-                        severity: severity ?? null, url: urlPath ?? null, simName: null,
-                        createdAt: Date.now(), klavityUrl: `${BASE}/dashboard?project=${autoCopyProjectId}`,
                       }
                       try {
                         const result = await adapter.createIssue(ticketPayload, cfg)
@@ -1586,7 +1595,8 @@ Bun.serve({
             }
           }
 
-          const payload = feedbackToTicketPayload(fbRow, { id: fbRow.projectId })
+          const exportSimName = await resolveSimName(fbRow.projectId, fbRow.simId)
+          const payload = feedbackToTicketPayload(fbRow, { id: fbRow.projectId }, exportSimName)
           let exportResult: { type: string; externalKey: string | null; externalUrl: string | null; status: "ok" | "failed"; error: string | null }
 
           try {
