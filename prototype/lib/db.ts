@@ -772,6 +772,7 @@ export type FeedbackRow = {
   suggestedBug: any | null; sourceQuote: string | null; citedTraitIds: any | null; sourceDate: number | null
   planeIssueKey: string | null; planeIssueUrl: string | null; createdAt: number
 }
+function safeJsonParse(s: any): any { try { return s ? JSON.parse(String(s)) : null } catch { return null } }
 function rowToFeedback(x: any): FeedbackRow {
   return {
     id: String(x.id), projectId: String(x.project_id),
@@ -783,9 +784,9 @@ function rowToFeedback(x: any): FeedbackRow {
     sentiment: x.sentiment != null ? String(x.sentiment) : null,
     severity: x.severity != null ? String(x.severity) : null,
     screenshotId: x.screenshot_id != null ? String(x.screenshot_id) : null,
-    suggestedBug: x.suggested_bug_json ? JSON.parse(String(x.suggested_bug_json)) : null,
+    suggestedBug: safeJsonParse(x.suggested_bug_json),
     sourceQuote: x.source_quote != null ? String(x.source_quote) : null,
-    citedTraitIds: x.cited_trait_ids_json ? JSON.parse(String(x.cited_trait_ids_json)) : null,
+    citedTraitIds: safeJsonParse(x.cited_trait_ids_json),
     sourceDate: x.source_date != null ? Number(x.source_date) : null,
     planeIssueKey: x.plane_issue_key != null ? String(x.plane_issue_key) : null,
     planeIssueUrl: x.plane_issue_url != null ? String(x.plane_issue_url) : null,
