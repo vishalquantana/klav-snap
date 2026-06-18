@@ -10,6 +10,21 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.17.0] — 2026-06-19
+
+### Added
+- **Embeddable live-Sims widget (`/widget.js`).** A logged-in team member can drop one
+  script tag — `<script src="https://klavity.quantana.top/widget.js" data-project="…" defer></script>`
+  — onto their own web app and have their Klavity Sims review the real page, filing
+  feedback through the existing pipeline, **with no Chrome extension**. A first-party
+  connect popup (`/widget-connect`) signs the user in and mints a narrow, revocable
+  per-user token (no public key); the widget then calls the existing review API
+  cross-origin via Bearer auth. New backend surface: `POST /api/widget/token`,
+  `GET /widget-connect`, `GET /widget.js`, and permissive CORS (Bearer-only, no
+  credentials) on the widget-reachable API responses. Built as a self-contained IIFE
+  from `packages/sdk`. Manual in-browser smoke test pending before the onboarding
+  "embed the widget" tile is switched from "Coming soon" to the live snippet.
+
 ## [0.16.1] — 2026-06-19
 
 ### Changed

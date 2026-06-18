@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Connect to Klavity</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#19140f;color:#f5f3ee;margin:0;
+    display:grid;place-items:center;min-height:100vh}
+  .card{width:320px;padding:28px;text-align:center}
+  h1{font-size:18px;margin:0 0 6px}.sub{color:#8a8076;font-size:13px;margin:0 0 18px}
+  input{width:100%;box-sizing:border-box;background:#15110d;border:1px solid #574f45;
+    border-radius:10px;padding:11px;color:#f5f3ee;font-size:15px;margin-bottom:10px}
+  button{width:100%;border:0;border-radius:10px;padding:11px;background:#6366f1;color:#fff;
+    font-size:15px;font-weight:600;cursor:pointer}
+  .err{color:#db2777;font-size:13px;min-height:1em;margin-top:8px}
+  .hide{display:none}
+</style></head><body>
+<div class="card">
+  <h1>Connect to Klavity</h1>
+  <p class="sub" id="sub">Sign in to bring your Sims onto this page.</p>
+  <div id="emailStep">
+    <input id="email" type="email" placeholder="you@acme.com" autocomplete="email" />
+    <button id="sendBtn">Send sign-in code</button>
+  </div>
+  <div id="codeStep" class="hide">
+    <input id="code" inputmode="numeric" maxlength="6" placeholder="6-digit code" />
+    <button id="verifyBtn">Verify &amp; connect</button>
+  </div>
+  <div class="err" id="err"></div>
+</div>
+<script>
+const qs = new URLSearchParams(location.search)
+const projectId = qs.get("project") || ""
+const targetOrigin = qs.get("origin") || ""
+const $ = (id) => document.getElementById(id)
+const err = (m) => { $("err").textContent = m || "" }
+async function jf(url, opts){ const r = await fetch(url, opts); let d={}; try{d=await r.json()}catch(e){} return {ok:r.ok,status:r.status,data:d} }
+
+async function mintAndFinish(){
+  const r = await jf("/api/widget/token", { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ projectId, origin: targetOrigin }) })
+  if (!r.ok){ err(r.data.error || "Could not connect."); return }
+  if (window.opener && targetOrigin){
+    window.opener.postMessage({ type:"klavity-widget-token", token:r.data.token, projectId }, targetOrigin)
+  }
+  $("sub").textContent = "Connected — you can close this window."
+  $("emailStep").classList.add("hide"); $("codeStep").classList.add("hide")
+  setTimeout(() => window.close(), 600)
+}
+$("sendBtn").onclick = async () => {
+  err(""); const email = $("email").value.trim().toLowerCase()
+  if (!email.includes("@")) return err("Enter a valid email.")
+  // If already signed in, /api/widget/token will succeed straight away.
+  const probe = await jf("/api/widget/token", { method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ projectId, origin: targetOrigin }) })
+  if (probe.ok){ if (window.opener && targetOrigin) window.opener.postMessage({type:"klavity-widget-token",token:probe.data.token,projectId}, targetOrigin); $("sub").textContent="Connected — you can close this window."; $("emailStep").classList.add("hide"); setTimeout(()=>window.close(),600); return }
+  const r = await jf("/api/auth/request", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ email }) })
+  if (!r.ok) return err(r.data.error || "Could not send a code.")
+  $("emailStep").classList.add("hide"); $("codeStep").classList.remove("hide"); $("code").focus()
+}
+$("verifyBtn").onclick = async () => {
+  err(""); const email = $("email").value.trim().toLowerCase(); const code = $("code").value.trim()
+  if (code.length < 4) return err("Enter the 6-digit code.")
+  const r = await jf("/api/auth/verify", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ email, code }) })
+  if (!r.ok) return err(r.data.error || "Invalid or expired code.")
+  await mintAndFinish()
+}
+</script></body></html>

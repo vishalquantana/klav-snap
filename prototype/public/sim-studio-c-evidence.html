@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Klavity · Sims Studio — Evidence Board</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--ink-4:#e7e1d6;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--line:rgba(25,20,15,.12);--line-2:rgba(25,20,15,.18);--indigo:#6366f1;--indigo-deep:#4f46e5;--indigo-soft:#a5b4fc;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--blue:#2563eb;}
+[data-theme="dark"]{--ink:#0a0a0f;--ink-2:#11111a;--ink-3:#0d0d15;--ink-4:#1e1e2e;--paper:#cdd6f4;--paper-dim:#9399b2;--paper-faint:#6c7086;--line:#1e1e2e;--line-2:#313244;--indigo:#6366f1;--indigo-deep:#4f46e5;--indigo-soft:#a5b4fc;--amber:#e8a24a;--rose:#f38ba8;--green:#a6e3a1;--blue:#89b4fa;}
+:root{--display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:var(--body);background:var(--ink);color:var(--paper);-webkit-font-smoothing:antialiased;transition:background .3s ease,color .3s ease;}
+h1,h2,h3,h4{font-family:var(--display);font-weight:600;letter-spacing:-.01em;}
+.mono{font-family:var(--mono);}
+.chip{text-transform:uppercase;font-size:9px;letter-spacing:.08em;font-weight:600;}
+
+/* APP BAR */
+.appbar{height:58px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--ink-2);position:relative;z-index:20;}
+.appbar .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:16px;}
+.appbar .brand img{display:block;border-radius:8px;}
+.appbar .dot-sep{color:var(--paper-faint);font-weight:400;}
+.proj-chip{margin-left:6px;display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:600;background:var(--ink-3);}
+.proj-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--indigo);}
+.appbar .spacer{flex:1;}
+.theme-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--ink-3);color:var(--paper-dim);padding:7px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--body);transition:.2s;}
+.theme-toggle:hover{border-color:var(--line-2);color:var(--paper);}
+
+/* LAYOUT */
+.shell{display:grid;grid-template-columns:220px 1fr 340px;height:calc(100vh - 58px);overflow:hidden;}
+
+/* LEFT RAIL */
+.rail{border-right:1px solid var(--line);background:var(--ink-2);display:flex;flex-direction:column;overflow-y:auto;}
+.rail-head{padding:18px 16px 10px;}
+.rail-head .lbl{color:var(--paper-faint);}
+.rail-head h3{font-size:15px;margin-top:3px;}
+.sim-item{display:flex;align-items:center;gap:11px;padding:10px 14px;margin:2px 9px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:.18s;}
+.sim-item:hover{background:var(--ink-3);}
+.sim-item.active{background:color-mix(in srgb,var(--indigo) 14%,var(--ink-2));border-color:color-mix(in srgb,var(--indigo) 40%,transparent);}
+.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0;font-family:var(--body);box-shadow:0 2px 6px rgba(0,0,0,.18);}
+.sim-item .meta{min-width:0;}
+.sim-item .nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sim-item .rl{font-size:11px;color:var(--paper-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.new-sim{margin:10px 14px 18px;padding:10px;border:1px dashed var(--line-2);border-radius:12px;color:var(--paper-faint);background:transparent;font-family:var(--body);font-size:12.5px;font-weight:600;cursor:pointer;transition:.18s;}
+.new-sim:hover{color:var(--paper);border-color:var(--indigo);background:var(--ink-3);}
+.rail-foot{margin-top:auto;padding:14px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--paper-faint);}
+
+/* CENTER DOSSIER */
+.dossier{overflow-y:auto;padding:26px 32px 60px;background:var(--ink);}
+.identity{display:flex;gap:18px;align-items:flex-start;padding-bottom:22px;border-bottom:1px solid var(--line);margin-bottom:24px;}
+.identity .av-lg{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:23px;flex-shrink:0;box-shadow:0 6px 18px rgba(0,0,0,.22);}
+.identity .who{flex:1;min-width:0;}
+.identity h1{font-size:30px;line-height:1.05;letter-spacing:-.02em;}
+.identity .role{font-size:14px;color:var(--paper-dim);margin-top:5px;font-weight:500;}
+.type-chip{display:inline-block;margin-top:9px;padding:4px 9px;border-radius:6px;background:color-mix(in srgb,var(--indigo) 16%,transparent);color:var(--indigo);border:1px solid color-mix(in srgb,var(--indigo) 35%,transparent);}
+.type-chip.internal{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);border-color:color-mix(in srgb,var(--green) 35%,transparent);}
+.identity .summary{margin-top:12px;font-size:14.5px;line-height:1.5;color:var(--paper-dim);max-width:48ch;font-style:italic;font-family:var(--display);}
+.edit-btn{border:1px solid var(--line-2);background:var(--ink-2);color:var(--paper-dim);padding:7px 14px;border-radius:9px;font-family:var(--body);font-size:12.5px;font-weight:600;cursor:pointer;transition:.18s;flex-shrink:0;}
+.edit-btn:hover{border-color:var(--indigo);color:var(--paper);}
+
+.group-label{display:flex;align-items:center;gap:9px;margin:26px 0 12px;}
+.group-label .gl-dot{width:9px;height:9px;border-radius:50%;}
+.group-label .gl-txt{text-transform:uppercase;font-size:11px;letter-spacing:.1em;font-weight:700;}
+.group-label .gl-count{font-size:11px;color:var(--paper-faint);font-weight:500;letter-spacing:0;text-transform:none;}
+.group-label .gl-line{flex:1;height:1px;background:var(--line);}
+
+.trait{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:14px;box-shadow:0 10px 30px rgba(25,20,15,.05);cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;position:relative;}
+.trait:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(25,20,15,.10);border-color:var(--line-2);}
+.trait.active{border-color:var(--tk);box-shadow:0 0 0 1px var(--tk),0 14px 40px color-mix(in srgb,var(--tk) 22%,transparent);}
+.trait .t-top{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.trait .kind-dot{width:10px;height:10px;border-radius:50%;background:var(--tk);flex-shrink:0;box-shadow:0 0 0 4px color-mix(in srgb,var(--tk) 14%,transparent);}
+.trait .kind-lbl{text-transform:uppercase;font-size:9.5px;letter-spacing:.1em;font-weight:700;color:var(--tk);}
+.trait .strength{margin-left:auto;display:flex;gap:3px;align-items:center;}
+.trait .strength .pip{width:6px;height:6px;border-radius:50%;background:var(--line-2);}
+.trait .strength .pip.on{background:var(--tk);}
+.trait .strength .s-lbl{font-size:10px;color:var(--paper-faint);margin-right:5px;text-transform:uppercase;letter-spacing:.06em;}
+.trait .t-text{font-size:15.5px;line-height:1.45;font-weight:500;color:var(--paper);}
+.trait .quote{margin-top:12px;padding:9px 14px;border-left:3px solid var(--tk);background:color-mix(in srgb,var(--tk) 6%,transparent);font-style:italic;font-size:13.5px;line-height:1.5;color:var(--paper-dim);border-radius:0 8px 8px 0;font-family:var(--display);}
+.trait .prov{margin-top:11px;font-family:var(--mono);font-size:11px;color:var(--paper-faint);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.trait .prov .arrow{color:var(--tk);}
+.trait .prov .seg{display:inline-flex;align-items:center;gap:5px;}
+.trait .prov .seg b{color:var(--paper-dim);font-weight:500;}
+.trait .prov .refine-tag{color:var(--tk);background:color-mix(in srgb,var(--tk) 12%,transparent);padding:1px 6px;border-radius:5px;font-size:10px;}
+.hint{font-size:11.5px;color:var(--paper-faint);margin:2px 0 18px;display:flex;align-items:center;gap:7px;}
+.hint .kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--line-2);border-radius:5px;padding:1px 5px;color:var(--paper-dim);}
+
+/* stub dossier for other sims */
+.stub{display:none;}
+
+/* RIGHT SPINE */
+.spine{border-left:1px solid var(--line);background:var(--ink-2);overflow-y:auto;padding:22px 20px 60px;}
+.spine-head{margin-bottom:18px;}
+.spine-head .lbl{color:var(--paper-faint);}
+.spine-head h3{font-size:16px;margin-top:3px;}
+.spine-head p{font-size:11.5px;color:var(--paper-faint);margin-top:4px;line-height:1.4;}
+.timeline{position:relative;padding-left:26px;}
+.timeline::before{content:"";position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:linear-gradient(var(--line-2),var(--line));}
+.tnode{position:relative;margin-bottom:18px;}
+.tnode .tdot{position:absolute;left:-26px;top:16px;width:14px;height:14px;border-radius:50%;background:var(--ink-2);border:2px solid var(--paper-faint);transition:.25s;z-index:2;}
+.tcard{background:var(--ink-3);border:1px solid var(--line);border-radius:14px;padding:13px 15px;cursor:pointer;transition:border-color .25s ease,box-shadow .25s ease,background .25s ease,opacity .25s ease,transform .25s ease;position:relative;}
+.tcard:hover{border-color:var(--line-2);}
+.tcard h4{font-size:14.5px;line-height:1.2;}
+.tcard .speakers{font-size:11.5px;color:var(--paper-dim);margin-top:4px;}
+.tcard .tdate{font-family:var(--mono);font-size:10.5px;color:var(--paper-faint);margin-top:7px;display:flex;align-items:center;gap:8px;}
+.tcard .extract{font-size:10px;color:var(--paper-faint);text-transform:uppercase;letter-spacing:.06em;background:var(--ink-4);padding:2px 7px;border-radius:5px;}
+
+/* spine highlight / dim states driven by JS */
+.spine.has-active .tcard{opacity:.42;filter:saturate(.7);}
+.spine.has-active .tcard.lit{opacity:1;filter:none;}
+.tcard.lit{border-color:var(--lk);background:var(--ink-2);box-shadow:0 0 0 1px var(--lk),0 12px 34px color-mix(in srgb,var(--lk) 26%,transparent);transform:translateX(-2px);}
+.tnode .tdot.lit{border-color:var(--lk);background:var(--lk);box-shadow:0 0 0 5px color-mix(in srgb,var(--lk) 22%,transparent);transform:scale(1.15);}
+
+/* evidence callout */
+.evidence{margin-top:10px;border:1px dashed color-mix(in srgb,var(--lk) 55%,transparent);background:color-mix(in srgb,var(--lk) 8%,var(--ink-2));border-radius:10px;padding:10px 12px;display:none;animation:pop .28s ease;}
+.tcard.lit .evidence{display:block;}
+@keyframes pop{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
+.evidence .ev-lbl{text-transform:uppercase;font-size:8.5px;letter-spacing:.12em;font-weight:700;color:var(--lk);display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.evidence .ev-lbl::before{content:"❝";font-size:14px;line-height:0;}
+.evidence .ev-quote{font-style:italic;font-size:12.5px;line-height:1.5;color:var(--paper);font-family:var(--display);}
+.evidence .ev-by{font-family:var(--mono);font-size:10px;color:var(--paper-faint);margin-top:7px;}
+
+/* refined connector marker between tr_01 and tr_02 */
+.refine-marker{display:none;position:relative;margin:-6px 0 12px;padding-left:0;}
+.spine .refine-marker.show{display:flex;align-items:center;justify-content:center;}
+.refine-marker .rm-chip{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--rose);background:color-mix(in srgb,var(--rose) 12%,var(--ink-2));border:1px solid color-mix(in srgb,var(--rose) 45%,transparent);border-radius:999px;padding:3px 11px;display:inline-flex;align-items:center;gap:6px;box-shadow:0 4px 14px color-mix(in srgb,var(--rose) 18%,transparent);}
+.refine-marker .rm-chip::before{content:"↑";font-weight:700;}
+
+/* connector edge bar on active trait pointing right */
+.trait .edge-tag{position:absolute;top:18px;right:-1px;transform:translateX(100%);background:var(--tk);color:#fff;font-family:var(--mono);font-size:9px;font-weight:500;padding:3px 8px;border-radius:0 7px 7px 0;white-space:nowrap;opacity:0;transition:opacity .2s ease;pointer-events:none;letter-spacing:.04em;}
+[data-theme="dark"] .trait .edge-tag{color:#11111a;}
+.trait.active .edge-tag{opacity:1;}
+
+@media (max-width:1100px){.shell{grid-template-columns:200px 1fr 300px;}}
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <div class="brand">
+    <img src="/favicon.svg" width="28" height="28" alt="">
+    <span>Klavity <span class="dot-sep">·</span> Sims Studio</span>
+  </div>
+  <span class="proj-chip">Acme Corp</span>
+  <span class="spacer"></span>
+  <button class="theme-toggle" id="themeToggle">
+    <span id="themeIcon">☾</span><span id="themeLbl">Dark</span>
+  </button>
+</div>
+
+<div class="shell">
+
+  <!-- LEFT RAIL -->
+  <aside class="rail">
+    <div class="rail-head">
+      <div class="lbl chip">Sims</div>
+      <h3>Acme Corp</h3>
+    </div>
+    <div id="simList">
+      <div class="sim-item active" data-sim="sarah">
+        <div class="avatar" style="background:#6366f1">SC</div>
+        <div class="meta"><div class="nm">Sarah Chen</div><div class="rl">Procurement Lead</div></div>
+      </div>
+      <div class="sim-item" data-sim="marcus">
+        <div class="avatar" style="background:#d98324">MW</div>
+        <div class="meta"><div class="nm">Marcus Webb</div><div class="rl">Solo Founder · indie</div></div>
+      </div>
+      <div class="sim-item" data-sim="priya">
+        <div class="avatar" style="background:#0f9d6b">PN</div>
+        <div class="meta"><div class="nm">Priya Nair</div><div class="rl">QA Engineer · Internal</div></div>
+      </div>
+    </div>
+    <button class="new-sim">+ New Sim</button>
+    <div class="rail-foot">3 sims · 4 transcripts<br>Last synced Jun 10</div>
+  </aside>
+
+  <!-- CENTER DOSSIER -->
+  <main class="dossier" id="dossier">
+
+    <!-- SARAH -->
+    <section class="sim-dossier" data-dossier="sarah">
+      <div class="identity">
+        <div class="av-lg" style="background:#6366f1">SC</div>
+        <div class="who">
+          <h1>Sarah Chen</h1>
+          <div class="role">Procurement Lead · Acme Corp</div>
+          <span class="type-chip chip">Client</span>
+          <div class="summary">Buys in bulk, hates surprises at checkout, lives in spreadsheets.</div>
+        </div>
+        <button class="edit-btn">Edit</button>
+      </div>
+
+      <div class="hint">
+        <span>Hover or click a trait to trace it to what Sarah actually said.</span>
+        <span class="kbd">try the PAIN ↓</span>
+      </div>
+
+      <!-- PAIN -->
+      <div class="group-label">
+        <span class="gl-dot" style="background:var(--rose)"></span>
+        <span class="gl-txt" style="color:var(--rose)">Pain</span>
+        <span class="gl-count">1 trait</span>
+        <span class="gl-line"></span>
+      </div>
+      <article class="trait" style="--tk:var(--rose)" data-trait="pain" data-links="tr_02,tr_01">
+        <div class="t-top">
+          <span class="kind-dot"></span>
+          <span class="kind-lbl">Pain</span>
+          <span class="strength"><span class="s-lbl">strength</span><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span></span>
+        </div>
+        <div class="t-text">Gets blindsided by shipping costs only shown at the final checkout step.</div>
+        <div class="quote">“I literally don't see the freight charge until I've already entered my card — every single time.”</div>
+        <div class="prov">
+          <span class="arrow">↳</span>
+          <span class="seg">created <b>tr_01</b> · May 12</span>
+          <span class="refine-tag">refined</span>
+          <span class="seg"><b>tr_02</b> · Jun 2 · Sarah</span>
+        </div>
+        <span class="edge-tag">evidence · 2 transcripts →</span>
+      </article>
+
+      <!-- WANT -->
+      <div class="group-label">
+        <span class="gl-dot" style="background:var(--amber)"></span>
+        <span class="gl-txt" style="color:var(--amber)">Want</span>
+        <span class="gl-count">1 trait</span>
+        <span class="gl-line"></span>
+      </div>
+      <article class="trait" style="--tk:var(--amber)" data-trait="want" data-links="tr_01,tr_02">
+        <div class="t-top">
+          <span class="kind-dot"></span>
+          <span class="kind-lbl">Want</span>
+          <span class="strength"><span class="s-lbl">strength</span><span class="pip on"></span><span class="pip on"></span><span class="pip"></span></span>
+        </div>
+        <div class="t-text">Wants bulk-order CSV import instead of adding items one by one.</div>
+        <div class="quote">“If I could just upload my purchase order as a CSV, you'd save me an hour a week.”</div>
+        <div class="prov">
+          <span class="arrow">↳</span>
+          <span class="seg">from <b>tr_01</b> · May 12 · Sarah</span>
+          <span class="refine-tag">reinforced tr_02</span>
+        </div>
+        <span class="edge-tag">evidence · 2 transcripts →</span>
+      </article>
+
+      <!-- LOVE -->
+      <div class="group-label">
+        <span class="gl-dot" style="background:var(--green)"></span>
+        <span class="gl-txt" style="color:var(--green)">Love</span>
+        <span class="gl-count">1 trait</span>
+        <span class="gl-line"></span>
+      </div>
+      <article class="trait" style="--tk:var(--green)" data-trait="love" data-links="tr_01">
+        <div class="t-top">
+          <span class="kind-dot"></span>
+          <span class="kind-lbl">Love</span>
+          <span class="strength"><span class="s-lbl">strength</span><span class="pip on"></span><span class="pip"></span><span class="pip"></span></span>
+        </div>
+        <div class="t-text">Loves that the saved cart persists across devices.</div>
+        <div class="quote">“The fact my cart was still there on my phone — chef's kiss.”</div>
+        <div class="prov">
+          <span class="arrow">↳</span>
+          <span class="seg">from <b>tr_01</b> · May 12 · Sarah</span>
+        </div>
+        <span class="edge-tag">evidence · 1 transcript →</span>
+      </article>
+    </section>
+
+    <!-- MARCUS stub -->
+    <section class="sim-dossier stub" data-dossier="marcus">
+      <div class="identity">
+        <div class="av-lg" style="background:#d98324">MW</div>
+        <div class="who">
+          <h1>Marcus Webb</h1>
+          <div class="role">Solo Founder · indie SaaS</div>
+          <span class="type-chip chip">Client</span>
+          <div class="summary">Time-poor, mobile-first, abandons anything slow.</div>
+        </div>
+        <button class="edit-btn">Edit</button>
+      </div>
+      <div class="group-label"><span class="gl-dot" style="background:var(--paper-faint)"></span><span class="gl-txt" style="color:var(--paper-dim)">Traits</span><span class="gl-line"></span></div>
+      <article class="trait" style="--tk:var(--paper-faint);cursor:default" >
+        <div class="t-text" style="color:var(--paper-dim)">2 traits extracted from <b>tr_03</b>. Select to expand Marcus's full dossier.</div>
+        <div class="prov"><span class="arrow">↳</span><span class="seg">from <b>tr_03</b> · May 20 · Marcus</span></div>
+      </article>
+    </section>
+
+    <!-- PRIYA stub -->
+    <section class="sim-dossier stub" data-dossier="priya">
+      <div class="identity">
+        <div class="av-lg" style="background:#0f9d6b">PN</div>
+        <div class="who">
+          <h1>Priya Nair</h1>
+          <div class="role">QA Engineer · Internal</div>
+          <span class="type-chip internal chip">Internal</span>
+          <div class="summary">Detail-obsessed, files everything, regression hawk.</div>
+        </div>
+        <button class="edit-btn">Edit</button>
+      </div>
+      <div class="group-label"><span class="gl-dot" style="background:var(--paper-faint)"></span><span class="gl-txt" style="color:var(--paper-dim)">Traits</span><span class="gl-line"></span></div>
+      <article class="trait" style="--tk:var(--paper-faint);cursor:default">
+        <div class="t-text" style="color:var(--paper-dim)">2 traits extracted from <b>tr_04</b>. Select to expand Priya's full dossier.</div>
+        <div class="prov"><span class="arrow">↳</span><span class="seg">from <b>tr_04</b> · Jun 10 · Priya</span></div>
+      </article>
+    </section>
+  </main>
+
+  <!-- RIGHT SPINE -->
+  <aside class="spine" id="spine">
+    <div class="spine-head">
+      <div class="lbl chip">Transcript Spine</div>
+      <h3>Source of truth</h3>
+      <p>Every trait traces here. Newest first.</p>
+    </div>
+    <div class="timeline">
+
+      <!-- tr_04 -->
+      <div class="tnode" data-node="tr_04">
+        <span class="tdot"></span>
+        <div class="tcard">
+          <h4>QA triage sync</h4>
+          <div class="speakers">Priya Nair</div>
+          <div class="tdate"><span>tr_04 · 2026-06-10</span></div>
+          <div class="evidence"></div>
+        </div>
+      </div>
+
+      <!-- tr_02 -->
+      <div class="tnode" data-node="tr_02">
+        <span class="tdot"></span>
+        <div class="tcard" data-traits="pain,want">
+          <h4>Acme follow-up — checkout pain</h4>
+          <div class="speakers">Sarah Chen</div>
+          <div class="tdate"><span>tr_02 · 2026-06-02</span><span class="extract">2 traits</span></div>
+          <div class="evidence"
+            data-pain-q="I literally don't see the freight charge until I've already entered my card — every single time."
+            data-pain-by="Sarah Chen · tr_02 · Jun 2, 2026"
+            data-want-q="(reinforced) bulk CSV import would save an hour a week."
+            data-want-by="Sarah Chen · tr_02 · Jun 2, 2026"></div>
+        </div>
+      </div>
+
+      <!-- refine marker (sits between tr_02 and tr_01 visually) -->
+      <div class="refine-marker" id="refineMarker">
+        <span class="rm-chip">refined from below · May 12 → Jun 2</span>
+      </div>
+
+      <!-- tr_03 -->
+      <div class="tnode" data-node="tr_03">
+        <span class="tdot"></span>
+        <div class="tcard">
+          <h4>Marcus discovery</h4>
+          <div class="speakers">Marcus Webb</div>
+          <div class="tdate"><span>tr_03 · 2026-05-20</span></div>
+          <div class="evidence"></div>
+        </div>
+      </div>
+
+      <!-- tr_01 -->
+      <div class="tnode" data-node="tr_01">
+        <span class="tdot"></span>
+        <div class="tcard" data-traits="pain,want,love">
+          <h4>Acme onboarding call</h4>
+          <div class="speakers">Sarah Chen, Dan (PM)</div>
+          <div class="tdate"><span>tr_01 · 2026-05-12</span><span class="extract">3 traits</span></div>
+          <div class="evidence"
+            data-pain-q="Checkout is confusing — I'm never sure what the final total will be."
+            data-pain-by="Sarah Chen · tr_01 · May 12, 2026  ·  (origin — later refined)"
+            data-want-q="If I could just upload my purchase order as a CSV, you'd save me an hour a week."
+            data-want-by="Sarah Chen · tr_01 · May 12, 2026"
+            data-love-q="The fact my cart was still there on my phone — chef's kiss."
+            data-love-by="Sarah Chen · tr_01 · May 12, 2026"></div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  /* ---- theme toggle ---- */
+  var root=document.documentElement, tBtn=document.getElementById('themeToggle'),
+      tIcon=document.getElementById('themeIcon'), tLbl=document.getElementById('themeLbl');
+  tBtn.addEventListener('click',function(){
+    var dark=root.getAttribute('data-theme')==='dark';
+    root.setAttribute('data-theme',dark?'light':'dark');
+    tIcon.textContent=dark?'☾':'☀';
+    tLbl.textContent=dark?'Dark':'Light';
+  });
+
+  /* ---- sim switching ---- */
+  var simItems=document.querySelectorAll('.sim-item');
+  var dossiers=document.querySelectorAll('.sim-dossier');
+  simItems.forEach(function(it){
+    it.addEventListener('click',function(){
+      simItems.forEach(function(s){s.classList.remove('active');});
+      it.classList.add('active');
+      var sim=it.getAttribute('data-sim');
+      dossiers.forEach(function(d){
+        d.classList.toggle('stub', d.getAttribute('data-dossier')!==sim);
+      });
+      clearAll();
+    });
+  });
+
+  /* ---- attribution engine ---- */
+  var spine=document.getElementById('spine');
+  var refineMarker=document.getElementById('refineMarker');
+  var KIND={pain:getCss('--rose'),want:getCss('--amber'),love:getCss('--green')};
+  function getCss(v){return getComputedStyle(root).getPropertyValue(v).trim();}
+
+  var traitEls=document.querySelectorAll('.trait[data-trait]');
+  var nodeEls=document.querySelectorAll('.tnode[data-node]');
+  var pinned=null;
+
+  function clearAll(){
+    document.querySelectorAll('.trait').forEach(function(t){t.classList.remove('active');});
+    spine.classList.remove('has-active');
+    refineMarker.classList.remove('show');
+    nodeEls.forEach(function(n){
+      n.querySelector('.tcard').classList.remove('lit');
+      n.querySelector('.tdot').classList.remove('lit');
+      var card=n.querySelector('.tcard');
+      card.style.removeProperty('--lk');
+      n.querySelector('.tdot').style.removeProperty('--lk');
+      var ev=n.querySelector('.evidence');
+      ev.innerHTML='';
+    });
+  }
+
+  /* light up the transcripts a trait links to */
+  function activateTrait(traitEl){
+    clearAll();
+    traitEl.classList.add('active');
+    spine.classList.add('has-active');
+    var kind=traitEl.getAttribute('data-trait');
+    var color=KIND[kind]||getCss('--indigo');
+    var links=traitEl.getAttribute('data-links').split(',');
+    links.forEach(function(id){
+      var node=document.querySelector('.tnode[data-node="'+id+'"]');
+      if(!node) return;
+      var card=node.querySelector('.tcard');
+      var dot=node.querySelector('.tdot');
+      card.style.setProperty('--lk',color);
+      dot.style.setProperty('--lk',color);
+      card.classList.add('lit');
+      dot.classList.add('lit');
+      /* build evidence callout from card data */
+      var ev=node.querySelector('.evidence');
+      var q=ev.getAttribute('data-'+kind+'-q');
+      var by=ev.getAttribute('data-'+kind+'-by');
+      if(q){
+        ev.innerHTML='<div class="ev-lbl">Evidence — '+kind+'</div>'+
+          '<div class="ev-quote">“'+q+'”</div>'+
+          '<div class="ev-by">'+by+'</div>';
+      }
+    });
+    /* refine story for PAIN: both tr_01 + tr_02 lit -> show refine marker */
+    if(kind==='pain' && links.indexOf('tr_01')>-1 && links.indexOf('tr_02')>-1){
+      refineMarker.classList.add('show');
+    }
+  }
+
+  /* reverse: hovering a transcript highlights traits it produced */
+  function activateNode(node){
+    var card=node.querySelector('.tcard');
+    var traitsAttr=card.getAttribute('data-traits');
+    if(!traitsAttr){ // transcript w/ no Sarah traits — just self-lit subtle
+      clearAll();
+      spine.classList.add('has-active');
+      card.style.setProperty('--lk',getCss('--paper-faint'));
+      node.querySelector('.tdot').style.setProperty('--lk',getCss('--paper-faint'));
+      card.classList.add('lit');
+      node.querySelector('.tdot').classList.add('lit');
+      return;
+    }
+    clearAll();
+    spine.classList.add('has-active');
+    var kinds=traitsAttr.split(',');
+    /* light this card */
+    var primaryColor=KIND[kinds[0]];
+    card.style.setProperty('--lk',primaryColor);
+    node.querySelector('.tdot').style.setProperty('--lk',primaryColor);
+    card.classList.add('lit');
+    node.querySelector('.tdot').classList.add('lit');
+    /* fill evidence for first available kind */
+    var ev=node.querySelector('.evidence');
+    var q=ev.getAttribute('data-'+kinds[0]+'-q');
+    var by=ev.getAttribute('data-'+kinds[0]+'-by');
+    if(q){ ev.innerHTML='<div class="ev-lbl">Evidence — '+kinds[0]+'</div><div class="ev-quote">“'+q+'”</div><div class="ev-by">'+by+'</div>'; }
+    /* highlight matching trait cards in center */
+    kinds.forEach(function(k){
+      var t=document.querySelector('.trait[data-trait="'+k+'"]');
+      if(t) t.classList.add('active');
+    });
+  }
+
+  traitEls.forEach(function(t){
+    t.addEventListener('mouseenter',function(){ if(!pinned) activateTrait(t); });
+    t.addEventListener('mouseleave',function(){ if(!pinned) clearAll(); });
+    t.addEventListener('click',function(){
+      if(pinned===t){ pinned=null; clearAll(); }
+      else { pinned=t; activateTrait(t); }
+    });
+  });
+
+  nodeEls.forEach(function(n){
+    n.addEventListener('mouseenter',function(){ if(!pinned) activateNode(n); });
+    n.addEventListener('mouseleave',function(){ if(!pinned) clearAll(); });
+  });
+
+  /* click empty dossier space to unpin */
+  document.getElementById('dossier').addEventListener('click',function(e){
+    if(!e.target.closest('.trait[data-trait]') && pinned){ pinned=null; clearAll(); }
+  });
+})();
+</script>
+</body>
+</html>

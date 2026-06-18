@@ -1240,6 +1240,23 @@ export async function matchMonitored(projectId: string, url: string): Promise<Mo
   return null
 }
 
+export function hostOfPattern(pattern: string): string {
+  return String(pattern || "").trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/[?#].*$/, "")
+    .split("/")[0]
+    .replace(/\*+$/, "")
+    .toLowerCase()
+}
+
+export async function originAllowedForProject(projectId: string, origin: string): Promise<boolean> {
+  let host = ""
+  try { host = new URL(origin).host.toLowerCase() } catch { return false }
+  if (!host) return false
+  const rows = await listMonitoredUrls(projectId, { enabledOnly: true })
+  return rows.some(r => hostOfPattern(r.urlPattern) === host)
+}
+
 // ── monitoring consent (per-member-per-project) ──
 export type ConsentRow = { projectId: string; email: string; status: string; grantedAt: number | null; updatedAt: number }
 export async function getConsent(projectId: string, email: string): Promise<ConsentRow | null> {

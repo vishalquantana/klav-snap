@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject } from "./lib/db"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
@@ -363,9 +363,19 @@ function citationLine(c: {
 }
 
 // ── http helpers ──
+const WIDGET_CORS: Record<string, string> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "authorization, content-type",
+  "access-control-max-age": "600",
+}
+
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } })
 }
+// Widget-scoped json: always attaches WIDGET_CORS so every response (success AND error) is
+// readable cross-origin. Used for /api/personas, /api/sim/review, /api/consent only.
+function wjson(body: unknown, status = 200) { return json(body, status, WIDGET_CORS) }
 function file(path: string) { return new Response(Bun.file(path)) }
 function redirect(loc: string, headers: Record<string, string> = {}) { return new Response(null, { status: 302, headers: { Location: loc, ...headers } }) }
 function fmtUsd(n: number): string { return "$" + (Number(n) || 0).toFixed(4) }
@@ -590,6 +600,11 @@ Bun.serve({
     const url = new URL(req.url)
     const path = url.pathname
 
+    // ── CORS preflight for cross-origin widget calls ──
+    if (req.method === "OPTIONS" && path.startsWith("/api/")) {
+      return new Response(null, { status: 204, headers: WIDGET_CORS })
+    }
+
     // ── favicon ──
     if (req.method === "GET" && path === "/favicon.svg") return file(PUB + "/favicon.svg")
     if (req.method === "GET" && path === "/favicon.ico") return file(PUB + "/favicon.ico")
@@ -607,9 +622,25 @@ Bun.serve({
     if (req.method === "GET" && path === "/sim-identity") return file(PUB + "/sim-identity.html")
     if (req.method === "GET" && path === "/sim-options") return file(PUB + "/sim-options.html")
     if (req.method === "GET" && path === "/sim-component") return file(PUB + "/sim-component.html")
+    if (req.method === "GET" && path === "/sim-studio-a") return file(PUB + "/sim-studio-a-triptych.html")
+    if (req.method === "GET" && path === "/sim-studio-b") return file(PUB + "/sim-studio-b-mailbox.html")
+    if (req.method === "GET" && path === "/sim-studio-c") return file(PUB + "/sim-studio-c-evidence.html")
+    if (req.method === "GET" && path === "/sim-studio-hybrid") return file(PUB + "/sim-studio-hybrid.html")
     if (req.method === "GET" && path === "/snap-popup") return file(PUB + "/snap-popup.html")
+    if (req.method === "GET" && path === "/widget-connect") {
+      return new Response(Bun.file(PUB + "/widget-connect.html"), {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      })
+    }
     if (req.method === "GET" && path === "/intro-reel") return file(SITE + "/intro-reel.html")
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
+
+    // ── embeddable widget bundle ──
+    if (req.method === "GET" && path === "/widget.js") {
+      return new Response(Bun.file("../packages/sdk/dist/klavity-widget.iife.js"), {
+        headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" },
+      })
+    }
 
     // ── auth: request OTP ──
     if (req.method === "POST" && path === "/api/auth/request") {
@@ -857,14 +888,14 @@ Bun.serve({
     // ── personas (Sims library) — cookie OR Bearer ──
     if (path === "/api/personas" || path.startsWith("/api/personas/")) {
       const me2 = (await sessionEmail(req)) || (await bearerEmail(req))
-      if (!me2) return json({ error: "Sign in to continue." }, 401)
+      if (!me2) return wjson({ error: "Sign in to continue." }, 401)
       const proj2 = await resolveProject(me2, url.searchParams.get("project"))
-      if (!proj2) return json({ error: "No project." }, 400)
+      if (!proj2) return wjson({ error: "No project." }, 400)
       const wid = proj2.id
 
       if (req.method === "GET" && path === "/api/personas") {
         const personas = await listPersonas(wid)
-        return json({ personas })
+        return wjson({ personas })
       }
       if (req.method === "POST" && path === "/api/personas") {
         try {
@@ -880,8 +911,8 @@ Bun.serve({
             avatar: body.avatar ? String(body.avatar) : null,
           })
           const [saved] = (await listPersonas(wid)).filter(p => p.id === id)
-          return json({ persona: saved }, 201)
-        } catch (e: any) { return json({ error: e.message }, 500) }
+          return wjson({ persona: saved }, 201)
+        } catch (e: any) { return wjson({ error: e.message }, 500) }
       }
       const idMatch = path.match(/^\/api\/personas\/([^/]+)$/)
       if (idMatch) {
@@ -898,15 +929,15 @@ Bun.serve({
               insights: Array.isArray(body.insights) ? body.insights : [],
               avatar: body.avatar ? String(body.avatar) : null,
             })
-            return json({ ok: true })
-          } catch (e: any) { return json({ error: e.message }, 500) }
+            return wjson({ ok: true })
+          } catch (e: any) { return wjson({ error: e.message }, 500) }
         }
         if (req.method === "DELETE") {
           await deletePersona(pid, wid)
-          return json({ ok: true })
+          return wjson({ ok: true })
         }
       }
-      return json({ error: "Not found" }, 404)
+      return wjson({ error: "Not found" }, 404)
     }
 
     // ── extension config sync (P3b) — cookie OR Bearer. Returns, for every project the caller can see,
@@ -933,15 +964,31 @@ Bun.serve({
     // This is the per-member-per-project consent row that gate (c) requires before the first capture (§5b).
     if (req.method === "POST" && path === "/api/consent") {
       const meC = (await sessionEmail(req)) || (await bearerEmail(req))
-      if (!meC) return json({ error: "Sign in to continue." }, 401)
+      if (!meC) return wjson({ error: "Sign in to continue." }, 401)
       const body = await req.json().catch(() => ({}))
       const projC = await resolveProject(meC, String(body.projectId || "") || url.searchParams.get("project"))
-      if (!projC) return json({ error: "No project." }, 400)
+      if (!projC) return wjson({ error: "No project." }, 400)
       const status = String(body.status || "").trim()
-      if (!["granted", "paused", "revoked"].includes(status)) return json({ error: "status must be granted|paused|revoked." }, 400)
+      if (!["granted", "paused", "revoked"].includes(status)) return wjson({ error: "status must be granted|paused|revoked." }, 400)
       await setConsent(projC.id, meC, status as "granted" | "paused" | "revoked")
       const cur = await getConsent(projC.id, meC)
-      return json({ ok: true, projectId: projC.id, consent: cur?.status ?? status })
+      return wjson({ ok: true, projectId: projC.id, consent: cur?.status ?? status })
+    }
+
+    // ── widget token — mints a per-user extension token for the embeddable widget. Session-cookie gated
+    // (first-party popup only). Validates project access and that the request origin is on the allowlist.
+    if (req.method === "POST" && path === "/api/widget/token") {
+      const meW = await sessionEmail(req)            // first-party popup → cookie only
+      if (!meW) return json({ error: "Sign in to continue." }, 401)
+      const body = await req.json().catch(() => ({}))
+      const projW = await resolveProject(meW, String(body.projectId || ""))
+      if (!projW) return json({ error: "No access to this project." }, 403)
+      const origin = String(body.origin || "")
+      if (!(await originAllowedForProject(projW.id, origin))) {
+        return json({ error: "This origin is not on the project's watch list." }, 403)
+      }
+      const widgetToken = await issueExtensionToken(meW, projW.id, SESSION_DAYS * 24 * 60 * 60 * 1000)
+      return json({ token: widgetToken })
     }
 
     // ── admin pause (P3b) — project-wide review_mode 'paused' (admin pause) | 'auto' (resume). Cookie OR
@@ -1001,7 +1048,7 @@ Bun.serve({
 
         // (a) AUTH + project access. Resolve project by matchMonitored(url) when projectId is absent — but
         //     only across projects the caller can access (no cross-project leakage / off-account capture).
-        if (!meR) return json({ ok: false, reason: "unauthorized", error: "Sign in to continue." }, 401)
+        if (!meR) return wjson({ ok: false, reason: "unauthorized", error: "Sign in to continue." }, 401)
         let projectId: string | null = null
         const requestedProject = String(body.projectId || "") || url.searchParams.get("project")
         if (requestedProject) {
@@ -1014,7 +1061,7 @@ Bun.serve({
             if (await matchMonitored(p.id, pageUrl)) { projectId = p.id; break }
           }
         }
-        if (!projectId) return json({ ok: false, reason: "unauthorized", error: "No accessible project for this URL." }, 401)
+        if (!projectId) return wjson({ ok: false, reason: "unauthorized", error: "No accessible project for this URL." }, 401)
 
         // Resolve the inputs the pure gate needs (in gate order; cheap reads, no AI/S3 yet).
         const reviewMode = await getReviewMode(projectId)
@@ -1034,7 +1081,7 @@ Bun.serve({
         //     attempt it once gates a–e pass, so a blocked request never burns budget. Pre-evaluate a–e
         //     with budgetConsumed=true to find any earlier block without consuming.
         const pre = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed: true })
-        if (!pre.ok) { console.log(`[review] blocked reason=${pre.reason} path=${urlPath || "/"} sims=${targetSims.length}`); return json({ ok: false, reason: pre.reason, error: pre.message, projectId }, pre.status) }
+        if (!pre.ok) { console.log(`[review] blocked reason=${pre.reason} path=${urlPath || "/"} sims=${targetSims.length}`); return wjson({ ok: false, reason: pre.reason, error: pre.message, projectId }, pre.status) }
 
         // All of a–e passed → atomically consume one budget slot (f).
         const proj = await projectById(projectId)
@@ -1049,14 +1096,14 @@ Bun.serve({
             await insertActivity({ projectId, type: "admin_notify", actorEmail: meR, urlHost, urlPath, meta: { reason: "budget_exhausted", day, budget } })
           }
           console.log(`[review] blocked reason=${gate.reason} path=${urlPath || "/"}`)
-          return json({ ok: false, reason: gate.reason, error: gate.message, projectId }, gate.status)
+          return wjson({ ok: false, reason: gate.reason, error: gate.message, projectId }, gate.status)
         }
 
         // ── ALL GATES PASSED. Only now do we capture + review. ──
         console.log(`[review] running sims=${targetSims.length} path=${urlPath || "/"}`)
-        if (!screenshotDataUrl) return json({ ok: false, reason: "noScreenshot", error: "screenshotDataUrl is required." }, 400)
+        if (!screenshotDataUrl) return wjson({ ok: false, reason: "noScreenshot", error: "screenshotDataUrl is required." }, 400)
         const decoded = decodeDataUrl(screenshotDataUrl)
-        if (!decoded) return json({ ok: false, reason: "badScreenshot", error: "screenshotDataUrl could not be decoded." }, 400)
+        if (!decoded) return wjson({ ok: false, reason: "badScreenshot", error: "screenshotDataUrl could not be decoded." }, 400)
 
         // Store the screenshot PRIVATE (acl='private') + record the durable ledger row (P0).
         const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000 // private Sim screenshots: 30-day (§6)
@@ -1140,9 +1187,9 @@ Bun.serve({
         }
 
         console.log(`[review] done path=${urlPath || "/"} sims_reviewed=${out.length} reactions=${out.reduce((n: number, r: any) => n + (r.reactions?.length || 0), 0)}`)
-        return json({ ok: true, projectId, screenshotId, reviews: out })
+        return wjson({ ok: true, projectId, screenshotId, reviews: out })
       } catch (e: any) {
-        return json({ ok: false, reason: "error", error: e?.message || "review failed" }, 500)
+        return wjson({ ok: false, reason: "error", error: e?.message || "review failed" }, 500)
       }
     }
 
