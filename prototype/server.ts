@@ -1035,6 +1035,7 @@ Bun.serve({
         const domSig = body.domSig != null ? String(body.domSig) : null
         const screenshotDataUrl = String(body.screenshotDataUrl || "")
         const reqSimIds: string[] = Array.isArray(body.simIds) ? body.simIds.map(String) : []
+        const adhoc = body.adhoc === true
 
         // (a) AUTH + project access. Resolve project by matchMonitored(url) when projectId is absent — but
         //     only across projects the caller can access (no cross-project leakage / off-account capture).
@@ -1051,7 +1052,7 @@ Bun.serve({
             if (await matchMonitored(p.id, pageUrl)) { projectId = p.id; break }
           }
         }
-        if (!projectId) return json({ ok: false, reason: "unauthorized", error: "No accessible project for this URL." }, 401)
+        if (!projectId) return json({ ok: false, reason: "unauthorized", error: adhoc ? "Pick a project to analyze this page." : "No accessible project for this URL." }, 401)
 
         // Resolve the inputs the pure gate needs (in gate order; cheap reads, no AI/S3 yet).
         const reviewMode = await getReviewMode(projectId)
@@ -1070,7 +1071,7 @@ Bun.serve({
         // (f) budget is the LAST gate and is the ONLY side-effecting pre-check (atomic consume). We only
         //     attempt it once gates a–e pass, so a blocked request never burns budget. Pre-evaluate a–e
         //     with budgetConsumed=true to find any earlier block without consuming.
-        const pre = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed: true })
+        const pre = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed: true, adhoc })
         if (!pre.ok) { console.log(`[review] blocked reason=${pre.reason} path=${urlPath || "/"} sims=${targetSims.length}`); return json({ ok: false, reason: pre.reason, error: pre.message, projectId }, pre.status) }
 
         // All of a–e passed → atomically consume one budget slot (f).
@@ -1078,7 +1079,7 @@ Bun.serve({
         const budget = proj?.reviewBudgetDaily ?? 0
         const day = reviewDay()
         const budgetConsumed = await tryConsumeReviewBudget(projectId, day, budget ?? 0)
-        const gate = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed })
+        const gate = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed, adhoc })
         if (!gate.ok) {
           if (gate.reason === "budgetExhausted") {
             // auto-pause the project + notify the admin (§5 cost guard).
