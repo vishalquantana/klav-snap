@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.widget.config.ts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

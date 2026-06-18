@@ -162,3 +162,9 @@ test("GET /widget-connect serves HTML", async () => {
   expect((r.headers.get("content-type") || "")).toContain("text/html")
   expect(await r.text()).toContain("klavity-widget-token")
 })
+
+test("GET /widget.js serves javascript", async () => {
+  const r = await fetch(base + "/widget.js")
+  expect(r.status).toBe(200)
+  expect((r.headers.get("content-type") || "")).toContain("javascript")
+})

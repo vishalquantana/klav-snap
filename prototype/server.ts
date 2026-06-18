@@ -632,6 +632,13 @@ Bun.serve({
     if (req.method === "GET" && path === "/intro-reel") return file(SITE + "/intro-reel.html")
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
 
+    // ── embeddable widget bundle ──
+    if (req.method === "GET" && path === "/widget.js") {
+      return new Response(Bun.file("../packages/sdk/dist/klavity-widget.iife.js"), {
+        headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" },
+      })
+    }
+
     // ── auth: request OTP ──
     if (req.method === "POST" && path === "/api/auth/request") {
       try {
