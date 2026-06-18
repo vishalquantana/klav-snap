@@ -31,36 +31,103 @@ let pendingEmail = ''
 const emailEl = $('auth-email') as HTMLInputElement
 const codeEl = $('auth-code') as HTMLInputElement
 const submitEl = $('auth-submit') as HTMLButtonElement
+const silentEl = $('auth-silent') as HTMLButtonElement
+const codeActionsEl = $('auth-code-actions')
+const resendEl = $('auth-resend') as HTMLAnchorElement
+const changeEmailEl = $('auth-change-email') as HTMLAnchorElement
 const errEl = $('auth-err')
 
 function setErr(msg: string) { errEl.textContent = msg }
 
+// Move to the code-entry stage: hide email, show code + resend/change-email, hide the
+// secondary "site login" path (only relevant before a code is requested), arm the cooldown.
+function goCodeStage() {
+  stage = 'code'
+  emailEl.classList.add('hidden')
+  codeEl.classList.remove('hidden')
+  codeEl.value = ''
+  codeEl.focus()
+  submitEl.textContent = 'Verify'
+  codeActionsEl.classList.remove('hidden')
+  silentEl.classList.add('hidden')
+  $('auth-sub').textContent = `We emailed a code to ${pendingEmail}. It expires in 10 minutes.`
+  startResendCooldown(30)
+}
+
+// Back to the email stage (from "Change email"), resetting everything.
+function goEmailStage() {
+  stage = 'email'
+  setErr('')
+  if (resendTimer) { clearInterval(resendTimer); resendTimer = undefined }
+  codeEl.value = ''
+  codeEl.classList.add('hidden')
+  emailEl.classList.remove('hidden')
+  emailEl.focus()
+  submitEl.textContent = 'Send code'
+  codeActionsEl.classList.add('hidden')
+  silentEl.classList.remove('hidden')
+  $('auth-sub').textContent = "Enter your email and we'll send a 6-digit code."
+}
+
+let resendTimer: ReturnType<typeof setInterval> | undefined
+function startResendCooldown(secs: number) {
+  resendEl.classList.add('disabled')
+  let left = secs
+  const tick = () => {
+    if (left <= 0) {
+      resendEl.textContent = 'Resend code'
+      resendEl.classList.remove('disabled')
+      if (resendTimer) { clearInterval(resendTimer); resendTimer = undefined }
+      return
+    }
+    resendEl.textContent = `Resend in ${left}s`
+    left--
+  }
+  tick()
+  resendTimer = setInterval(tick, 1000)
+}
+
 submitEl.addEventListener('click', async () => {
   setErr('')
-  submitEl.disabled = true
   if (stage === 'email') {
     pendingEmail = emailEl.value.trim()
-    if (!pendingEmail.includes('@')) { setErr('Enter a valid email.'); submitEl.disabled = false; return }
+    if (!pendingEmail.includes('@')) { setErr('Enter a valid email.'); return }
+    submitEl.disabled = true; submitEl.textContent = 'Sending…'
     const r = await requestCode(pendingEmail)
     submitEl.disabled = false
-    if (!r.ok) { setErr(r.error || 'Could not send code.'); return }
-    stage = 'code'
-    emailEl.classList.add('hidden')
-    codeEl.classList.remove('hidden')
-    codeEl.focus()
-    submitEl.textContent = 'Verify'
-    $('auth-sub').textContent = `We emailed a code to ${pendingEmail}.`
+    if (!r.ok) { submitEl.textContent = 'Send code'; setErr(r.error || 'Could not send code.'); return }
+    goCodeStage()
   } else {
     const code = codeEl.value.trim()
-    if (!/^\d{4,8}$/.test(code)) { setErr('Enter the code from your email.'); submitEl.disabled = false; return }
+    if (!/^\d{4,8}$/.test(code)) { setErr('Enter the code from your email.'); return }
+    submitEl.disabled = true; submitEl.textContent = 'Verifying…'
     const r = await verifyCode(pendingEmail, code)
     submitEl.disabled = false
-    if (!r.ok) { setErr(r.error || 'Invalid or expired code.'); return }
+    submitEl.textContent = 'Verify'
+    if (!r.ok) { setErr(r.error || 'Invalid or expired code.'); codeEl.value = ''; codeEl.focus(); return }
     showApp()
   }
 })
 
-$('auth-silent').addEventListener('click', async () => {
+resendEl.addEventListener('click', async (e) => {
+  e.preventDefault()
+  if (resendEl.classList.contains('disabled')) return
+  setErr('')
+  resendEl.classList.add('disabled'); resendEl.textContent = 'Sending…'
+  const r = await requestCode(pendingEmail)
+  if (!r.ok) {
+    setErr(r.error || 'Could not resend code.')
+    resendEl.classList.remove('disabled'); resendEl.textContent = 'Resend code'
+    return
+  }
+  $('auth-sub').textContent = `New code sent to ${pendingEmail}. It expires in 10 minutes.`
+  codeEl.value = ''; codeEl.focus()
+  startResendCooldown(30)
+})
+
+changeEmailEl.addEventListener('click', (e) => { e.preventDefault(); goEmailStage() })
+
+silentEl.addEventListener('click', async () => {
   setErr('')
   if (await trySilentLogin() && await isSignedIn()) showApp()
   else setErr('Not signed in on the website yet — enter your email above to get a code.')
@@ -71,11 +138,20 @@ async function renderSignedIn() {
   const result = await chrome.storage.sync.get('klavSettings')
   const s: KlavitySettings = { ...DEFAULT_SETTINGS, ...(result.klavSettings ?? {}) }
 
-  // Status dot
+  // Status dot — human-readable connection state, with an actionable nudge when nothing is set up.
   const dot = $('status-dot'); const label = $('status-label')
-  const configured = s.jira.baseUrl || s.linear.apiKey || s.github.token || s.plane.token || s.backendUrl
-  if (configured) { dot.className = 'status-dot'; label.textContent = `${s.integration}${s.backendUrl ? ' · cloud' : ' · direct'}` }
-  else { dot.className = 'status-dot err'; label.textContent = 'Not configured' }
+  label.classList.remove('actionable'); label.onclick = null
+  const cloud = !!s.backendUrl
+  const directConfigured = !!(s.jira.baseUrl || s.linear.apiKey || s.github.token || s.plane.token)
+  const niceName: Record<string, string> = { jira: 'Jira', linear: 'Linear', github: 'GitHub', plane: 'Plane' }
+  if (cloud) {
+    dot.className = 'status-dot'; label.textContent = 'Klavity Cloud'
+  } else if (directConfigured) {
+    dot.className = 'status-dot'; label.textContent = `Connected to ${niceName[s.integration] || s.integration}`
+  } else {
+    dot.className = 'status-dot err'; label.textContent = 'Not set up — open Settings'
+    label.classList.add('actionable'); label.onclick = () => chrome.runtime.openOptionsPage()
+  }
 
   // Tracker link
   const trackerLink = $('tracker-link') as HTMLAnchorElement
@@ -212,7 +288,7 @@ async function renderRecent() {
     return `${Math.round(s2 / 86400)}d ago`
   }
   if (recent.length === 0) {
-    recentList.innerHTML = '<div class="empty-state">No submissions yet. Right-click to report.</div>'
+    recentList.innerHTML = '<div class="empty-state">No reports yet. Use “Report a Bug” above to file your first.</div>'
     return
   }
   recent.slice(0, 5).forEach((item) => {

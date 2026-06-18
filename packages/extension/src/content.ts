@@ -966,6 +966,7 @@ function klavGetHost(): ShadowRoot {
       .klav-sev{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;background:#F2ECE2;color:#8A6D3B;}
       .klav-obs{font-size:13px;line-height:1.4;color:#3D3833;}
       .klav-cite{margin-top:6px;font-size:11px;color:#8A837A;font-style:italic;}
+      .klav-outcome{margin-top:7px;padding-top:6px;border-top:1px solid #EDE6DA;font-size:11px;font-weight:600;color:#6B655C;display:flex;align-items:center;gap:5px;}
       .klav-bclose{position:absolute;top:6px;right:8px;border:none;background:transparent;color:#B4ABA0;font-size:15px;cursor:pointer;}
       .klav-indicator{position:fixed;right:18px;bottom:18px;z-index:2147483647;pointer-events:auto;display:flex;align-items:center;gap:8px;background:#2D2A26;color:#FBF6EE;border-radius:999px;padding:7px 12px 7px 11px;box-shadow:0 6px 22px rgba(0,0,0,.28);font-family:system-ui,-apple-system,sans-serif;font-size:12.5px;font-weight:600;}
       .klav-dot{width:8px;height:8px;border-radius:50%;background:#7CD08F;box-shadow:0 0 0 0 rgba(124,208,143,.6);animation:klavpulse 1.8s infinite;}
@@ -990,7 +991,7 @@ function klavGetHost(): ShadowRoot {
   return klavHostRoot
 }
 
-function klavRenderBubble(r: { simName: string; initials: string; accent: string; observation?: string; severity?: string; citation?: any }) {
+function klavRenderBubble(r: { simName: string; initials: string; accent: string; observation?: string; severity?: string; citation?: any; suggestedBug?: any }) {
   const root = klavGetHost()
   const stack = root.getElementById('klav-stack')!
   const b = document.createElement('div')
@@ -999,6 +1000,10 @@ function klavRenderBubble(r: { simName: string; initials: string; accent: string
   const cite = r.citation?.sourceQuote
     ? `<div class="klav-cite">“${String(r.citation.sourceQuote).slice(0, 90)}”${r.citation.speaker ? ' — ' + r.citation.speaker : ''}</div>` : ''
   const sev = r.severity ? `<span class="klav-sev">${r.severity}</span>` : ''
+  // Make the payoff legible: every reaction is persisted server-side as a ticket in the dashboard.
+  const outcome = r.suggestedBug
+    ? `<div class="klav-outcome">🐛 Flagged as a bug · saved to your dashboard</div>`
+    : `<div class="klav-outcome">💬 Noted · saved to your dashboard</div>`
   b.innerHTML = `
     <button class="klav-bclose" aria-label="Dismiss">×</button>
     <div class="klav-bhead">
@@ -1007,6 +1012,7 @@ function klavRenderBubble(r: { simName: string; initials: string; accent: string
     </div>
     <div class="klav-obs">${(r.observation || '').replace(/</g, '&lt;')}</div>
     ${cite}
+    ${outcome}
   `
   b.querySelector('.klav-bclose')!.addEventListener('click', () => b.remove())
   stack.appendChild(b)
@@ -1191,7 +1197,7 @@ async function maybeActivate(reason: string) {
       klavReviewedRoutes.add(routeKey)
       for (const rv of body.reviews) {
         for (const r of (rv.reactions || [])) {
-          klavRenderBubble({ simName: rv.simName, initials: rv.initials, accent: rv.accent, observation: r.observation, severity: r?.suggestedBug?.severity, citation: r.citation })
+          klavRenderBubble({ simName: rv.simName, initials: rv.initials, accent: rv.accent, observation: r.observation, severity: r?.suggestedBug?.severity, citation: r.citation, suggestedBug: r?.suggestedBug })
         }
       }
     } else if (body.reason === 'alreadyReviewed') {

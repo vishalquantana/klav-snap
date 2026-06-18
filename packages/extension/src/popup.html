@@ -88,7 +88,12 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     .auth .btn-ghost{width:100%;padding:7px;border:none;border-radius:10px;background:transparent;color:var(--paper-faint);font-size:12px;cursor:pointer;margin-top:10px;}
     .auth .btn-ghost:hover{color:var(--paper-dim);}
     .auth .auth-err{color:#E94F37;font-size:12px;margin-top:8px;min-height:1em;}
+    .auth .auth-code-actions{display:flex;gap:7px;justify-content:center;align-items:center;margin-top:11px;font-size:12px;color:var(--paper-faint);}
+    .auth .auth-code-actions a{color:var(--indigo-deep);text-decoration:none;}
+    .auth .auth-code-actions a:hover{color:var(--indigo);}
+    .auth .auth-code-actions a.disabled{color:var(--paper-faint);pointer-events:none;cursor:default;}
     .auth .hidden{display:none;}
+    .status-label.actionable{cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
     .proj-select{font-size:11px;color:var(--paper-dim);background:var(--ink-3);border:1px solid var(--line);border-radius:7px;padding:3px 6px;max-width:130px;}
     .signout-btn{font-size:11px;color:var(--paper-faint);background:none;border:none;cursor:pointer;}
     .signout-btn:hover{color:var(--paper-dim);}
@@ -105,6 +110,11 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <input id="auth-email" type="email" placeholder="you@company.com" autocomplete="email" />
       <input id="auth-code" type="text" inputmode="numeric" placeholder="6-digit code" class="hidden" />
       <button id="auth-submit" class="btn-primary">Send code</button>
+      <div id="auth-code-actions" class="auth-code-actions hidden">
+        <a id="auth-resend" href="#">Resend code</a>
+        <span>·</span>
+        <a id="auth-change-email" href="#">Change email</a>
+      </div>
       <button id="auth-silent" class="btn-ghost">Already signed in on the Klavity website? Continue</button>
       <div id="auth-err" class="auth-err"></div>
     </div>
