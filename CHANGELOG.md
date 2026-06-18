@@ -10,6 +10,15 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.15.6] — 2026-06-18
+
+### Added
+- **Focused single-Sim view.** Clicking a Sim on the dashboard now deep-links into the
+  studio focused on that Sim (`?sim=`), showing its insights with provenance (source
+  quote + transcript), the source transcripts that shaped it (click to read the raw
+  call), and its evolution timeline — with a "← All Sims" back link. New read-only
+  `GET /api/sims/:id/transcripts` and `GET /api/transcripts/:id` (project-scoped).
+
 ## [0.15.5] — 2026-06-18
 
 ### Added
