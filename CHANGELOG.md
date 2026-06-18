@@ -10,6 +10,16 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.15.4] — 2026-06-18
+
+### Added
+- **Rich ticket detail panel.** Expanding a Sim ticket now shows the full
+  observation, the suggested bug (title + body), severity/sentiment/Sim chips, the
+  provenance citation, the page + time, and an inline screenshot thumbnail
+  (lazy-loaded via a short-lived signed link; click to enlarge) — alongside the
+  existing status/assignee/notes. Surfaces what the Sim already recorded; the notes
+  field now also preloads its saved value.
+
 ## [0.15.3] — 2026-06-18
 
 ### Fixed
