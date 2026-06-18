@@ -3,7 +3,7 @@
 // Bun shares one module registry across test files, so global SUMs (opsTotals/opsTodaySpend) are
 // asserted as deltas over a baseline, and group-by reads are filtered to this run's unique
 // model/project ids — never assume the ai_calls table is empty.
-import { test, expect } from "bun:test"
+import { test, expect, beforeAll } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -12,11 +12,16 @@ process.env.TURSO_DATABASE_URL = "file:" + file
 delete process.env.TURSO_AUTH_TOKEN
 
 const {
-  db, applySchema, recordAiCall,
+  reconnectDb, applySchema, recordAiCall,
   opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend,
 } = await import("./db")
 
-await applySchema(db!)
+// Shared Bun registry → re-point the db singleton at THIS file's DB before our tests run.
+let db: any
+beforeAll(async () => {
+  db = reconnectDb("file:" + file)
+  await applySchema(db)
+})
 
 const RUN = `${Date.now()}_${Math.random().toString(36).slice(2)}`
 const MODEL = `test-model-${RUN}`

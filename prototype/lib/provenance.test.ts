@@ -32,6 +32,9 @@ process.env.TURSO_DATABASE_URL = "file:" + DB_FILE
 delete process.env.TURSO_AUTH_TOKEN
 async function loadDb() {
   const m = await import("./db")
+  // Shared Bun registry → re-point the db singleton at THIS file's DB before seeding/using it,
+  // so DB-backed provenance tests can't collide with another file's fixtures.
+  m.reconnectDb("file:" + DB_FILE)
   await m.applySchema(m.db!)
   await m.migrateV2(m.db!)
   return m

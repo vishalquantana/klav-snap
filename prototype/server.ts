@@ -143,31 +143,37 @@ async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: 
   }
   return { content, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens } }
 }
-// Light repair for the JSON quirks models emit under the no-json_mode vision path:
-// trailing commas and UNQUOTED object keys (e.g. {reactions:[...]}) which throw
-// "Property name must be a string literal". Applied only as a last resort.
-function repairJSON(s: string): string {
-  return s
-    .replace(/,(\s*[}\]])/g, "$1")                              // trailing commas before } or ]
-    .replace(/([{,]\s*)([A-Za-z_$][\w$]*)(\s*:)/g, '$1"$2"$3')  // quote bare property names
-}
 function parseJSON(s: string) {
-  // Strip thinking-model traces (<think>…</think>) and markdown code fences
-  // before extraction — greedy regex breaks when thinking traces contain {…}.
+  // Strip thinking-model traces (<think>…</think>) and ALL markdown code fences (models put
+  // them anywhere, not just line-anchored). Greedy {…} extraction breaks on thinking traces, so
+  // tags go first.
   const tag = "think"
   const open = new RegExp("<" + tag + "[^>]*>[\\s\\S]*?<\\/" + tag + ">", "gi")
   const cleaned = s
     .replace(open, "")
-    .replace(/^```(?:json)?\s*/m, "")
-    .replace(/\s*```\s*$/m, "")
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
     .trim()
-  const m = cleaned.match(/\{[\s\S]*\}/)
-  const candidate = m ? m[0] : cleaned
-  // Try in order: as-is, extracted {…}, and a light repair pass (quote bare keys / drop trailing commas).
-  for (const attempt of [cleaned, candidate, repairJSON(candidate)]) {
-    try { return JSON.parse(attempt) } catch { /* try next */ }
+  const tryParse = (str: string): { ok: true; val: any } | { ok: false } => {
+    try { return { ok: true, val: JSON.parse(str) } } catch { return { ok: false } }
   }
-  console.error("parseJSON: unparseable model output (even after repair):", JSON.stringify(s.slice(0, 500)))
+  // 1) straight parse.
+  let r = tryParse(cleaned); if (r.ok) return r.val
+  // 2) extract the outermost JSON object OR array (some prompts return a top-level array).
+  const obj = cleaned.match(/\{[\s\S]*\}/)
+  const arr = cleaned.match(/\[[\s\S]*\]/)
+  const candidate = obj && (!arr || obj.index! <= arr.index!) ? obj[0] : (arr ? arr[0] : cleaned)
+  r = tryParse(candidate); if (r.ok) return r.val
+  // 3) repair the common LLM JSON glitches that throw "Property name must be a string literal":
+  //    smart quotes, trailing commas before } or ], AND unquoted bare property names
+  //    (e.g. {reactions:[...]}). Then retry.
+  const repaired = candidate
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/([{,]\s*)([A-Za-z_$][\w$]*)(\s*:)/g, '$1"$2"$3')
+  r = tryParse(repaired); if (r.ok) return r.val
+  console.error("parseJSON: unrecoverable model output:", JSON.stringify(s.slice(0, 500)))
   throw new Error("Model did not return valid JSON")
 }
 // Closed enum for issueType — same set used in EXTRACT_SYS and RECONCILE_SYS.

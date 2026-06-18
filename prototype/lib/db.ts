@@ -4,7 +4,17 @@ import { insightsFromTraits, type Trait, type TraitKind, type TraitStatus, type 
 
 const url = process.env.TURSO_DATABASE_URL
 const authToken = process.env.TURSO_AUTH_TOKEN
-export const db: Client | null = url ? createClient({ url, authToken }) : null
+export let db: Client | null = url ? createClient({ url, authToken }) : null
+
+// Test-only: re-point the shared client at a specific DB file. All test files run in ONE
+// Bun process with a shared module registry, so `db` is created exactly once at first import
+// (capturing whichever file imported it first). Without this, every DB-backed test file would
+// collide on that single DB. Each test file calls reconnectDb(its own file:) in a beforeAll so
+// its tests run against an isolated database. Never called in production.
+export function reconnectDb(dbUrl: string, token?: string): Client {
+  db = createClient({ url: dbUrl, authToken: token })
+  return db
+}
 
 export async function initDb() {
   if (!db) { console.warn("⚠  No TURSO_DATABASE_URL — login is disabled."); return }

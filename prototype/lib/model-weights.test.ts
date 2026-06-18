@@ -1,5 +1,5 @@
 // Hermetic: point the module's `db` singleton at a fresh LOCAL libsql file before importing ./db.
-import { test, expect } from "bun:test"
+import { test, expect, beforeAll } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -7,8 +7,14 @@ const file = join(tmpdir(), `klav-mw-${Date.now()}-${Math.random().toString(36).
 process.env.TURSO_DATABASE_URL = "file:" + file
 delete process.env.TURSO_AUTH_TOKEN
 
-const { db, applySchema, getModelWeights, setModelWeights } = await import("./db")
-await applySchema(db!)
+const { reconnectDb, applySchema, getModelWeights, setModelWeights } = await import("./db")
+// All test files share one Bun process/registry, so the db singleton binds to whichever file
+// imported first. Re-point it at THIS file's DB in beforeAll (runs per-file, before our tests).
+let db: any
+beforeAll(async () => {
+  db = reconnectDb("file:" + file)
+  await applySchema(db)
+})
 
 test("getModelWeights: empty when unset", async () => {
   expect(await getModelWeights()).toEqual({})

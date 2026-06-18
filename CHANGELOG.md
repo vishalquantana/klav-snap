@@ -10,6 +10,37 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.15.3] — 2026-06-18
+
+### Fixed
+- **Sim reactions silently dropped on the vision path.** `parseJSON` now also quotes
+  unquoted bare keys (the actual cause of `Property name must be a string literal`) on
+  top of the smart-quote / trailing-comma repairs — so a model's slightly-off JSON no
+  longer loses a Sim's feedback during dogfooding.
+- **Dashboard horizontal overflow** — grid columns now use `minmax(0,1fr)` so long Sim
+  names/roles can't blow the layout past the viewport (was 1940px on a 1121px screen).
+
+### Added
+- **Live observability for Sim reviews.** The extension content script logs every
+  detector decision to the console with a `[Klavity]` prefix (activate / skip-reason /
+  capture / post / response / reactions), and the server logs `[review]` lines (gate
+  outcome + reaction count) — so "are the Sims actually reviewing?" is answerable at a glance.
+
+## [0.15.2] — 2026-06-18
+
+### Fixed
+- **Test isolation across the prototype suite.** All test files run in one Bun process
+  with a shared module registry, so `db.ts`'s client (created once at import) bound to
+  whichever DB-backed test imported first — making the other files collide on that DB and
+  fail only when run together (`bun test`). Added `reconnectDb()` to `db.ts`; each
+  DB-backed test now re-points the singleton at its own temp DB in a `beforeAll`. Full
+  suite is now green run-together (112 pass / 0 fail, was ~11 fail / 4 errors).
+- **Tolerant LLM JSON parsing.** `parseJSON` (used by react/extract/reconcile) now strips
+  code fences anywhere, extracts a top-level object *or* array, and repairs the common
+  model glitches — trailing commas and smart quotes — that threw "Property name must be a
+  string literal" and silently dropped a Sim's review. Falls back to a clear error only
+  when truly unrecoverable.
+
 ## [0.15.1] — 2026-06-18
 
 ### Fixed

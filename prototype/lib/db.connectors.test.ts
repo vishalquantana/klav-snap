@@ -1,19 +1,17 @@
 // Task 1: DB layer — connectors + ticket_exports tables, ticket-meta helpers.
 // Hermetic: points module's `db` singleton at a fresh LOCAL libsql file by setting
 // TURSO_DATABASE_URL *before* importing ./db (matches ai-credits.test.ts pattern).
-import { test, expect, beforeEach } from "bun:test"
-import { createClient } from "@libsql/client"
+import { test, expect, beforeAll } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { unlinkSync } from "node:fs"
 
-// Each test file gets its own DB file; beforeEach re-initialises via applySchema+migrations.
+// Each test file gets its own DB file.
 const file = join(tmpdir(), `klav-connectors-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
 process.env.TURSO_DATABASE_URL = "file:" + file
 delete process.env.TURSO_AUTH_TOKEN
 
 const {
-  db, applySchema, migrateV2, initDb,
+  reconnectDb, applySchema, migrateV2, initDb,
   createConnector, listConnectors, getConnectorById, updateConnector,
   removeConnector, listAutoCopyConnectors,
   updateFeedbackMeta, feedbackById,
@@ -21,9 +19,14 @@ const {
   insertFeedback,
 } = await import("./db")
 
-// Seed the schema once before all tests.
-await applySchema(db!)
-await migrateV2(db!)
+// Shared Bun registry → re-point the db singleton at THIS file's DB before our tests run,
+// then seed the schema on it.
+let db: any
+beforeAll(async () => {
+  db = reconnectDb("file:" + file)
+  await applySchema(db)
+  await migrateV2(db)
+})
 
 // Helper: seed a feedback row for a given project, returns the feedback id.
 async function seedFeedback(projectId: string): Promise<string> {

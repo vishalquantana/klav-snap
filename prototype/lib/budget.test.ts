@@ -1,7 +1,7 @@
 // P3b focused tests: the atomic per-project-per-day budget cap + prefix/glob URL matching.
 // Hermetic: point the module's `db` singleton at a fresh LOCAL libsql file by setting
 // TURSO_DATABASE_URL *before* importing ./db (the client is created at import time).
-import { test, expect } from "bun:test"
+import { test, expect, beforeAll } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -10,11 +10,16 @@ process.env.TURSO_DATABASE_URL = "file:" + file
 delete process.env.TURSO_AUTH_TOKEN
 
 const {
-  db, applySchema, tryConsumeReviewBudget, reviewBudgetUsed,
+  reconnectDb, applySchema, tryConsumeReviewBudget, reviewBudgetUsed,
   addMonitoredUrl, matchMonitored, patternMatchesUrl, setMonitoredUrlEnabled, listMonitoredUrls,
 } = await import("./db")
 
-await applySchema(db!)
+// Shared Bun registry → re-point the db singleton at THIS file's DB before our tests run.
+let db: any
+beforeAll(async () => {
+  db = reconnectDb("file:" + file)
+  await applySchema(db)
+})
 
 // Bun shares one module registry across test files in a single `bun test` process, so the `db`
 // singleton (created at import time from whichever db-touching test imported first) is shared —
