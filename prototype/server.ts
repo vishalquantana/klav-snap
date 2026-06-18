@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim } from "./lib/db"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
@@ -1294,6 +1294,30 @@ Bun.serve({
           return json({ simId, name: sim.name, events: timeline })
         } catch (e: any) { return json({ error: e?.message || "evolution failed" }, 500) }
       }
+    }
+
+    // ── Sim source transcripts (the calls that shaped this Sim) — project-scoped, read-only ──
+    const simTxMatch = path.match(/^\/api\/sims\/([^/]+)\/transcripts$/)
+    if (req.method === "GET" && simTxMatch) {
+      const meST = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meST) return json({ error: "Sign in to continue." }, 401)
+      const projST = await resolveProject(meST, url.searchParams.get("project"))
+      if (!projST) return json({ error: "No project." }, 400)
+      const sim = (await listPersonas(projST.id)).find(p => p.id === simTxMatch[1])
+      if (!sim) return json({ error: "Not found" }, 404)
+      try { return json({ simId: sim.id, transcripts: await sourceTranscriptsForSim(sim.id, projST.id) }) }
+      catch (e: any) { return json({ error: e?.message || "transcripts failed" }, 500) }
+    }
+    // ── One transcript's raw text — project-scoped, read-only ──
+    const txMatch = path.match(/^\/api\/transcripts\/([^/]+)$/)
+    if (req.method === "GET" && txMatch) {
+      const meT2 = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meT2) return json({ error: "Sign in to continue." }, 401)
+      const projT2 = await resolveProject(meT2, url.searchParams.get("project"))
+      if (!projT2) return json({ error: "No project." }, 400)
+      const tr = await transcriptById(projT2.id, txMatch[1])
+      if (!tr) return json({ error: "Not found" }, 404)
+      return json({ id: tr.id, title: tr.title, rawText: tr.rawText, sourceDate: tr.sourceDate, addedBy: tr.addedBy, speakers: tr.speakers })
     }
 
     // ── everything below requires a session ──
