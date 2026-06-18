@@ -1089,7 +1089,7 @@ function klavNotice(text: string) {
 }
 
 // ── The activation entry point (pending-latest slot, shouldCapture gating). ──
-async function maybeActivate(_reason: string) {
+async function maybeActivate(reason: string) {
   // If a capture is already in flight, store the latest sig for a follow-up run.
   if (klavPendingLatest !== null) {
     // Record a newer sig for the follow-up run; 'true' means in-flight, no new sig yet.
@@ -1106,10 +1106,11 @@ async function maybeActivate(_reason: string) {
   const project = klavMatchProject(url)
   // Off-allowlist: tear down indicator and stop.
   if (!project) { klavIndicatorEl?.remove(); klavIndicatorEl = null; return }
+  console.log(`[Klavity] active on monitored URL (trigger: ${reason}) · project=${project.id} · ${location.pathname}`)
 
   const paused = await klavIsUserPaused(project.id)
   klavRenderIndicator(project.id, paused)
-  if (paused) return
+  if (paused) { console.log('[Klavity] skip: user-paused'); return }
 
   // Pre-gate using shouldCapture (pure function — no async side-effects).
   const preSig = klavDomSig()
@@ -1122,7 +1123,7 @@ async function maybeActivate(_reason: string) {
     routeCount: klavRouteCount,
     cap: MAX_REVIEWS_PER_ROUTE,
   })
-  if (!preDecision.capture) return
+  if (!preDecision.capture) { console.log(`[Klavity] skip (pre-capture): ${preDecision.reason}`); return }
 
   // Gate c (client mirror): first capture needs consent. Server re-checks authoritatively.
   if (!(await klavHasConsent(project.id))) {
@@ -1134,8 +1135,9 @@ async function maybeActivate(_reason: string) {
   klavPendingLatest = true
   const routeKey = klavNormUrl(url)
   try {
+    console.log(`[Klavity] change detected (${reason}) → capturing viewport…`)
     const dataUrl = await klavCapture()
-    if (!dataUrl) return
+    if (!dataUrl) { console.log('[Klavity] skip: capture failed/rate-limited (will retry next change)'); return }
 
     // Compute sig AFTER captureVisibleTab returns — same DOM moment as the pixels.
     const postSig = klavDomSig()
@@ -1143,6 +1145,7 @@ async function maybeActivate(_reason: string) {
     // If the DOM changed during the capture, reschedule and don't post a mismatched sig.
     if (postSig !== preSig) {
       // Treat as a new pending change; exit and let the follow-up slot handle it.
+      console.log('[Klavity] DOM changed during capture — rescheduling')
       klavPendingLatest = postSig
       return
     }
@@ -1157,13 +1160,16 @@ async function maybeActivate(_reason: string) {
       routeCount: klavRouteCount,
       cap: MAX_REVIEWS_PER_ROUTE,
     })
-    if (!postDecision.capture) return
+    if (!postDecision.capture) { console.log(`[Klavity] skip (post-capture): ${postDecision.reason}`); return }
 
+    console.log('[Klavity] posting review → server (Sims reviewing…)')
     const resp = await klavSend<{ ok: boolean; status: number; body: any }>({
       kind: 'KLAV_REVIEW', projectId: project.id, url, domSig: postSig, screenshotDataUrl: dataUrl,
     })
     const body = resp?.body || {}
     if (resp?.ok && Array.isArray(body.reviews)) {
+      const nReactions = body.reviews.reduce((n: number, rv: any) => n + (rv.reactions?.length || 0), 0)
+      console.log(`[Klavity] ✓ review done — ${body.reviews.length} sim(s), ${nReactions} reaction(s) rendered`)
       // Confirmed review: now arm cooldown, record sig, increment count.
       klavLastSentSig = postSig
       klavCooldownUntil = Date.now() + ROUTE_COOLDOWN_MS
@@ -1175,20 +1181,26 @@ async function maybeActivate(_reason: string) {
         }
       }
     } else if (body.reason === 'alreadyReviewed') {
+      console.log('[Klavity] already reviewed this view (dedup) — no new feedback')
       // Server says already reviewed — count it so we don't keep hammering.
       klavLastSentSig = postSig
       klavCooldownUntil = Date.now() + ROUTE_COOLDOWN_MS
       klavRouteCount++
       klavReviewedRoutes.add(routeKey)
     } else if (body.reason === 'needsConsent') {
+      console.log('[Klavity] server: needs consent — will re-prompt')
       // server says no consent on record — clear local cache so we re-prompt next route.
       await klavSetConsent(project.id, 'revoked')
       klavReviewedRoutes.delete(routeKey)
     } else if (body.reason === 'budgetExhausted') {
+      console.log('[Klavity] server: daily review budget exhausted — paused')
       klavNotice("Sims hit today's review budget — paused until tomorrow.")
       klavRenderIndicator(project.id, true)
     } else if (body.reason === 'paused' || body.reason === 'userPaused') {
+      console.log(`[Klavity] server: ${body.reason}`)
       klavRenderIndicator(project.id, true)
+    } else {
+      console.log(`[Klavity] no review (reason: ${body.reason || 'unknown'})`)
     }
     // 'offAllowlist' / other → silent (no spam).
   } finally {

@@ -42,14 +42,14 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .newproj input:focus{border-color:var(--indigo)}
 
 /* metrics row — the "dashboard feel": at-a-glance counts up top */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
 .stat{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px}
 .stat .n{font-family:var(--display);font-weight:500;font-size:32px;line-height:1;letter-spacing:-.02em}
 .stat .l{margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);display:flex;align-items:center;gap:6px}
 .stat .l .ic{font-size:13px}
-@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
 .card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;padding:22px}
 .card.full{grid-column:1/-1}
 .card h2{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:16px;display:flex;align-items:center;gap:8px}
@@ -87,7 +87,7 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .chip.k-love{background:rgba(15,157,107,.16);color:var(--green)}
 
 /* sims overview cards */
-.sims{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sims{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .sim{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--ink);border:1px solid var(--line);border-radius:14px;transition:border-color .2s}
 .sim:hover{border-color:var(--indigo)}
 .sim .body{flex:1;min-width:0}
@@ -127,7 +127,7 @@ details.drawer>summary::-webkit-details-marker{display:none}
 details.drawer>summary .caret{margin-left:auto;transition:transform .2s}
 details.drawer[open]>summary .caret{transform:rotate(90deg)}
 details.drawer .drawer-in{padding:0 22px 22px}
-.conngrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.conngrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .conngrid input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none}
 .conngrid input:focus{border-color:var(--indigo)}
 .flbl{display:block;font-size:12px;color:var(--paper-faint);margin-bottom:5px}
@@ -209,7 +209,7 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .conn-add-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .conn-add-head select{appearance:none;flex:1;background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:8px 28px 8px 10px;color:var(--paper);font-family:var(--body);font-size:13px;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
 .conn-add-head select:focus{border-color:var(--indigo)}
-.conn-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.conn-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:12px}
 .conn-fields .field-full{grid-column:1/-1}
 @media(max-width:760px){.conn-fields{grid-template-columns:1fr}}
 .conn-name-row{margin-bottom:10px}

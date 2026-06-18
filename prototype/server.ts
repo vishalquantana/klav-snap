@@ -143,6 +143,14 @@ async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: 
   }
   return { content, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens } }
 }
+// Light repair for the JSON quirks models emit under the no-json_mode vision path:
+// trailing commas and UNQUOTED object keys (e.g. {reactions:[...]}) which throw
+// "Property name must be a string literal". Applied only as a last resort.
+function repairJSON(s: string): string {
+  return s
+    .replace(/,(\s*[}\]])/g, "$1")                              // trailing commas before } or ]
+    .replace(/([{,]\s*)([A-Za-z_$][\w$]*)(\s*:)/g, '$1"$2"$3')  // quote bare property names
+}
 function parseJSON(s: string) {
   // Strip thinking-model traces (<think>…</think>) and markdown code fences
   // before extraction — greedy regex breaks when thinking traces contain {…}.
@@ -153,12 +161,14 @@ function parseJSON(s: string) {
     .replace(/^```(?:json)?\s*/m, "")
     .replace(/\s*```\s*$/m, "")
     .trim()
-  try { return JSON.parse(cleaned) } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/)
-    if (m) return JSON.parse(m[0])
-    console.error("parseJSON: no JSON object in model output:", JSON.stringify(s.slice(0, 500)))
-    throw new Error("Model did not return valid JSON")
+  const m = cleaned.match(/\{[\s\S]*\}/)
+  const candidate = m ? m[0] : cleaned
+  // Try in order: as-is, extracted {…}, and a light repair pass (quote bare keys / drop trailing commas).
+  for (const attempt of [cleaned, candidate, repairJSON(candidate)]) {
+    try { return JSON.parse(attempt) } catch { /* try next */ }
   }
+  console.error("parseJSON: unparseable model output (even after repair):", JSON.stringify(s.slice(0, 500)))
+  throw new Error("Model did not return valid JSON")
 }
 // Closed enum for issueType — same set used in EXTRACT_SYS and RECONCILE_SYS.
 const ISSUE_TYPE_ENUM = new Set(["label-copy", "layout", "performance", "flow", "error-handling", "accessibility", "visual"])
@@ -1013,7 +1023,7 @@ Bun.serve({
         //     attempt it once gates a–e pass, so a blocked request never burns budget. Pre-evaluate a–e
         //     with budgetConsumed=true to find any earlier block without consuming.
         const pre = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed: true })
-        if (!pre.ok) return json({ ok: false, reason: pre.reason, error: pre.message, projectId }, pre.status)
+        if (!pre.ok) { console.log(`[review] blocked reason=${pre.reason} path=${urlPath || "/"} sims=${targetSims.length}`); return json({ ok: false, reason: pre.reason, error: pre.message, projectId }, pre.status) }
 
         // All of a–e passed → atomically consume one budget slot (f).
         const proj = await projectById(projectId)
@@ -1027,10 +1037,12 @@ Bun.serve({
             await setReviewMode(projectId, "paused")
             await insertActivity({ projectId, type: "admin_notify", actorEmail: meR, urlHost, urlPath, meta: { reason: "budget_exhausted", day, budget } })
           }
+          console.log(`[review] blocked reason=${gate.reason} path=${urlPath || "/"}`)
           return json({ ok: false, reason: gate.reason, error: gate.message, projectId }, gate.status)
         }
 
         // ── ALL GATES PASSED. Only now do we capture + review. ──
+        console.log(`[review] running sims=${targetSims.length} path=${urlPath || "/"}`)
         if (!screenshotDataUrl) return json({ ok: false, reason: "noScreenshot", error: "screenshotDataUrl is required." }, 400)
         const decoded = decodeDataUrl(screenshotDataUrl)
         if (!decoded) return json({ ok: false, reason: "badScreenshot", error: "screenshotDataUrl could not be decoded." }, 400)
@@ -1116,6 +1128,7 @@ Bun.serve({
           out.push({ simId: sim.id, simName: sim.name, initials: sim.initials, accent: sim.accent, reactions })
         }
 
+        console.log(`[review] done path=${urlPath || "/"} sims_reviewed=${out.length} reactions=${out.reduce((n: number, r: any) => n + (r.reactions?.length || 0), 0)}`)
         return json({ ok: true, projectId, screenshotId, reviews: out })
       } catch (e: any) {
         return json({ ok: false, reason: "error", error: e?.message || "review failed" }, 500)
