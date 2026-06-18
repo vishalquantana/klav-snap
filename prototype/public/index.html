@@ -1346,10 +1346,22 @@ loadSavedSims()
   const btn = $('connectExtBtn')
   if (!btn) return
 
-  // Check if already connected (token saved in extension storage).
-  // We can't read chrome.storage from here, so we detect connection state
-  // by checking if the extension is installed AND we have a valid token cookie.
-  const extId = (window).__klavityExtensionId
+  // The extension's content script writes its id to a shared-DOM attribute
+  // (window.* is per-JS-world and not visible across the content/page boundary).
+  function readExtId() { return document.documentElement.dataset.klavityExtId || null }
+
+  let extId = readExtId()
+  if (!extId) {
+    // Absorb the content-script-vs-page load-order race: wait briefly for the attribute.
+    extId = await new Promise((resolve) => {
+      const obs = new MutationObserver(() => {
+        const id = readExtId()
+        if (id) { obs.disconnect(); resolve(id) }
+      })
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-klavity-ext-id'] })
+      setTimeout(() => { obs.disconnect(); resolve(readExtId()) }, 1000)
+    })
+  }
 
   if (!extId) {
     btn.textContent = 'Extension not installed'

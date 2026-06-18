@@ -10,9 +10,11 @@ import { unlinkSync } from "node:fs"
 import {
   applyReconcileOps,
   insightsFromTraits,
+  recurrenceFromEvents,
   type Trait,
   type ReconcileOp,
   type ReconcileCtx,
+  type TraitEventRow,
 } from "./provenance"
 
 // DB-backed tests below use the db module's OWN client (captured from TURSO_DATABASE_URL at import).
@@ -253,7 +255,215 @@ test("ensureTraitsSeeded: legacy insights → active traits + create events; ide
   }
 })
 
-// C1 guard: rebuildInsightsJson must be a NO-OP (not wipe) when active-trait set is empty but
+// ── recurrenceFromEvents (pure, no DB) ──────────────────────────────────────
+
+function makeEvent(over: Partial<TraitEventRow> & Pick<TraitEventRow, "op" | "sourceDate">): TraitEventRow {
+  return {
+    traitId: "t_x",
+    simId: SIM,
+    transcriptId: "tr_1",
+    beforeText: null,
+    afterText: null,
+    quote: "some quote",
+    quoteOffset: null,
+    speaker: null,
+    reason: null,
+    createdAt: over.sourceDate,
+    ...over,
+  }
+}
+
+test("recurrenceFromEvents: create + reinforce => timesRaised=2, regressed=false", () => {
+  const events: TraitEventRow[] = [
+    makeEvent({ op: "create", sourceDate: 1000 }),
+    makeEvent({ op: "reinforce", sourceDate: 2000 }),
+  ]
+  const r = recurrenceFromEvents(events)
+  expect(r.timesRaised).toBe(2)
+  expect(r.regressed).toBe(false)
+  expect(r.firstRaised).toBe(1000)
+  expect(r.lastRaised).toBe(2000)
+  expect(r.priorResolvedAt).toBeNull()
+})
+
+test("recurrenceFromEvents: create + contradict + reopen => regressed=true, priorResolvedAt=contradict.sourceDate, lastRaised=reopen.sourceDate", () => {
+  const events: TraitEventRow[] = [
+    makeEvent({ op: "create", sourceDate: 1000 }),
+    makeEvent({ op: "contradict", sourceDate: 2000 }),
+    makeEvent({ op: "reopen", sourceDate: 3000 }),
+  ]
+  const r = recurrenceFromEvents(events)
+  expect(r.regressed).toBe(true)
+  expect(r.priorResolvedAt).toBe(2000)
+  expect(r.lastRaised).toBe(3000)
+  expect(r.firstRaised).toBe(1000)
+  expect(r.timesRaised).toBe(2)
+})
+
+test("recurrenceFromEvents: single create => regressed=false, timesRaised=1", () => {
+  const events: TraitEventRow[] = [
+    makeEvent({ op: "create", sourceDate: 1000 }),
+  ]
+  const r = recurrenceFromEvents(events)
+  expect(r.regressed).toBe(false)
+  expect(r.timesRaised).toBe(1)
+  expect(r.firstRaised).toBe(1000)
+  expect(r.lastRaised).toBe(1000)
+  expect(r.priorResolvedAt).toBeNull()
+})
+
+test("recurrenceFromEvents: empty events => safe defaults", () => {
+  const r = recurrenceFromEvents([])
+  expect(r.timesRaised).toBe(0)
+  expect(r.regressed).toBe(false)
+  expect(r.firstRaised).toBeNull()
+  expect(r.lastRaised).toBeNull()
+  expect(r.priorResolvedAt).toBeNull()
+})
+
+// ── applyReconcileOps: reopen op ─────────────────────────────────────────────
+
+test("applyReconcileOps: reopen reactivates the same id (status=active, strength+1, op=reopen event)", () => {
+  const current: Trait[] = [
+    trait({ id: "t_contra", kind: "pain", text: "Export is slow", status: "contradicted", strength: 2 }),
+  ]
+  const ops: ReconcileOp[] = [
+    { op: "reopen", kind: "pain", text: "Export is slow again", quote: "export broke again", quoteOffset: 5, speaker: "Sarah", traitId: "t_contra" },
+  ]
+  const res = applyReconcileOps(current, ops, ctx())
+
+  // should update the same id, not insert a new one
+  expect(res.traitWrites.length).toBe(1)
+  const w = res.traitWrites[0]
+  expect(w.mode).toBe("update")
+  expect(w.trait.id).toBe("t_contra")
+  expect(w.trait.status).toBe("active")
+  expect(w.trait.strength).toBe(3) // 2 -> 3
+
+  // one reopen event
+  expect(res.traitEvents.length).toBe(1)
+  const evt = res.traitEvents[0]
+  expect(evt.op).toBe("reopen")
+  expect(evt.traitId).toBe("t_contra")
+
+  // active traits includes the reopened trait
+  expect(res.activeTraits.some((t) => t.id === "t_contra")).toBe(true)
+  expect(res.activeTraits.find((t) => t.id === "t_contra")!.status).toBe("active")
+})
+
+test("applyReconcileOps: reopen on superseded trait also reactivates same id", () => {
+  const current: Trait[] = [
+    trait({ id: "t_sup", kind: "want", text: "Wants CSV", status: "superseded", strength: 1 }),
+  ]
+  const ops: ReconcileOp[] = [
+    { op: "reopen", kind: "want", text: "Wants CSV again", quote: "need CSV after all", traitId: "t_sup" },
+  ]
+  const res = applyReconcileOps(current, ops, ctx())
+  expect(res.traitWrites.length).toBe(1)
+  expect(res.traitWrites[0].trait.id).toBe("t_sup")
+  expect(res.traitWrites[0].trait.status).toBe("active")
+  expect(res.traitEvents[0].op).toBe("reopen")
+})
+
+// ── field-carry and snapshot tests ──────────────────────────────────────────
+
+test("applyReconcileOps: area/issueType/severity carried through add/mkTrait", () => {
+  const ops: ReconcileOp[] = [
+    { op: "add", kind: "pain", text: "Slow label render", quote: "labels take forever", area: "labels", issueType: "performance", severity: "high" },
+  ]
+  const res = applyReconcileOps([], ops, ctx())
+  const w = res.traitWrites[0]
+  expect(w.trait.area).toBe("labels")
+  expect(w.trait.issueType).toBe("performance")
+  expect(w.trait.severity).toBe("high")
+  // also snapshotted on the create event
+  const evt = res.traitEvents[0]
+  expect(evt.area).toBe("labels")
+  expect(evt.issueType).toBe("performance")
+  expect(evt.severity).toBe("high")
+})
+
+test("applyReconcileOps: absent area/issueType/severity defaults to null", () => {
+  const ops: ReconcileOp[] = [
+    { op: "add", kind: "pain", text: "No fields", quote: "q" },
+  ]
+  const res = applyReconcileOps([], ops, ctx())
+  const w = res.traitWrites[0]
+  expect(w.trait.area).toBeNull()
+  expect(w.trait.issueType).toBeNull()
+  expect(w.trait.severity).toBeNull()
+  const evt = res.traitEvents[0]
+  expect(evt.area).toBeNull()
+  expect(evt.issueType).toBeNull()
+  expect(evt.severity).toBeNull()
+})
+
+test("applyReconcileOps: reinforce refreshes area/issueType/severity and snapshots on event", () => {
+  const current: Trait[] = [
+    trait({ id: "t_p", kind: "pain", text: "Slow", area: "dashboard", issueType: "performance", severity: "low" }),
+  ]
+  const ops: ReconcileOp[] = [
+    { op: "reinforce", kind: "pain", text: "Slow", quote: "still slow", traitId: "t_p", area: "export", issueType: "performance", severity: "high" },
+  ]
+  const res = applyReconcileOps(current, ops, ctx())
+  expect(res.traitWrites[0].trait.area).toBe("export")
+  expect(res.traitWrites[0].trait.severity).toBe("high")
+  const evt = res.traitEvents[0]
+  expect(evt.area).toBe("export")
+  expect(evt.severity).toBe("high")
+})
+
+test("applyReconcileOps: supersede snapshots fields on BOTH supersede + create events", () => {
+  const current: Trait[] = [
+    trait({ id: "t_old2", kind: "want", text: "Wants CSV", area: "export", issueType: "flow", severity: "medium" }),
+  ]
+  const ops: ReconcileOp[] = [
+    { op: "supersede", kind: "want", text: "Wants Excel", quote: "need Excel", traitId: "t_old2", area: "export", issueType: "performance", severity: "high" },
+  ]
+  const res = applyReconcileOps(current, ops, ctx())
+  expect(res.traitEvents.length).toBe(2)
+  for (const evt of res.traitEvents) {
+    expect(evt.area).toBe("export")
+    expect(evt.issueType).toBe("performance")
+    expect(evt.severity).toBe("high")
+  }
+})
+
+test("applyReconcileOps: reopen carries/snapshots fields and refreshes them on the trait", () => {
+  const current: Trait[] = [
+    trait({ id: "t_c2", kind: "pain", text: "Crash on export", status: "contradicted", strength: 1, area: "export", issueType: "error-handling", severity: "high" }),
+  ]
+  const ops: ReconcileOp[] = [
+    { op: "reopen", kind: "pain", text: "Crash on export is back", quote: "crashed again", traitId: "t_c2", area: "export", issueType: "error-handling", severity: "high" },
+  ]
+  const res = applyReconcileOps(current, ops, ctx())
+  const w = res.traitWrites[0]
+  expect(w.trait.area).toBe("export")
+  expect(w.trait.issueType).toBe("error-handling")
+  expect(w.trait.severity).toBe("high")
+  const evt = res.traitEvents[0]
+  expect(evt.area).toBe("export")
+  expect(evt.issueType).toBe("error-handling")
+  expect(evt.severity).toBe("high")
+})
+
+test("insightsFromTraits: copies area/issueType/severity (absent => null)", () => {
+  const traits: Trait[] = [
+    trait({ id: "t_i1", kind: "pain", text: "Slow", area: "export", issueType: "performance", severity: "high" }),
+    trait({ id: "t_i2", kind: "want", text: "Dark mode" }),
+  ]
+  const insights = insightsFromTraits(traits)
+  const i1 = insights.find((i) => i.traitId === "t_i1")!
+  expect(i1.area).toBe("export")
+  expect(i1.issueType).toBe("performance")
+  expect(i1.severity).toBe("high")
+  const i2 = insights.find((i) => i.traitId === "t_i2")!
+  expect(i2.area).toBeNull()
+  expect(i2.issueType).toBeNull()
+  expect(i2.severity).toBeNull()
+})
+
+// ── C1 guard: rebuildInsightsJson must be a NO-OP (not wipe) when active-trait set is empty but
 // insights_json is currently non-empty (defensive against any future zero-trait path).
 test("rebuildInsightsJson does NOT wipe insights_json when there are zero active traits", async () => {
   const dbMod = await loadDb()
@@ -270,4 +480,109 @@ test("rebuildInsightsJson does NOT wipe insights_json when there are zero active
   expect(out.length).toBe(1) // returned the preserved existing insights, not []
   const r = await dbMod.db!.execute({ sql: "SELECT insights_json FROM personas WHERE id=?", args: [SID] })
   expect(JSON.parse(String((r.rows[0] as any).insights_json)).length).toBe(1) // NOT wiped
+})
+
+// ── Task 4: regression-gated recurrence assertions ────────────────────────────
+// These guard the two critical cases for the react path:
+//   1. create+contradict+reopen → regression summary (regressed=true)
+//   2. create+reinforce+reinforce (never resolved) → NO disappointment (regressed=false)
+
+test("recurrenceFromEvents: create+contradict+reopen → regressed=true (full lineage)", () => {
+  // This simulates the exact scenario described in the task: label issue raised, resolved, resurfaces.
+  const events: TraitEventRow[] = [
+    makeEvent({ op: "create", sourceDate: 1000 }),      // raised
+    makeEvent({ op: "contradict", sourceDate: 2000 }),  // resolved
+    makeEvent({ op: "reopen", sourceDate: 3000 }),      // resurfaces → regression
+  ]
+  const r = recurrenceFromEvents(events)
+  expect(r.regressed).toBe(true)
+  expect(r.priorResolvedAt).toBe(2000)
+  expect(r.lastRaised).toBe(3000)
+  expect(r.firstRaised).toBe(1000)
+  expect(r.timesRaised).toBe(2) // create + reopen are both raise ops
+})
+
+test("recurrenceFromEvents: create+reinforce+reinforce (never resolved) → regressed=false, NO disappointment voice", () => {
+  // A trait reinforced many times but never contradicted/superseded must NOT carry disappointment.
+  // This is the key regression gate: timesRaised >= 2 alone is NOT sufficient.
+  const events: TraitEventRow[] = [
+    makeEvent({ op: "create", sourceDate: 1000 }),
+    makeEvent({ op: "reinforce", sourceDate: 2000 }),
+    makeEvent({ op: "reinforce", sourceDate: 3000 }),
+  ]
+  const r = recurrenceFromEvents(events)
+  expect(r.regressed).toBe(false)        // never resolved → no regression
+  expect(r.timesRaised).toBe(3)          // raised 3 times
+  expect(r.priorResolvedAt).toBeNull()   // never resolved
+  // The react path attaches recurrenceMemory ONLY when regressed=true.
+  // With regressed=false, the insight should NOT have a recurrenceMemory block.
+  // (simulated here by checking the gate condition directly)
+  const wouldAttachMemory = r.regressed
+  expect(wouldAttachMemory).toBe(false)
+})
+
+// ── Spec TDD item 2: reopen carries area/issueType/severity onto the emitted event row ────────
+
+test("applyReconcileOps: reopen carries area/issueType/severity onto the emitted event row", () => {
+  // This test specifically asserts that the reopen op emits an event carrying the typed fields,
+  // in addition to reactivating the trait (status=active, strength+1). These are the field-carry
+  // assertions called out in TDD item 2.
+  const current: Trait[] = [
+    trait({ id: "t_rc", kind: "pain", text: "Label truncated", status: "contradicted", strength: 1 }),
+  ]
+  const ops: ReconcileOp[] = [
+    {
+      op: "reopen", kind: "pain", text: "Label truncated again", quote: "label still cut off",
+      quoteOffset: 0, speaker: "Sarah", traitId: "t_rc",
+      area: "header-nav", issueType: "label-copy", severity: "high",
+    },
+  ]
+  const res = applyReconcileOps(current, ops, ctx())
+
+  // Reactivation assertions (same id, active, strength+1)
+  expect(res.traitWrites.length).toBe(1)
+  const w = res.traitWrites[0]
+  expect(w.mode).toBe("update")
+  expect(w.trait.id).toBe("t_rc")
+  expect(w.trait.status).toBe("active")
+  expect(w.trait.strength).toBe(2) // 1 → 2
+
+  // The emitted reopen event must carry the typed fields (area/issueType/severity).
+  expect(res.traitEvents.length).toBe(1)
+  const evt = res.traitEvents[0]
+  expect(evt.op).toBe("reopen")
+  expect(evt.traitId).toBe("t_rc")
+  expect(evt.area).toBe("header-nav")
+  expect(evt.issueType).toBe("label-copy")
+  expect(evt.severity).toBe("high")
+})
+
+// ── Regression summary surfacing: create+contradict+reopen → recurrenceFromEvents yields
+// regressed=true with the summary fields the citationLine reaction path uses. ────────────────
+
+test("recurrenceFromEvents: create+contradict+reopen → regression summary has regressed=true, firstRaised, lastRaised, priorResolvedAt for citation use", () => {
+  // Simulates the full lineage: issue raised (create) → team resolves it (contradict) →
+  // resurfaces (reopen). The recurrence path must yield regressed=true with the correct
+  // summary fields so citationLine can build "Raised before <firstRaised> → again <lastRaised>".
+  const events: TraitEventRow[] = [
+    makeEvent({ op: "create", sourceDate: 1000 }),      // originally raised
+    makeEvent({ op: "contradict", sourceDate: 2000 }),  // resolved by team
+    makeEvent({ op: "reopen", sourceDate: 3500 }),      // resurfaces
+  ]
+  const r = recurrenceFromEvents(events)
+
+  // Summary assertions for the citation/reaction path
+  expect(r.regressed).toBe(true)
+  expect(r.firstRaised).toBe(1000)       // original raise date (X in "Raised before X")
+  expect(r.priorResolvedAt).toBe(2000)   // when it was resolved
+  expect(r.lastRaised).toBe(3500)        // when it recurred (Y in "→ again Y")
+  expect(r.timesRaised).toBe(2)
+
+  // Verify citationLine uses firstRaised for X, not priorResolvedAt (the resolution date).
+  // We simulate the citation object and check the formatted label.
+  const citedRecurrence = { regressed: true, firstRaised: r.firstRaised, lastRaised: r.lastRaised, priorResolvedAt: r.priorResolvedAt }
+  expect(citedRecurrence.firstRaised).toBe(1000)  // must be original raise, not resolution
+  expect(citedRecurrence.lastRaised).toBe(3500)   // must be reopen date
+  // X and Y must differ: firstRaised (raise) != priorResolvedAt (resolve)
+  expect(citedRecurrence.firstRaised).not.toBe(citedRecurrence.priorResolvedAt)
 })

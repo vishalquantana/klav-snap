@@ -190,3 +190,99 @@ async function tableExistsT(c: Client, name: string): Promise<boolean> {
   const r = await c.execute({ sql: "SELECT name FROM sqlite_master WHERE type='table' AND name=?", args: [name] })
   return r.rows.length > 0
 }
+
+async function columnExistsT(c: Client, table: string, col: string): Promise<boolean> {
+  try {
+    const r = await c.execute(`PRAGMA table_info(${table})`)
+    return r.rows.some((x: any) => String(x.name) === col)
+  } catch { return false }
+}
+
+// PROD-SAFE ADDITIVE MIGRATION: columns added in initDb/applySchema (NOT migrateV2).
+// This test seeds a DB with migrated_v2 ALREADY set and the OLD sim_traits/trait_events shape
+// (no area/issue_type/severity), then runs applySchema() and asserts the columns appear —
+// proving that existing prod DBs (where migrateV2 is a fast no-op) get the new columns.
+test("persona-quality additive columns: migrated_v2 already set → applySchema adds area/issue_type/severity", async () => {
+  const file = join(tmpdir(), `klav-persona-q-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
+  const c = createClient({ url: "file:" + file })
+  try {
+    // Seed the schema manually to simulate an existing prod DB that has already been migrated_v2.
+    // Crucially, sim_traits and trait_events do NOT have the new columns yet.
+    await c.execute(`CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT)`)
+    await c.execute(`CREATE TABLE IF NOT EXISTS sim_traits (
+       id TEXT PRIMARY KEY, sim_id TEXT NOT NULL, project_id TEXT NOT NULL,
+       kind TEXT NOT NULL, text TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active',
+       strength INTEGER NOT NULL DEFAULT 1,
+       src_transcript_id TEXT NOT NULL, src_quote TEXT NOT NULL, src_quote_offset INTEGER,
+       src_speaker TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`)
+    await c.execute(`CREATE TABLE IF NOT EXISTS trait_events (
+       id TEXT PRIMARY KEY, trait_id TEXT NOT NULL, sim_id TEXT NOT NULL, transcript_id TEXT NOT NULL,
+       op TEXT NOT NULL, before_text TEXT, after_text TEXT, quote TEXT NOT NULL, quote_offset INTEGER,
+       speaker TEXT, source_date INTEGER NOT NULL, reason TEXT, created_at INTEGER NOT NULL)`)
+    // Seed one existing row in each table (no new columns) to verify existing rows survive.
+    await c.execute({
+      sql: `INSERT INTO sim_traits (id,sim_id,project_id,kind,text,status,strength,src_transcript_id,src_quote,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      args: ["trait_old1", "sim_1", "proj_1", "pain", "Slow export", "active", 1, "tr_1", "It is slow", 1000, 1000],
+    })
+    await c.execute({
+      sql: `INSERT INTO trait_events (id,trait_id,sim_id,transcript_id,op,quote,source_date,created_at)
+            VALUES (?,?,?,?,?,?,?,?)`,
+      args: ["tev_old1", "trait_old1", "sim_1", "tr_1", "create", "It is slow", 1000, 1000],
+    })
+    // Set migrated_v2 flag so migrateV2() returns immediately (simulating a prod DB).
+    await c.execute({
+      sql: "INSERT INTO schema_meta (key,value) VALUES (?,?)",
+      args: ["migrated_v2", String(Date.now())],
+    })
+
+    // Verify columns are NOT present before applySchema runs.
+    expect(await columnExistsT(c, "sim_traits", "area")).toBe(false)
+    expect(await columnExistsT(c, "sim_traits", "issue_type")).toBe(false)
+    expect(await columnExistsT(c, "sim_traits", "severity")).toBe(false)
+    expect(await columnExistsT(c, "trait_events", "area")).toBe(false)
+    expect(await columnExistsT(c, "trait_events", "issue_type")).toBe(false)
+    expect(await columnExistsT(c, "trait_events", "severity")).toBe(false)
+
+    // Run applySchema (same as what initDb does on every boot).
+    await applySchema(c)
+
+    // Assert the new columns exist on BOTH tables.
+    expect(await columnExistsT(c, "sim_traits", "area")).toBe(true)
+    expect(await columnExistsT(c, "sim_traits", "issue_type")).toBe(true)
+    expect(await columnExistsT(c, "sim_traits", "severity")).toBe(true)
+    expect(await columnExistsT(c, "trait_events", "area")).toBe(true)
+    expect(await columnExistsT(c, "trait_events", "issue_type")).toBe(true)
+    expect(await columnExistsT(c, "trait_events", "severity")).toBe(true)
+
+    // Existing rows survive with null in the new columns.
+    const trait = (await c.execute("SELECT * FROM sim_traits WHERE id='trait_old1'")).rows[0] as any
+    expect(trait).toBeTruthy()
+    expect(String(trait.text)).toBe("Slow export")
+    expect(trait.area).toBeNull()
+    expect(trait.issue_type).toBeNull()
+    expect(trait.severity).toBeNull()
+
+    const evt = (await c.execute("SELECT * FROM trait_events WHERE id='tev_old1'")).rows[0] as any
+    expect(evt).toBeTruthy()
+    expect(String(evt.op)).toBe("create")
+    expect(evt.area).toBeNull()
+    expect(evt.issue_type).toBeNull()
+    expect(evt.severity).toBeNull()
+
+    // Idempotent: second applySchema() call must not throw and columns still exist.
+    await applySchema(c)
+    expect(await columnExistsT(c, "sim_traits", "area")).toBe(true)
+    expect(await columnExistsT(c, "sim_traits", "issue_type")).toBe(true)
+    expect(await columnExistsT(c, "sim_traits", "severity")).toBe(true)
+    expect(await columnExistsT(c, "trait_events", "area")).toBe(true)
+    expect(await columnExistsT(c, "trait_events", "issue_type")).toBe(true)
+    expect(await columnExistsT(c, "trait_events", "severity")).toBe(true)
+    // Row count still intact after second run.
+    expect(await n(c, "SELECT COUNT(*) AS n FROM sim_traits")).toBe(1)
+    expect(await n(c, "SELECT COUNT(*) AS n FROM trait_events")).toBe(1)
+  } finally {
+    c.close()
+    rmDb(file)
+  }
+})

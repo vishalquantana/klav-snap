@@ -15,6 +15,7 @@ export async function initDb() {
   if (!(await columnExists(db, "accounts", "domain"))) {
     await db.execute("ALTER TABLE accounts ADD COLUMN domain TEXT").catch((e) => console.warn("accounts.domain ALTER skipped:", e?.message || e))
   }
+  await migrateConnectorsPlane(db)
   console.log("✓ Turso connected, schema ready")
 }
 
@@ -197,8 +198,56 @@ export async function applySchema(c: Client) {
     `CREATE INDEX IF NOT EXISTS ai_calls_created_idx ON ai_calls (created_at)`,
     `CREATE INDEX IF NOT EXISTS ai_calls_proj_idx ON ai_calls (project_id, created_at)`,
     `CREATE INDEX IF NOT EXISTS ai_calls_type_idx ON ai_calls (type, created_at)`,
+
+    // ── Cloud tickets + connectors (Task 1, additive). ──
+    // CONNECTORS — per-project external destinations (webhook/plane/github/jira/linear).
+    // config stores secret fields encrypted (callers encrypt before create/update).
+    `CREATE TABLE IF NOT EXISTS connectors (
+       id TEXT PRIMARY KEY, project_id TEXT NOT NULL, type TEXT NOT NULL, name TEXT NOT NULL,
+       config TEXT NOT NULL DEFAULT '{}', auto_copy INTEGER NOT NULL DEFAULT 0,
+       enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, created_by TEXT )`,
+    `CREATE INDEX IF NOT EXISTS idx_connectors_project ON connectors(project_id)`,
+    // TICKET EXPORTS — one row per copy-to-external action.
+    `CREATE TABLE IF NOT EXISTS ticket_exports (
+       id TEXT PRIMARY KEY, feedback_id TEXT NOT NULL, project_id TEXT NOT NULL, connector_id TEXT NOT NULL,
+       type TEXT NOT NULL, external_key TEXT, external_url TEXT, status TEXT NOT NULL,
+       error TEXT, created_at INTEGER NOT NULL, created_by TEXT )`,
+    `CREATE INDEX IF NOT EXISTS idx_texports_feedback ON ticket_exports(feedback_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_texports_project ON ticket_exports(project_id)`,
   ]
   for (const s of stmts) await c.execute(s)
+
+  // ── additive (idempotent) columns — added after the P3a tables were deployed, so existing prod
+  // DBs need these ALTERed in on every boot (migrateV2 early-returns when migrated_v2 is already
+  // set, so these MUST live here, mirroring the accounts.domain pattern in initDb). ──
+  const newTraitCols: Array<[string, string]> = [
+    ["sim_traits", "area"],
+    ["sim_traits", "issue_type"],
+    ["sim_traits", "severity"],
+    ["trait_events", "area"],
+    ["trait_events", "issue_type"],
+    ["trait_events", "severity"],
+  ]
+  for (const [table, col] of newTraitCols) {
+    if (!(await columnExists(c, table, col))) {
+      await c.execute(`ALTER TABLE ${table} ADD COLUMN ${col} TEXT`).catch((e) =>
+        console.warn(`${table}.${col} ALTER skipped:`, e?.message || e),
+      )
+    }
+  }
+  // Additive idempotent ALTERs for new feedback management columns.
+  const feedbackAlters: [string, string][] = [
+    ["status",     "TEXT NOT NULL DEFAULT 'open'"],
+    ["assignee",   "TEXT"],
+    ["notes",      "TEXT"],
+    ["updated_at", "INTEGER"],
+  ]
+  for (const [col, def] of feedbackAlters) {
+    if (!(await columnExists(c, "feedback", col))) {
+      await c.execute(`ALTER TABLE feedback ADD COLUMN ${col} ${def}`).catch((e: any) =>
+        console.warn(`feedback.${col} ALTER skipped:`, e?.message || e))
+    }
+  }
 }
 
 // ── schema_meta helpers ──
@@ -312,6 +361,35 @@ export async function migrateV2(c: Client) {
 
   // 6. flag LAST — only after every step above succeeded.
   await metaSet(c, "migrated_v2", String(Date.now()))
+}
+
+// ── Plane→connector one-time migration (guarded by schema_meta flag). ──
+// For every integrations row with scope='project' and integration='plane', insert a connectors
+// row (type='plane', auto_copy=1, enabled=1, config carries the existing encrypted token verbatim).
+// Idempotent: guarded by the connectors_plane_migrated flag.
+export async function migrateConnectorsPlane(c: Client) {
+  if (await metaGet(c, "connectors_plane_migrated")) return // already done — fast no-op on every boot
+
+  const rows = (await c.execute(
+    "SELECT owner_id, config_json FROM integrations WHERE scope='project' AND integration='plane'"
+  )).rows as any[]
+  for (const row of rows) {
+    const projectId = String(row.owner_id)
+    const rawCfg = row.config_json ? JSON.parse(String(row.config_json)) : {}
+    // carry token_enc across as key 'token' (encrypted — not decrypted here)
+    const config: Record<string, string> = {}
+    if (rawCfg.token_enc) config.token = String(rawCfg.token_enc)
+    if (rawCfg.host) config.host = String(rawCfg.host)
+    if (rawCfg.workspace) config.workspace = String(rawCfg.workspace)
+    if (rawCfg.projectId) config.project_id = String(rawCfg.projectId)
+    const id = "conn_" + crypto.randomUUID()
+    await c.execute({
+      sql: `INSERT OR IGNORE INTO connectors (id,project_id,type,name,config,auto_copy,enabled,created_at,created_by)
+            VALUES (?,?,?,?,?,?,?,?,?)`,
+      args: [id, projectId, "plane", "Plane (migrated)", JSON.stringify(config), 1, 1, Date.now(), null],
+    })
+  }
+  await metaSet(c, "connectors_plane_migrated", String(Date.now()))
 }
 
 async function tableExists(c: Client, name: string): Promise<boolean> {
@@ -864,24 +942,29 @@ function rowToTrait(x: any): Trait {
     srcQuoteOffset: x.src_quote_offset != null ? Number(x.src_quote_offset) : null,
     srcSpeaker: x.src_speaker != null ? String(x.src_speaker) : null,
     createdAt: Number(x.created_at), updatedAt: Number(x.updated_at),
+    area: x.area != null ? String(x.area) : null,
+    issueType: x.issue_type != null ? String(x.issue_type) : null,
+    severity: x.severity != null ? String(x.severity) : null,
   }
 }
 // Insert a brand-new trait. Accepts a fully-formed Trait (e.g. a TraitWrite{mode:'insert'}.trait).
 export async function insertTrait(t: Trait): Promise<string> {
   await db!.execute({
-    sql: `INSERT INTO sim_traits (id,sim_id,project_id,kind,text,status,strength,src_transcript_id,src_quote,src_quote_offset,src_speaker,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO sim_traits (id,sim_id,project_id,kind,text,status,strength,src_transcript_id,src_quote,src_quote_offset,src_speaker,area,issue_type,severity,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [t.id, t.simId, t.projectId, t.kind, t.text, t.status, t.strength,
-           t.srcTranscriptId, t.srcQuote, t.srcQuoteOffset ?? null, t.srcSpeaker ?? null, t.createdAt, t.updatedAt],
+           t.srcTranscriptId, t.srcQuote, t.srcQuoteOffset ?? null, t.srcSpeaker ?? null,
+           t.area ?? null, t.issueType ?? null, t.severity ?? null, t.createdAt, t.updatedAt],
   })
   return t.id
 }
-// Update a trait's mutable columns (text/status/strength/provenance/updatedAt) — used by reconcile writes.
+// Update a trait's mutable columns (text/status/strength/provenance/updatedAt + typed fields) — used by reconcile writes.
 export async function updateTrait(t: Trait): Promise<void> {
   await db!.execute({
-    sql: `UPDATE sim_traits SET kind=?,text=?,status=?,strength=?,src_transcript_id=?,src_quote=?,src_quote_offset=?,src_speaker=?,updated_at=? WHERE id=?`,
+    sql: `UPDATE sim_traits SET kind=?,text=?,status=?,strength=?,src_transcript_id=?,src_quote=?,src_quote_offset=?,src_speaker=?,area=?,issue_type=?,severity=?,updated_at=? WHERE id=?`,
     args: [t.kind, t.text, t.status, t.strength, t.srcTranscriptId, t.srcQuote,
-           t.srcQuoteOffset ?? null, t.srcSpeaker ?? null, t.updatedAt, t.id],
+           t.srcQuoteOffset ?? null, t.srcSpeaker ?? null,
+           t.area ?? null, t.issueType ?? null, t.severity ?? null, t.updatedAt, t.id],
   })
 }
 export async function listTraits(simId: string, opts: { activeOnly?: boolean } = {}): Promise<Trait[]> {
@@ -895,16 +978,17 @@ export async function listTraits(simId: string, opts: { activeOnly?: boolean } =
 export async function insertTraitEvent(e: TraitEventRow): Promise<string> {
   const id = "tev_" + crypto.randomUUID()
   await db!.execute({
-    sql: `INSERT INTO trait_events (id,trait_id,sim_id,transcript_id,op,before_text,after_text,quote,quote_offset,speaker,source_date,reason,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO trait_events (id,trait_id,sim_id,transcript_id,op,before_text,after_text,quote,quote_offset,speaker,source_date,reason,area,issue_type,severity,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [id, e.traitId, e.simId, e.transcriptId, e.op, e.beforeText ?? null, e.afterText ?? null,
-           e.quote, e.quoteOffset ?? null, e.speaker ?? null, e.sourceDate, e.reason ?? null, e.createdAt],
+           e.quote, e.quoteOffset ?? null, e.speaker ?? null, e.sourceDate, e.reason ?? null,
+           e.area ?? null, e.issueType ?? null, e.severity ?? null, e.createdAt],
   })
   return id
 }
-export async function listTraitEvents(simId: string): Promise<TraitEventRow[]> {
-  const r = await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? ORDER BY created_at ASC", args: [simId] })
-  return r.rows.map((x: any): TraitEventRow => ({
+
+function rowToTraitEvent(x: any): TraitEventRow {
+  return {
     traitId: String(x.trait_id), simId: String(x.sim_id), transcriptId: String(x.transcript_id),
     op: String(x.op) as TraitEventRow["op"],
     beforeText: x.before_text != null ? String(x.before_text) : null,
@@ -914,6 +998,49 @@ export async function listTraitEvents(simId: string): Promise<TraitEventRow[]> {
     sourceDate: Number(x.source_date),
     reason: x.reason != null ? String(x.reason) : null,
     createdAt: Number(x.created_at),
+    area: x.area != null ? String(x.area) : null,
+    issueType: x.issue_type != null ? String(x.issue_type) : null,
+    severity: x.severity != null ? String(x.severity) : null,
+  }
+}
+
+// List trait_events for a sim. Optional { traitId } narrows to a single trait's events (react path
+// can fetch one trait's audit chain without a full sim scan).
+export async function listTraitEvents(simId: string, opts: { traitId?: string } = {}): Promise<TraitEventRow[]> {
+  const r = opts.traitId
+    ? await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? AND trait_id=? ORDER BY created_at ASC", args: [simId, opts.traitId] })
+    : await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? ORDER BY created_at ASC", args: [simId] })
+  return r.rows.map(rowToTraitEvent)
+}
+
+// Return recently contradicted/superseded traits for the reopen feed (RECONCILE_SYS context).
+// Ordered newest-first by updated_at; limit defaults to 20.
+export type RecentlyResolvedTrait = {
+  id: string
+  kind: string
+  text: string
+  area: string | null
+  issueType: string | null
+  severity: string | null
+  status: string
+  updatedAt: number
+}
+export async function getRecentlyResolvedTraits(simId: string, limit = 20): Promise<RecentlyResolvedTrait[]> {
+  const r = await db!.execute({
+    sql: `SELECT id, kind, text, area, issue_type, severity, status, updated_at
+          FROM sim_traits WHERE sim_id=? AND status IN ('contradicted','superseded')
+          ORDER BY updated_at DESC LIMIT ?`,
+    args: [simId, limit],
+  })
+  return r.rows.map((x: any): RecentlyResolvedTrait => ({
+    id: String(x.id),
+    kind: String(x.kind),
+    text: String(x.text),
+    area: x.area != null ? String(x.area) : null,
+    issueType: x.issue_type != null ? String(x.issue_type) : null,
+    severity: x.severity != null ? String(x.severity) : null,
+    status: String(x.status),
+    updatedAt: Number(x.updated_at),
   }))
 }
 
@@ -1195,4 +1322,214 @@ export function reviewDedupeKey(simId: string, urlPath: string, domSig: string |
 // UTC day string (YYYY-MM-DD) for the per-project budget counter row.
 export function reviewDay(now = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10)
+}
+
+// ── Connectors + ticket_exports (Task 1: cloud tickets + connectors) ──
+
+export type ConnectorType = "webhook" | "plane" | "github" | "jira" | "linear"
+export type ConnectorRow = {
+  id: string
+  projectId: string
+  type: ConnectorType
+  name: string
+  config: Record<string, string>  // secret fields still encrypted — callers decrypt before use
+  autoCopy: boolean
+  enabled: boolean
+  createdAt: number
+  createdBy: string | null
+}
+export type TicketExportRow = {
+  id: string
+  feedbackId: string
+  projectId: string
+  connectorId: string
+  type: string
+  externalKey: string | null
+  externalUrl: string | null
+  status: "ok" | "failed"
+  error: string | null
+  createdAt: number
+  createdBy: string | null
+}
+
+function rowToConnector(x: any): ConnectorRow {
+  let config: Record<string, string> = {}
+  try { config = x.config ? JSON.parse(String(x.config)) : {} } catch { config = {} }
+  return {
+    id: String(x.id),
+    projectId: String(x.project_id),
+    type: String(x.type) as ConnectorType,
+    name: String(x.name),
+    config,
+    autoCopy: Number(x.auto_copy) === 1,
+    enabled: Number(x.enabled) === 1,
+    createdAt: Number(x.created_at),
+    createdBy: x.created_by != null ? String(x.created_by) : null,
+  }
+}
+
+function rowToTicketExport(x: any): TicketExportRow {
+  return {
+    id: String(x.id),
+    feedbackId: String(x.feedback_id),
+    projectId: String(x.project_id),
+    connectorId: String(x.connector_id),
+    type: String(x.type),
+    externalKey: x.external_key != null ? String(x.external_key) : null,
+    externalUrl: x.external_url != null ? String(x.external_url) : null,
+    status: String(x.status) as "ok" | "failed",
+    error: x.error != null ? String(x.error) : null,
+    createdAt: Number(x.created_at),
+    createdBy: x.created_by != null ? String(x.created_by) : null,
+  }
+}
+
+// config secrets are stored encrypted (callers encrypt before calling create/update).
+// listConnectors does NOT decrypt.
+export async function listConnectors(projectId: string): Promise<ConnectorRow[]> {
+  const r = await db!.execute({
+    sql: "SELECT * FROM connectors WHERE project_id=? ORDER BY created_at ASC",
+    args: [projectId],
+  })
+  return r.rows.map(rowToConnector)
+}
+
+export async function getConnectorById(projectId: string, id: string): Promise<ConnectorRow | null> {
+  const r = await db!.execute({
+    sql: "SELECT * FROM connectors WHERE project_id=? AND id=?",
+    args: [projectId, id],
+  })
+  return r.rows.length ? rowToConnector(r.rows[0]) : null
+}
+
+export async function createConnector(
+  projectId: string,
+  c: { type: ConnectorType; name: string; config: Record<string, string>; autoCopy: boolean; createdBy: string | null }
+): Promise<string> {
+  const id = "conn_" + crypto.randomUUID()
+  await db!.execute({
+    sql: `INSERT INTO connectors (id,project_id,type,name,config,auto_copy,enabled,created_at,created_by)
+          VALUES (?,?,?,?,?,?,?,?,?)`,
+    args: [id, projectId, c.type, c.name, JSON.stringify(c.config), c.autoCopy ? 1 : 0, 1, Date.now(), c.createdBy ?? null],
+  })
+  return id
+}
+
+export async function updateConnector(
+  projectId: string,
+  id: string,
+  patch: Partial<{ name: string; config: Record<string, string>; autoCopy: boolean; enabled: boolean }>
+): Promise<void> {
+  const sets: string[] = []
+  const args: any[] = []
+  if (patch.name !== undefined) { sets.push("name=?"); args.push(patch.name) }
+  if (patch.config !== undefined) { sets.push("config=?"); args.push(JSON.stringify(patch.config)) }
+  if (patch.autoCopy !== undefined) { sets.push("auto_copy=?"); args.push(patch.autoCopy ? 1 : 0) }
+  if (patch.enabled !== undefined) { sets.push("enabled=?"); args.push(patch.enabled ? 1 : 0) }
+  if (!sets.length) return
+  args.push(projectId, id)
+  await db!.execute({ sql: `UPDATE connectors SET ${sets.join(",")} WHERE project_id=? AND id=?`, args })
+}
+
+export async function removeConnector(projectId: string, id: string): Promise<void> {
+  await db!.execute({ sql: "DELETE FROM connectors WHERE project_id=? AND id=?", args: [projectId, id] })
+}
+
+// Only connectors that are both enabled=1 AND auto_copy=1.
+export async function listAutoCopyConnectors(projectId: string): Promise<ConnectorRow[]> {
+  const r = await db!.execute({
+    sql: "SELECT * FROM connectors WHERE project_id=? AND enabled=1 AND auto_copy=1 ORDER BY created_at ASC",
+    args: [projectId],
+  })
+  return r.rows.map(rowToConnector)
+}
+
+// Update feedback management columns. Always sets updated_at. Returns true if a row was updated
+// (i.e. the feedback belongs to the given project), false if no rows matched (cross-project guard).
+export async function updateFeedbackMeta(
+  projectId: string,
+  feedbackId: string,
+  meta: Partial<{ status: string; assignee: string | null; notes: string | null }>
+): Promise<boolean> {
+  const sets: string[] = ["updated_at=?"]
+  const args: any[] = [Date.now()]
+  if (meta.status !== undefined) { sets.push("status=?"); args.push(meta.status) }
+  if ("assignee" in meta) { sets.push("assignee=?"); args.push(meta.assignee ?? null) }
+  if ("notes" in meta) { sets.push("notes=?"); args.push(meta.notes ?? null) }
+  args.push(projectId, feedbackId)
+  const r = await db!.execute({
+    sql: `UPDATE feedback SET ${sets.join(",")} WHERE project_id=? AND id=?`,
+    args,
+  })
+  return Number(r.rowsAffected) > 0
+}
+
+// Fetch a single feedback row scoped to a project. Returns null if not found in this project.
+// Maps to camelCase including the new status/assignee/notes/updatedAt columns.
+export async function feedbackById(projectId: string, id: string): Promise<any | null> {
+  const r = await db!.execute({
+    sql: "SELECT * FROM feedback WHERE project_id=? AND id=?",
+    args: [projectId, id],
+  })
+  if (!r.rows.length) return null
+  const x = r.rows[0] as any
+  return {
+    id: String(x.id),
+    projectId: String(x.project_id),
+    simId: x.sim_id != null ? String(x.sim_id) : null,
+    actorEmail: x.actor_email != null ? String(x.actor_email) : null,
+    urlHost: x.url_host != null ? String(x.url_host) : null,
+    urlPath: x.url_path != null ? String(x.url_path) : null,
+    pageUrl: x.url_path != null ? String(x.url_path) : null,
+    observation: x.observation != null ? String(x.observation) : null,
+    sentiment: x.sentiment != null ? String(x.sentiment) : null,
+    severity: x.severity != null ? String(x.severity) : null,
+    screenshotId: x.screenshot_id != null ? String(x.screenshot_id) : null,
+    planeIssueKey: x.plane_issue_key != null ? String(x.plane_issue_key) : null,
+    planeIssueUrl: x.plane_issue_url != null ? String(x.plane_issue_url) : null,
+    status: x.status != null ? String(x.status) : "open",
+    assignee: x.assignee != null ? String(x.assignee) : null,
+    notes: x.notes != null ? String(x.notes) : null,
+    updatedAt: x.updated_at != null ? Number(x.updated_at) : null,
+    createdAt: Number(x.created_at),
+  }
+}
+
+export async function addTicketExport(
+  x: Omit<TicketExportRow, "id" | "createdAt">
+): Promise<string> {
+  const id = "exp_" + crypto.randomUUID()
+  await db!.execute({
+    sql: `INSERT INTO ticket_exports (id,feedback_id,project_id,connector_id,type,external_key,external_url,status,error,created_at,created_by)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    args: [id, x.feedbackId, x.projectId, x.connectorId, x.type, x.externalKey ?? null,
+           x.externalUrl ?? null, x.status, x.error ?? null, Date.now(), x.createdBy ?? null],
+  })
+  return id
+}
+
+export async function listTicketExports(feedbackId: string): Promise<TicketExportRow[]> {
+  const r = await db!.execute({
+    sql: "SELECT * FROM ticket_exports WHERE feedback_id=? ORDER BY created_at DESC",
+    args: [feedbackId],
+  })
+  return r.rows.map(rowToTicketExport)
+}
+
+// Batch fetch exports for a list of feedback ids. Groups newest-first per feedback id.
+// Returns a map feedbackId → TicketExportRow[].
+export async function exportsForFeedbackIds(ids: string[]): Promise<Record<string, TicketExportRow[]>> {
+  if (!ids.length) return {}
+  const placeholders = ids.map(() => "?").join(",")
+  const r = await db!.execute({
+    sql: `SELECT * FROM ticket_exports WHERE feedback_id IN (${placeholders}) ORDER BY created_at DESC`,
+    args: ids,
+  })
+  const result: Record<string, TicketExportRow[]> = {}
+  for (const row of r.rows) {
+    const x = rowToTicketExport(row as any)
+    if (!result[x.feedbackId]) result[x.feedbackId] = []
+    result[x.feedbackId].push(x)
+  }
+  return result
 }

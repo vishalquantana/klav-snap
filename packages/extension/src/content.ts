@@ -1,8 +1,3 @@
-// Expose our extension ID to the Klavity web app so it can send us a CONNECT message.
-if (location.hostname === 'klavity.quantana.top' || location.hostname === 'localhost') {
-  ;(window as any).__klavityExtensionId = chrome.runtime.id
-}
-
 import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload, ConsoleError, NetworkFailure, KlavConfig, KlavMonitoredProject } from '@klavity/core'
 import { Annotator } from '@klavity/core/annotator'
 import { cropDataUrl } from '@klavity/core/crop'

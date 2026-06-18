@@ -1,6 +1,7 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights } from "./lib/db"
-import { applyReconcileOps, type ReconcileOp, type Trait } from "./lib/provenance"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait } from "./lib/db"
+import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
+import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
 import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib/s3"
@@ -44,9 +45,14 @@ const EXTRACT_SYS =
   "type is \"client\" for an external customer/user, \"internal\" for someone on the product/company team. " +
   "Each insight is typed pain | want | love and MUST be anchored to a short verbatim quote from the transcript. " +
   "Skip a pure facilitator/interviewer who reveals no preferences of their own. Be faithful to what people actually said.\n\n" +
+  "Each insight MUST name the CONCRETE artifact (which button, label, screen, flow, API, etc.) in the text field. " +
+  "Set area to a short descriptor of the UI/domain area (e.g. \"checkout-flow\", \"export-modal\", \"onboarding\"). " +
+  "Set issueType to EXACTLY ONE of: label-copy | layout | performance | flow | error-handling | accessibility | visual (or null if it genuinely does not fit). " +
+  "Set severity to high | medium | low based on the speaker's expressed impact (or null if unclear).\n\n" +
   "Respond with ONLY a JSON object, no prose, in exactly this shape:\n" +
   '{"personas":[{"name":string,"role":string,"type":"client"|"internal","initials":string(2 uppercase letters),' +
-  '"accent":string(hex colour like #6366f1),"summary":string,"insights":[{"kind":"pain"|"want"|"love","text":string,"quote":string}]}]}'
+  '"accent":string(hex colour like #6366f1),"summary":string,"insights":[{"kind":"pain"|"want"|"love","text":string,"quote":string,' +
+  '"area":string|null,"issueType":"label-copy"|"layout"|"performance"|"flow"|"error-handling"|"accessibility"|"visual"|null,"severity":"high"|"medium"|"low"|null}]}]}'
 
 const REACT_SYS =
   "You ARE the given user persona, reviewing a screenshot of a product page as if really using it. " +
@@ -57,6 +63,11 @@ const REACT_SYS =
   "The persona's insights each carry a stable \"traitId\". For every reaction, set citedTraitIds to the list of traitIds " +
   "of the persona's documented traits that actually drove that reaction (the pains/wants/loves it stems from). " +
   "Use [] if no documented trait applies. Only ever cite traitIds present in the persona you are given.\n\n" +
+  "Some traits in the persona carry a \"recurrenceMemory\" field. When recurrenceMemory.regressed is true, the trait was " +
+  "previously resolved (the team addressed it) but has since resurfaced. In that case and ONLY that case, voice " +
+  "disappointment and include a line like \"I raised this before (YYYY-MM-DD) and it's happening again (YYYY-MM-DD)\". " +
+  "Do NOT voice disappointment or mention recurrence for traits where recurrenceMemory is absent, null, or regressed is false — " +
+  "a frequently-reinforced trait that was never resolved does not warrant disappointment.\n\n" +
   "Respond with ONLY a JSON object, no prose, in exactly this shape:\n" +
   '{"reactions":[{"observation":string(<=240 chars, first person),"sentiment":"frustrated"|"confused"|"satisfied"|"delighted"|"neutral",' +
   '"emoji":string,"targetDescription":string,"box":{"x":number,"y":number,"w":number,"h":number}|null,' +
@@ -69,20 +80,28 @@ const REACT_SYS =
 const RECONCILE_SYS =
   "You maintain a durable, provenance-tracked profile of ONE user persona (\"Sim\") as new interview/call " +
   "transcripts arrive. You are given the Sim's CURRENT traits (each a typed pain|want|love with a stable " +
-  "traitId) and ONE new transcript. Emit the MINIMAL list of operations that evolves this Sim to reflect the " +
-  "new transcript — do NOT restate unchanged traits, and do NOT invent traits the transcript does not support. " +
-  "Every op MUST be anchored to a short verbatim quote from the transcript.\n\n" +
+  "traitId) and ONE new transcript. You may also receive a RECENTLY_RESOLVED list of traits that were " +
+  "previously contradicted or superseded (resolved). Emit the MINIMAL list of operations that evolves this " +
+  "Sim to reflect the new transcript — do NOT restate unchanged traits, and do NOT invent traits the " +
+  "transcript does not support. Every op MUST be anchored to a short verbatim quote from the transcript.\n\n" +
   "Operations:\n" +
   "- add: a genuinely NEW pain/want/love not already covered (omit traitId).\n" +
   "- reinforce: the transcript restates/confirms an existing trait (set traitId; text may echo the existing text).\n" +
   "- refine: the transcript sharpens/expands an existing trait's wording (set traitId; text = the improved text).\n" +
   "- contradict: the transcript shows the Sim no longer holds an existing trait (set traitId).\n" +
-  "- supersede: an existing trait is REPLACED by a changed preference (set traitId; text = the replacement).\n\n" +
+  "- supersede: an existing trait is REPLACED by a changed preference (set traitId; text = the replacement).\n" +
+  "- reopen: a previously-resolved issue (from RECENTLY_RESOLVED) has resurfaced. Set traitId to the id of " +
+  "  the resolved trait. This reactivates the SAME trait id — use this INSTEAD of add when the transcript " +
+  "  clearly describes the same issue that was previously resolved.\n\n" +
+  "For every op, also set: area (short UI/domain area descriptor), " +
+  "issueType (EXACTLY ONE of: label-copy|layout|performance|flow|error-handling|accessibility|visual, or null), " +
+  "severity (high|medium|low based on expressed impact, or null).\n\n" +
   "Be conservative: only emit an op when the transcript clearly supports it. quote is verbatim from the transcript; " +
   "speaker is who said it; reason is a short why.\n\n" +
   "Respond with ONLY a JSON object, no prose, in exactly this shape:\n" +
-  '{"ops":[{"op":"add"|"reinforce"|"refine"|"contradict"|"supersede","kind":"pain"|"want"|"love",' +
-  '"text":string,"quote":string,"speaker":string,"traitId":string|null,"reason":string}]}'
+  '{"ops":[{"op":"add"|"reinforce"|"refine"|"contradict"|"supersede"|"reopen","kind":"pain"|"want"|"love",' +
+  '"text":string,"quote":string,"speaker":string,"traitId":string|null,"reason":string,' +
+  '"area":string|null,"issueType":"label-copy"|"layout"|"performance"|"flow"|"error-handling"|"accessibility"|"visual"|null,"severity":"high"|"medium"|"low"|null}]}'
 
 // jsonMode forces structured output — safe for text calls, but Gemini's vision path
 // via OpenRouter often returns empty content under json_object, so leave it OFF for
@@ -141,9 +160,31 @@ function parseJSON(s: string) {
     throw new Error("Model did not return valid JSON")
   }
 }
+// Closed enum for issueType — same set used in EXTRACT_SYS and RECONCILE_SYS.
+const ISSUE_TYPE_ENUM = new Set(["label-copy", "layout", "performance", "flow", "error-handling", "accessibility", "visual"])
+const SEVERITY_ENUM = new Set(["high", "medium", "low"])
+
+// Sanitize the new typed fields (area, issueType, severity) on an extracted/reconciled insight or op.
+// Returns null for any field that is absent, not a string, or outside the closed enum.
+function sanitizeTypedFields(o: any): { area: string | null; issueType: string | null; severity: string | null } {
+  const area = o.area != null && typeof o.area === "string" && o.area.trim() ? o.area.trim() : null
+  const issueType = o.issueType != null && ISSUE_TYPE_ENUM.has(String(o.issueType)) ? String(o.issueType) : null
+  const severity = o.severity != null && SEVERITY_ENUM.has(String(o.severity)) ? String(o.severity) : null
+  return { area, issueType, severity }
+}
+
 async function extractPersonas(transcript: string, ctx?: { email?: string | null; projectId?: string | null }) {
   const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000, false, { type: "extract", ...ctx })
-  return { data: parseJSON(content), usage }
+  const data = parseJSON(content)
+  // Sanitize the new typed fields on each insight in every extracted persona.
+  if (Array.isArray(data?.personas)) {
+    for (const p of data.personas) {
+      if (Array.isArray(p?.insights)) {
+        p.insights = p.insights.map((ins: any) => ({ ...ins, ...sanitizeTypedFields(ins) }))
+      }
+    }
+  }
+  return { data, usage }
 }
 async function reactToPage(persona: any, imageB64: string, mediaType: string, pageUrl: string, ctx?: { email?: string | null; projectId?: string | null }) {
   const { content, usage } = await chat([
@@ -157,30 +198,53 @@ async function reactToPage(persona: any, imageB64: string, mediaType: string, pa
 }
 
 // ── P3a reconcile: one LLM call that evolves ONE Sim against ONE transcript (§5 cost guard). ──
-// currentTraits is the Sim's ACTIVE sim_traits; returns the structured op list (LLM-free apply is
-// done by applyReconcileOps in the route). The route MUST gate this on hasReconcileRun() so we never
-// re-reconcile a (sim,transcript) pair nor touch the whole library.
-async function reconcileSim(currentTraits: Trait[], transcript: string, ctx?: { email?: string | null; projectId?: string | null }) {
+// currentTraits is the Sim's ACTIVE sim_traits; recentlyResolved feeds RECONCILE_SYS the recently
+// contradicted/superseded traits so it can emit a `reopen` targeting the same trait id when the
+// issue resurfaces. The route MUST gate this on hasReconcileRun() so we never re-reconcile a
+// (sim,transcript) pair nor touch the whole library.
+async function reconcileSim(
+  currentTraits: Trait[],
+  transcript: string,
+  opts?: { email?: string | null; projectId?: string | null; recentlyResolved?: RecentlyResolvedTrait[] },
+) {
   const traitsForLLM = currentTraits.map((t) => ({ traitId: t.id, kind: t.kind, text: t.text, strength: t.strength }))
+  const recentlyResolved = opts?.recentlyResolved ?? []
+  const resolvedForLLM = recentlyResolved.map((t) => ({ traitId: t.id, kind: t.kind, text: t.text, status: t.status }))
+  const userMsg =
+    "CURRENT TRAITS (JSON):\n" + JSON.stringify(traitsForLLM, null, 2) +
+    (resolvedForLLM.length
+      ? "\n\nRECENTLY_RESOLVED (contradicted/superseded — emit 'reopen' targeting these traitIds if the issue resurfaces):\n" +
+        JSON.stringify(resolvedForLLM, null, 2)
+      : "") +
+    "\n\nNEW TRANSCRIPT:\n\n" + transcript
   const { content, usage } = await chat([
     { role: "system", content: RECONCILE_SYS },
-    { role: "user", content:
-        "CURRENT TRAITS (JSON):\n" + JSON.stringify(traitsForLLM, null, 2) +
-        "\n\nNEW TRANSCRIPT:\n\n" + transcript },
-  ], 3000, false, { type: "reconcile", ...ctx })
+    { role: "user", content: userMsg },
+  ], 3000, false, { type: "reconcile", email: opts?.email, projectId: opts?.projectId })
   const data = parseJSON(content)
   const rawOps: any[] = Array.isArray(data?.ops) ? data.ops : []
-  const valid = new Set(["add", "reinforce", "refine", "contradict", "supersede"])
+  const valid = new Set(["add", "reinforce", "refine", "contradict", "supersede", "reopen"])
   const kinds = new Set(["pain", "want", "love"])
   // Sanitize: drop malformed ops, normalize traitId (null → undefined so applyReconcileOps treats add correctly).
+  // reopen MUST have a traitId (targeting a resolved trait); drop it if absent.
   const ops: ReconcileOp[] = rawOps
-    .filter((o) => o && valid.has(o.op) && kinds.has(o.kind) && typeof o.text === "string" && o.text.trim() && typeof o.quote === "string" && o.quote.trim())
-    .map((o) => ({
-      op: o.op, kind: o.kind, text: String(o.text), quote: String(o.quote),
-      speaker: o.speaker != null ? String(o.speaker) : null,
-      traitId: o.op === "add" || o.traitId == null ? undefined : String(o.traitId),
-      reason: o.reason != null ? String(o.reason) : undefined,
-    }))
+    .filter((o) => {
+      if (!o || !valid.has(o.op) || !kinds.has(o.kind)) return false
+      if (typeof o.text !== "string" || !o.text.trim()) return false
+      if (typeof o.quote !== "string" || !o.quote.trim()) return false
+      if (o.op === "reopen" && (o.traitId == null || !String(o.traitId).trim())) return false
+      return true
+    })
+    .map((o) => {
+      const typed = sanitizeTypedFields(o)
+      return {
+        op: o.op, kind: o.kind, text: String(o.text), quote: String(o.quote),
+        speaker: o.speaker != null ? String(o.speaker) : null,
+        traitId: o.op === "add" || o.traitId == null ? undefined : String(o.traitId),
+        reason: o.reason != null ? String(o.reason) : undefined,
+        ...typed,
+      }
+    })
   return { ops, usage }
 }
 
@@ -206,10 +270,13 @@ function matchPersonaToSim(extracted: { name: string; role?: string }, sims: { i
 
 // Resolve LLM-returned citedTraitIds → persisted citation fields ({quote, speaker, sourceDate, transcriptId}).
 // Defensive: ignores ids that don't belong to the Sim (no crash); returns empty citation when nothing matches.
+// Also computes per-trait recurrence (from trait_events) and surfaces the STRONGEST regression across all
+// matched traits (strongest = regressed=true, else pick by timesRaised).
 async function resolveCitations(simId: string | null, citedTraitIds: any): Promise<{
-  citedTraitIds: string[]; sourceQuote: string | null; speaker: string | null; sourceTranscriptId: string | null; sourceDate: number | null
+  citedTraitIds: string[]; sourceQuote: string | null; speaker: string | null; sourceTranscriptId: string | null; sourceDate: number | null;
+  recurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null
 }> {
-  const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null }
+  const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null, recurrence: null }
   if (!simId || !Array.isArray(citedTraitIds) || !citedTraitIds.length) return empty
   const want = new Set(citedTraitIds.map((x) => String(x)))
   const traits = await listTraits(simId) // all statuses — a cited trait may have since been superseded
@@ -222,22 +289,61 @@ async function resolveCitations(simId: string | null, citedTraitIds: any): Promi
     const tr = await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=?", args: [primary.srcTranscriptId] })
     if (tr.rows.length) sourceDate = Number((tr.rows[0] as any).source_date)
   }
+  // Compute recurrence for EACH cited trait, then surface the strongest regression.
+  // Fetch all events for this sim once, then filter per trait in memory.
+  let strongestRecurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null = null
+  try {
+    const allEvents: TraitEventRow[] = await listTraitEvents(simId)
+    const eventsByTrait = new Map<string, TraitEventRow[]>()
+    for (const e of allEvents) {
+      const arr = eventsByTrait.get(e.traitId) ?? []
+      arr.push(e)
+      eventsByTrait.set(e.traitId, arr)
+    }
+    for (const t of matched) {
+      const evts = eventsByTrait.get(t.id) ?? []
+      const rec = recurrenceFromEvents(evts)
+      if (!strongestRecurrence) {
+        strongestRecurrence = rec
+      } else {
+        // Prefer regressed traits; among ties prefer higher timesRaised.
+        const stronger = (rec.regressed && !strongestRecurrence.regressed) ||
+          (rec.regressed === strongestRecurrence.regressed && rec.timesRaised > strongestRecurrence.timesRaised)
+        if (stronger) strongestRecurrence = rec
+      }
+    }
+  } catch {
+    // Non-fatal: if DB is absent (test/no-db mode), skip recurrence.
+  }
   return {
     citedTraitIds: matched.map((t) => t.id),
     sourceQuote: primary.srcQuote || null,
     speaker: primary.srcSpeaker || null,
     sourceTranscriptId: primary.srcTranscriptId || null,
     sourceDate,
+    recurrence: strongestRecurrence,
   }
 }
 
-// One-line human citation for the Plane issue body: "Cited from Sarah's profile: “…” (Sarah, 2026-06-12)".
-function citationLine(c: { sourceQuote: string | null; speaker?: string | null; sourceDate: number | null }): string | null {
+// One-line human citation for the Plane issue body: "Cited from Sarah's profile: "…" (Sarah, 2026-06-12)".
+// When recurrence.regressed is true, appends a "Raised before YYYY-MM-DD → recurred YYYY-MM-DD" line.
+function citationLine(c: {
+  sourceQuote: string | null; speaker?: string | null; sourceDate: number | null;
+  recurrence?: { regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null
+}): string | null {
   if (!c.sourceQuote) return null
   const date = c.sourceDate ? new Date(c.sourceDate).toISOString().slice(0, 10) : null
   const who = c.speaker || null
   const attr = who && date ? ` (${who}, ${date})` : who ? ` (${who})` : date ? ` (${date})` : ""
-  return `Cited from Sim profile: “${c.sourceQuote}”${attr}`
+  let line = `Cited from Sim profile: "${c.sourceQuote}"${attr}`
+  // Append regression annotation only when regressed (not on mere recurrence).
+  // X = firstRaised (when the issue was originally raised), Y = lastRaised (when it recurred).
+  if (c.recurrence?.regressed && c.recurrence.firstRaised && c.recurrence.lastRaised) {
+    const raisedDate = new Date(c.recurrence.firstRaised).toISOString().slice(0, 10)
+    const againDate = new Date(c.recurrence.lastRaised).toISOString().slice(0, 10)
+    line += ` | Raised before ${raisedDate} → again ${againDate}`
+  }
+  return line
 }
 
 // ── http helpers ──
@@ -403,6 +509,56 @@ function splitUrl(pageUrl: string): { urlHost: string | null; urlPath: string | 
   catch { return { urlHost: null, urlPath: pageUrl.split(/[?#]/)[0] || null } }
 }
 
+// Build a normalized TicketPayload from a feedback row for the connector adapters.
+function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }): TicketPayload {
+  const title = fb.observation || "Sim report"
+  const lines: string[] = []
+  if (fb.observation) lines.push(fb.observation)
+  if (fb.simId) lines.push(`Sim: ${fb.simId}`)
+  const urlVal = fb.pageUrl ?? fb.urlPath ?? null
+  if (urlVal) lines.push(`URL: ${urlVal}`)
+  lines.push("Filed by Klavity Sims")
+  const body = lines.join("\n\n")
+  return {
+    title,
+    body,
+    severity: fb.severity ?? null,
+    url: urlVal,
+    simName: null, // caller may enrich; kept null here for simplicity
+    createdAt: fb.createdAt,
+    klavityUrl: `${BASE}/dashboard?project=${project.id}`,
+  }
+}
+
+// Redact secret fields in a connector config for client responses.
+// For each connector field marked secret, replaces value with "" and adds has<Key>=true.
+function redactConnectorConfig(type: string, config: Record<string, string>): Record<string, any> {
+  const connector = getConnector(type)
+  if (!connector) return config
+  const out: Record<string, any> = { ...config }
+  for (const f of connector.fields) {
+    if (f.secret) {
+      const hasKey = "has" + f.key.charAt(0).toUpperCase() + f.key.slice(1)
+      out[hasKey] = !!(config[f.key])
+      out[f.key] = ""
+    }
+  }
+  return out
+}
+
+// Format a connector row for a client response (always redacted).
+function connectorToClient(c: any): Record<string, any> {
+  return {
+    id: c.id,
+    type: c.type,
+    name: c.name,
+    autoCopy: c.autoCopy,
+    enabled: c.enabled,
+    config: redactConnectorConfig(c.type, c.config),
+    createdAt: c.createdAt,
+  }
+}
+
 Bun.serve({
   port: PORT,
   idleTimeout: 180,
@@ -484,9 +640,17 @@ Bun.serve({
           const proj = await resolveProject(email, url.searchParams.get("project"))
           const stored = (await getIntegration("user", email)) || (proj ? await getIntegration("project", proj.id) : null)
           if (stored?.config?.token_enc) {
-            planeToken = await decryptSecret(stored.config.token_enc)
-            planeWorkspace = stored.config.workspace; planeProject = stored.config.projectId
-            planeHost = (stored.config.host || "https://api.plane.so").replace(/\/+$/, "")
+            // Guard: if the project already has a migrated auto-copy Plane connector, the
+            // fire-and-forget hook (below) will handle the Plane push. Loading creds here
+            // would cause double-filing — one from the legacy inline push, one from the hook.
+            const hasPlaneConnector = proj
+              ? (await listAutoCopyConnectors(proj.id)).some(c => c.type === "plane")
+              : false
+            if (!hasPlaneConnector) {
+              planeToken = await decryptSecret(stored.config.token_enc)
+              planeWorkspace = stored.config.workspace; planeProject = stored.config.projectId
+              planeHost = (stored.config.host || "https://api.plane.so").replace(/\/+$/, "")
+            }
           }
         }
         if (!planeToken) { // direct mode (Phase 1): creds forwarded in the form
@@ -559,27 +723,75 @@ Bun.serve({
                 observation, sentiment, severity, screenshotId, suggestedBug,
                 citedTraitIds: citation.citedTraitIds.length ? citation.citedTraitIds : null,
                 sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
-                planeIssueKey: null, planeIssueUrl: null, // backfilled below if/when filed
+                planeIssueKey: null, planeIssueUrl: null,
               })
               await insertActivity({
                 projectId, type: "feedback_filed", actorEmail: actor, simId,
                 urlHost, urlPath, feedbackId, screenshotId,
               })
+
+              // ── auto-copy hook: fire-and-forget, never blocks the response ──
+              // For each enabled auto-copy connector in this project, push the ticket.
+              // Mirrors the recordAiCall fire-and-forget pattern.
+              if (feedbackId) {
+                const autoCopyFbId = feedbackId
+                const autoCopyProjectId = projectId
+                const autoCopyObservation = observation
+                const autoCopyActor = actor
+                void (async () => {
+                  try {
+                    const autoCopyConnectors = await listAutoCopyConnectors(autoCopyProjectId)
+                    for (const c of autoCopyConnectors) {
+                      const adapter = getConnector(c.type)
+                      if (!adapter) continue
+                      // Decrypt secret fields
+                      const cfg: Record<string, string> = { ...c.config }
+                      for (const f of adapter.fields) {
+                        if (f.secret && c.config[f.key]) {
+                          try { cfg[f.key] = await decryptSecret(c.config[f.key]) } catch { cfg[f.key] = "" }
+                        }
+                      }
+                      const ticketPayload: TicketPayload = {
+                        title: autoCopyObservation || "Sim report",
+                        body: [autoCopyObservation, "Filed by Klavity Sims"].filter(Boolean).join("\n\n"),
+                        severity: severity ?? null, url: urlPath ?? null, simName: null,
+                        createdAt: Date.now(), klavityUrl: `${BASE}/dashboard?project=${autoCopyProjectId}`,
+                      }
+                      try {
+                        const result = await adapter.createIssue(ticketPayload, cfg)
+                        await addTicketExport({
+                          feedbackId: autoCopyFbId, projectId: autoCopyProjectId, connectorId: c.id,
+                          type: c.type, externalKey: result.externalKey, externalUrl: result.externalUrl,
+                          status: "ok", error: null, createdBy: autoCopyActor,
+                        })
+                      } catch (e: any) {
+                        await addTicketExport({
+                          feedbackId: autoCopyFbId, projectId: autoCopyProjectId, connectorId: c.id,
+                          type: c.type, externalKey: null, externalUrl: null,
+                          status: "failed", error: e?.message || "auto-copy failed", createdBy: autoCopyActor,
+                        })
+                      }
+                    }
+                  } catch (err: any) {
+                    console.error("auto-copy hook (non-fatal):", err?.message || err)
+                  }
+                })().catch((err: any) => console.error("auto-copy hook outer (non-fatal):", err?.message || err))
+              }
             }
           } catch (persistErr: any) {
             console.error("feedback persistence (non-fatal):", persistErr?.message || persistErr)
           }
         }
 
-        // ── tracker filing is downstream and only attempted when a connection exists ──
+        // Always return success. The connector auto-copy hook is fire-and-forget above.
+        // Legacy direct-Plane mode: if the caller provided Plane creds directly (no session),
+        // still attempt the Plane push for backward-compat with the extension's direct mode.
         if (!planeConnected) {
-          // No tracker: the item is saved to Klavity. Keep the response extension-safe:
-          // backend.ts maps issueKey = jira_key ?? id, issueUrl = issue_url ?? backendUrl.
           return json({ id: feedbackId ?? "", saved: true })
         }
 
         // R8: append the Sim citation line to the issue body when this feedback cites a trait.
-        const citeLine = citation ? citationLine({ sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceDate: citation.sourceDate }) : null
+        const citeLine = citation ? citationLine({ sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceDate: citation.sourceDate, recurrence: citation.recurrence }) : null
         const description_html = buildIssueHtml(description, pageUrl, imageUrls) +
           (citeLine ? `<p><em>${escapeHtml(citeLine)}</em></p>` : "")
         const res = await fetch(`${planeHost}/api/v1/workspaces/${planeWorkspace}/projects/${planeProject}/issues/`, {
@@ -829,9 +1041,47 @@ Bun.serve({
           const sim = targetSims[i]
           // Skip a Sim whose (sim,path,domSig) was already reviewed (per-Sim dedupe; we still captured once).
           if (reviewSeen(seenKeys[i])) continue
+
+          // Build regression-gated recurrence memory for this Sim's traits. Fetch all events ONCE,
+          // group by traitId in memory, then compute recurrenceFromEvents per trait. Only attach a
+          // memory block when regressed=true — a trait reinforced many times but never resolved must
+          // NOT carry disappointment voice.
+          let simWithMemory: any = sim
+          try {
+            const allSimEvents: TraitEventRow[] = await listTraitEvents(sim.id)
+            const eventsByTrait = new Map<string, TraitEventRow[]>()
+            for (const e of allSimEvents) {
+              const arr = eventsByTrait.get(e.traitId) ?? []
+              arr.push(e)
+              eventsByTrait.set(e.traitId, arr)
+            }
+            // Attach recurrenceMemory only to traits where regressed=true.
+            const insights = Array.isArray(sim.insights) ? sim.insights : []
+            const insightsWithMemory = insights.map((ins: any) => {
+              const traitId = ins.traitId
+              if (!traitId) return ins
+              const evts = eventsByTrait.get(traitId) ?? []
+              const rec = recurrenceFromEvents(evts)
+              if (!rec.regressed) return ins // no disappointment for mere recurrence
+              return {
+                ...ins,
+                recurrenceMemory: {
+                  regressed: true,
+                  firstRaised: rec.firstRaised,
+                  lastRaised: rec.lastRaised,
+                  priorResolvedAt: rec.priorResolvedAt,
+                  timesRaised: rec.timesRaised,
+                },
+              }
+            })
+            simWithMemory = { ...sim, insights: insightsWithMemory }
+          } catch {
+            // Non-fatal: if DB is unavailable, fall back to plain sim.
+          }
+
           let reactions: any[] = []
           try {
-            const { data } = await reactToPage(sim, imageB64, decoded.contentType, urlPath || pageUrl)
+            const { data } = await reactToPage(simWithMemory, imageB64, decoded.contentType, urlPath || pageUrl)
             reactions = Array.isArray(data?.reactions) ? data.reactions : []
           } catch (e: any) {
             console.error("sim/review reactToPage (non-fatal):", e?.message || e)
@@ -847,7 +1097,7 @@ Bun.serve({
               sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
             })
             r.citation = citation.citedTraitIds.length
-              ? { citedTraitIds: citation.citedTraitIds, sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate }
+              ? { citedTraitIds: citation.citedTraitIds, sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate, recurrence: citation.recurrence }
               : null
             r.feedbackId = feedbackId
           }
@@ -911,9 +1161,21 @@ Bun.serve({
           // evolution) and rebuildInsightsJson never wipes the Sim's prior insights. Idempotent.
           await ensureTraitsSeeded(simId)
           const current = await listTraits(simId, { activeOnly: true })
-          const { ops, usage } = await reconcileSim(current, text, { email: meT, projectId })
+          // Feed the recently-resolved traits to RECONCILE_SYS so it can emit `reopen` targeting
+          // the same trait id when a previously-resolved issue resurfaces.
+          const recentlyResolved = await getRecentlyResolvedTraits(simId)
+          const { ops, usage } = await reconcileSim(current, text, { email: meT, projectId, recentlyResolved })
           reconcileUsages.push(usage)
-          const res = applyReconcileOps(current, ops, { simId, projectId, transcriptId, sourceDate })
+          // Ensure reopen target traits are included in the set passed to applyReconcileOps so they
+          // can be reactivated. They are not in `current` (activeOnly) so we load them separately.
+          const reopenIds = new Set(ops.filter((o) => o.op === "reopen" && o.traitId).map((o) => o.traitId!))
+          let traitsForApply = current
+          if (reopenIds.size > 0) {
+            const allTraits = await listTraits(simId) // all statuses
+            const resolvedTargets = allTraits.filter((t) => reopenIds.has(t.id) && t.status !== "active")
+            traitsForApply = [...current, ...resolvedTargets]
+          }
+          const res = applyReconcileOps(traitsForApply, ops, { simId, projectId, transcriptId, sourceDate })
           for (const w of res.traitWrites) {
             if (w.mode === "insert") await insertTrait(w.trait)
             else await updateTrait(w.trait)
@@ -956,6 +1218,31 @@ Bun.serve({
           // Map transcript_id → title for human-readable provenance ("from <transcript>, <date>").
           const titleById = new Map<string, string | null>()
           for (const tr of await listTranscripts(projE.id)) titleById.set(tr.id, tr.title)
+
+          // Compute per-trait recurrence so we can annotate each event with a regression marker.
+          // Group events by traitId (already ASC), then re-scan to detect post-resolution raises.
+          const eventsByTrait = new Map<string, TraitEventRow[]>()
+          for (const e of events) {
+            const arr = eventsByTrait.get(e.traitId) ?? []
+            arr.push(e)
+            eventsByTrait.set(e.traitId, arr)
+          }
+          // For each trait, compute which events are the "regression" event (first raise after a resolve).
+          // Key is composite "traitId:createdAt" to avoid collision when two events share a timestamp.
+          const regressionEventKeys = new Set<string>()
+          for (const [traitId, traitEvents] of eventsByTrait) {
+            const rec = recurrenceFromEvents(traitEvents)
+            if (!rec.regressed || rec.priorResolvedAt == null) continue
+            // The regression event is the first raise-op event whose sourceDate > priorResolvedAt.
+            const RAISE_OPS_SET = new Set(["create", "reinforce", "refine", "reopen"])
+            for (const te of traitEvents) {
+              if (RAISE_OPS_SET.has(te.op) && te.sourceDate > rec.priorResolvedAt) {
+                regressionEventKeys.add(`${te.traitId}:${te.createdAt}`)
+                break
+              }
+            }
+          }
+
           const timeline = events
             .slice()
             .reverse() // newest-first for the timeline view
@@ -970,6 +1257,11 @@ Bun.serve({
               transcriptTitle: titleById.has(e.transcriptId) ? titleById.get(e.transcriptId) : null,
               reason: e.reason,
               createdAt: e.createdAt,
+              area: e.area ?? null,
+              issueType: e.issueType ?? null,
+              severity: e.severity ?? null,
+              // isRegression: true marks a post-resolution reopen/reinforce so the UI can highlight it.
+              isRegression: regressionEventKeys.has(`${e.traitId}:${e.createdAt}`),
             }))
           return json({ simId, name: sim.name, events: timeline })
         } catch (e: any) { return json({ error: e?.message || "evolution failed" }, 500) }
@@ -1053,7 +1345,8 @@ Bun.serve({
           // Reads run in parallel (each is an indexed query).
           const [personas, feedbackTickets, activityRows, sayingFeedback] = await Promise.all([
             listPersonas(wid),
-            listFeedback(projectId, { withTicketOnly: true, limit: 12 }),
+            // All recent feedback (not just withTicketOnly) — Klavity Cloud is the primary ticket system.
+            listFeedback(projectId, { limit: 12 }),
             // Non-admins see only their own activity (own-rows-only); admins see all.
             listActivity(projectId, { actorEmail: isAdmin ? null : me, limit: 25 }),
             // Recent observations (any feedback row with text), newest-first, for the "saying" feed.
@@ -1111,14 +1404,47 @@ Bun.serve({
             saying = fb.slice(0, 12) as any
           }
 
-          // tickets — filed feedback (has a tracker key), newest-first, with sim attribution.
+          // tickets — all recent feedback (Klavity Cloud is the primary tracker), newest-first.
+          // Enriched with status/assignee (management state) and exports (connector push history).
+          const ticketIds = feedbackTickets.map(f => f.id)
+          const [ticketExportsMap, ticketMetaRows] = await Promise.all([
+            ticketIds.length ? exportsForFeedbackIds(ticketIds) : Promise.resolve({} as Record<string, any[]>),
+            // Fetch status/assignee via feedbackById in batch (single IN query via raw DB).
+            db && ticketIds.length
+              ? db.execute({
+                  sql: `SELECT id, status, assignee FROM feedback WHERE id IN (${ticketIds.map(() => "?").join(",")})`,
+                  args: ticketIds,
+                }).then(r => {
+                  const m: Record<string, { status: string; assignee: string | null }> = {}
+                  for (const x of r.rows) {
+                    m[String((x as any).id)] = {
+                      status: (x as any).status ? String((x as any).status) : "open",
+                      assignee: (x as any).assignee != null ? String((x as any).assignee) : null,
+                    }
+                  }
+                  return m
+                })
+              : Promise.resolve({} as Record<string, { status: string; assignee: string | null }>),
+          ])
           const tickets = feedbackTickets.map(f => {
             const p = f.simId ? personaById.get(f.simId) : null
+            const meta = ticketMetaRows[f.id] ?? { status: "open", assignee: null }
+            // Build exports: latest ok per connector
+            const rawExports = ticketExportsMap[f.id] ?? []
+            const seenConnector = new Set<string>()
+            const exports: { type: string; externalKey: string | null; externalUrl: string | null }[] = []
+            for (const exp of rawExports) {
+              if (exp.status === "ok" && !seenConnector.has(exp.connectorId)) {
+                seenConnector.add(exp.connectorId)
+                exports.push({ type: exp.type, externalKey: exp.externalKey, externalUrl: exp.externalUrl })
+              }
+            }
             return {
               id: f.id, simName: p?.name ?? null,
               title: f.observation, severity: f.severity,
               urlPath: f.urlPath, planeIssueKey: f.planeIssueKey,
               planeIssueUrl: f.planeIssueUrl, createdAt: f.createdAt,
+              status: meta.status, assignee: meta.assignee, exports,
             }
           })
 
@@ -1205,6 +1531,87 @@ Bun.serve({
         return json({ ok: true })
       }
 
+      // ── Ticket management: PATCH /api/feedback/:id and POST /api/feedback/:id/export ──
+      // Resolve the feedback's project via feedbackById across accessible projects.
+      const feedbackIdMatch = path.match(/^\/api\/feedback\/([^/]+?)(\/export)?$/)
+      if (feedbackIdMatch) {
+        const fid = feedbackIdMatch[1]
+        const isExport = feedbackIdMatch[2] === "/export"
+
+        // Resolve which project this feedback belongs to and check the caller has access.
+        let fbRow: any = null
+        let fbAccess: "admin" | "member" | null = null
+        const allProjects = await listProjects(me)
+        for (const p of allProjects) {
+          const a = await projectAccess(me, p.id)
+          if (!a) continue
+          const row = await feedbackById(p.id, fid)
+          if (row) { fbRow = row; fbAccess = a; break }
+        }
+        if (!fbRow) return json({ error: "Feedback not found or not accessible." }, 404)
+
+        // PATCH /api/feedback/:id — any project member may edit status/assignee/notes
+        if (req.method === "PATCH" && !isExport) {
+          const body = await req.json().catch(() => ({}))
+          const VALID_STATUS = ["open", "in_progress", "done"]
+          if (body.status !== undefined && !VALID_STATUS.includes(body.status)) {
+            return json({ error: `status must be one of: ${VALID_STATUS.join(", ")}` }, 400)
+          }
+          const meta: Partial<{ status: string; assignee: string | null; notes: string | null }> = {}
+          if (body.status !== undefined) meta.status = body.status
+          if (body.assignee !== undefined) meta.assignee = body.assignee ?? null
+          if (body.notes !== undefined) meta.notes = body.notes ?? null
+          const updated = await updateFeedbackMeta(fbRow.projectId, fid, meta)
+          if (!updated) return json({ error: "Update failed." }, 500)
+          return json({ ok: true })
+        }
+
+        // POST /api/feedback/:id/export — admin only
+        if (req.method === "POST" && isExport) {
+          if (fbAccess !== "admin") return json({ error: "Only project admins can export tickets." }, 403)
+          const body = await req.json().catch(() => ({}))
+          const connectorId = String(body.connectorId || "")
+          if (!connectorId) return json({ error: "connectorId is required." }, 400)
+          const connector = await getConnectorById(fbRow.projectId, connectorId)
+          if (!connector) return json({ error: "Connector not found." }, 404)
+          const adapter = getConnector(connector.type)
+          if (!adapter) return json({ error: "Unknown connector type." }, 400)
+
+          // Decrypt secret fields before calling createIssue
+          const decryptedConfig: Record<string, string> = { ...connector.config }
+          for (const f of adapter.fields) {
+            if (f.secret && connector.config[f.key]) {
+              try { decryptedConfig[f.key] = await decryptSecret(connector.config[f.key]) }
+              catch { decryptedConfig[f.key] = "" }
+            }
+          }
+
+          const payload = feedbackToTicketPayload(fbRow, { id: fbRow.projectId })
+          let exportResult: { type: string; externalKey: string | null; externalUrl: string | null; status: "ok" | "failed"; error: string | null }
+
+          try {
+            const result = await adapter.createIssue(payload, decryptedConfig)
+            await addTicketExport({
+              feedbackId: fid, projectId: fbRow.projectId, connectorId,
+              type: connector.type, externalKey: result.externalKey, externalUrl: result.externalUrl,
+              status: "ok", error: null, createdBy: me,
+            })
+            exportResult = { type: connector.type, externalKey: result.externalKey, externalUrl: result.externalUrl, status: "ok", error: null }
+          } catch (e: any) {
+            const errMsg = e?.message || "Export failed"
+            await addTicketExport({
+              feedbackId: fid, projectId: fbRow.projectId, connectorId,
+              type: connector.type, externalKey: null, externalUrl: null,
+              status: "failed", error: errMsg, createdBy: me,
+            })
+            exportResult = { type: connector.type, externalKey: null, externalUrl: null, status: "failed", error: errMsg }
+          }
+          return json({ ok: true, export: exportResult })
+        }
+
+        return json({ error: "Not found" }, 404)
+      }
+
       // ── projects (P2) ──
       // List the caller's projects.
       if (req.method === "GET" && path === "/api/projects") {
@@ -1229,8 +1636,8 @@ Bun.serve({
         // The creator is an account admin → implicit project-admin via projectAccess; no extra row needed.
         return json({ project: { id: created.id, name: created.name, accountId: created.accountId, status: created.status, role: "admin" } }, 201)
       }
-      // Project detail + members (projectAccess-gated) and project-scoped invite (R4) + monitored-urls (P3b).
-      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/rename|\/monitored-urls(?:\/[^/]+)?)?$/)
+      // Project detail + members (projectAccess-gated) and project-scoped invite (R4) + monitored-urls (P3b) + connectors.
+      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/rename|\/monitored-urls(?:\/[^/]+)?|\/connectors(?:\/[^/]+)?)?$/)
       if (projMatch) {
         const pid = projMatch[1]
         const sub = projMatch[2] || ""
@@ -1276,6 +1683,92 @@ Bun.serve({
             }
             return json({ ok: true, monitoredUrls: await listMonitoredUrls(pid) })
           }
+          return json({ error: "Not found" }, 404)
+        }
+
+        // ── Connector CRUD (admin-only write; member-readable) ──
+        if (sub.startsWith("/connectors")) {
+          const cidMatch = sub.match(/^\/connectors\/([^/]+)$/)
+          const cid = cidMatch ? cidMatch[1] : null
+
+          // GET /api/projects/:id/connectors — list (redacted) + type catalog
+          if (req.method === "GET" && !cid) {
+            const rows = await listConnectors(pid)
+            return json({ connectors: rows.map(connectorToClient), types: listConnectorTypes() })
+          }
+
+          // POST /api/projects/:id/connectors — create (admin only)
+          if (req.method === "POST" && !cid) {
+            if (access !== "admin") return json({ error: "Only project admins can manage connectors." }, 403)
+            const body = await req.json().catch(() => ({}))
+            const type = String(body.type || "")
+            const name = String(body.name || "").trim()
+            const rawConfig: Record<string, string> = (body.config && typeof body.config === "object") ? body.config : {}
+            const autoCopy = !!body.autoCopy
+
+            const adapter = getConnector(type)
+            if (!adapter) return json({ error: `Unknown connector type: ${type}` }, 400)
+            if (!name) return json({ error: "name is required." }, 400)
+
+            // Validate config using raw secrets before encrypting
+            const validation = adapter.validate(rawConfig)
+            if (!validation.ok) return json({ error: validation.error || "Invalid connector config." }, 400)
+
+            // Encrypt all secret fields
+            const encConfig: Record<string, string> = { ...rawConfig }
+            for (const f of adapter.fields) {
+              if (f.secret && rawConfig[f.key]) {
+                encConfig[f.key] = await encryptSecret(rawConfig[f.key])
+              }
+            }
+
+            const id = await createConnector(pid, { type: type as any, name, config: encConfig, autoCopy, createdBy: me })
+            const created = await getConnectorById(pid, id)
+            return json({ ok: true, connector: connectorToClient(created!) }, 201)
+          }
+
+          // PATCH /api/projects/:id/connectors/:cid — update (admin only)
+          if (req.method === "PATCH" && cid) {
+            if (access !== "admin") return json({ error: "Only project admins can manage connectors." }, 403)
+            const existing = await getConnectorById(pid, cid)
+            if (!existing) return json({ error: "Connector not found." }, 404)
+            const body = await req.json().catch(() => ({}))
+
+            const patch: Partial<{ name: string; config: Record<string, string>; autoCopy: boolean; enabled: boolean }> = {}
+            if (body.name !== undefined) patch.name = String(body.name)
+            if (body.autoCopy !== undefined) patch.autoCopy = !!body.autoCopy
+            if (body.enabled !== undefined) patch.enabled = !!body.enabled
+
+            if (body.config !== undefined && typeof body.config === "object") {
+              const adapter = getConnector(existing.type)
+              const newRaw: Record<string, string> = body.config
+              const encConfig: Record<string, string> = { ...existing.config }
+              // Merge non-secret fields directly; for secret fields: blank = keep existing, non-blank = re-encrypt
+              for (const [k, v] of Object.entries(newRaw)) {
+                const field = adapter?.fields.find(f => f.key === k)
+                if (field?.secret) {
+                  if (v) encConfig[k] = await encryptSecret(v)
+                  // else keep existing (blank = "keep")
+                } else {
+                  encConfig[k] = v
+                }
+              }
+              patch.config = encConfig
+            }
+
+            await updateConnector(pid, cid, patch)
+            return json({ ok: true })
+          }
+
+          // DELETE /api/projects/:id/connectors/:cid — remove (admin only)
+          if (req.method === "DELETE" && cid) {
+            if (access !== "admin") return json({ error: "Only project admins can manage connectors." }, 403)
+            const existing = await getConnectorById(pid, cid)
+            if (!existing) return json({ error: "Connector not found." }, 404)
+            await removeConnector(pid, cid)
+            return json({ ok: true })
+          }
+
           return json({ error: "Not found" }, 404)
         }
 
@@ -1362,15 +1855,52 @@ Bun.serve({
           const { persona, imageB64, mediaType, pageUrl } = await req.json()
           if (!persona || !imageB64) return json({ error: "persona and imageB64 required" }, 400)
           const meRx = (await sessionEmail(req)) || (await bearerEmail(req))
-          const { data, usage } = await reactToPage(persona, imageB64, mediaType || "image/png", pageUrl || "", { email: meRx })
-          const reactions = data.reactions || []
-          // Resolve each reaction's citedTraitIds → {quote, speaker, sourceDate, transcriptId} so the
-          // studio review→feedback path can carry citations forward. simId is the persona's stable id.
           const simId = persona?.id ? String(persona.id) : null
+
+          // Build regression-gated recurrence memory for this Sim's traits before calling reactToPage.
+          // Only attach recurrenceMemory when regressed=true; mere recurrence does not warrant disappointment.
+          let personaWithMemory = persona
+          if (simId) {
+            try {
+              const allSimEvents: TraitEventRow[] = await listTraitEvents(simId)
+              const eventsByTrait = new Map<string, TraitEventRow[]>()
+              for (const e of allSimEvents) {
+                const arr = eventsByTrait.get(e.traitId) ?? []
+                arr.push(e)
+                eventsByTrait.set(e.traitId, arr)
+              }
+              const insights = Array.isArray(persona.insights) ? persona.insights : []
+              const insightsWithMemory = insights.map((ins: any) => {
+                const traitId = ins.traitId
+                if (!traitId) return ins
+                const evts = eventsByTrait.get(traitId) ?? []
+                const rec = recurrenceFromEvents(evts)
+                if (!rec.regressed) return ins
+                return {
+                  ...ins,
+                  recurrenceMemory: {
+                    regressed: true,
+                    firstRaised: rec.firstRaised,
+                    lastRaised: rec.lastRaised,
+                    priorResolvedAt: rec.priorResolvedAt,
+                    timesRaised: rec.timesRaised,
+                  },
+                }
+              })
+              personaWithMemory = { ...persona, insights: insightsWithMemory }
+            } catch {
+              // Non-fatal: if DB unavailable fall back to plain persona.
+            }
+          }
+
+          const { data, usage } = await reactToPage(personaWithMemory, imageB64, mediaType || "image/png", pageUrl || "", { email: meRx })
+          const reactions = data.reactions || []
+          // Resolve each reaction's citedTraitIds → {quote, speaker, sourceDate, transcriptId, recurrence} so the
+          // studio review→feedback path can carry citations forward.
           for (const r of reactions) {
             const cited = await resolveCitations(simId, r?.citedTraitIds)
             r.citation = cited.citedTraitIds.length
-              ? { citedTraitIds: cited.citedTraitIds, sourceQuote: cited.sourceQuote, speaker: cited.speaker, sourceTranscriptId: cited.sourceTranscriptId, sourceDate: cited.sourceDate }
+              ? { citedTraitIds: cited.citedTraitIds, sourceQuote: cited.sourceQuote, speaker: cited.speaker, sourceTranscriptId: cited.sourceTranscriptId, sourceDate: cited.sourceDate, recurrence: cited.recurrence }
               : null
           }
           return json({ reactions, usage })
