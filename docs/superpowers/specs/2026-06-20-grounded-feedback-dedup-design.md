@@ -45,7 +45,7 @@ New pure function in `lib/provenance.ts`:
 - Thread the transcript `rawText` into the context object passed to `applyReconcileOps` (`{ simId, projectId, transcriptId, sourceDate, rawText }`).
 - `mkTrait` and the `reinforce` / `refine` / `supersede` / `reopen` writes already populate `srcQuote` / `srcQuoteOffset` / `srcSpeaker` — they now call `groundQuote(ctx.rawText, o.quote)` and use the returned `quote` + `offset` + set `srcVerified`.
 - `baseEvt` snapshots the same grounded `quote` + `quoteOffset` + `verified` onto every `trait_events` row (incl. both events `supersede` emits).
-- **Extract → seed path** (`ensureTraitsSeeded`): ground each seeded trait's quote against its source transcript's `raw_text`. A legacy Sim whose transcript text is unavailable → `verified=null` (unknown, not false).
+- **Legacy seed path** (`ensureTraitsSeeded`): seeds from `insights_json` with `srcTranscriptId='legacy_import'` and no recoverable transcript text → these stay `verified=null` (unknown, not false). No change needed; grounding meaningfully applies to reconcile writes against a real transcript. Grounding brand-new-persona first seeds against their originating transcript is a noted follow-up (the spec's "populate organically as new transcripts reconcile").
 - `resolveCitations` already returns `sourceQuote`; it gains `sourceQuoteVerified` so the bit rides the feedback payload to the surface.
 
 ### Schema (additive, `columnExists`+`ALTER` in `initDb`)
@@ -112,7 +112,7 @@ Each is independently testable: pure fns take inputs → outputs; the dedupe hel
 - `prototype/lib/provenance.test.ts` — `groundQuote` table (RED first); grounded carry through `applyReconcileOps` + event snapshots.
 - `prototype/lib/db.ts` — `initDb` additive ALTERs (`sim_traits.src_verified`, `trait_events.verified`, the 4 feedback dedup columns + index), `columnExists`-guarded; row mappers + insert/update SQL; `issueKeyFor`, `lexicalSim`, dedup lookup + bump helpers (or co-located in a small `lib/dedup.ts`); `FeedbackInsert` gains the dedup fields.
 - `prototype/lib/dedup.test.ts` (NEW) — `issueKeyFor`, `lexicalSim` tables.
-- `prototype/server.ts` — extract/reconcile paths pass `rawText` into `applyReconcileOps` and `ensureTraitsSeeded`; review path calls the dedupe helper before `insertFeedback` + auto-copy; `resolveCitations` returns `sourceQuoteVerified`.
+- `prototype/server.ts` — reconcile path passes `rawText` into `applyReconcileOps`; the `/api/feedback` path (before `insertFeedback` + auto-copy) and the `/api/sim/review` path call the dedupe helper; `resolveCitations` returns `sourceQuoteVerified` + `issueType`.
 - `prototype/server.traits.test.ts` (or a new `server.dedup.test.ts`) — duplicate suggested bug → one row + recurrence bump + no second ticket export; distinct bug → new row.
 - `prototype/lib/migrate.test.ts` — old-schema DB → new columns appear after boot; idempotent.
 - `docs/PRD.md`, `CHANGELOG.md`, 5 manifests — version bump (next MINOR; reconcile at merge time).
