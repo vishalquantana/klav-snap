@@ -62,3 +62,31 @@ test("setTrailStatus updates status", async () => {
   await T.setTrailStatus("proj_A", id, "active")
   expect((await T.getTrail("proj_A", id))?.status).toBe("active")
 })
+
+test("upsertLocatorCache inserts then updates on cache_key conflict (heal overwrites)", async () => {
+  const trail = await T.createTrail("proj_A", { name: "C", baseUrl: "https://app.test/" })
+  const step = await T.addTrailStep("proj_A", trail, { idx: 0, action: "click" })
+  const key = "deadbeef".repeat(8) // 64 hex chars
+
+  await T.upsertLocatorCache("proj_A", { trailId: trail, stepId: step, cacheKey: key, resolvedSelector: "#pay", confidence: 1, source: "crystallize" })
+  let row = await T.getLocatorByKey("proj_A", key)
+  expect(row?.resolvedSelector).toBe("#pay")
+  expect(row?.source).toBe("crystallize")
+
+  await T.upsertLocatorCache("proj_A", { trailId: trail, stepId: step, cacheKey: key, resolvedSelector: "[data-testid=pay]", confidence: 0.93, source: "heal" })
+  row = await T.getLocatorByKey("proj_A", key)
+  expect(row?.resolvedSelector).toBe("[data-testid=pay]") // overwritten, not duplicated
+  expect(row?.source).toBe("heal")
+  expect(row?.confidence).toBeCloseTo(0.93)
+
+  const both = await db.execute({ sql: "SELECT COUNT(*) c FROM locator_cache WHERE cache_key=?", args: [key] })
+  expect(Number(both.rows[0].c)).toBe(1)
+})
+
+test("getCacheForStep + cross-project isolation", async () => {
+  const trail = await T.createTrail("proj_A", { name: "C2", baseUrl: "https://app.test/" })
+  const step = await T.addTrailStep("proj_A", trail, { idx: 0, action: "click" })
+  await T.upsertLocatorCache("proj_A", { trailId: trail, stepId: step, cacheKey: "a".repeat(64), resolvedSelector: "#x" })
+  expect((await T.getCacheForStep("proj_A", step))?.resolvedSelector).toBe("#x")
+  expect(await T.getCacheForStep("proj_B", step)).toBeNull()
+})

@@ -66,3 +66,42 @@ export async function listTrailSteps(projectId: string, trailId: string): Promis
   const r = await db!.execute({ sql: `SELECT * FROM trail_steps WHERE project_id=? AND trail_id=? ORDER BY idx ASC`, args: [projectId, trailId] })
   return r.rows.map(rowToStep)
 }
+
+import type { LocatorCacheRow } from "./trails-types"
+
+function rowToCache(r: any): LocatorCacheRow {
+  return {
+    id: r.id, projectId: r.project_id, trailId: r.trail_id, stepId: r.step_id,
+    cacheKey: r.cache_key, resolvedSelector: r.resolved_selector, fingerprint: pj<Fingerprint>(r.fingerprint_json),
+    confidence: Number(r.confidence), source: r.source, createdAt: Number(r.created_at), updatedAt: Number(r.updated_at),
+  }
+}
+
+export async function upsertLocatorCache(
+  projectId: string,
+  input: { trailId: string; stepId: string; cacheKey: string; resolvedSelector: string; fingerprint?: Fingerprint; confidence?: number; source?: "crystallize" | "heal" },
+): Promise<string> {
+  const id = uid("lc_"); const now = Date.now()
+  await db!.execute({
+    sql: `INSERT INTO locator_cache (id, project_id, trail_id, step_id, cache_key, resolved_selector, fingerprint_json, confidence, source, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(cache_key) DO UPDATE SET
+            resolved_selector=excluded.resolved_selector,
+            fingerprint_json=excluded.fingerprint_json,
+            confidence=excluded.confidence,
+            source=excluded.source,
+            updated_at=excluded.updated_at`,
+    args: [id, projectId, input.trailId, input.stepId, input.cacheKey, input.resolvedSelector, j(input.fingerprint), input.confidence ?? 1.0, input.source ?? "crystallize", now, now],
+  })
+  return id
+}
+
+export async function getLocatorByKey(projectId: string, key: string): Promise<LocatorCacheRow | null> {
+  const r = await db!.execute({ sql: `SELECT * FROM locator_cache WHERE project_id=? AND cache_key=?`, args: [projectId, key] })
+  return r.rows.length ? rowToCache(r.rows[0]) : null
+}
+
+export async function getCacheForStep(projectId: string, stepId: string): Promise<LocatorCacheRow | null> {
+  const r = await db!.execute({ sql: `SELECT * FROM locator_cache WHERE project_id=? AND step_id=? ORDER BY updated_at DESC LIMIT 1`, args: [projectId, stepId] })
+  return r.rows.length ? rowToCache(r.rows[0]) : null
+}
