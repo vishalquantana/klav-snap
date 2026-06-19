@@ -599,12 +599,14 @@ test("groundQuote: exact substring → real offset + verified true", () => {
   expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
 })
 
-test("groundQuote: smart-quote / dash variant snaps to the real span, verified true", () => {
-  const raw = `Mia: I can't find the "Save" toggle — it's gone.`
-  const g = groundQuote(raw, `I can't find the "Save" toggle — it's gone.`)
+test("groundQuote: smart-quote / nbsp / dash variants snap to the real span, verified true", () => {
+  const raw = `Mia: I can't find the "Save" toggle - it's gone.`
+  // quote uses curly singles/doubles + em-dash; should normalize to match the straight-quote raw line
+  const quote = "I can’t find the “Save” toggle — it’s gone."
+  const g = groundQuote(raw, quote)
   expect(g.verified).toBe(true)
   expect(g.offset).not.toBeNull()
-  // snapped text is taken from rawText, so it round-trips at the offset
+  // returned quote is sliced from rawText, so it round-trips at the offset
   expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
 })
 

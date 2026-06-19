@@ -104,11 +104,12 @@ const GROUND_DICE_THRESHOLD = 0.85
 
 // 1:1 char substitutions (length-preserving so offsets stay valid against the ORIGINAL raw).
 function subsChars(s: string): string {
+  // 1:1 length-preserving substitutions so offsets stay valid against the ORIGINAL raw.
   return s
-    .replace(/['']/g, "'")
-    .replace(/[""]/g, '"')
-    .replace(/[–—]/g, "-")
-    .replace(/ /g, " ")
+    .replace(/[\u2018\u2019]/g, "'")   // curly single quotes \u2018 \u2019 \u2192 '
+    .replace(/[\u201c\u201d]/g, '"')   // curly double quotes \u201c \u201d \u2192 "
+    .replace(/[\u2013\u2014]/g, "-")   // en/em dash \u2013 \u2014 \u2192 -
+    .replace(/\u00a0/g, " ")           // non-breaking space \u00a0 \u2192 regular space
 }
 function normTokens(s: string): Set<string> {
   return new Set(subsChars(s).toLowerCase().replace(/\s+/g, " ").trim().split(" ").filter(Boolean))
