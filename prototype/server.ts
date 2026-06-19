@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject } from "./lib/db"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
@@ -920,6 +920,8 @@ Bun.serve({
         if (req.method === "PUT") {
           try {
             const body = await req.json()
+            const before = (await listPersonas(wid)).find(p => p.id === pid)
+            const now = Date.now()
             await upsertPersona(pid, wid, {
               name: String(body.name || "Unnamed"), role: String(body.role || ""),
               type: body.type === "internal" ? "internal" : "client",
@@ -929,6 +931,19 @@ Bun.serve({
               insights: Array.isArray(body.insights) ? body.insights : [],
               avatar: body.avatar ? String(body.avatar) : null,
             })
+            // Version each changed identity field in the append-only persona_edits audit.
+            if (before) {
+              const fields: Array<[string, string | null, string | null]> = [
+                ["name", before.name, String(body.name ?? "")],
+                ["role", before.role, String(body.role ?? "")],
+                ["summary", before.summary, String(body.summary ?? "")],
+                ["type", before.type, String(body.type ?? "")],
+                ["accent", before.accent, String(body.accent ?? "")],
+              ]
+              for (const [field, b, a] of fields) {
+                if ((b ?? "") !== (a ?? "")) await insertPersonaEdit({ personaId: pid, projectId: wid, field, beforeVal: b, afterVal: a, actor: me2, createdAt: now })
+              }
+            }
             return wjson({ ok: true })
           } catch (e: any) { return wjson({ error: e.message }, 500) }
         }
@@ -936,6 +951,10 @@ Bun.serve({
           await deletePersona(pid, wid)
           return wjson({ ok: true })
         }
+      }
+      const editsMatch = path.match(/^\/api\/personas\/([^/]+)\/edits$/)
+      if (editsMatch && req.method === "GET") {
+        return wjson({ personaId: editsMatch[1], edits: await listPersonaEdits(editsMatch[1]) })
       }
       return wjson({ error: "Not found" }, 404)
     }

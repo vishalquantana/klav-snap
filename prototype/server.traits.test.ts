@@ -40,6 +40,10 @@ await rawExec(`CREATE TABLE IF NOT EXISTS trait_events (
    speaker TEXT, source_date INTEGER NOT NULL, reason TEXT,
    area TEXT, issue_type TEXT, severity TEXT, actor TEXT, created_at INTEGER NOT NULL)`)
 await rawExec(`CREATE INDEX IF NOT EXISTS trait_evt_idx ON trait_events (trait_id, created_at)`)
+await rawExec(`CREATE TABLE IF NOT EXISTS persona_edits (
+   id TEXT PRIMARY KEY, persona_id TEXT NOT NULL, project_id TEXT NOT NULL,
+   field TEXT NOT NULL, before_val TEXT, after_val TEXT, actor TEXT NOT NULL, created_at INTEGER NOT NULL)`)
+await rawExec(`CREATE INDEX IF NOT EXISTS persona_edits_idx ON persona_edits (persona_id, created_at)`)
 
 // ── Fixtures ──
 const AUTHED_EMAIL = `studio-${ts}@test.local`
@@ -175,4 +179,16 @@ test("evolution feed exposes actor on manual edits", async () => {
   const { events } = await (await authedFetch(`/api/sims/sim_t/evolution?project=${PROJECT_ID}`)).json()
   const editEv = events.find((e: any) => e.op === "edit")
   expect(editEv.actor).toBe(AUTHED_EMAIL)
+})
+
+// ── Task 7: persona identity edits are versioned in persona_edits ──
+test("PUT /api/personas/:id logs identity edits + GET edits returns them", async () => {
+  await authedFetch(`/api/personas/sim_t?project=${PROJECT_ID}`, {
+    method: "PUT", body: JSON.stringify({ name: "Renamed Sim", role: "New Role", type: "client", initials: "RS", accent: "#6366f1", summary: "updated", insights: [] }),
+  })
+  const res = await authedFetch(`/api/personas/sim_t/edits?project=${PROJECT_ID}`)
+  expect(res.status).toBe(200)
+  const { edits } = await res.json()
+  expect(edits.some((e: any) => e.field === "name" && e.afterVal === "Renamed Sim")).toBe(true)
+  expect(edits.find((e: any) => e.field === "name").actor).toBe(AUTHED_EMAIL)
 })

@@ -224,6 +224,12 @@ export async function applySchema(c: Client) {
        error TEXT, created_at INTEGER NOT NULL, created_by TEXT )`,
     `CREATE INDEX IF NOT EXISTS idx_texports_feedback ON ticket_exports(feedback_id)`,
     `CREATE INDEX IF NOT EXISTS idx_texports_project ON ticket_exports(project_id)`,
+    // PERSONA EDITS — append-only audit of human persona identity edits (Sim Studio). One row per
+    // changed field per PUT, tagged with the actor email.
+    `CREATE TABLE IF NOT EXISTS persona_edits (
+       id TEXT PRIMARY KEY, persona_id TEXT NOT NULL, project_id TEXT NOT NULL,
+       field TEXT NOT NULL, before_val TEXT, after_val TEXT, actor TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+    `CREATE INDEX IF NOT EXISTS persona_edits_idx ON persona_edits (persona_id, created_at)`,
   ]
   for (const s of stmts) await c.execute(s)
 
@@ -1048,6 +1054,23 @@ export async function logTraitEdit(args: {
     area: trait.area ?? null, issueType: trait.issueType ?? null, severity: trait.severity ?? null,
     createdAt: now,
   })
+}
+
+// ── persona_edits: append-only audit of human persona identity edits (Sim Studio). ──
+export type PersonaEditRow = { id: string; personaId: string; projectId: string; field: string; beforeVal: string | null; afterVal: string | null; actor: string; createdAt: number }
+export async function insertPersonaEdit(e: Omit<PersonaEditRow, "id">): Promise<string> {
+  const id = "ped_" + crypto.randomUUID()
+  await db!.execute({
+    sql: `INSERT INTO persona_edits (id,persona_id,project_id,field,before_val,after_val,actor,created_at) VALUES (?,?,?,?,?,?,?,?)`,
+    args: [id, e.personaId, e.projectId, e.field, e.beforeVal ?? null, e.afterVal ?? null, e.actor, e.createdAt],
+  })
+  return id
+}
+export async function listPersonaEdits(personaId: string): Promise<PersonaEditRow[]> {
+  const r = await db!.execute({ sql: "SELECT * FROM persona_edits WHERE persona_id=? ORDER BY created_at ASC", args: [personaId] })
+  return r.rows.map((x: any) => ({ id: String(x.id), personaId: String(x.persona_id), projectId: String(x.project_id),
+    field: String(x.field), beforeVal: x.before_val != null ? String(x.before_val) : null,
+    afterVal: x.after_val != null ? String(x.after_val) : null, actor: String(x.actor), createdAt: Number(x.created_at) }))
 }
 
 function rowToTraitEvent(x: any): TraitEventRow {
