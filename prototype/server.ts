@@ -312,9 +312,10 @@ function matchPersonaToSim(extracted: { name: string; role?: string }, sims: { i
 // matched traits (strongest = regressed=true, else pick by timesRaised).
 async function resolveCitations(simId: string | null, citedTraitIds: any): Promise<{
   citedTraitIds: string[]; sourceQuote: string | null; speaker: string | null; sourceTranscriptId: string | null; sourceDate: number | null;
+  issueType: string | null; sourceQuoteVerified: boolean | null;
   recurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null
 }> {
-  const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null, recurrence: null }
+  const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null, issueType: null, sourceQuoteVerified: null, recurrence: null }
   if (!simId || !Array.isArray(citedTraitIds) || !citedTraitIds.length) return empty
   const want = new Set(citedTraitIds.map((x) => String(x)))
   const traits = await listTraits(simId) // all statuses — a cited trait may have since been superseded
@@ -359,6 +360,8 @@ async function resolveCitations(simId: string | null, citedTraitIds: any): Promi
     speaker: primary.srcSpeaker || null,
     sourceTranscriptId: primary.srcTranscriptId || null,
     sourceDate,
+    issueType: (primary as any).issueType ?? null,
+    sourceQuoteVerified: (primary as any).srcVerified ?? null,
     recurrence: strongestRecurrence,
   }
 }
