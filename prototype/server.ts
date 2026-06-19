@@ -1344,6 +1344,7 @@ Bun.serve({
               transcriptTitle: titleById.has(e.transcriptId) ? titleById.get(e.transcriptId) : null,
               reason: e.reason,
               createdAt: e.createdAt,
+              actor: e.actor ?? null,
               area: e.area ?? null,
               issueType: e.issueType ?? null,
               severity: e.severity ?? null,

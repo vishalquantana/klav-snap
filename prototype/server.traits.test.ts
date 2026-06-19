@@ -168,3 +168,11 @@ test("DELETE archives a trait (soft) — drops from active list, stays in events
   const after = await (await authedFetch(`/api/sims/sim_t/traits?project=${PROJECT_ID}`)).json()
   expect(after.traits.some((t: any) => t.id === id)).toBe(false)
 })
+
+// ── Task 6: evolution feed exposes actor on manual edits ──
+test("evolution feed exposes actor on manual edits", async () => {
+  // (a prior PUT in this file already created an 'edit' event by AUTHED_EMAIL)
+  const { events } = await (await authedFetch(`/api/sims/sim_t/evolution?project=${PROJECT_ID}`)).json()
+  const editEv = events.find((e: any) => e.op === "edit")
+  expect(editEv.actor).toBe(AUTHED_EMAIL)
+})
