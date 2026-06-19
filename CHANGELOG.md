@@ -18,6 +18,11 @@ section for the bump rules.
 
 ### Fixed
 - `/api/feedback` no longer returns 400 when a configured tracker (Plane) host is unsafe/unreachable — the submission is persisted and a downstream tracker failure is non-fatal. Added CORS so the widget can submit cross-origin.
+## [0.24.0] — 2026-06-20
+
+### Added
+- **Grounded Sim feedback.** Trait quotes that back a Sim's feedback are now verified and anchored to the exact transcript line (`groundQuote`): exact match → char-normalized match → fuzzy line-snap, else flagged. Citations carry a `verified` bit + a real character offset. Unmatched quotes are kept but flagged unverified — never fabricated.
+- **Suggested-bug dedup.** Duplicate bugs detected on an unchanged build collapse into the existing report (recurrence counter bumped, re-sighting dates recorded) instead of filing duplicate feedback rows or external tickets. Issue identity is hybrid: a deterministic key (project + normalized path + issueType + cited traits) with a lexical-similarity fallback.
 
 ## [0.23.1] — 2026-06-20
 

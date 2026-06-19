@@ -22,6 +22,7 @@ export type Trait = {
   srcQuote: string
   srcQuoteOffset: number | null
   srcSpeaker: string | null
+  srcVerified?: boolean | null
   createdAt: number
   updatedAt: number
   area?: string | null
@@ -51,6 +52,7 @@ export type ReconcileCtx = {
   projectId: string
   transcriptId: string
   sourceDate: number
+  rawText?: string | null
   now?: number
   newId?: () => string // injectable for deterministic tests
 }
@@ -72,6 +74,7 @@ export type TraitEventRow = {
   afterText: string | null
   quote: string
   quoteOffset: number | null
+  verified?: boolean | null
   speaker: string | null
   sourceDate: number
   reason: string | null
@@ -93,6 +96,73 @@ function defaultNewId(): string {
   // deterministic-ish fallback; tests inject newId for stable assertions.
   _counter += 1
   return "trait_" + Date.now().toString(36) + "_" + _counter
+}
+
+// ── Quote grounding: verify/anchor an LLM-returned quote against the transcript text. ──
+// Pure. Returns the real substring + char offset when found; flags (verified:false) when not.
+const GROUND_DICE_THRESHOLD = 0.85
+
+// 1:1 char substitutions (length-preserving so offsets stay valid against the ORIGINAL raw).
+function subsChars(s: string): string {
+  // 1:1 length-preserving substitutions so offsets stay valid against the ORIGINAL raw.
+  return s
+    .replace(/[\u2018\u2019]/g, "'")   // curly single quotes \u2018 \u2019 \u2192 '
+    .replace(/[\u201c\u201d]/g, '"')   // curly double quotes \u201c \u201d \u2192 "
+    .replace(/[\u2013\u2014]/g, "-")   // en/em dash \u2013 \u2014 \u2192 -
+    .replace(/\u00a0/g, " ")           // non-breaking space \u00a0 \u2192 regular space
+}
+function normTokens(s: string): Set<string> {
+  return new Set(subsChars(s).toLowerCase().replace(/\s+/g, " ").trim().split(" ").filter(Boolean))
+}
+function tokenDice(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0
+  let inter = 0
+  for (const t of a) if (b.has(t)) inter++
+  return (2 * inter) / (a.size + b.size)
+}
+// Line spans with their start offset in raw (skips blank lines).
+function lineSpans(raw: string): Array<{ start: number; end: number; text: string }> {
+  const out: Array<{ start: number; end: number; text: string }> = []
+  let i = 0
+  for (const line of raw.split("\n")) {
+    const start = i
+    const end = i + line.length
+    if (line.trim()) out.push({ start, end, text: line })
+    i = end + 1 // account for the consumed "\n"
+  }
+  return out
+}
+
+export function groundQuote(
+  rawText: string | null,
+  quote: string,
+): { quote: string; offset: number | null; verified: boolean | null } {
+  const q = (quote ?? "").trim()
+  if (rawText == null) return { quote: q, offset: null, verified: null }
+  if (!q) return { quote: q, offset: null, verified: false }
+
+  // 1) exact substring
+  const exact = rawText.indexOf(q)
+  if (exact >= 0) return { quote: q, offset: exact, verified: true }
+
+  // 2) length-preserving char-normalized substring (curly quotes, dashes, nbsp)
+  const subOffset = subsChars(rawText).indexOf(subsChars(q))
+  if (subOffset >= 0) return { quote: rawText.slice(subOffset, subOffset + q.length), offset: subOffset, verified: true }
+
+  // 3) fuzzy snap to the best-scoring line
+  const qTokens = normTokens(q)
+  if (qTokens.size === 0) return { quote: q, offset: null, verified: false }
+  let best = { score: 0, start: -1, end: -1 }
+  for (const sp of lineSpans(rawText)) {
+    const score = tokenDice(qTokens, normTokens(sp.text))
+    if (score > best.score) best = { score, start: sp.start, end: sp.end }
+  }
+  if (best.score >= GROUND_DICE_THRESHOLD && best.start >= 0) {
+    const trimmedLine = rawText.slice(best.start, best.end)
+    const leadingWs = trimmedLine.length - trimmedLine.trimStart().length
+    return { quote: trimmedLine.trim(), offset: best.start + leadingWs, verified: true }
+  }
+  return { quote: q, offset: null, verified: false }
 }
 
 /**
@@ -129,15 +199,18 @@ export function applyReconcileOps(
     afterText: string | null,
     o: ReconcileOp,
     reason?: string | null,
-  ): TraitEventRow => ({
+  ): TraitEventRow => {
+    const g = groundQuote(ctx.rawText ?? null, o.quote)
+    return {
     traitId,
     simId: ctx.simId,
     transcriptId: ctx.transcriptId,
     op,
     beforeText,
     afterText,
-    quote: o.quote,
-    quoteOffset: o.quoteOffset ?? null,
+    quote: g.quote,
+    quoteOffset: g.offset,
+    verified: g.verified,
     speaker: o.speaker ?? null,
     sourceDate: ctx.sourceDate,
     reason: reason ?? o.reason ?? null,
@@ -145,9 +218,12 @@ export function applyReconcileOps(
     area: o.area ?? null,
     issueType: o.issueType ?? null,
     severity: o.severity ?? null,
-  })
+    }
+  }
 
-  const mkTrait = (o: ReconcileOp): Trait => ({
+  const mkTrait = (o: ReconcileOp): Trait => {
+    const g = groundQuote(ctx.rawText ?? null, o.quote)
+    return {
     id: newId(),
     simId: ctx.simId,
     projectId: ctx.projectId,
@@ -156,15 +232,17 @@ export function applyReconcileOps(
     status: "active",
     strength: 1,
     srcTranscriptId: ctx.transcriptId,
-    srcQuote: o.quote,
-    srcQuoteOffset: o.quoteOffset ?? null,
+    srcQuote: g.quote,
+    srcQuoteOffset: g.offset,
+    srcVerified: g.verified,
     srcSpeaker: o.speaker ?? null,
     createdAt: now,
     updatedAt: now,
     area: o.area ?? null,
     issueType: o.issueType ?? null,
     severity: o.severity ?? null,
-  })
+    }
+  }
 
   const addNew = (o: ReconcileOp) => {
     const t = mkTrait(o)
@@ -184,10 +262,12 @@ export function applyReconcileOps(
       }
       case "reinforce": {
         if (!targetActive) { addNew(o); break }
+        const g = groundQuote(ctx.rawText ?? null, o.quote)
         targetActive.strength += 1
         targetActive.srcTranscriptId = ctx.transcriptId
-        targetActive.srcQuote = o.quote
-        targetActive.srcQuoteOffset = o.quoteOffset ?? null
+        targetActive.srcQuote = g.quote
+        targetActive.srcQuoteOffset = g.offset
+        targetActive.srcVerified = g.verified
         targetActive.srcSpeaker = o.speaker ?? null
         targetActive.updatedAt = now
         targetActive.area = o.area ?? null
@@ -199,12 +279,14 @@ export function applyReconcileOps(
       }
       case "refine": {
         if (!targetActive) { addNew(o); break }
+        const g = groundQuote(ctx.rawText ?? null, o.quote)
         const before = targetActive.text
         targetActive.text = o.text
         targetActive.strength += 1
         targetActive.srcTranscriptId = ctx.transcriptId
-        targetActive.srcQuote = o.quote
-        targetActive.srcQuoteOffset = o.quoteOffset ?? null
+        targetActive.srcQuote = g.quote
+        targetActive.srcQuoteOffset = g.offset
+        targetActive.srcVerified = g.verified
         targetActive.srcSpeaker = o.speaker ?? null
         targetActive.updatedAt = now
         targetActive.area = o.area ?? null
@@ -252,12 +334,14 @@ export function applyReconcileOps(
         const targetResolved = o.traitId ? byId.get(o.traitId) : undefined
         const isResolved = targetResolved && (targetResolved.status === "contradicted" || targetResolved.status === "superseded")
         if (!isResolved) { addNew(o); break }
+        const g = groundQuote(ctx.rawText ?? null, o.quote)
         targetResolved.status = "active"
         targetResolved.strength += 1
         targetResolved.text = o.text
         targetResolved.srcTranscriptId = ctx.transcriptId
-        targetResolved.srcQuote = o.quote
-        targetResolved.srcQuoteOffset = o.quoteOffset ?? null
+        targetResolved.srcQuote = g.quote
+        targetResolved.srcQuoteOffset = g.offset
+        targetResolved.srcVerified = g.verified
         targetResolved.srcSpeaker = o.speaker ?? null
         targetResolved.updatedAt = now
         targetResolved.area = o.area ?? null

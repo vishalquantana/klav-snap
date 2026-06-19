@@ -1,5 +1,6 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence } from "./lib/db"
+import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
@@ -312,9 +313,10 @@ function matchPersonaToSim(extracted: { name: string; role?: string }, sims: { i
 // matched traits (strongest = regressed=true, else pick by timesRaised).
 async function resolveCitations(simId: string | null, citedTraitIds: any): Promise<{
   citedTraitIds: string[]; sourceQuote: string | null; speaker: string | null; sourceTranscriptId: string | null; sourceDate: number | null;
+  issueType: string | null; sourceQuoteVerified: boolean | null;
   recurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null
 }> {
-  const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null, recurrence: null }
+  const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null, issueType: null, sourceQuoteVerified: null, recurrence: null }
   if (!simId || !Array.isArray(citedTraitIds) || !citedTraitIds.length) return empty
   const want = new Set(citedTraitIds.map((x) => String(x)))
   const traits = await listTraits(simId) // all statuses — a cited trait may have since been superseded
@@ -359,8 +361,29 @@ async function resolveCitations(simId: string | null, citedTraitIds: any): Promi
     speaker: primary.srcSpeaker || null,
     sourceTranscriptId: primary.srcTranscriptId || null,
     sourceDate,
+    issueType: (primary as any).issueType ?? null,
+    sourceQuoteVerified: (primary as any).srcVerified ?? null,
     recurrence: strongestRecurrence,
   }
+}
+
+// Decide whether a suggested bug duplicates an existing project report. Returns the existing
+// feedback id to collapse into, or null to insert fresh. Pure decision over DB lookups.
+async function findDuplicateFeedback(args: {
+  projectId: string; urlPath: string | null; issueType: string | null
+  citedTraitIds: string[]; title: string; observation: string
+}): Promise<string | null> {
+  const issueKey = issueKeyFor({
+    projectId: args.projectId, urlPath: args.urlPath ?? "/",
+    issueType: args.issueType, citedTraitIds: args.citedTraitIds,
+  })
+  const exact = await findFeedbackByIssueKey(args.projectId, issueKey)
+  const recent = exact ? [] : await listRecentFeedbackForDedup(args.projectId, 50)
+  return chooseDedup({ title: args.title, observation: args.observation }, exact, recent)
+}
+// Re-export the key so insert sites store it on new rows.
+function issueKeyForFeedback(projectId: string, urlPath: string | null, issueType: string | null, citedTraitIds: string[]): string {
+  return issueKeyFor({ projectId, urlPath: urlPath ?? "/", issueType, citedTraitIds })
 }
 
 // One-line human citation for the Plane issue body: "Cited from Sarah's profile: "…" (Sarah, 2026-06-12)".
@@ -860,22 +883,38 @@ Bun.serve({
               if (ctRaw) { try { citedRaw = JSON.parse(ctRaw) } catch { citedRaw = ctRaw.split(",").map((s) => s.trim()).filter(Boolean) } }
               citation = await resolveCitations(simId, citedRaw)
 
-              feedbackId = await insertFeedback({
-                projectId, simId, actorEmail: actor, urlHost, urlPath,
-                observation, sentiment, severity, screenshotId, suggestedBug,
-                citedTraitIds: citation.citedTraitIds.length ? citation.citedTraitIds : null,
-                sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
-                planeIssueKey: null, planeIssueUrl: null,
-              })
-              await insertActivity({
-                projectId, type: "feedback_filed", actorEmail: actor, simId,
-                urlHost, urlPath, feedbackId, screenshotId,
-              })
+              let dedupedInto: string | null = null
+              if (suggestedBug) {
+                dedupedInto = await findDuplicateFeedback({
+                  projectId, urlPath, issueType: citation.issueType,
+                  citedTraitIds: citation.citedTraitIds,
+                  title: String(suggestedBug?.title || ""), observation,
+                })
+              }
+              if (dedupedInto) {
+                await bumpFeedbackRecurrence(dedupedInto, Date.now())
+                feedbackId = dedupedInto
+              } else {
+                feedbackId = await insertFeedback({
+                  projectId, simId, actorEmail: actor, urlHost, urlPath,
+                  observation, sentiment, severity, screenshotId, suggestedBug,
+                  citedTraitIds: citation.citedTraitIds.length ? citation.citedTraitIds : null,
+                  sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
+                  planeIssueKey: null, planeIssueUrl: null,
+                  issueKey: suggestedBug ? issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds) : null,
+                })
+              }
+              if (!dedupedInto) {
+                await insertActivity({
+                  projectId, type: "feedback_filed", actorEmail: actor, simId,
+                  urlHost, urlPath, feedbackId, screenshotId,
+                })
+              }
 
               // ── auto-copy hook: fire-and-forget, never blocks the response ──
               // For each enabled auto-copy connector in this project, push the ticket.
               // Mirrors the recordAiCall fire-and-forget pattern.
-              if (feedbackId) {
+              if (feedbackId && !dedupedInto) {
                 const autoCopyFbId = feedbackId
                 const autoCopyProjectId = projectId
                 const autoCopyObservation = observation
@@ -1307,15 +1346,32 @@ Bun.serve({
           }
           for (const r of reactions) {
             const citation = await resolveCitations(sim.id, r?.citedTraitIds)
-            const feedbackId = await insertFeedback({
-              projectId, simId: sim.id, actorEmail: meR, urlHost, urlPath,
-              observation: r?.observation ?? null, sentiment: r?.sentiment ?? null,
-              severity: r?.suggestedBug?.severity ?? null, screenshotId, suggestedBug: r?.suggestedBug ?? null,
-              citedTraitIds: citation.citedTraitIds.length ? citation.citedTraitIds : null,
-              sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
-            })
+            const bug = r?.suggestedBug
+            let dedupedInto: string | null = null
+            if (bug) {
+              dedupedInto = await findDuplicateFeedback({
+                projectId, urlPath, issueType: citation.issueType,
+                citedTraitIds: citation.citedTraitIds,
+                title: String(bug?.title || ""), observation: r?.observation ?? "",
+              })
+            }
+            let feedbackId: string
+            if (dedupedInto) {
+              await bumpFeedbackRecurrence(dedupedInto, Date.now())
+              feedbackId = dedupedInto
+              r.deduped = true
+            } else {
+              feedbackId = await insertFeedback({
+                projectId, simId: sim.id, actorEmail: meR, urlHost, urlPath,
+                observation: r?.observation ?? null, sentiment: r?.sentiment ?? null,
+                severity: r?.suggestedBug?.severity ?? null, screenshotId, suggestedBug: r?.suggestedBug ?? null,
+                citedTraitIds: citation.citedTraitIds.length ? citation.citedTraitIds : null,
+                sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
+                issueKey: bug ? issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds) : null,
+              })
+            }
             r.citation = citation.citedTraitIds.length
-              ? { citedTraitIds: citation.citedTraitIds, sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate, recurrence: citation.recurrence }
+              ? { citedTraitIds: citation.citedTraitIds, sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate, sourceQuoteVerified: citation.sourceQuoteVerified, recurrence: citation.recurrence }
               : null
             r.feedbackId = feedbackId
           }
@@ -1408,7 +1464,7 @@ Bun.serve({
             const resolvedTargets = allTraits.filter((t) => reopenIds.has(t.id) && t.status !== "active")
             traitsForApply = [...current, ...resolvedTargets]
           }
-          const res = applyReconcileOps(traitsForApply, ops, { simId, projectId, transcriptId, sourceDate })
+          const res = applyReconcileOps(traitsForApply, ops, { simId, projectId, transcriptId, sourceDate, rawText: text })
           for (const w of res.traitWrites) {
             if (w.mode === "insert") await insertTrait(w.trait)
             else await updateTrait(w.trait)

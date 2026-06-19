@@ -93,3 +93,7 @@ clean `resolve` event followed by a `reopen` on a connected trait lineage.
 **Legacy-import traits are excluded.** Traits created via `legacy_import` have no
 resolving events in their timeline, so the regression signal cannot fire for them.
 Severity in extracted insights guides (but does not auto-file) bug severity.
+
+### Note — grounded Sim feedback & suggested-bug dedup
+
+Sim feedback trait quotes (v0.24.0) are now grounded in the transcript via a three-pass match strategy: exact string, char-normalized, or fuzzy line-snap. Citations carry a `verified` tri-state (anchored, unverified, not-attempted) plus character offsets; unmatched quotes are retained but flagged. Suggested-bug dedup (v0.24.0) is **prospective only** — it collapses NEW duplicates within an unchanged build and bumps the recurrence counter, but does not retroactively backfill `src_verified` on existing traits or consolidate pre-existing feedback rows.

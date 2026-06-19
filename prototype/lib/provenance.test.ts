@@ -11,6 +11,7 @@ import {
   applyReconcileOps,
   insightsFromTraits,
   recurrenceFromEvents,
+  groundQuote,
   type Trait,
   type ReconcileOp,
   type ReconcileCtx,
@@ -588,4 +589,85 @@ test("recurrenceFromEvents: create+contradict+reopen → regression summary has 
   expect(citedRecurrence.lastRaised).toBe(3500)   // must be reopen date
   // X and Y must differ: firstRaised (raise) != priorResolvedAt (resolve)
   expect(citedRecurrence.firstRaised).not.toBe(citedRecurrence.priorResolvedAt)
+})
+
+test("groundQuote: exact substring → real offset + verified true", () => {
+  const raw = "Sarah: The export button is hidden.\nJon: agreed."
+  const g = groundQuote(raw, "The export button is hidden.")
+  expect(g.verified).toBe(true)
+  expect(g.offset).toBe(raw.indexOf("The export button is hidden."))
+  expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
+})
+
+test("groundQuote: smart-quote / nbsp / dash variants snap to the real span, verified true", () => {
+  const raw = `Mia: I can't find the "Save" toggle - it's gone.`
+  // quote uses curly singles/doubles + em-dash; should normalize to match the straight-quote raw line
+  const quote = "I can’t find the “Save” toggle — it’s gone."
+  const g = groundQuote(raw, quote)
+  expect(g.verified).toBe(true)
+  expect(g.offset).not.toBeNull()
+  // returned quote is sliced from rawText, so it round-trips at the offset
+  expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
+})
+
+test("groundQuote: case/whitespace variant of a line (not a verbatim substring) → snaps to the real line", () => {
+  // Quote differs from the line only by case + collapsed/extra whitespace, so exact (step 1)
+  // and char-normalized substring (step 2) both miss; fuzzy line-snap (step 3) catches it.
+  const raw = "Lee: The checkout page keeps timing out.\nAna: ok"
+  const g = groundQuote(raw, "lee: the   checkout   page   keeps   timing   out.")
+  expect(g.verified).toBe(true)
+  expect(g.offset).toBe(0)
+  expect(g.quote).toBe("Lee: The checkout page keeps timing out.")
+})
+
+test("groundQuote: unrelated quote < threshold → keep text, offset null, verified false", () => {
+  const raw = "Sarah: The export button is hidden."
+  const g = groundQuote(raw, "the onboarding wizard crashed on step three")
+  expect(g.verified).toBe(false)
+  expect(g.offset).toBeNull()
+  expect(g.quote).toBe("the onboarding wizard crashed on step three")
+})
+
+test("groundQuote: null rawText → verified null (not attempted); empty quote → verified false", () => {
+  expect(groundQuote(null, "anything")).toEqual({ quote: "anything", offset: null, verified: null })
+  expect(groundQuote("some text", "")).toEqual({ quote: "", offset: null, verified: false })
+})
+
+test("groundQuote: fuzzy snap on a line with leading whitespace round-trips (offset matches quote)", () => {
+  const raw = "Intro line.\n    Lee: The checkout page keeps timing out.\nAna: ok"
+  const g = groundQuote(raw, "lee: the   checkout   page   keeps   timing   out.")
+  expect(g.verified).toBe(true)
+  expect(g.offset).not.toBeNull()
+  expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
+  expect(g.quote.startsWith("Lee:")).toBe(true) // leading spaces trimmed off the quote
+})
+
+test("applyReconcileOps: grounds add quote against ctx.rawText (offset + verified)", () => {
+  const raw = "Pat: The settings page never saves my changes."
+  const res = applyReconcileOps([], [
+    { op: "add", kind: "pain", text: "settings don't save", quote: "The settings page never saves my changes.", speaker: "Pat" },
+  ], { simId: "s1", projectId: "p1", transcriptId: "t1", sourceDate: 100, now: 200, newId: () => "tid1", rawText: raw })
+
+  const w = res.traitWrites[0].trait
+  expect(w.srcVerified).toBe(true)
+  expect(w.srcQuoteOffset).toBe(raw.indexOf("The settings page never saves my changes."))
+  const evt = res.traitEvents[0]
+  expect(evt.verified).toBe(true)
+  expect(evt.quoteOffset).toBe(w.srcQuoteOffset)
+})
+
+test("applyReconcileOps: unmatched quote → verified false, offset null", () => {
+  const res = applyReconcileOps([], [
+    { op: "add", kind: "pain", text: "x", quote: "totally unrelated sentence here", speaker: "Pat" },
+  ], { simId: "s1", projectId: "p1", transcriptId: "t1", sourceDate: 100, now: 200, newId: () => "tid1", rawText: "Pat: hello." })
+  expect(res.traitWrites[0].trait.srcVerified).toBe(false)
+  expect(res.traitWrites[0].trait.srcQuoteOffset).toBeNull()
+})
+
+test("applyReconcileOps: no rawText in ctx → verified null (back-compat)", () => {
+  const res = applyReconcileOps([], [
+    { op: "add", kind: "pain", text: "x", quote: "anything", speaker: "Pat" },
+  ], { simId: "s1", projectId: "p1", transcriptId: "t1", sourceDate: 100, now: 200, newId: () => "tid1" })
+  expect(res.traitWrites[0].trait.srcVerified ?? null).toBeNull()
+  expect(res.traitEvents[0].verified ?? null).toBeNull()
 })
