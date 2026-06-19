@@ -1027,6 +1027,9 @@ function renderStudio(sim) {
   ssTraits = []
   ssSelectedTraitId = null
   ssInspectorTab = "source"
+  ssEvoEvents = null
+  ssEvoLoadedFor = null
+  ssPersonaEditing = false
   dock.innerHTML = `<div class="ss-grid">
     <aside class="ss-col ss-col1" id="ssCol1"></aside>
     <section class="ss-col ss-col2" id="ssCol2"></section>
@@ -1267,7 +1270,175 @@ function ssTraitCardHtml(t, k) {
 // Filled in Task 6.
 function ssWireTraitControls() {}
 function ssSavePersona(sim) {}
-function renderInspector(trait) { const c = $("ssCol3"); if (c) c.innerHTML = "" }
+
+// ── Column 3 — attribution inspector (Source / Evolution / Transcript) ──
+let ssEvoEvents = null         // cached evolution feed for the active sim (flat, newest-first)
+let ssEvoLoadedFor = null      // simId the cache belongs to
+
+async function ssLoadEvolution(simId) {
+  if (ssEvoLoadedFor === simId && ssEvoEvents) return ssEvoEvents
+  try {
+    const r = await fetch(pq(`/api/sims/${encodeURIComponent(simId)}/evolution`))
+    const d = await r.json().catch(() => ({}))
+    ssEvoEvents = (d && d.events) || []
+  } catch (e) { ssEvoEvents = [] }
+  ssEvoLoadedFor = simId
+  return ssEvoEvents
+}
+
+// Heuristic: link a flat evolution event to a trait (the feed carries no traitId).
+function ssEventMatchesTrait(e, trait) {
+  if (!trait) return false
+  if (e.afterText && e.afterText === trait.text) return true
+  if (e.beforeText && e.beforeText === trait.text) return true
+  if (e.transcriptId && trait.srcTranscriptId && e.transcriptId === trait.srcTranscriptId &&
+      e.quote && trait.srcQuote && e.quote === trait.srcQuote) return true
+  return false
+}
+
+function renderInspector(trait) {
+  const col = $("ssCol3"); if (!col) return
+  if (!trait) {
+    col.innerHTML = `<div class="ss-insp-head">
+        <div class="ss-insp-title">Attribution</div>
+        <div class="ss-insp-trait">—</div>
+      </div>
+      <div class="ss-scroll" style="padding:18px"><div class="ss-muted">Select a trait to trace its source, evolution, and transcript.</div></div>`
+    return
+  }
+  const k = String(trait.kind || "").toUpperCase()
+  col.innerHTML = `<div class="ss-insp-head">
+      <div class="ss-insp-title">Attribution</div>
+      <div class="ss-insp-trait">${esc(trait.text || "")}</div>
+      <div class="ss-tabs">
+        <button class="ss-tab ${ssInspectorTab === "source" ? "on" : ""}" data-sstab="source">Source</button>
+        <button class="ss-tab ${ssInspectorTab === "evolution" ? "on" : ""}" data-sstab="evolution">Evolution</button>
+        <button class="ss-tab ${ssInspectorTab === "transcript" ? "on" : ""}" data-sstab="transcript">Transcript</button>
+      </div>
+    </div>
+    <div class="ss-scroll">
+      <div class="ss-panel ${ssInspectorTab === "source" ? "on" : ""}" id="ssPanelSource"></div>
+      <div class="ss-panel ${ssInspectorTab === "evolution" ? "on" : ""}" id="ssPanelEvolution"></div>
+      <div class="ss-panel ${ssInspectorTab === "transcript" ? "on" : ""}" id="ssPanelTranscript"></div>
+    </div>`
+  col.querySelectorAll(".ss-tab").forEach(b => b.onclick = () => ssSwitchTab(b.dataset.sstab, trait))
+  ssRenderSource(trait, k)
+  ssRenderEvoTab(trait, k)
+  ssRenderTranscriptTab(trait)
+}
+
+function ssSwitchTab(name, trait) {
+  ssInspectorTab = name
+  document.querySelectorAll("#ssCol3 .ss-tab").forEach(b => b.classList.toggle("on", b.dataset.sstab === name))
+  document.querySelectorAll("#ssCol3 .ss-panel").forEach(p => p.classList.toggle("on", p.id === "ssPanel" + name.charAt(0).toUpperCase() + name.slice(1)))
+}
+
+// Source tab — quote + speaker + transcript + date + strength, from the trait itself.
+function ssRenderSource(trait, k) {
+  const panel = $("ssPanelSource"); if (!panel) return
+  const tx = ssTxMap[trait.srcTranscriptId]
+  const title = tx ? (tx.title || trait.srcTranscriptId) : (trait.srcTranscriptId || "")
+  const dateStr = tx ? fmtDate(tx.sourceDate) : ""
+  const speaker = trait.srcSpeaker || ""
+  const initials = speaker ? speaker.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?"
+  const strength = Math.max(1, Math.min(3, Number(trait.strength || 1)))
+  panel.innerHTML = `
+    ${trait.srcQuote ? `<div class="ss-quote-block"><div class="ss-q">“${esc(trait.srcQuote)}”</div></div>` : ""}
+    ${speaker ? `<div class="ss-attr-row"><span class="ss-k">Speaker</span><span class="ss-v ss-spk"><span class="ss-av" style="background:${esc(ssActiveSim?.accent || "#6366f1")}">${esc(initials)}</span>${esc(speaker)}</span></div>` : ""}
+    <div class="ss-attr-row"><span class="ss-k">Transcript</span><span class="ss-v">${esc(title || "—")}</span></div>
+    ${dateStr ? `<div class="ss-attr-row"><span class="ss-k">Date</span><span class="ss-v mono">${esc(dateStr)}</span></div>` : ""}
+    <div class="ss-attr-row"><span class="ss-k">Source ID</span><span class="ss-v mono">${esc(trait.srcTranscriptId || "—")}</span></div>
+    ${trait.area ? `<div class="ss-attr-row"><span class="ss-k">Area</span><span class="ss-v mono">${esc(trait.area)}</span></div>` : ""}
+    ${trait.severity ? `<div class="ss-attr-row"><span class="ss-k">Severity</span><span class="ss-v mono">${esc(trait.severity)}</span></div>` : ""}
+    ${tx ? `<a class="ss-viewlink" id="ssViewFull">View full transcript →</a>` : ""}
+    <div class="ss-reinforce">
+      <span class="ss-rn" style="color:var(${SS_KINDVAR[k]})">${strength}×</span>
+      <span class="ss-rl"><b>${strength > 1 ? "Reinforced across " + strength + " mentions." : "Noted once."}</b> Strength grows each time it's raised.</span>
+    </div>`
+  const vl = $("ssViewFull")
+  if (vl) vl.onclick = () => ssSwitchTab("transcript", trait)
+}
+
+// Evolution tab — lit-spine, filtered to this trait (newest-first).
+async function ssRenderEvoTab(trait, k) {
+  const panel = $("ssPanelEvolution"); if (!panel) return
+  panel.innerHTML = `<div class="ss-muted">Loading evolution…</div>`
+  const simId = ssActiveSim ? (ssActiveSim._id || ssActiveSim.id) : null
+  if (!simId) { panel.innerHTML = `<div class="ss-muted">No Sim id.</div>`; return }
+  const all = await ssLoadEvolution(simId)
+  let chain = all.filter(e => ssEventMatchesTrait(e, trait))
+  if (!chain.length) {
+    panel.innerHTML = `<div class="ss-muted">No evolution recorded for this trait yet.</div>`
+    return
+  }
+  const colorVar = `var(${SS_KINDVAR[k]})`
+  let html = `<div class="ss-evo-head">
+      <div class="ss-lbl">Evidence Spine</div>
+      <div class="ss-ti">${SS_KINDLABEL[k]} · how it took shape</div>
+      <div class="ss-sub">${chain.length} event${chain.length > 1 ? "s" : ""} shaped this trait. Newest first.</div>
+    </div>
+    <div class="ss-timeline" style="--lk:${colorVar}">`
+  chain.forEach(n => {
+    const op = String(n.op || "")
+    const opLabel = op.replace(/_/g, " ")
+    const tx = ssTxMap[n.transcriptId]
+    const title = n.transcriptTitle || (tx ? tx.title : null) || n.transcriptId || "transcript"
+    const dateStr = fmtDate(n.sourceDate)
+    const by = [n.actor ? ("edited by " + n.actor) : (n.speaker || ""), n.transcriptId || "", dateStr].filter(Boolean).join(" · ")
+    html += `<div class="ss-tnode" style="--lk:${colorVar}">
+        <span class="ss-tdot"></span>
+        <div class="ss-tcard">
+          <div class="ss-tc-top">
+            <span class="ss-opbadge ss-op-${esc(op)}">${esc(opLabel)}</span>
+            ${n.actor ? `<span class="ss-vague-tag">by ${esc(n.actor)}</span>` : ""}
+            ${n.isRegression ? `<span class="ss-vague-tag" style="color:var(--rose)">regression</span>` : ""}
+          </div>
+          <h4>${esc(title)}</h4>
+          ${n.speaker ? `<div class="ss-speakers">${esc(n.speaker)}</div>` : ""}
+          <div class="ss-tdate"><span>${esc([n.transcriptId, dateStr].filter(Boolean).join(" · "))}</span></div>
+          ${n.quote ? `<div class="ss-evidence">
+            <div class="ss-ev-lbl">Evidence</div>
+            <div class="ss-ev-quote">“${esc(n.quote)}”</div>
+            <div class="ss-ev-by">${esc(by)}</div>
+          </div>` : ""}
+        </div>
+      </div>`
+  })
+  html += '</div>'
+  panel.innerHTML = html
+}
+
+// Transcript tab — rawText with the trait's srcQuote highlighted.
+async function ssRenderTranscriptTab(trait) {
+  const panel = $("ssPanelTranscript"); if (!panel) return
+  const txid = trait.srcTranscriptId
+  if (!txid) { panel.innerHTML = `<div class="ss-muted">No source transcript for this trait.</div>`; return }
+  const tx = ssTxMap[txid]
+  panel.innerHTML = `<div class="ss-tr-head">
+      <span class="ss-chip">${esc(txid)}</span>
+      <span class="ss-tr-meta">${esc([tx ? tx.title : "", tx ? fmtDate(tx.sourceDate) : ""].filter(Boolean).join(" · "))}</span>
+    </div><div class="ss-tr-raw" id="ssTrRaw"><span class="ss-muted">Loading transcript…</span></div>`
+  try {
+    const r = await fetch(pq(`/api/transcripts/${encodeURIComponent(txid)}`))
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(d.error || "load failed")
+    const raw = d.rawText || "(no text)"
+    const rawEl = $("ssTrRaw"); if (!rawEl) return
+    rawEl.innerHTML = ssHighlightQuote(raw, trait.srcQuote)
+  } catch (e) {
+    const rawEl = $("ssTrRaw"); if (rawEl) rawEl.innerHTML = `<span class="ss-muted">Couldn't load transcript: ${esc(e.message)}</span>`
+  }
+}
+
+// Escape rawText, then wrap the first occurrence of the quote in a <mark>-style highlight.
+function ssHighlightQuote(raw, quote) {
+  const safe = esc(raw)
+  if (!quote) return safe
+  const q = esc(quote)
+  const idx = safe.indexOf(q)
+  if (idx < 0) return safe
+  return safe.slice(0, idx) + `<span class="ss-hl">` + q + `</span>` + safe.slice(idx + q.length)
+}
 
 // ── Focused single-Sim view — rendered when ?sim=<id> is in the URL ──
 // Renders into #dock (inside #pane-sims). Shows header, provenance insights,
