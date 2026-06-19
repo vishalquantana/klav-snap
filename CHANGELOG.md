@@ -10,6 +10,14 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.21.1] — 2026-06-19
+
+### Changed
+- **SEO-friendly store name.** Extension `name` is now
+  "Klavity – AI Bug Reporter & Feedback for Jira, Linear, GitHub" (descriptive title for
+  Web Store discoverability), with `short_name` "Klavity" for the toolbar and
+  `chrome://extensions`. No functional change.
+
 ## [0.21.0] — 2026-06-19
 
 ### Changed
