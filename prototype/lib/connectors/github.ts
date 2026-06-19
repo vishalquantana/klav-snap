@@ -1,5 +1,5 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
-import { assertSafeUrl } from "../url-guard"
+import { safeFetch } from "../safe-fetch"
 
 export const githubConnector: Connector = {
   type: "github",
@@ -21,25 +21,28 @@ export const githubConnector: Connector = {
     const { owner, repo, token } = cfg
     const url = `https://api.github.com/repos/${owner}/${repo}/issues`
 
-    // Endpoint host is fixed (api.github.com), but owner/repo are user-supplied
-    // path segments. Guard for defense-in-depth — pin to github.com so a crafted
-    // owner/repo can't redirect the request host, and reject private resolutions.
-    await assertSafeUrl(url, { allowHosts: ["github.com"] })
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "Klavity",
-        "Content-Type": "application/json",
+    // Endpoint host is fixed (api.github.com), but owner/repo are user-supplied path
+    // segments. safeFetch pins the request (and every redirect hop) to github.com so a
+    // crafted owner/repo or a 3xx can't move the request host, and rejects private resolutions.
+    const res = await safeFetch(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github+json",
+          "User-Agent": "Klavity",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: ticket.title, body: ticket.body }),
       },
-      body: JSON.stringify({ title: ticket.title, body: ticket.body }),
-    })
+      { allowHosts: ["github.com"] },
+    )
 
     if (!res.ok) {
       const text = (await res.text().catch(() => "")).slice(0, 200)
-      throw new Error(`github ${res.status}: ${text}`)
+      console.error(`github upstream error ${res.status}: ${text}`)
+      throw new Error(`tracker request failed (HTTP ${res.status})`)
     }
 
     const json = await res.json()

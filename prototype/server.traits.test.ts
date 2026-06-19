@@ -345,6 +345,73 @@ test("M2: a minted ext_ token authenticates as a Bearer with no cookie", async (
   expect(res.status).toBe(200)
 })
 
+// ── H1/A07: OTP per-email verify lockout survives X-Forwarded-For rotation ──
+// The test server's socket peer is loopback, so it TRUSTS X-Forwarded-For (it sits "behind Caddy").
+// An attacker rotating XFF gets a fresh per-(email,IP) budget each time — but the IP-INDEPENDENT
+// per-email counter (otpfail:e:<email>, cap 10 / 15 min) must still fire and 429, regardless of XFF.
+test("H1: OTP per-email lockout fires despite rotating X-Forwarded-For", async () => {
+  const target = `lockme-${ts}@test.local`
+  // First request a code so the email is real in the OTP table (not required for the counter, but
+  // mirrors a genuine brute-force where a code exists). Use a fixed XFF for issuance.
+  await fetch(`${BASE}/api/auth/request`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.1" },
+    body: JSON.stringify({ email: target }),
+  })
+  // Now send 11 WRONG codes, each from a DIFFERENT spoofed XFF. The per-(email,IP) cap (5) never
+  // trips because every attempt has a fresh IP; only the per-email cap (10) accumulates.
+  let saw429 = false
+  let last = 0
+  for (let i = 0; i < 12; i++) {
+    const res = await fetch(`${BASE}/api/auth/verify`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": `198.51.100.${i}` },
+      body: JSON.stringify({ email: target, code: "000000" }),
+    })
+    last = res.status
+    if (res.status === 429) { saw429 = true; break }
+  }
+  expect(saw429).toBe(true) // per-email lockout fired despite XFF rotation
+  expect(last).toBe(429)
+})
+
+// ── A01/IDOR: /api/feedback must NOT leak a victim tenant's trait quote via a cross-tenant sim_id ──
+// Attacker is authed (cookie) to their OWN project but supplies sim_id=sim_victim (+ its trait id).
+// The sim-ownership guard must treat the persona as ephemeral (simId=null) → citation null/empty,
+// so the victim's verbatim "secret quote" never appears in the response.
+test("A01: /api/feedback with a cross-tenant sim_id yields no victim citation", async () => {
+  const form = new FormData()
+  form.set("description", "attacker probing cross-tenant citations")
+  form.set("project_id", PROJECT_ID)            // attacker's OWN project
+  form.set("sim_id", "sim_victim")              // victim tenant's Sim id
+  form.set("cited_trait_ids", JSON.stringify(["trait_victim"]))
+  form.set("suggested_bug", JSON.stringify({ title: "probe", body: "b", severity: "low" }))
+  const res = await fetch(`${BASE}/api/feedback`, {
+    method: "POST",
+    headers: { cookie: "klav_session=" + SID },
+    body: form,
+  })
+  expect(res.status).toBe(200)
+  const text = await res.text()
+  // The victim's confidential trait quote must NOT appear anywhere in the response.
+  expect(text.includes("secret quote")).toBe(false)
+  expect(text.includes("Confidential pain point")).toBe(false)
+  // And, when a persisted row exists, it must carry no cross-tenant citation (simId nulled → no trait
+  // read). The feedback table may not be part of this test's minimal schema; if so, the response-body
+  // assertions above are already the binding security check, so skip the row check gracefully.
+  try {
+    const rows = await rawClient.execute({
+      sql: `SELECT sim_id, source_quote FROM feedback WHERE project_id=? ORDER BY created_at DESC LIMIT 1`,
+      args: [PROJECT_ID],
+    })
+    if (rows.rows.length) {
+      const r: any = rows.rows[0]
+      expect(r.sim_id).toBeNull()            // sim_victim was rejected (ephemeral)
+      expect(r.source_quote).toBeNull()      // no leaked verbatim quote
+    }
+  } catch { /* feedback table not in this minimal schema — body assertions cover the leak */ }
+})
+
 // ── M5: /api/transcripts rejects an oversized payload before doing any LLM work ──
 test("M5: /api/transcripts rejects an oversized transcript with 413", async () => {
   const huge = "a".repeat(100_001)

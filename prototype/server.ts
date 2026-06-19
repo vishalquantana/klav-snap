@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
@@ -10,6 +10,7 @@ import { buildIssueHtml, escapeHtml } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
 import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
 import { assertSafeUrl } from "./lib/url-guard"
+import { safeFetch } from "./lib/safe-fetch"
 import { allow as rlAllow, record as rlRecord, count as rlCount, clear as rlClear } from "./lib/ratelimit"
 import { wrapUntrusted, UNTRUSTED_GUARD } from "./lib/prompt-safety"
 import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
@@ -113,19 +114,24 @@ const RECONCILE_SYS =
 async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: { type: string; email?: string | null; projectId?: string | null }) {
   const t0 = Date.now()
   const label = ctx?.type || "chat"
-  // M5/LLM10: enforce the daily spend cap server-side (it used to be display-only). Fail CLOSED before
-  // spending another cent once today's ai_calls total reaches the cap — bounds wallet-exhaustion abuse.
+  // M5/LLM10: enforce the daily spend cap server-side, ATOMICALLY. The old `opsTodaySpend() >= cap`
+  // read-then-act check raced — N concurrent callers all saw under-cap and all spent, overshooting the
+  // wallet. We now RESERVE the estimated cost up-front via a single conditional UPDATE (fails CLOSED if
+  // the reservation would cross the cap), then reconcile to the real cost after the call returns.
+  const spendEst = DEFAULT_AI_CALL_EST_USD
+  let spendReserved = false
   if (db) {
     try {
-      if (await opsTodaySpend() >= OPS_DAILY_CAP_USD) {
+      if (!(await tryReserveDailySpend(spendEst, OPS_DAILY_CAP_USD))) {
         console.warn(`AI[${label}] blocked: daily cap $${OPS_DAILY_CAP_USD} reached`)
         throw new Error("Daily AI budget reached — please try again tomorrow.")
       }
+      spendReserved = true
     } catch (e: any) {
       if (e?.message?.includes("Daily AI budget")) throw e
-      // a failing cap query must not silently disable the cap, but also shouldn't hard-break every
-      // call on a transient DB hiccup — log and proceed (the per-key OpenRouter cap is the backstop).
-      console.error("opsTodaySpend check failed:", e?.message || e)
+      // A failing reservation query must not silently disable the cap, but also shouldn't hard-break
+      // every call on a transient DB hiccup — log and proceed (the per-key OpenRouter cap is the backstop).
+      console.error("tryReserveDailySpend check failed:", e?.message || e)
     }
   }
   const model = pickModel(await getActiveWeights(), MODEL_CHOICE_IDS, MODEL, Math.random())
@@ -141,12 +147,14 @@ async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: 
     })
   } catch (e: any) {
     clearTimeout(timer)
+    // The call never produced a billable response → release the reservation back to today's budget.
+    if (spendReserved) void reconcileDailySpend(spendEst, 0).catch(() => {})
     const ms = Date.now() - t0
     if (e?.name === "AbortError") { console.error(`AI[${label}] TIMEOUT after ${ms}ms`); throw new Error("The model took too long (>90s). Please try again.") }
     console.error(`AI[${label}] network error after ${ms}ms:`, e?.message || e); throw e
   }
   clearTimeout(timer)
-  if (!res.ok) { const body = (await res.text()).slice(0, 300); console.error(`AI[${label}] OpenRouter ${res.status} after ${Date.now() - t0}ms: ${body}`); throw new Error(`OpenRouter ${res.status}: ${body}`) }
+  if (!res.ok) { if (spendReserved) void reconcileDailySpend(spendEst, 0).catch(() => {}); const body = (await res.text()).slice(0, 300); console.error(`AI[${label}] OpenRouter ${res.status} after ${Date.now() - t0}ms: ${body}`); throw new Error(`OpenRouter ${res.status}: ${body}`) }
   const data: any = await res.json()
   const content: string = data?.choices?.[0]?.message?.content ?? ""
   const u = data?.usage || {}
@@ -159,6 +167,12 @@ async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: 
       outputTokens: typeof u.completion_tokens === "number" ? u.completion_tokens : null,
       costUsd: typeof u.cost === "number" ? u.cost : null,
     }).catch((e: any) => console.error("recordAiCall failed:", e?.message || e))
+  }
+  // M5/LLM10: reconcile the up-front reservation to the REAL cost so the cap tracks actual spend.
+  // Fire-and-forget — a slow reconcile must never hang the response; the reservation already gated us.
+  if (spendReserved) {
+    void reconcileDailySpend(spendEst, typeof u.cost === "number" ? u.cost : 0)
+      .catch((e: any) => console.error("reconcileDailySpend failed:", e?.message || e))
   }
   return { content, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens } }
 }
@@ -311,7 +325,11 @@ function matchPersonaToSim(extracted: { name: string; role?: string }, sims: { i
 // Defensive: ignores ids that don't belong to the Sim (no crash); returns empty citation when nothing matches.
 // Also computes per-trait recurrence (from trait_events) and surfaces the STRONGEST regression across all
 // matched traits (strongest = regressed=true, else pick by timesRaised).
-async function resolveCitations(simId: string | null, citedTraitIds: any): Promise<{
+// A07/A01: projectId (when supplied) scopes every trait/transcript read to the caller's project, so a
+// cited trait id belonging to ANOTHER tenant's Sim can never resolve to a verbatim quote/provenance.
+// Callers should ALSO verify the sim itself belongs to the project (pass simId=null otherwise); this
+// is the defense-in-depth layer that ensures even a leaked trait id can't read cross-project.
+async function resolveCitations(simId: string | null, citedTraitIds: any, projectId?: string | null): Promise<{
   citedTraitIds: string[]; sourceQuote: string | null; speaker: string | null; sourceTranscriptId: string | null; sourceDate: number | null;
   issueType: string | null; sourceQuoteVerified: boolean | null;
   recurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null
@@ -319,21 +337,24 @@ async function resolveCitations(simId: string | null, citedTraitIds: any): Promi
   const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null, issueType: null, sourceQuoteVerified: null, recurrence: null }
   if (!simId || !Array.isArray(citedTraitIds) || !citedTraitIds.length) return empty
   const want = new Set(citedTraitIds.map((x) => String(x)))
-  const traits = await listTraits(simId) // all statuses — a cited trait may have since been superseded
+  const traits = await listTraits(simId, projectId ? { projectId } : {}) // all statuses — a cited trait may have since been superseded
   const matched = traits.filter((t) => want.has(t.id))
   if (!matched.length) return empty
   const primary = matched[0]
   // source_date comes from the trait's originating transcript (drives "(Sarah, 2026-06-12)" citations).
   let sourceDate: number | null = null
   if (primary.srcTranscriptId) {
-    const tr = await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=?", args: [primary.srcTranscriptId] })
+    // Scope the transcript read to the project too (defense-in-depth) when projectId is known.
+    const tr = projectId
+      ? await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=? AND project_id=?", args: [primary.srcTranscriptId, projectId] })
+      : await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=?", args: [primary.srcTranscriptId] })
     if (tr.rows.length) sourceDate = Number((tr.rows[0] as any).source_date)
   }
   // Compute recurrence for EACH cited trait, then surface the strongest regression.
   // Fetch all events for this sim once, then filter per trait in memory.
   let strongestRecurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null = null
   try {
-    const allEvents: TraitEventRow[] = await listTraitEvents(simId)
+    const allEvents: TraitEventRow[] = await listTraitEvents(simId, projectId ? { projectId } : {})
     const eventsByTrait = new Map<string, TraitEventRow[]>()
     for (const e of allEvents) {
       const arr = eventsByTrait.get(e.traitId) ?? []
@@ -661,6 +682,12 @@ const OTP_REQ_PER_EMAIL = 5            // code requests per email / window
 const OTP_REQ_PER_IP = 30             // code requests per IP / window (shared NAT headroom)
 const OTP_FAIL_WINDOW = 15 * 60 * 1000
 const OTP_FAIL_MAX = 5                 // wrong codes per (email,IP) before lockout
+// IP-INDEPENDENT per-email lockout (H1/A07): the per-(email,IP) counter alone is defeated by an
+// attacker rotating X-Forwarded-For (or genuinely distributing source IPs) to get a fresh 5-attempt
+// budget and brute-force the 6-digit code. This second counter caps total wrong codes per email
+// regardless of source IP, so the email's brute-force surface is bounded end-to-end.
+const OTP_FAIL_EMAIL_WINDOW = 15 * 60 * 1000
+const OTP_FAIL_EMAIL_MAX = 10          // wrong codes per email / window across ALL IPs before lockout
 
 // LLM-endpoint abuse limits (M5/LLM10). /api/transcripts fires two LLM calls and was previously
 // unbudgeted/unbounded — cap the input size and rate per user+project.
@@ -673,12 +700,39 @@ const TRANSCRIPT_PER_PROJECT = 60      // per project / hour
 const AUTOCOPY_WINDOW = 60 * 60 * 1000
 const AUTOCOPY_PER_PROJECT = 60
 
-// Best-effort client IP: behind Caddy the real client is the first X-Forwarded-For hop; fall back
-// to the socket address. Used only for abuse throttling, never for authorization.
+// True when an address is loopback or RFC1918/link-local private — i.e. a trusted reverse proxy on
+// the same box (Caddy). Only such a peer may set X-Forwarded-For; a public peer's XFF is forged.
+function isTrustedProxyPeer(addr: string | null | undefined): boolean {
+  if (!addr) return false
+  let a = String(addr).trim().toLowerCase()
+  // Normalize IPv6-mapped IPv4 (e.g. ::ffff:127.0.0.1) and bracketed forms.
+  a = a.replace(/^\[|\]$/g, "").replace(/^::ffff:/, "")
+  if (a === "::1" || a === "127.0.0.1" || a === "localhost") return true
+  if (a.startsWith("127.")) return true
+  if (a.startsWith("10.")) return true
+  if (a.startsWith("192.168.")) return true
+  if (a.startsWith("169.254.")) return true       // link-local
+  // 172.16.0.0 – 172.31.255.255
+  const m = a.match(/^172\.(\d{1,3})\./)
+  if (m) { const o = Number(m[1]); if (o >= 16 && o <= 31) return true }
+  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10)
+  if (a.startsWith("fc") || a.startsWith("fd") || a.startsWith("fe8") || a.startsWith("fe9") || a.startsWith("fea") || a.startsWith("feb")) return true
+  return false
+}
+
+// Client IP for ABUSE THROTTLING ONLY (never authorization). X-Forwarded-For is client-controlled,
+// so trusting it blindly lets an attacker rotate XFF to mint fresh per-IP rate-limit budgets (H1/A07
+// OTP-lockout bypass). We therefore trust the first XFF hop ONLY when the socket peer is a trusted
+// reverse proxy (loopback/private — i.e. behind Caddy on the same box). For a direct public peer we
+// use the peer address itself and ignore any XFF it sent.
 function clientIp(req: Request, server?: { requestIP?: (r: Request) => { address?: string } | null }): string {
-  const xff = req.headers.get("x-forwarded-for")
-  if (xff) return xff.split(",")[0].trim()
-  try { return server?.requestIP?.(req)?.address || "unknown" } catch { return "unknown" }
+  let peer: string | undefined
+  try { peer = server?.requestIP?.(req)?.address || undefined } catch { peer = undefined }
+  if (isTrustedProxyPeer(peer)) {
+    const xff = req.headers.get("x-forwarded-for")
+    if (xff) { const first = xff.split(",")[0].trim(); if (first) return first }
+  }
+  return peer || "unknown"
 }
 
 Bun.serve({
@@ -766,12 +820,19 @@ Bun.serve({
         // window, refuse further attempts until it resets. Successful verify clears the counter.
         const vIp = clientIp(req, server)
         const failKey = `otpfail:${e}:${vIp}`
-        if (rlCount(failKey) >= OTP_FAIL_MAX) return json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429, { "Retry-After": "900" })
+        // IP-independent per-email lockout (H1/A07): fires regardless of source IP / spoofed XFF, so
+        // rotating the X-Forwarded-For header can't buy a fresh brute-force budget against one email.
+        const failEmailKey = `otpfail:e:${e}`
+        if (rlCount(failKey) >= OTP_FAIL_MAX || rlCount(failEmailKey) >= OTP_FAIL_EMAIL_MAX)
+          return json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429, { "Retry-After": "900" })
         if (!(await verifyOtp(e, c))) {
           rlRecord(failKey, OTP_FAIL_WINDOW)
+          rlRecord(failEmailKey, OTP_FAIL_EMAIL_WINDOW)
           return json({ error: "Invalid or expired code." }, 401)
         }
+        // Successful verify clears BOTH the per-(email,IP) and the per-email counters.
         rlClear(failKey)
+        rlClear(failEmailKey)
         await upsertUser(e)
         // First-run funnel: capture whether this is a brand-new account BEFORE ensureAccount bootstraps
         // a default membership (which it always does on first login). A genuinely new user starts in the
@@ -867,7 +928,11 @@ Bun.serve({
                 })
               }
 
-              const simId = String(form.get("sim_id") || "") || null
+              // A01/IDOR: the sim_id is attacker-supplied. Before any trait/citation lookup, verify it
+              // belongs to THIS project; if not, treat the persona as ephemeral (simId=null) so no
+              // cross-tenant trait read happens. The report still persists with no citation (no 500).
+              const rawSimId = String(form.get("sim_id") || "") || null
+              const simId = rawSimId && (await listPersonas(projectId)).some((p) => p.id === rawSimId) ? rawSimId : null
               const observation = String(form.get("observation") || "") || description
               const sentiment = String(form.get("sentiment") || "") || null
               const severity = String(form.get("severity") || "") || null
@@ -881,7 +946,7 @@ Bun.serve({
               let citedRaw: any = null
               const ctRaw = String(form.get("cited_trait_ids") || "")
               if (ctRaw) { try { citedRaw = JSON.parse(ctRaw) } catch { citedRaw = ctRaw.split(",").map((s) => s.trim()).filter(Boolean) } }
-              citation = await resolveCitations(simId, citedRaw)
+              citation = await resolveCitations(simId, citedRaw, projectId)
 
               let dedupedInto: string | null = null
               if (suggestedBug) {
@@ -994,13 +1059,17 @@ Bun.serve({
           console.warn("tracker host rejected (non-fatal):", e?.message || e)
           return wjson({ id: feedbackId ?? "", saved: true })
         }
+        // Use safeFetch so redirects are validated per-hop too (a public host that 3xx-redirects to an
+        // internal/loopback target would otherwise bypass the one-shot assertSafeUrl above). The same
+        // KLAV_TEST_ALLOW_LOOPBACK hatch the connectors use applies for the localhost-receiver tests.
+        // Wrapped non-fatal: a tracker/SSRF rejection or network failure must never fail the user's submission.
         let res: Response
         try {
-          res = await fetch(`${planeHost}/api/v1/workspaces/${planeWorkspace}/projects/${planeProject}/issues/`, {
+          res = await safeFetch(`${planeHost}/api/v1/workspaces/${planeWorkspace}/projects/${planeProject}/issues/`, {
             method: "POST",
             headers: { "X-API-Key": planeToken, "Content-Type": "application/json" },
             body: JSON.stringify({ name: `[Klavity] ${description.slice(0, 180)}`, description_html }),
-          })
+          }, { allowLoopbackInTest: true })
         } catch (fetchErr: any) {
           console.error("Plane fetch failed (non-fatal):", fetchErr?.message || fetchErr)
           return wjson({ id: feedbackId ?? "", saved: true })
@@ -1305,7 +1374,7 @@ Bun.serve({
           // NOT carry disappointment voice.
           let simWithMemory: any = sim
           try {
-            const allSimEvents: TraitEventRow[] = await listTraitEvents(sim.id)
+            const allSimEvents: TraitEventRow[] = await listTraitEvents(sim.id, { projectId })
             const eventsByTrait = new Map<string, TraitEventRow[]>()
             for (const e of allSimEvents) {
               const arr = eventsByTrait.get(e.traitId) ?? []
@@ -1345,7 +1414,7 @@ Bun.serve({
             continue
           }
           for (const r of reactions) {
-            const citation = await resolveCitations(sim.id, r?.citedTraitIds)
+            const citation = await resolveCitations(sim.id, r?.citedTraitIds, projectId)
             const bug = r?.suggestedBug
             let dedupedInto: string | null = null
             if (bug) {
@@ -2001,13 +2070,15 @@ Bun.serve({
             })
             exportResult = { type: connector.type, externalKey: result.externalKey, externalUrl: result.externalUrl, status: "ok", error: null }
           } catch (e: any) {
-            const errMsg = e?.message || "Export failed"
+            // A10: log the raw error server-side (with a correlation id) and store it on the export row,
+            // but return ONLY a generic message + id to the client so guard/internal text can't leak.
+            const o = oops(e, "export")
             await addTicketExport({
               feedbackId: fid, projectId: fbRow.projectId, connectorId,
               type: connector.type, externalKey: null, externalUrl: null,
-              status: "failed", error: errMsg, createdBy: me,
+              status: "failed", error: (e as any)?.message || "Export failed", createdBy: me,
             })
-            exportResult = { type: connector.type, externalKey: null, externalUrl: null, status: "failed", error: errMsg }
+            exportResult = { type: connector.type, externalKey: null, externalUrl: null, status: "failed", error: `${o.error} (ref ${o.id})` }
           }
           return json({ ok: true, export: exportResult })
         }
@@ -2121,7 +2192,9 @@ Bun.serve({
               const result = await adapter.createIssue(TEST_PAYLOAD, config)
               return json({ ok: true, externalKey: result.externalKey, externalUrl: result.externalUrl })
             } catch (e: any) {
-              return json({ ok: false, error: e?.message || "Test failed" })
+              // A10: never echo guard/upstream/internal text — generic message + logged correlation id.
+              const o = oops(e, "connector-test")
+              return json({ ok: false, error: o.error, id: o.id })
             }
           }
 
@@ -2146,7 +2219,9 @@ Bun.serve({
               const result = await adapter.createIssue(TEST_PAYLOAD, decryptedConfig)
               return json({ ok: true, externalKey: result.externalKey, externalUrl: result.externalUrl })
             } catch (e: any) {
-              return json({ ok: false, error: e?.message || "Test failed" })
+              // A10: generic message + logged correlation id (no guard/upstream leak).
+              const o = oops(e, "connector-test")
+              return json({ ok: false, error: o.error, id: o.id })
             }
           }
 
@@ -2317,14 +2392,19 @@ Bun.serve({
           const { persona, imageB64, mediaType, pageUrl } = await req.json()
           if (!persona || !imageB64) return json({ error: "persona and imageB64 required" }, 400)
           const meRx = (await sessionEmail(req)) || (await bearerEmail(req))
-          const simId = persona?.id ? String(persona.id) : null
+          // A01/IDOR: persona.id is attacker-supplied. Resolve the caller's project and only treat the
+          // id as a real Sim when it belongs to that project — otherwise it's an EPHEMERAL persona
+          // (simId=null) so no cross-tenant trait/citation lookup happens. The AI call still proceeds.
+          const projRx = meRx ? await resolveProject(meRx, url.searchParams.get("project")) : null
+          const rawSimId = persona?.id ? String(persona.id) : null
+          const simId = rawSimId && projRx && (await listPersonas(projRx.id)).some((p) => p.id === rawSimId) ? rawSimId : null
 
           // Build regression-gated recurrence memory for this Sim's traits before calling reactToPage.
           // Only attach recurrenceMemory when regressed=true; mere recurrence does not warrant disappointment.
           let personaWithMemory = persona
           if (simId) {
             try {
-              const allSimEvents: TraitEventRow[] = await listTraitEvents(simId)
+              const allSimEvents: TraitEventRow[] = await listTraitEvents(simId, projRx ? { projectId: projRx.id } : {})
               const eventsByTrait = new Map<string, TraitEventRow[]>()
               for (const e of allSimEvents) {
                 const arr = eventsByTrait.get(e.traitId) ?? []
@@ -2360,7 +2440,7 @@ Bun.serve({
           // Resolve each reaction's citedTraitIds → {quote, speaker, sourceDate, transcriptId, recurrence} so the
           // studio review→feedback path can carry citations forward.
           for (const r of reactions) {
-            const cited = await resolveCitations(simId, r?.citedTraitIds)
+            const cited = await resolveCitations(simId, r?.citedTraitIds, projRx?.id)
             r.citation = cited.citedTraitIds.length
               ? { citedTraitIds: cited.citedTraitIds, sourceQuote: cited.sourceQuote, speaker: cited.speaker, sourceTranscriptId: cited.sourceTranscriptId, sourceDate: cited.sourceDate, recurrence: cited.recurrence }
               : null

@@ -1,5 +1,5 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
-import { guardConnectorUrl } from "./guard"
+import { safeFetch } from "../safe-fetch"
 
 // Build an Atlassian Document Format (ADF) doc wrapping plain text.
 function toAdf(text: string): object {
@@ -38,33 +38,36 @@ export const jiraConnector: Connector = {
     const issueType = cfg.issue_type || "Task"
     const url = `${host.replace(/\/$/, "")}/rest/api/3/issue`
 
-    // SSRF guard (H3): `host` is user-supplied. Guard the fully constructed URL
-    // (loopback / private / link-local / metadata blocked, https required) before
-    // the outbound POST so credentials are never sent to an internal address.
-    await guardConnectorUrl(url)
-
     const credentials = Buffer.from(`${email}:${token}`).toString("base64")
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Basic ${credentials}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: JSON.stringify({
-        fields: {
-          project: { key: project_key },
-          issuetype: { name: issueType },
-          summary: ticket.title,
-          description: toAdf(ticket.body),
+    // SSRF guard (H3): `host` is user-supplied. safeFetch validates the constructed URL and
+    // every redirect hop (loopback / private / link-local / metadata blocked, https required,
+    // no auto-redirect to an unchecked host) before credentials are ever sent.
+    const res = await safeFetch(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Basic ${credentials}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
         },
-      }),
-    })
+        body: JSON.stringify({
+          fields: {
+            project: { key: project_key },
+            issuetype: { name: issueType },
+            summary: ticket.title,
+            description: toAdf(ticket.body),
+          },
+        }),
+      },
+      { allowLoopbackInTest: true },
+    )
 
     if (!res.ok) {
       const text = (await res.text().catch(() => "")).slice(0, 200)
-      throw new Error(`jira ${res.status}: ${text}`)
+      console.error(`jira upstream error ${res.status}: ${text}`)
+      throw new Error(`tracker request failed (HTTP ${res.status})`)
     }
 
     const json = await res.json()

@@ -47,13 +47,45 @@ reading the real code and citing `file:line`. Findings below verified against so
 - ✅ **Hardening:** `assertSafeUrl` is now https-only by construction — the `allowHttp` option was
   removed, so no caller can ever opt into plaintext for an outbound request.
 
+### Re-sweep batch (v0.25.0)
+
+A second full adversarial re-audit (clean-slate hunt + attempts to bypass the controls above) surfaced
+real gaps — including bypasses of the earlier fixes. All High + the exploitable Mediums are now fixed,
+with tests, via a multi-agent workflow.
+
+- ✅ **SSRF redirect-following (High, A10)** — `fetch` followed 3xx to an unchecked host with the
+  connector's secret header attached. New `lib/safe-fetch.ts` does `redirect:"manual"` and re-validates
+  every hop through the guard (hop cap 5); all 5 connectors + the direct-Plane push route through it.
+- ✅ **SSRF DNS-rebinding (High, A10)** — narrowed by re-validating the host immediately before each
+  hop. Full IP-pinning isn't feasible in Bun's `fetch`; the residual narrow TOCTOU window is documented
+  in `safe-fetch.ts` (allowHosts-pinned connectors are unaffected).
+- ✅ **OTP lockout bypass via `X-Forwarded-For` spoofing (High, A07)** — `clientIp` now trusts XFF only
+  when the socket peer is a trusted proxy (`isTrustedProxyPeer`); added an IP-independent per-email
+  verify lockout (10/15 min) so IP rotation can't refresh the attempt budget.
+- ✅ **Cross-tenant citation IDOR (Medium, A01)** — `/api/feedback`, `/api/react`, `/api/sim/review`
+  now verify the supplied `sim_id` belongs to the caller's project before any trait/citation lookup
+  (else treated as ephemeral, `simId=null`); `resolveCitations`/`listTraits`/`listTraitEvents` are
+  project-scoped.
+- ✅ **Cost-cap race (Medium, LLM10)** — replaced the non-atomic pre-check with an atomic
+  `tryReserveDailySpend` reservation (fail-closed) + `reconcileDailySpend` to actual cost, so a
+  concurrent burst can't overshoot `OPS_DAILY_CAP_USD`.
+- ✅ **Connector error leak (Medium, A10)** — adapters throw generic errors (upstream body logged
+  server-side only); the connector-test/export catches route through `oops()` so guard reasons aren't
+  echoed (no blind-SSRF oracle).
+
 ### Still open (Low / Info — accepted or deferred)
 
-- Wildcard CORS on widget routes (acceptable: bearer-auth, not credentialed).
-- `emailAllowed` fail-open when no allowlist is configured (by design for open signup).
-- LLM02: page screenshots/transcripts sent to OpenRouter unredacted (consented processor).
+- **Medium, deferred:** `ext_` widget tokens are account-wide rather than project-scoped (F5); legacy
+  `/api/extract`/`/api/react`/`/api/persona/brief` lack per-user rate/size caps (the daily cost cap now
+  bounds spend); no global security headers (CSP/HSTS/X-Frame-Options) — next batch.
+- **Low:** verify response also returns `token: sid` in the body; `verifyOtp` check-then-act not atomic;
+  `javascript:`/`data:` not scheme-checked on connector-supplied `href`s in the dashboard;
+  `wrapUntrusted` regex is whitespace-naive (not independently exploitable).
+- **Accepted:** wildcard CORS on bearer-auth widget routes; `emailAllowed` fail-open for open signup;
+  LLM02 page content sent to OpenRouter (consented); vision (pixel) prompt injection (bounded: no tools,
+  output escaped/validated).
 
-All Critical, High, and Medium findings are remediated with tests as of v0.23.0.
+All Critical + High findings, and all exploitable Mediums, are remediated with tests as of v0.25.0.
 
 ---
 

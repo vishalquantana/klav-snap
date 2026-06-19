@@ -16,8 +16,11 @@ import { assertSafeUrl as baseAssertSafeUrl, type UrlGuardOptions } from "../url
  * True only when the integration harness explicitly opts in via KLAV_TEST_ALLOW_LOOPBACK=1.
  * Deliberately NOT gated on the generic NODE_ENV (frameworks/tools set that, and a prod misconfig
  * must never silently reopen loopback SSRF). No deployment sets this var, so the full guard applies.
+ *
+ * Exported so safe-fetch.ts can reuse the SAME hatch rule (single source of truth) without
+ * duplicating it or the underlying IP classification (which lives in url-guard.ts).
  */
-function loopbackAllowedForTests(): boolean {
+export function loopbackAllowedForTests(): boolean {
   return process.env.KLAV_TEST_ALLOW_LOOPBACK === "1"
 }
 
@@ -42,8 +45,11 @@ export async function guardConnectorUrl(raw: string, opts: UrlGuardOptions = {})
   }
 }
 
-/** Cheap check: is `raw` a localhost / 127.0.0.0/8 / ::1 target? (test gate only) */
-function isLoopbackTarget(raw: string): boolean {
+/**
+ * Cheap check: is `raw` a localhost / 127.0.0.0/8 / ::1 target? (test gate only)
+ * Exported so safe-fetch.ts reuses the identical loopback definition.
+ */
+export function isLoopbackTarget(raw: string): boolean {
   let u: URL
   try { u = new URL(raw) } catch { return false }
   const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase()

@@ -1,6 +1,6 @@
 # Klavity — Product Requirements (PRD)
 
-> **Version:** `0.25.0` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-20
+> **Version:** `0.26.0` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-20
 >
 > This is the single source of truth for the product version. It moves in lockstep
 > with [`CHANGELOG.md`](../CHANGELOG.md) and every `package.json` + the extension

@@ -10,7 +10,7 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
-## [0.25.0] — 2026-06-20
+## [0.26.0] — 2026-06-20
 
 ### Added
 - **Report widget (dogfooded).** Embeddable bug/feature submission widget (`<script src="/widget.js" data-project=…>`), the same bundle shipped to customers, now mounted on klavity.quantana.top so logged-in users report without the browser extension. First-party cookie auth on klavity; Bearer-token (connect popup) cross-origin.
@@ -18,6 +18,26 @@ section for the bump rules.
 
 ### Fixed
 - `/api/feedback` no longer returns 400 when a configured tracker (Plane) host is unsafe/unreachable — the submission is persisted and a downstream tracker failure is non-fatal. Added CORS so the widget can submit cross-origin.
+## [0.25.0] — 2026-06-20
+
+### Security
+A second adversarial OWASP re-sweep found (and this release fixes, with tests) real bypasses of the
+earlier controls. See [`docs/security-owasp-review.md`](docs/security-owasp-review.md).
+
+- **Closed SSRF-via-redirect (High).** Outbound `fetch` followed 3xx redirects to unchecked hosts with
+  the connector's secret header attached. New `lib/safe-fetch.ts` disables auto-redirects and
+  re-validates every hop through the SSRF guard (hop cap 5); all connectors and the direct-Plane push
+  use it. DNS-rebinding is narrowed by re-validating immediately before each hop (residual documented).
+- **Closed an OTP brute-force bypass (High).** The login lockout was keyed on the client-controlled
+  `X-Forwarded-For` header — an attacker rotated it to refresh the attempt budget. XFF is now trusted
+  only behind a verified reverse-proxy peer, plus an IP-independent per-email lockout.
+- **Closed a cross-tenant citation leak (Medium).** `/api/feedback`, `/api/react`, and `/api/sim/review`
+  now verify a supplied `sim_id` belongs to the caller's project before reading trait quotes/provenance.
+- **Made the daily AI spend cap a hard limit (Medium).** Replaced the racy pre-check with an atomic
+  reserve-then-reconcile so concurrent calls can't overshoot the cap.
+- **Stopped connector errors leaking upstream/guard detail (Medium).** Adapters throw generic errors;
+  test/export responses carry only a generic message + correlation id.
+
 ## [0.24.0] — 2026-06-20
 
 ### Added

@@ -1,5 +1,5 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
-import { assertSafeUrl } from "../url-guard"
+import { safeFetch } from "../safe-fetch"
 
 const LINEAR_API = "https://api.linear.app/graphql"
 
@@ -21,32 +21,36 @@ export const linearConnector: Connector = {
   async createIssue(ticket: TicketPayload, cfg: Record<string, string>): Promise<ExportResult> {
     const { api_key, team_id } = cfg
 
-    // Endpoint is a fixed first-party host (not user-controlled). Guard for
-    // defense-in-depth — pin to linear.app and reject if it ever resolves to a
-    // private/loopback address (e.g. DNS-rebinding) before sending the API key.
-    await assertSafeUrl(LINEAR_API, { allowHosts: ["linear.app"] })
-
-    const res = await fetch(LINEAR_API, {
-      method: "POST",
-      headers: {
-        "Authorization": api_key,
-        "Content-Type": "application/json",
+    // Endpoint is a fixed first-party host (not user-controlled). safeFetch pins to
+    // linear.app and re-validates every hop — rejecting any private/loopback resolution
+    // (e.g. DNS-rebinding) or a redirect off-host before sending the API key.
+    const res = await safeFetch(
+      LINEAR_API,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": api_key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query:
+            "mutation($t:String!,$d:String!,$tm:String!){ issueCreate(input:{title:$t,description:$d,teamId:$tm}){ issue { identifier url } } }",
+          variables: { t: ticket.title, d: ticket.body, tm: team_id },
+        }),
       },
-      body: JSON.stringify({
-        query:
-          "mutation($t:String!,$d:String!,$tm:String!){ issueCreate(input:{title:$t,description:$d,teamId:$tm}){ issue { identifier url } } }",
-        variables: { t: ticket.title, d: ticket.body, tm: team_id },
-      }),
-    })
+      { allowHosts: ["linear.app"] },
+    )
 
     if (!res.ok) {
       const text = (await res.text().catch(() => "")).slice(0, 200)
-      throw new Error(`linear ${res.status}: ${text}`)
+      console.error(`linear upstream error ${res.status}: ${text}`)
+      throw new Error(`tracker request failed (HTTP ${res.status})`)
     }
 
     const json = await res.json()
     if (json.errors && json.errors.length > 0) {
-      throw new Error(`linear graphql: ${json.errors[0]?.message ?? "unknown error"}`)
+      console.error(`linear graphql error: ${json.errors[0]?.message ?? "unknown error"}`)
+      throw new Error("tracker request failed (GraphQL error)")
     }
 
     const issue = json?.data?.issueCreate?.issue

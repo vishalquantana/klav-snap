@@ -1,5 +1,5 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
-import { guardConnectorUrl } from "./guard"
+import { safeFetch } from "../safe-fetch"
 
 export const planeConnector: Connector = {
   type: "plane",
@@ -23,26 +23,29 @@ export const planeConnector: Connector = {
     const { workspace, project_id, token } = cfg
     const apiUrl = `${host}/api/v1/workspaces/${workspace}/projects/${project_id}/issues/`
 
-    // SSRF guard (H3): `host` is user-supplied (self-hosted Plane is allowed, but
-    // must be a public https host). Block loopback / private / link-local /
-    // metadata targets before the outbound POST so the X-API-Key isn't leaked.
-    await guardConnectorUrl(apiUrl)
-
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": token,
+    // SSRF guard (H3): `host` is user-supplied (self-hosted Plane is allowed, but must be a
+    // public https host). safeFetch validates the URL and every redirect hop (loopback /
+    // private / link-local / metadata blocked, https required) before the X-API-Key is sent.
+    const res = await safeFetch(
+      apiUrl,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": token,
+        },
+        body: JSON.stringify({
+          name: ticket.title,
+          description_html: ticket.body,
+        }),
       },
-      body: JSON.stringify({
-        name: ticket.title,
-        description_html: ticket.body,
-      }),
-    })
+      { allowLoopbackInTest: true },
+    )
 
     if (!res.ok) {
       const text = (await res.text().catch(() => "")).slice(0, 200)
-      throw new Error(`plane ${res.status}: ${text}`)
+      console.error(`plane upstream error ${res.status}: ${text}`)
+      throw new Error(`tracker request failed (HTTP ${res.status})`)
     }
 
     const json = await res.json()

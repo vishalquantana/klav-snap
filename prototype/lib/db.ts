@@ -208,6 +208,12 @@ export async function applySchema(c: Client) {
     `CREATE INDEX IF NOT EXISTS ai_calls_created_idx ON ai_calls (created_at)`,
     `CREATE INDEX IF NOT EXISTS ai_calls_proj_idx ON ai_calls (project_id, created_at)`,
     `CREATE INDEX IF NOT EXISTS ai_calls_type_idx ON ai_calls (type, created_at)`,
+    // DAILY AI SPEND — ATOMIC global daily-spend reservation ledger (cost-cap race fix, FIX A). One row
+    // per UTC day ('YYYY-MM-DD'). reserved_usd is incremented BEFORE each LLM call via an atomic
+    // conditional upsert (tryReserveDailySpend) and reconciled to the real cost after (reconcileDailySpend).
+    // Distinct from ai_calls (the after-the-fact audit ledger): this is the pre-flight cap gate.
+    `CREATE TABLE IF NOT EXISTS daily_ai_spend (
+       day TEXT PRIMARY KEY, reserved_usd REAL NOT NULL DEFAULT 0)`,
 
     // ── Cloud tickets + connectors (Task 1, additive). ──
     // CONNECTORS — per-project external destinations (webhook/plane/github/jira/linear).
@@ -961,6 +967,77 @@ export async function opsTodaySpend(): Promise<number> {
   return Number((r.rows[0] as any).cost)
 }
 
+// ── daily-spend reservation (FIX A: cost-cap race) ──────────────────────────────────────────────
+// Atomic per-UTC-day spend gate, modeled on tryConsumeReviewBudget. The pre-existing cap was a
+// non-atomic read (opsTodaySpend) + compare + fire-and-forget recordAiCall, so N concurrent LLM
+// calls could all pass the check before any spend landed → unbounded overshoot. Here the day's
+// reserved total is bumped BEFORE the call by a single conditional upsert, so concurrent callers
+// serialize on the row and can never both push reserved_usd past the cap.
+//
+// Recommended default estimate: DEFAULT_AI_CALL_EST_USD (0.01) — a single screenshot/react or
+// reconcile call is empirically ~$0.0014–0.005, so 0.01 is a safe over-estimate that fails closed.
+// The caller passes its own per-call-type estimate where known; this is the fallback.
+//
+// ACCOUNTING CHOICE: today's row is SEEDED from opsTodaySpend (the real spend already recorded in
+// ai_calls today) on the first reservation of the day, via the INSERT branch. This means the
+// reservation total starts from reality, so a process restart mid-day (which loses in-flight
+// reservations) still respects spend that actually happened. The caller therefore only needs to
+// gate on tryReserveDailySpend's boolean — no separate max(reserved, actualToday) needed.
+export const DEFAULT_AI_CALL_EST_USD = 0.01
+
+// Today's date as a UTC 'YYYY-MM-DD' string (matches date('now') / unixepoch grouping used elsewhere).
+function utcDay(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// Atomically reserve `estUsd` against today's cap. Returns true iff the reservation succeeded, i.e.
+// reserved_usd + estUsd <= capUsd AFTER seeding the day from real ai_calls spend. A single
+// INSERT … ON CONFLICT DO UPDATE … WHERE statement is the atomic gate (mirrors tryConsumeReviewBudget):
+//   • INSERT branch (first call of the day): seed reserved = today's real spend, then the row only
+//     materializes the reservation if (seed + estUsd) <= cap — enforced by re-checking below.
+//   • UPDATE branch: increment ONLY WHERE reserved_usd + estUsd <= cap, so a near-cap row can't be
+//     pushed over by two concurrent callers.
+// estUsd<=0 or cap<=0 → deny (fail closed). Caller must NOT make the LLM call when this returns false.
+export async function tryReserveDailySpend(estUsd: number, capUsd: number): Promise<boolean> {
+  if (!Number.isFinite(estUsd) || estUsd <= 0) return false
+  if (!Number.isFinite(capUsd) || capUsd <= 0) return false
+  const day = utcDay()
+  // Seed today's row from real spend already recorded in ai_calls (idempotent: only the first call
+  // of the day inserts; later calls hit the conflict and leave the seed intact).
+  const seed = await opsTodaySpend()
+  await db!.execute({
+    sql: "INSERT INTO daily_ai_spend (day,reserved_usd) VALUES (?,?) ON CONFLICT(day) DO NOTHING",
+    args: [day, seed],
+  })
+  // Atomic conditional increment: succeeds for exactly the callers whose estUsd still fits under cap.
+  const r = await db!.execute({
+    sql: "UPDATE daily_ai_spend SET reserved_usd = reserved_usd + ? WHERE day=? AND reserved_usd + ? <= ?",
+    args: [estUsd, day, estUsd, capUsd],
+  })
+  return Number(r.rowsAffected) > 0
+}
+
+// After the LLM call returns its real cost, adjust today's reservation by (actualUsd - estUsd) so the
+// running total tracks reality (a cheap call frees headroom; an expensive one consumes more). Clamped
+// at >= 0 so floating-point drift / refunds can never make reserved_usd negative. No-op if no row yet.
+export async function reconcileDailySpend(estUsd: number, actualUsd: number): Promise<void> {
+  const e = Number.isFinite(estUsd) ? estUsd : 0
+  const a = Number.isFinite(actualUsd) ? actualUsd : 0
+  const delta = a - e
+  if (delta === 0) return
+  const day = utcDay()
+  await db!.execute({
+    sql: "UPDATE daily_ai_spend SET reserved_usd = MAX(0, reserved_usd + ?) WHERE day=?",
+    args: [delta, day],
+  })
+}
+
+// Read today's reserved spend (0 if no row yet) — for the /opsadmin dashboard + tests.
+export async function reservedDailySpend(): Promise<number> {
+  const r = await db!.execute({ sql: "SELECT reserved_usd FROM daily_ai_spend WHERE day=?", args: [utcDay()] })
+  return r.rows.length ? Number((r.rows[0] as any).reserved_usd) : 0
+}
+
 // ── model mix (/opsadmin) ── persisted weighted model selection, stored in schema_meta. ──
 export async function getModelWeights(): Promise<Record<string, number>> {
   const r = await db!.execute({ sql: "SELECT value FROM schema_meta WHERE key=?", args: ["model_weights"] })
@@ -1074,10 +1151,15 @@ export async function updateTrait(t: Trait): Promise<void> {
            t.area ?? null, t.issueType ?? null, t.severity ?? null, t.updatedAt, t.id],
   })
 }
-export async function listTraits(simId: string, opts: { activeOnly?: boolean } = {}): Promise<Trait[]> {
+// FIX B (citation IDOR defense-in-depth): pass projectId to scope the read to a single project —
+// adds `AND project_id=?` so a sim_id from another project can never leak its traits. Omitting
+// projectId is fully backward-compatible (behaves exactly as before).
+export async function listTraits(simId: string, opts: { activeOnly?: boolean; projectId?: string } = {}): Promise<Trait[]> {
+  const projClause = opts.projectId ? " AND project_id=?" : ""
+  const projArg = opts.projectId ? [opts.projectId] : []
   const r = opts.activeOnly
-    ? await db!.execute({ sql: "SELECT * FROM sim_traits WHERE sim_id=? AND status='active' ORDER BY created_at ASC", args: [simId] })
-    : await db!.execute({ sql: "SELECT * FROM sim_traits WHERE sim_id=? ORDER BY created_at ASC", args: [simId] })
+    ? await db!.execute({ sql: `SELECT * FROM sim_traits WHERE sim_id=? AND status='active'${projClause} ORDER BY created_at ASC`, args: [simId, ...projArg] })
+    : await db!.execute({ sql: `SELECT * FROM sim_traits WHERE sim_id=?${projClause} ORDER BY created_at ASC`, args: [simId, ...projArg] })
   return r.rows.map(rowToTrait)
 }
 
@@ -1155,10 +1237,17 @@ function rowToTraitEvent(x: any): TraitEventRow {
 
 // List trait_events for a sim. Optional { traitId } narrows to a single trait's events (react path
 // can fetch one trait's audit chain without a full sim scan).
-export async function listTraitEvents(simId: string, opts: { traitId?: string } = {}): Promise<TraitEventRow[]> {
-  const r = opts.traitId
-    ? await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? AND trait_id=? ORDER BY created_at ASC", args: [simId, opts.traitId] })
-    : await db!.execute({ sql: "SELECT * FROM trait_events WHERE sim_id=? ORDER BY created_at ASC", args: [simId] })
+// FIX B (citation IDOR defense-in-depth): pass projectId to scope events to a single project.
+// trait_events has no project_id column, so scoping is enforced via the parent sim_traits row
+// (`AND trait_id IN (SELECT id FROM sim_traits WHERE project_id=?)`) — events whose trait belongs
+// to another project are excluded. Omitting projectId is fully backward-compatible (unchanged).
+export async function listTraitEvents(simId: string, opts: { traitId?: string; projectId?: string } = {}): Promise<TraitEventRow[]> {
+  const args: any[] = [simId]
+  let sql = "SELECT * FROM trait_events WHERE sim_id=?"
+  if (opts.traitId) { sql += " AND trait_id=?"; args.push(opts.traitId) }
+  if (opts.projectId) { sql += " AND trait_id IN (SELECT id FROM sim_traits WHERE project_id=?)"; args.push(opts.projectId) }
+  sql += " ORDER BY created_at ASC"
+  const r = await db!.execute({ sql, args })
   return r.rows.map(rowToTraitEvent)
 }
 
