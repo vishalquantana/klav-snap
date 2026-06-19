@@ -1,6 +1,6 @@
 # Chrome Web Store — Listing & Review Answers (Klavity Snap)
 
-Paste these into the Chrome Web Store Developer Dashboard for the **Klavity Snap** item.
+Paste these into the Chrome Web Store Developer Dashboard for the **Klavity** item (v0.21.1).
 
 URLs to use in the dashboard:
 - **Privacy policy:** https://klavity.quantana.top/privacy
@@ -12,7 +12,8 @@ URLs to use in the dashboard:
 
 ## Store listing
 
-**Name:** Klavity Snap
+**Name (store title):** Klavity – AI Bug Reporter & Feedback for Jira, Linear, GitHub
+**Short name (toolbar / chrome://extensions):** Klavity
 
 **Summary** (132-char max — matches `manifest.json` `description`):
 > AI Sims review your pages and file bug & feature tickets to Jira, Linear, GitHub, or Plane — or report any page in one click.
@@ -51,7 +52,8 @@ URLs to use in the dashboard:
 | `scripting` | Inject Klavity's in-page reporter and Sim review overlay into the page the user is actively working on. |
 | `tabs` | Read the active tab's URL so reports and reviews are attributed to the correct page and routed to that tab. |
 | `cookies` | Read the Klavity session cookie on klavity.quantana.top for silent sign-in, so a user already signed in to the website doesn't re-enter a code. |
-| `host_permissions: <all_urls>` | Sims and the reporter must be able to run on any page the user explicitly chooses to review or report. Capture is consent-gated: it happens only after the user consents and only on allowlisted URLs or a page the user explicitly analyzes. |
+| `host_permissions: klavity.quantana.top/*` (+ `localhost`) | The extension's own backend — sign-in, config sync, AI review, and ticket filing all call the Klavity API. |
+| `optional_host_permissions: *://*/*` | NOT requested at install. Granted at runtime, **per-domain**, only for the specific sites a user or their admin chooses to monitor for passive auto-review. "Analyze this page" works anywhere via `activeTab` and needs no host grant. |
 | `https://*.atlassian.net/*`, `https://api.linear.app/*`, `https://api.github.com/*`, `https://api.plane.so/*` | File tickets directly from the browser to the issue tracker the user has connected (Jira, Linear, GitHub, Plane) when using direct-integration mode. |
 
 ---
@@ -74,11 +76,12 @@ Certify (all true for Klavity):
 
 ## Reviewer notes (optional "notes to reviewer" field)
 
-> Klavity Snap requires broad host access because users point AI "Sims" at arbitrary pages of
-> their own products. All page capture is consent-gated (a per-website confirm before the first
-> screenshot) and, for automatic review, restricted to URLs the user's workspace has allowlisted.
-> Screenshots are stored privately and expire after 30 days. No capture occurs on pages the user
-> has not consented to, and automatic review can be disabled entirely in the extension's Options.
+> Klavity does NOT request broad host access. Click-driven actions ("Analyze this page",
+> Report) run on the current tab via `activeTab`. Passive auto-review runs only on the specific
+> domains a user or their admin whitelists and grants once at runtime (optional host permissions,
+> requested per-domain from the popup) — registered dynamically and gated to the active/foreground
+> tab. All capture is consent-gated (a per-site confirm before the first screenshot); screenshots
+> are stored privately and expire after 30 days; automatic review can be disabled entirely in Options.
 
 ---
 
