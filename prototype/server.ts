@@ -1219,6 +1219,16 @@ Bun.serve({
       }
     }
 
+    // ── transcripts → list (Sim Studio col 1) — project-scoped; cookie OR Bearer; newest-first by sourceDate ──
+    if (req.method === "GET" && path === "/api/transcripts") {
+      const me2 = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!me2) return json({ error: "Sign in to continue." }, 401)
+      const proj2 = await resolveProject(me2, url.searchParams.get("project"))
+      if (!proj2) return json({ error: "No project." }, 400)
+      const transcripts = await listTranscripts(proj2.id)
+      return json({ transcripts }, 200)
+    }
+
     // ── transcripts → reconcile (P3a) — project-scoped via resolveProject; cookie OR Bearer; admin or member ──
     if (req.method === "POST" && path === "/api/transcripts") {
       const meT = (await sessionEmail(req)) || (await bearerEmail(req))

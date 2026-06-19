@@ -44,6 +44,10 @@ await rawExec(`CREATE TABLE IF NOT EXISTS persona_edits (
    id TEXT PRIMARY KEY, persona_id TEXT NOT NULL, project_id TEXT NOT NULL,
    field TEXT NOT NULL, before_val TEXT, after_val TEXT, actor TEXT NOT NULL, created_at INTEGER NOT NULL)`)
 await rawExec(`CREATE INDEX IF NOT EXISTS persona_edits_idx ON persona_edits (persona_id, created_at)`)
+await rawExec(`CREATE TABLE IF NOT EXISTS transcripts (
+   id TEXT PRIMARY KEY, project_id TEXT NOT NULL, title TEXT, raw_text TEXT NOT NULL,
+   source_date INTEGER NOT NULL, speakers_json TEXT, added_by TEXT NOT NULL, created_at INTEGER NOT NULL)`)
+await rawExec(`CREATE INDEX IF NOT EXISTS transcript_proj_idx ON transcripts (project_id, source_date)`)
 
 // ── Fixtures ──
 const AUTHED_EMAIL = `studio-${ts}@test.local`
@@ -66,6 +70,10 @@ await rawExec(`INSERT INTO sim_traits (id, sim_id, project_id, kind, text, statu
   ["trait_seed_1", "sim_t", PROJECT_ID, "pain", "Hates slow load", "active", 1, "tr_seed", "it is so slow", null, "user", NOW, NOW])
 await rawExec(`INSERT INTO sim_traits (id, sim_id, project_id, kind, text, status, strength, src_transcript_id, src_quote, src_quote_offset, src_speaker, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   ["trait_seed_2", "sim_t", PROJECT_ID, "want", "Wants keyboard shortcuts", "active", 1, "tr_seed", "shortcuts please", null, "user", NOW + 1, NOW + 1])
+
+// A transcript belonging to the project, for the GET /api/transcripts list test.
+await rawExec(`INSERT INTO transcripts (id, project_id, title, raw_text, source_date, speakers_json, added_by, created_at) VALUES (?,?,?,?,?,?,?,?)`,
+  ["tr_seed", PROJECT_ID, "Seed onboarding call", "Tester: it is so slow. shortcuts please.", NOW, null, AUTHED_EMAIL, NOW])
 
 // ── Spawn the server ──
 let serverPort: number
@@ -179,6 +187,15 @@ test("evolution feed exposes actor on manual edits", async () => {
   const { events } = await (await authedFetch(`/api/sims/sim_t/evolution?project=${PROJECT_ID}`)).json()
   const editEv = events.find((e: any) => e.op === "edit")
   expect(editEv.actor).toBe(AUTHED_EMAIL)
+})
+
+// ── Task 1 (frontend plan): GET /api/transcripts lists project transcripts ──
+test("GET /api/transcripts lists project transcripts", async () => {
+  const res = await authedFetch(`/api/transcripts?project=${PROJECT_ID}`)
+  expect(res.status).toBe(200)
+  const body = await res.json()
+  expect(Array.isArray(body.transcripts)).toBe(true)
+  expect(body.transcripts.some((t: any) => t.id === "tr_seed")).toBe(true)
 })
 
 // ── Task 7: persona identity edits are versioned in persona_edits ──
