@@ -10,6 +10,19 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.19.0] — 2026-06-19
+
+### Added
+- **Sim Studio: 3-pane studio UI replaces single-Sim view** — live attribution
+  inspector, inline versioned editing, new-Sim + transcript upload. The `/app?sim=`
+  path now opens a three-column studio (sims list / persona detail / attribution
+  inspector) wired to the v0.18.0 trait/persona/transcript APIs. Column 3 surfaces
+  Source / Evolution (lit-spine with `actor` on manual edits) / Transcript (raw text
+  with the source quote highlighted). Personas and traits are editable inline
+  (PUT/DELETE, every change versioned). New `GET /api/transcripts` lists a project's
+  transcripts for column 1's folder. The old single-column focused view
+  (`renderFocusedSim`) is retired.
+
 ## [0.18.0] — 2026-06-19
 
 ### Added
