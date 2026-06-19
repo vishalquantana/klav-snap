@@ -302,29 +302,25 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
 
   if (msg.kind === 'CAPTURE_TAB') {
     const tabId = sender.tab?.id
-    // Try capturing the current window active tab first (best for Arc)
-    chrome.tabs.captureVisibleTab({ format: 'png' }, (dataUrl) => {
-      const errorMsg = chrome.runtime.lastError?.message || ''
-      if (errorMsg || !dataUrl) {
-        // Fallback: Try with sender tab's specific windowId
-        const winId = sender.tab?.windowId
-        if (winId) {
-          chrome.tabs.captureVisibleTab(winId, { format: 'png' }, (dataUrl2) => {
-            const errorMsg2 = chrome.runtime.lastError?.message || ''
-            if (errorMsg2 || !dataUrl2) {
-              console.warn('[Klavity] capture failed with winId fallback:', errorMsg2)
-              if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl: '', error: errorMsg2 })
-              return
-            }
-            if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl: dataUrl2 })
-          })
-          return
-        }
-        console.warn('[Klavity] capture failed without winId:', errorMsg)
-        if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl: '', error: errorMsg })
+    const winId = sender.tab?.windowId
+    const reply = (dataUrl: string, error?: string) => {
+      if (tabId != null) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl, error })
+    }
+    // Route through the rate-limit guard (same as KLAV_CAPTURE_REVIEW) so the bug-report
+    // screenshot waits out Chrome's ~2/s captureVisibleTab limit instead of flash-failing
+    // the first capture (e.g. right after the SW wakes, or just after a Sim review). Try
+    // the default window first, then the sender's windowId (Arc multi-window pattern).
+    captureWithRateLimit().then(async (r1) => {
+      if (r1.dataUrl) { reply(r1.dataUrl); return }
+      if (winId != null) {
+        const r2 = await captureWithRateLimit(winId)
+        if (r2.dataUrl) { reply(r2.dataUrl); return }
+        console.warn('[Klavity] CAPTURE_TAB failed (winId fallback):', r2.error)
+        reply('', r2.error)
         return
       }
-      if (tabId) void safeSend(tabId, { kind: 'CAPTURE_TAB_RESULT', dataUrl })
+      console.warn('[Klavity] CAPTURE_TAB failed:', r1.error)
+      reply('', r1.error)
     })
     return true
   }

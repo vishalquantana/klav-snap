@@ -10,6 +10,16 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.18.2] — 2026-06-19
+
+### Fixed
+- **Bug-report screenshot no longer flash-fails on the first try.** The manual right-click
+  capture (`CAPTURE_TAB`) now routes through the same `captureWithRateLimit()` guard the
+  Sim-review path uses, so it waits out Chrome's ~2 captures/sec limit instead of returning
+  an error and hiding the modal with no screenshot (seen as "the widget flashed and grabbed
+  nothing, then worked on retry" — typically right after the service worker woke or just
+  after a Sim review). Keeps the Arc multi-window `windowId` fallback.
+
 ## [0.18.1] — 2026-06-19
 
 ### Changed
