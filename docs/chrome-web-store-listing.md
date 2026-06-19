@@ -1,7 +1,12 @@
 # Chrome Web Store — Listing & Review Answers (Klavity Snap)
 
 Paste these into the Chrome Web Store Developer Dashboard for the **Klavity Snap** item.
-Privacy policy URL to use everywhere it's asked: **https://klavity.quantana.top/privacy**
+
+URLs to use in the dashboard:
+- **Privacy policy:** https://klavity.quantana.top/privacy
+- **Terms of service:** https://klavity.quantana.top/terms
+- **Homepage URL:** https://klavity.quantana.top
+- **Support / contact:** hello@quantana.com.au
 
 ---
 
@@ -25,7 +30,7 @@ Privacy policy URL to use everywhere it's asked: **https://klavity.quantana.top/
 >
 > • **You're in control.** Sims only review pages after you consent, and only on pages you allowlist or explicitly analyze. Pause anytime, or turn automatic reviews off entirely in Options.
 >
-> Built by Quantana. Open-core (FSL-1.1-ALv2).
+> Built by Quantana. Open-core (FSL-1.1-ALv2). Privacy: https://klavity.quantana.top/privacy · Terms: https://klavity.quantana.top/terms
 
 **Screenshots:** at least one 1280×800 or 640×400. Suggested shots: the popup (sign-in + "Analyze this page"), an in-page Sim reaction bubble, and the dashboard ticket list.
 
