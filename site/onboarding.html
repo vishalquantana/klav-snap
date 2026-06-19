@@ -196,8 +196,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <div class="err" id="s2err"></div>
           <div class="tiles" style="margin-top:18px">
             <div class="tile sel" id="chromeTile" onclick="connectExtension()"><div class="ti">🧩</div><h3>Connect the Klavity extension</h3><p id="chromeMsg">Required for live Sims on your real pages — click to connect (or install it first).</p></div>
-            <div class="tile alt" aria-disabled="true" style="opacity:.6;cursor:default" onmouseover="this.style.borderColor='';this.style.transform=''"><div class="ti">&lt;/&gt;</div><h3>Or embed the widget <span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);border:1px solid var(--line);border-radius:6px;padding:2px 6px;vertical-align:middle">Coming soon</span></h3><p>One script tag for any web app — no extension needed.</p></div>
+            <div class="tile alt" id="widgetTile" onclick="document.getElementById('widgetSnippet').classList.toggle('hide')"><div class="ti">&lt;/&gt;</div><h3>Or embed the widget</h3><p>One script tag for any web app — no extension needed. Click for the snippet.</p></div>
           </div>
+          <pre class="hide" id="widgetSnippet" style="margin-top:14px;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;overflow:auto;white-space:pre-wrap;word-break:break-all">&lt;script src="https://klavity.quantana.top/widget.js" data-project="YOUR_PROJECT_ID" defer&gt;&lt;/script&gt;
+<span style="color:var(--paper-faint)"># Add your product's URL above first. Replace YOUR_PROJECT_ID with the id in your dashboard URL. A logged-in teammate clicks "Connect to Klavity", then "Have your Sims review this page".</span></pre>
           <div class="row"><button class="btn btn-indigo" id="s2continue" onclick="connectExtension()">Connect the extension to continue →</button><span class="skip" onclick="go(3)">I'll set this up later</span></div>
         </div>
       </div>

@@ -10,6 +10,16 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.18.1] — 2026-06-19
+
+### Changed
+- **Onboarding "Or embed the widget" tile is now live** (was "Coming soon"). It reveals a
+  copy-paste `<script src="…/widget.js" data-project="…">` snippet. The embeddable widget
+  itself shipped in 0.18.0; this flips its onboarding advertisement on after live
+  verification on prod (bundle mount on a 3rd-party page, token mint for allowlisted
+  origins / 403 for others, and cross-origin CORS — including the error-path fix — all
+  confirmed).
+
 ## [0.18.0] — 2026-06-19
 
 ### Added
