@@ -1,6 +1,6 @@
 # Klavity — Product Requirements (PRD)
 
-> **Version:** `0.23.1` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-20
+> **Version:** `0.25.0` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-20
 >
 > This is the single source of truth for the product version. It moves in lockstep
 > with [`CHANGELOG.md`](../CHANGELOG.md) and every `package.json` + the extension
@@ -42,6 +42,7 @@ breakdown):
 - Four integrations: Jira, Linear, GitHub Issues, Plane.
 - Cloud switch (`backendUrl`) → direct mode or Klavity Cloud / self-hosted.
 - Embeddable SDK `@klavity/snap` (script tag + npm).
+- Embeddable report widget: dogfooded on klavity.quantana.top for logged-in users; Bearer-token support for cross-origin submission.
 - Account login + per-user/admin Plane connection, AES-GCM secret encryption.
 
 **Architecture:** `packages/core` (shared types, integrations, annotator, modal),

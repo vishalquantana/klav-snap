@@ -10,6 +10,15 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.25.0] — 2026-06-20
+
+### Added
+- **Report widget (dogfooded).** Embeddable bug/feature submission widget (`<script src="/widget.js" data-project=…>`), the same bundle shipped to customers, now mounted on klavity.quantana.top so logged-in users report without the browser extension. First-party cookie auth on klavity; Bearer-token (connect popup) cross-origin.
+- **Extension yields to the widget.** When the embedded widget is present (`#klavity-widget-host`), the extension's right-click report menu stands down (DOM handshake via `klavity:widget-ready`) so the two never both appear.
+
+### Fixed
+- `/api/feedback` no longer returns 400 when a configured tracker (Plane) host is unsafe/unreachable — the submission is persisted and a downstream tracker failure is non-fatal. Added CORS so the widget can submit cross-origin.
+
 ## [0.23.1] — 2026-06-20
 
 ### Security
