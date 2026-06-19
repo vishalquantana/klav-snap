@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Klavity Mock Checkout (regression: sign-in removed)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    .hidden { display: none; }
+    button { padding: .5rem 1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sign in</h1>
+    <form id="login-form">
+      <label>Email <input id="email" type="email" aria-label="Email" data-testid="email-input" /></label>
+      <label>Password <input id="password" type="password" aria-label="Password" data-testid="password-input" /></label>
+      <!-- REGRESSION: the Sign in button is GONE entirely. No role+name, no text, no data-testid,
+           no structural match. Tier 0 and Tier 1 both exhaust -> must be RED, never a silent green. -->
+    </form>
+
+    <section id="checkout" class="hidden">
+      <h1 class="dashboard-title" data-testid="dashboard-title">Dashboard</h1>
+      <button id="add-plan" class="btn-add" type="button" aria-label="Add the $20 plan" data-testid="add-plan-btn">
+        Add $20 plan
+      </button>
+    </section>
+  </main>
+</body>
+</html>
