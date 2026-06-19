@@ -15,6 +15,7 @@ import {
   getTrail, listTrailSteps, getCacheForStep, upsertLocatorCache,
   startWalk, addRunStep, finishWalk,
 } from "./trails"
+import { stepCacheKey } from "./trails-crystallize"
 
 export interface WalkOptions {
   /** Concrete URL to walk against (overrides the trail's baseUrl). file:// or http(s)://. */
@@ -39,8 +40,24 @@ export interface WalkSummary {
   healedCount: number
 }
 
-const HEAL_CONFIDENCE = 0.9 // spec §6.3 threshold (>=0.9), not Healenium's 0.5
 const CACHE_CONFIDENCE = 1.0
+
+// Tier-1 candidate confidence varies by signal strength so Layer D's future >=0.9 gate has real
+// signal (not a flat tautology). With fix #1 ALL heals are AMBER regardless of confidence; this is
+// purely to differentiate signal quality for the later confidence gate.
+type CandidateSignal = "role+name" | "text" | "testid" | "domPath"
+const SIGNAL_CONFIDENCE: Record<CandidateSignal, number> = {
+  "role+name": 0.95, // role + accessible-name: strongest semantic anchor
+  testid: 0.92,
+  text: 0.88,
+  domPath: 0.8, // structural: weakest, most brittle
+}
+
+// Escape a string for safe embedding inside a double-quoted CSS attribute selector value.
+// Backslash first, then double-quote (e.g. data-testid value containing a `"`).
+function escAttr(v: string): string {
+  return v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+}
 
 // Thrown when no tier can resolve the target to exactly-one actionable element.
 class ElementGone extends Error {
@@ -90,6 +107,8 @@ interface ResolveResult {
   locator: Locator
   healed: boolean
   confidence: number
+  /** Which Tier-1 signal matched (only set on a heal). */
+  candidateSignal?: CandidateSignal
 }
 
 // Build a stable CSS selector to persist for a healed element so the NEXT walk is Tier 0 again.
@@ -98,11 +117,13 @@ interface ResolveResult {
 async function persistableSelector(page: Page, loc: Locator): Promise<string | null> {
   try {
     return await loc.evaluate((el: Element) => {
+      // esc must be inlined: this runs in the page context, not the runner module scope.
+      const esc = (v: string) => v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
       if (el.id) return "#" + CSS.escape(el.id)
       const tid = el.getAttribute("data-testid")
-      if (tid) return `[data-testid="${tid}"]`
+      if (tid) return `[data-testid="${esc(tid)}"]`
       const al = el.getAttribute("aria-label")
-      if (al) return `${el.tagName.toLowerCase()}[aria-label="${al}"]`
+      if (al) return `${el.tagName.toLowerCase()}[aria-label="${esc(al)}"]`
       return null
     })
   } catch {
@@ -131,7 +152,7 @@ async function resolveTarget(
     if (fp.role && fp.accessibleName) {
       const loc = page.getByRole(fp.role as any, { name: fp.accessibleName, exact: true })
       if (await uniquelyResolves(loc)) {
-        return { tier: "candidate", selector: await persistableSelector(page, loc), locator: loc, healed: true, confidence: HEAL_CONFIDENCE }
+        return { tier: "candidate", selector: await persistableSelector(page, loc), locator: loc, healed: true, confidence: SIGNAL_CONFIDENCE["role+name"], candidateSignal: "role+name" }
       }
     }
     // 2. visible text — but only if the resolved element's role matches the target's (intent
@@ -139,21 +160,22 @@ async function resolveTarget(
     if (fp.text) {
       const loc = page.getByText(fp.text, { exact: true })
       if ((await uniquelyResolves(loc)) && (await roleConsistent(loc, fp.role))) {
-        return { tier: "candidate", selector: await persistableSelector(page, loc), locator: loc, healed: true, confidence: HEAL_CONFIDENCE }
+        return { tier: "candidate", selector: await persistableSelector(page, loc), locator: loc, healed: true, confidence: SIGNAL_CONFIDENCE.text, candidateSignal: "text" }
       }
     }
-    // 3. data-testid
+    // 3. data-testid (escape embedded backslash/double-quote in the value)
     if (fp.testId) {
-      const loc = page.locator(`[data-testid="${fp.testId}"]`)
+      const tidSel = `[data-testid="${escAttr(fp.testId)}"]`
+      const loc = page.locator(tidSel)
       if ((await uniquelyResolves(loc)) && (await roleConsistent(loc, fp.role))) {
-        return { tier: "candidate", selector: `[data-testid="${fp.testId}"]`, locator: loc, healed: true, confidence: HEAL_CONFIDENCE }
+        return { tier: "candidate", selector: tidSel, locator: loc, healed: true, confidence: SIGNAL_CONFIDENCE.testid, candidateSignal: "testid" }
       }
     }
     // 4. structural domPath
     if (fp.domPath) {
       const loc = page.locator(fp.domPath)
       if ((await uniquelyResolves(loc)) && (await roleConsistent(loc, fp.role))) {
-        return { tier: "candidate", selector: fp.domPath, locator: loc, healed: true, confidence: HEAL_CONFIDENCE }
+        return { tier: "candidate", selector: fp.domPath, locator: loc, healed: true, confidence: SIGNAL_CONFIDENCE.domPath, candidateSignal: "domPath" }
       }
     }
   }
@@ -188,17 +210,25 @@ export async function walkTrail(projectId: string, trailId: string, opts: WalkOp
       if (healed) healedCount++
       walkVerdict = worse(walkVerdict, verdict)
     }
+
+    await finishWalk(projectId, runId, {
+      status: walkVerdict,
+      llmCalls: 0,
+      summary: { healedCount, stepCount: steps.length },
+    })
+    return { runId, verdict: walkVerdict, llmCalls: 0, steps: stepSummaries, healedCount }
+  } catch (e) {
+    // Anything thrown (e.g. an unreachable fixtureUrl) must STILL finalize the run — never leave it
+    // 'running'. The Walk is RED and the error is recorded in the summary for the trace viewer.
+    await finishWalk(projectId, runId, {
+      status: "red",
+      llmCalls: 0,
+      summary: { healedCount, stepCount: steps.length, error: String(e) },
+    })
+    return { runId, verdict: "red", llmCalls: 0, steps: stepSummaries, healedCount }
   } finally {
     await browser.close()
   }
-
-  await finishWalk(projectId, runId, {
-    status: walkVerdict,
-    llmCalls: 0,
-    summary: { healedCount, stepCount: steps.length },
-  })
-
-  return { runId, verdict: walkVerdict, llmCalls: 0, steps: stepSummaries, healedCount }
 }
 
 interface OneStepResult { tier: Tier; verdict: Verdict; healed: boolean }
@@ -290,13 +320,19 @@ async function runOneStep(
     return { tier: resolved.tier, verdict, healed: false }
   }
 
-  // Heal persistence: a Tier 1 candidate hit is written back to the cache under the SAME cache_key
-  // (ON CONFLICT updates in place) so the next Walk is deterministic Tier 0 again — heal-as-cache-update.
-  if (resolved.healed && resolved.selector && cacheRow) {
+  // Capture the pre-heal selector BEFORE the upsert overwrites it (heal-as-reviewable-diff, §6.4).
+  const fromSelector = cachedSelector ?? cacheRow?.resolvedSelector ?? null
+
+  // Heal persistence: a Tier 1 candidate hit is written back to the cache (per (project_id, step_id),
+  // ON CONFLICT updates in place) so the next Walk is deterministic Tier 0 again — heal-as-cache-update.
+  // Persist UNCONDITIONALLY when healed && selector: if no cache row existed, upsert a fresh one so a
+  // step never re-heals forever (fix #3). The cache_key is recomputed via the crystallize convention.
+  if (resolved.healed && resolved.selector) {
+    const cKey = cacheRow?.cacheKey ?? (await stepCacheKey(projectId, trailId, step, resolved.selector))
     await upsertLocatorCache(projectId, {
       trailId,
       stepId: step.id,
-      cacheKey: cacheRow.cacheKey,
+      cacheKey: cKey,
       resolvedSelector: resolved.selector,
       fingerprint: fp ?? undefined,
       confidence: resolved.confidence,
@@ -304,11 +340,28 @@ async function runOneStep(
     })
   }
 
+  // spec §6.3: a healed-but-unconfirmed step is AMBER, never GREEN. The action still executed; the
+  // Walk rolls up to AMBER (worst-of). A non-healed cache/Tier-0 hit stays GREEN.
+  const verdict: Verdict = resolved.healed ? "amber" : "green"
+
+  // spec §6.4: persist the reviewable diff into the run_step evidence (recoverable from/to selectors).
+  const evidence: Record<string, unknown> = resolved.healed
+    ? {
+        healed: true,
+        fromSelector,
+        toSelector: resolved.selector,
+        tier: resolved.tier,
+        confidence: resolved.confidence,
+        candidateSignal: resolved.candidateSignal,
+        checkpoint: step.checkpoint?.description ?? null,
+      }
+    : { selector: resolved.selector, healed: false, checkpoint: step.checkpoint?.description ?? null }
+
   await addRunStep(projectId, {
     runId, trailId, stepId: step.id, idx: step.idx,
-    tier: resolved.tier, verdict: "green", confidence: resolved.confidence,
+    tier: resolved.tier, verdict, confidence: resolved.confidence,
     diagnosis: resolved.healed ? "locator_drift" : undefined, healed: resolved.healed,
-    evidence: { selector: resolved.selector, healed: resolved.healed, checkpoint: step.checkpoint?.description ?? null },
+    evidence,
   })
-  return { tier: resolved.tier, verdict: "green", healed: resolved.healed }
+  return { tier: resolved.tier, verdict, healed: resolved.healed }
 }

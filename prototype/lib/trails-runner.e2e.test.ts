@@ -74,22 +74,23 @@ test("(i) walks GREEN on the unchanged mockup with tier 'cache' on every step an
   expect(runSteps.every((r) => r.tier === "cache")).toBe(true)
 }, 30000)
 
-test("(ii) Tier 1 heals a cosmetic rename by role+accessible-name -> still GREEN, zero LLM, healed selector persisted", async () => {
+test("(ii) Tier 1 heals a cosmetic rename by role+accessible-name -> AMBER (healed-but-unconfirmed, never green), zero LLM, healed selector persisted", async () => {
   const projectId = "proj_heal"
   const { trailId, stepIds } = await crystallize(projectId, checkoutTrajectory())
 
   // Same crystallized trail, pointed at the page where #signin id/class changed but role+name preserved.
   const summary = await walkTrail(projectId, trailId, { fixtureUrl: fixtureUrl("checkout-mockup-renamed.html") })
 
-  expect(summary.verdict).toBe("green")
+  // spec §6.3: a healed-but-unconfirmed step is AMBER, never GREEN -> the Walk rolls up to AMBER.
+  expect(summary.verdict).toBe("amber")
   expect(summary.llmCalls).toBe(0)
   expect(summary.healedCount).toBeGreaterThanOrEqual(1)
 
-  // the Sign in step (idx 2) healed via Tier 1 candidate, the rest stayed cache
+  // the Sign in step (idx 2) healed via Tier 1 candidate; the action still executed, but verdict is AMBER.
   const signInStep = summary.steps.find((s) => s.idx === 2)!
   expect(signInStep.tier).toBe("candidate")
   expect(signInStep.healed).toBe(true)
-  expect(signInStep.verdict).toBe("green")
+  expect(signInStep.verdict).toBe("amber")
 
   // healed selector persisted back to locator_cache with source 'heal' (next Walk is Tier 0 again)
   const healed = await T.getCacheForStep(projectId, stepIds[2])
@@ -97,6 +98,49 @@ test("(ii) Tier 1 heals a cosmetic rename by role+accessible-name -> still GREEN
   expect(healed?.resolvedSelector).not.toBe("#signin")
   // it now points at the renamed element
   expect(healed?.resolvedSelector).toContain("auth-submit-x9")
+}, 30000)
+
+test("(ii.b) heal-as-reviewable-diff: both fromSelector (old) and toSelector (new) are recoverable from the run_step evidence", async () => {
+  const projectId = "proj_heal_diff"
+  const { trailId } = await crystallize(projectId, checkoutTrajectory())
+
+  const summary = await walkTrail(projectId, trailId, { fixtureUrl: fixtureUrl("checkout-mockup-renamed.html") })
+
+  // recover the healed run_step (Sign in, idx 2) and assert the reviewable diff is persisted (spec §6.4)
+  const runSteps = await T.listRunSteps(projectId, summary.runId)
+  const healedStep = runSteps.find((r) => r.idx === 2)!
+  expect(healedStep.healed).toBe(true)
+  expect(healedStep.verdict).toBe("amber")
+  const ev = healedStep.evidence as any
+  expect(ev.healed).toBe(true)
+  // pre-heal selector recoverable
+  expect(ev.fromSelector).toBe("#signin")
+  // post-heal selector recoverable, points at the renamed element
+  expect(ev.toSelector).toContain("auth-submit-x9")
+  expect(ev.tier).toBe("candidate")
+  expect(typeof ev.confidence).toBe("number")
+  // candidateSignal records which Tier-1 signal matched
+  expect(["role+name", "text", "testid", "domPath"]).toContain(ev.candidateSignal)
+}, 30000)
+
+test("(ii.c) Tier-1 confidence varies by signal strength: at least two distinct confidence values across candidate types", async () => {
+  const projectId = "proj_mixed"
+  const { trailId } = await crystallize(projectId, checkoutTrajectory())
+
+  // Page where Sign-in heals via testid (0.92) and Add-plan heals via role+name (0.95).
+  const summary = await walkTrail(projectId, trailId, { fixtureUrl: fixtureUrl("checkout-mockup-mixed-heals.html") })
+
+  expect(summary.verdict).toBe("amber") // any heal -> AMBER
+  expect(summary.healedCount).toBeGreaterThanOrEqual(2)
+
+  const runSteps = await T.listRunSteps(projectId, summary.runId)
+  const healedConfidences = runSteps.filter((r) => r.healed).map((r) => r.confidence)
+  const distinct = new Set(healedConfidences)
+  expect(distinct.size).toBeGreaterThanOrEqual(2) // not a flat tautology
+
+  const signals = runSteps.filter((r) => r.healed).map((r) => (r.evidence as any)?.candidateSignal)
+  expect(signals).toContain("testid")
+  expect(signals).toContain("role+name")
 }, 30000)
 
 test("(iii) a genuinely-removed element produces RED, never a silent green", async () => {
@@ -114,4 +158,45 @@ test("(iii) a genuinely-removed element produces RED, never a silent green", asy
 
   const walk = await T.getWalk(projectId, summary.runId)
   expect(walk?.status).toBe("red")
+}, 30000)
+
+test("(iv) a thrown error inside the Walk finalizes the run as RED/finished (never left 'running'), summary.error set", async () => {
+  const projectId = "proj_throw"
+  const { trailId } = await crystallize(projectId, checkoutTrajectory())
+
+  // An unreachable fixtureUrl makes page.goto throw -> walkTrail must still finalize the run.
+  const summary = await walkTrail(projectId, trailId, { fixtureUrl: "http://127.0.0.1:1/never-resolves" })
+
+  expect(summary.verdict).toBe("red")
+  const walk = await T.getWalk(projectId, summary.runId)
+  expect(walk?.status).toBe("red")
+  expect(walk?.finishedAt).toBeGreaterThan(0)
+  expect((walk?.summary as any)?.error).toBeTruthy()
+}, 30000)
+
+test("(v) a testId containing a double-quote round-trips through cache and resolves (attr escaping)", async () => {
+  const projectId = "proj_quote"
+  // A trail whose Sign-in target carries a testId with an embedded double-quote.
+  const traj = {
+    name: "Quote testid",
+    intent: "click the weird-testid button",
+    baseUrl: "https://app.test/",
+    authorKind: "llm" as const,
+    createdBy: "agent@klavity",
+    steps: [
+      { action: "click" as const, url: "https://app.test/", domHash: "dq",
+        target: { role: "button", accessibleName: "Quote", text: "Quote", testId: 'weird"id', resolvedSelector: 'button[data-testid="weird\\"id"]' } },
+    ],
+  }
+  const { trailId, stepIds } = await crystallize(projectId, traj)
+
+  const summary = await walkTrail(projectId, trailId, { fixtureUrl: fixtureUrl("checkout-mockup-quote-testid.html") })
+
+  // The cached selector resolves the element and the click executes (no heal needed) -> GREEN.
+  const step = summary.steps[0]
+  expect(step.verdict).toBe("green")
+  expect(step.tier).toBe("cache")
+  // round-trips: the cache row still holds the escaped selector
+  const row = await T.getCacheForStep(projectId, stepIds[0])
+  expect(row?.resolvedSelector).toContain("weird")
 }, 30000)
