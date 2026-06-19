@@ -633,6 +633,7 @@ Bun.serve({
       })
     }
     if (req.method === "GET" && path === "/intro-reel") return file(SITE + "/intro-reel.html")
+    if (req.method === "GET" && path === "/privacy") return file(SITE + "/privacy.html")
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
 
     // ── embeddable widget bundle ──

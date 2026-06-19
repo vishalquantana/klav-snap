@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy · Klavity</title>
+<meta name="description" content="How Klavity Snap collects, uses, and protects your data." />
+<style>
+  :root{
+    --paper:#19140f; --paper-dim:#574f45; --paper-faint:#8a8076;
+    --ink:#f5f3ee; --ink-2:#ffffff; --line:rgba(25,20,15,.12); --indigo:#4f46e5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,-apple-system,sans-serif;background:var(--ink);color:var(--paper);line-height:1.6;}
+  .wrap{max-width:760px;margin:0 auto;padding:56px 24px 96px;}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:18px;letter-spacing:-.3px;margin-bottom:8px;}
+  .brand span{color:var(--indigo);}
+  h1{font-size:30px;letter-spacing:-.5px;margin:18px 0 6px;}
+  .meta{color:var(--paper-faint);font-size:13px;margin-bottom:34px;}
+  h2{font-size:18px;margin:34px 0 8px;letter-spacing:-.2px;}
+  p,li{color:var(--paper-dim);font-size:15px;}
+  ul{margin:8px 0 8px 22px;}
+  li{margin:5px 0;}
+  a{color:var(--indigo);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--paper-dim);}
+  th{color:var(--paper);font-weight:700;}
+  strong{color:var(--paper);}
+  .foot{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--paper-faint);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <svg width="22" height="22" viewBox="0 0 48 48" style="border-radius:7px;display:block"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg>
+    Klav<span>ity</span>
+  </div>
+
+  <h1>Privacy Policy</h1>
+  <p class="meta">Klavity Snap &amp; Klavity Cloud · Last updated 19 June 2026</p>
+
+  <p>Klavity ("we", "us") is built by <strong>Quantana</strong>. Klavity Snap is a browser
+  extension and web service that lets AI personas ("Sims") review web pages and file bug and
+  feature tickets to your issue tracker. This policy explains what we collect, why, who we share
+  it with, and the controls you have. It covers the browser extension and the Klavity Cloud
+  backend at <strong>klavity.quantana.top</strong>.</p>
+
+  <h2>What we collect</h2>
+  <table>
+    <tr><th>Data</th><th>Why</th></tr>
+    <tr><td><strong>Account email</strong></td><td>To sign you in (one-time email code; no password) and associate your tickets and workspace.</td></tr>
+    <tr><td><strong>Page screenshots</strong> — a screenshot of the <em>visible area</em> of a page (not the full page, not other tabs)</td><td>So Sims can see and react to the page, and so a bug report carries visual context.</td></tr>
+    <tr><td><strong>Page context</strong> — the page URL <em>path</em> (query strings and fragments are dropped), a structural signature of the page, and the title</td><td>To attribute feedback to the right page and avoid re-reviewing an unchanged view.</td></tr>
+    <tr><td><strong>Diagnostic context</strong> — for a manual bug report: browser and screen info, and the most recent console and network errors on the page</td><td>To make the ticket actionable for your engineers.</td></tr>
+    <tr><td><strong>Integration credentials</strong> — API tokens for the tracker you connect (Jira, Linear, GitHub, Plane) or a webhook</td><td>To file tickets on your behalf. Stored <strong>encrypted at rest</strong> (AES-GCM) and never returned to the browser.</td></tr>
+  </table>
+
+  <h2>When we collect it — capture is consent-gated</h2>
+  <ul>
+    <li>Sims review a page <strong>only after you consent</strong>. For pages your workspace monitors, each member confirms once before their first capture; for the "Analyze this page" action, you confirm once per website.</li>
+    <li>Automatic review happens <strong>only on URLs your workspace has explicitly allow-listed</strong>, or on a page you explicitly choose with "Analyze this page".</li>
+    <li>A manual bug/feature report is captured only when <strong>you</strong> open the reporter and submit it.</li>
+    <li>We never capture other tabs, background pages, or pages you have not consented to.</li>
+  </ul>
+
+  <h2>How we use it</h2>
+  <ul>
+    <li>To generate Sim feedback, the screenshot and page context are sent to a large-language-model provider (<strong>OpenRouter</strong>, currently routing to Google Gemini models) for processing. This is automated; the output becomes the ticket you see.</li>
+    <li>When a ticket is filed or "copied to" an external destination, the relevant ticket content is sent to <strong>the tracker you configured</strong> (Jira, Linear, GitHub, Plane, or your webhook).</li>
+    <li>We use aggregate, non-identifying usage and cost metrics to operate and improve the service. We do <strong>not</strong> sell your data, and we do not use your page content to train third-party models.</li>
+  </ul>
+
+  <h2>Who processes your data (sub-processors)</h2>
+  <ul>
+    <li><strong>OpenRouter</strong> — LLM routing/inference for Sim reviews.</li>
+    <li><strong>Object storage (S3-compatible)</strong> — private storage of screenshots.</li>
+    <li><strong>Turso (libSQL)</strong> — application database (accounts, tickets, settings).</li>
+    <li><strong>Your configured issue tracker</strong> — receives the tickets you file.</li>
+  </ul>
+
+  <h2>Retention</h2>
+  <ul>
+    <li><strong>Screenshots</strong> are stored privately and expire automatically <strong>30 days</strong> after capture.</li>
+    <li><strong>Tickets and account data</strong> are retained for as long as your workspace is active, until you delete them or close your account.</li>
+    <li>You can ask us to delete your account and associated data at any time (see Contact).</li>
+  </ul>
+
+  <h2>Security</h2>
+  <ul>
+    <li>All traffic is encrypted in transit (HTTPS).</li>
+    <li>Integration secrets are encrypted at rest with AES-GCM and are redacted from any response sent to the browser.</li>
+    <li>Screenshots are stored with private access and served only via short-lived signed links to authorized workspace members.</li>
+  </ul>
+
+  <h2>Your controls</h2>
+  <ul>
+    <li><strong>Consent</strong> is required before the first capture on any page or website.</li>
+    <li><strong>Pause</strong> Sims on a page from the in-page indicator at any time.</li>
+    <li><strong>Global switch</strong> — turn automatic reviews off entirely from the extension's Options page.</li>
+    <li><strong>Sign out</strong> from the popup to clear your local session.</li>
+    <li>Request access, correction, or deletion of your data by contacting us.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>Klavity is a tool for software teams and is not directed to children under 13. We do not knowingly collect data from children.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>We may update this policy as the product evolves. Material changes will be reflected by the
+  "Last updated" date above and, where appropriate, communicated in-product.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or data requests: <a href="mailto:hello@quantana.com.au">hello@quantana.com.au</a> · Quantana, <a href="https://quantana.com.au">quantana.com.au</a></p>
+
+  <div class="foot">© 2026 Quantana · <a href="/">Klavity home</a></div>
+</div>
+</body>
+</html>
