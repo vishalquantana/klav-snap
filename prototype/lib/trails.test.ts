@@ -26,12 +26,17 @@ test("applySchema creates all six Trail tables", async () => {
   }
 })
 
-test("locator_cache enforces a UNIQUE cache_key", async () => {
+test("locator_cache enforces a UNIQUE (project_id, step_id) — per-step identity, not cache_key", async () => {
   const idx = await db.execute({
-    sql: "SELECT name FROM sqlite_master WHERE type='index' AND name='lc_key_uq'",
+    sql: "SELECT sql FROM sqlite_master WHERE type='index' AND name='lc_key_uq'",
     args: [],
   })
   expect(idx.rows.length).toBe(1)
+  const sql = String((idx.rows[0] as any).sql)
+  expect(sql).toContain("project_id")
+  expect(sql).toContain("step_id")
+  // cache_key is no longer the uniqueness key (Layer B's salt hack is gone)
+  expect(sql).not.toContain("(cache_key)")
 })
 
 const T = await import("./trails")
@@ -63,24 +68,27 @@ test("setTrailStatus updates status", async () => {
   expect((await T.getTrail("proj_A", id))?.status).toBe("active")
 })
 
-test("upsertLocatorCache inserts then updates on cache_key conflict (heal overwrites)", async () => {
+test("upsertLocatorCache inserts then updates on (project_id, step_id) conflict (heal overwrites in place)", async () => {
   const trail = await T.createTrail("proj_A", { name: "C", baseUrl: "https://app.test/" })
   const step = await T.addTrailStep("proj_A", trail, { idx: 0, action: "click" })
   const key = "deadbeef".repeat(8) // 64 hex chars
 
   await T.upsertLocatorCache("proj_A", { trailId: trail, stepId: step, cacheKey: key, resolvedSelector: "#pay", confidence: 1, source: "crystallize" })
-  let row = await T.getLocatorByKey("proj_A", key)
+  let row = await T.getCacheForStep("proj_A", step)
   expect(row?.resolvedSelector).toBe("#pay")
   expect(row?.source).toBe("crystallize")
 
-  await T.upsertLocatorCache("proj_A", { trailId: trail, stepId: step, cacheKey: key, resolvedSelector: "[data-testid=pay]", confidence: 0.93, source: "heal" })
-  row = await T.getLocatorByKey("proj_A", key)
+  // a heal with a DIFFERENT cache_key (page-state fingerprint changed) still updates the SAME step row.
+  const healKey = "feedface".repeat(8)
+  await T.upsertLocatorCache("proj_A", { trailId: trail, stepId: step, cacheKey: healKey, resolvedSelector: "[data-testid=pay]", confidence: 0.93, source: "heal" })
+  row = await T.getCacheForStep("proj_A", step)
   expect(row?.resolvedSelector).toBe("[data-testid=pay]") // overwritten, not duplicated
   expect(row?.source).toBe("heal")
   expect(row?.confidence).toBeCloseTo(0.93)
+  expect(row?.cacheKey).toBe(healKey) // cache_key still stored as the page-state fingerprint
 
-  const both = await db.execute({ sql: "SELECT COUNT(*) c FROM locator_cache WHERE cache_key=?", args: [key] })
-  expect(Number(both.rows[0].c)).toBe(1)
+  const both = await db.execute({ sql: "SELECT COUNT(*) c FROM locator_cache WHERE project_id=? AND step_id=?", args: ["proj_A", step] })
+  expect(Number(both.rows[0].c)).toBe(1) // one row per step
 })
 
 test("getCacheForStep + cross-project isolation", async () => {

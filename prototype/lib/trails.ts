@@ -85,7 +85,8 @@ export async function upsertLocatorCache(
   await db!.execute({
     sql: `INSERT INTO locator_cache (id, project_id, trail_id, step_id, cache_key, resolved_selector, fingerprint_json, confidence, source, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(cache_key) DO UPDATE SET
+          ON CONFLICT(project_id, step_id) DO UPDATE SET
+            cache_key=excluded.cache_key,
             resolved_selector=excluded.resolved_selector,
             fingerprint_json=excluded.fingerprint_json,
             confidence=excluded.confidence,

@@ -10,15 +10,15 @@ delete process.env.TURSO_AUTH_TOKEN
 
 const { reconnectDb, applySchema, migrateV2 } = await import("./db")
 
+let db: any
 beforeAll(async () => {
-  const db = reconnectDb("file:" + file)
+  db = reconnectDb("file:" + file)
   await applySchema(db)
   await migrateV2(db)
 })
 
-const { crystallize } = await import("./trails-crystallize")
+const { crystallize, stepCacheKey } = await import("./trails-crystallize")
 const T = await import("./trails")
-const { cacheKey } = await import("./trails-types")
 
 const sampleTrajectory = {
   name: "Checkout",
@@ -83,16 +83,44 @@ test("crystallize seeds one locator_cache row per actionable step (skips navigat
   expect((await T.getCacheForStep("proj_A", stepIds[3]))?.resolvedSelector).toBe("#submit")
   expect((await T.getCacheForStep("proj_A", stepIds[4]))?.resolvedSelector).toBe(".dashboard h1")
 
-  // returned cacheKeys: present for actionable steps, recomputable, 64-hex, retrievable.
-  // dom-hash is salted with trailId + the resolved selector so two actions on the same page (and
-  // two Trails replaying the same page) don't collide under the UNIQUE cache_key.
-  const expectedKey = await cacheKey("ACTION", "https://app.test/login", `${trailId}|d1#` + "#email", "proj_A")
+  // returned cacheKeys: present for actionable steps, recomputable via the exported helper, 64-hex.
+  // cache_key is now a stored page-state fingerprint (NOT the uniqueness key); the runner reuses
+  // stepCacheKey to recompute it with the same convention.
+  // recompute with the SAME page-state inputs crystallize used (the trajectory step #1: type Email)
+  const emailStep = sampleTrajectory.steps[1]
+  const expectedKey = await stepCacheKey("proj_A", trailId, emailStep, "#email")
   expect(cacheKeys[stepIds[1]]).toBe(expectedKey)
-  // email and password (same url+domHash) get DISTINCT keys -> both rows persist
+  // email and password (same url+domHash) get DISTINCT keys (selector differs)
   expect(cacheKeys[stepIds[2]]).not.toBe(cacheKeys[stepIds[1]])
   expect((await T.getCacheForStep("proj_A", stepIds[2]))?.resolvedSelector).toBe("#password")
   expect(cacheKeys[stepIds[1]]).toMatch(/^[0-9a-f]{64}$/)
   expect(cacheKeys[stepIds[0]]).toBeUndefined() // navigate not cached
-  const byKey = await T.getLocatorByKey("proj_A", cacheKeys[stepIds[1]])
-  expect(byKey?.resolvedSelector).toBe("#email")
+})
+
+test("two distinct steps sharing the same page-state + selector each keep their OWN cache row (no overwrite)", async () => {
+  // Both steps act on the identical (url, domHash) page-state AND the identical resolved selector.
+  // Uniqueness is per (project_id, step_id), so neither overwrites the other.
+  const traj = {
+    name: "Dup page-state",
+    baseUrl: "https://app.test/",
+    authorKind: "human" as const,
+    steps: [
+      { action: "click" as const, url: "https://app.test/x", domHash: "same",
+        target: { role: "button", accessibleName: "Go", resolvedSelector: "#go" } },
+      { action: "click" as const, url: "https://app.test/x", domHash: "same",
+        target: { role: "button", accessibleName: "Go", resolvedSelector: "#go" } },
+    ],
+  }
+  const { trailId, stepIds } = await crystallize("proj_dup", traj)
+
+  // both rows exist and are independently retrievable by step
+  const a = await T.getCacheForStep("proj_dup", stepIds[0])
+  const b = await T.getCacheForStep("proj_dup", stepIds[1])
+  expect(a?.resolvedSelector).toBe("#go")
+  expect(b?.resolvedSelector).toBe("#go")
+  expect(a?.stepId).toBe(stepIds[0])
+  expect(b?.stepId).toBe(stepIds[1])
+  // exactly two rows for the trail (no collapse)
+  const cnt = await db.execute({ sql: "SELECT COUNT(*) c FROM locator_cache WHERE trail_id=?", args: [trailId] })
+  expect(Number(cnt.rows[0].c)).toBe(2)
 })

@@ -39,14 +39,26 @@ function methodFor(action: StepAction): string {
   return action === "navigate" ? "GET" : "ACTION"
 }
 
-// The spec cacheKey identifies a (method, url, dom-hash, project) page-state. The UNIQUE cache_key
-// means two cache rows can never share a key, but two actionable steps legitimately can share a
-// page+DOM (email then password on one login screen), and two Trails in one project can replay the
-// same page. We make the key per-(trail,step,element) deterministic by folding the trail id + the
-// step's resolved selector into the dom-hash component. The runner recomputes with the same
-// convention (it holds the trail id and the cache's resolved selector).
-function domHashFor(trailId: string, step: TrajectoryStep, selector: string): string {
-  return `${trailId}|${step.domHash}#${selector}`
+/** Minimal page-state shape stepCacheKey needs (a TrajectoryStep or a persisted TrailStep both fit). */
+interface PageStateStep { action: StepAction; url?: string; domHash?: string }
+
+/**
+ * The single exported convention for a step's cache_key (page-state fingerprint).
+ * cache_key = SHA256(method, normalized-url, trailId|domHash#selector, projectId).
+ *
+ * cache_key is NO LONGER a uniqueness key (uniqueness is per (project_id, step_id)); it is a stored
+ * page-state fingerprint. Layer D's Tier-2 reuses THIS helper so the recomputed key matches what
+ * crystallize wrote. Folding trailId + selector keeps it stable per (trail, step, element).
+ */
+export async function stepCacheKey(
+  projectId: string,
+  trailId: string,
+  step: PageStateStep,
+  selector: string,
+): Promise<string> {
+  const url = step.url ?? ""
+  const domHash = step.domHash ?? ""
+  return cacheKey(methodFor(step.action), url, `${trailId}|${domHash}#${selector}`, projectId)
 }
 
 // Actionable = touches a concrete element (has a resolved selector) => gets a cache row.
@@ -88,9 +100,12 @@ export async function crystallize(projectId: string, traj: Trajectory): Promise<
     })
     stepIds.push(stepId)
 
+    // Seed a cache row for every step that resolves a concrete element — every actionable step AND
+    // every assert-with-selector step. This guarantees the heal path always has a row to update so a
+    // step never re-heals forever (spec §6.4 + fix #3).
     const sel = resolvedSelector(step)
     if (sel) {
-      const key = await cacheKey(methodFor(step.action), step.url, domHashFor(trailId, step, sel), projectId)
+      const key = await stepCacheKey(projectId, trailId, step, sel)
       await upsertLocatorCache(projectId, {
         trailId,
         stepId,

@@ -276,7 +276,10 @@ export async function applySchema(c: Client) {
        created_at INTEGER NOT NULL,
        updated_at INTEGER NOT NULL
      )`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS lc_key_uq ON locator_cache(cache_key)`,
+    // Per-step identity: one cache row per (project, step). cache_key is a stored page-state
+    // fingerprint column but NOT the uniqueness key (removes Layer B's salt hack). Greenfield table,
+    // no prod data — changing the CREATE INDEX is sufficient (additive/idempotent).
+    `CREATE UNIQUE INDEX IF NOT EXISTS lc_key_uq ON locator_cache(project_id, step_id)`,
     `CREATE TABLE IF NOT EXISTS trail_runs (
        id TEXT PRIMARY KEY,
        trail_id TEXT NOT NULL,
