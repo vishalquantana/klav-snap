@@ -1133,8 +1133,95 @@ function ssFilterList(q) {
 // Stubs filled in later tasks (defined here so renderStudio never throws on missing fns).
 function openNewSimForm() { ssOpenNewSimForm() }
 function openTranscriptUpload() { ssOpenTranscriptUpload() }
-function ssOpenNewSimForm() {}
-function ssOpenTranscriptUpload() {}
+// ── Task 7: + New Sim — inline form in col 2 → POST /api/personas → navigate ──
+function ssOpenNewSimForm() {
+  const col = $("ssCol2"); if (!col) return
+  col.innerHTML = `<div class="ss-scroll"><div class="ss-c2-pad">
+    <div class="ss-newform">
+      <div class="ss-c1-top" style="margin-bottom:10px"><h2 style="font-family:var(--display);font-size:18px">New Sim</h2></div>
+      <input id="ssNewName" placeholder="Name" />
+      <input id="ssNewRole" placeholder="Role (e.g. Procurement Lead · Acme)" />
+      <select id="ssNewType"><option value="client">client</option><option value="internal">internal</option></select>
+      <textarea id="ssNewSummary" rows="3" placeholder="One-line summary"></textarea>
+      <div class="ss-mini-row">
+        <button class="ss-mini-btn primary" id="ssNewSave">Create Sim</button>
+        <button class="ss-mini-btn ghost" id="ssNewCancel">Cancel</button>
+      </div>
+    </div>
+  </div></div>`
+  const nm = $("ssNewName"); if (nm) nm.focus()
+  $("ssNewCancel").onclick = () => { if (ssActiveSim) renderPersonaDetail(ssActiveSim); else { const c = $("ssCol2"); if (c) c.innerHTML = "" } }
+  $("ssNewSave").onclick = async () => {
+    const name = ($("ssNewName").value || "").trim()
+    if (!name) { ssToast("Name is required."); return }
+    const role = ($("ssNewRole").value || "").trim()
+    const type = $("ssNewType").value
+    const summary = ($("ssNewSummary").value || "").trim()
+    const initials = name.slice(0, 2).toUpperCase()
+    const btn = $("ssNewSave"); btn.disabled = true; btn.textContent = "Creating…"
+    try {
+      const r = await fetch(pq('/api/personas'), {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, role, type, initials, accent: "#6366f1", summary, insights: [] }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.persona?.id) throw new Error(d.error || "create failed")
+      ssNavigateToSim(d.persona.id)
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "Create Sim"
+      ssToast("Create failed: " + e.message)
+    }
+  }
+}
+
+// ── Task 7: transcript upload — paste/drop form in col 2 → POST /api/transcripts ──
+function ssOpenTranscriptUpload() {
+  const col = $("ssCol2"); if (!col) return
+  col.innerHTML = `<div class="ss-scroll"><div class="ss-c2-pad">
+    <div class="ss-newform">
+      <div class="ss-c1-top" style="margin-bottom:10px"><h2 style="font-family:var(--display);font-size:18px">Upload transcript</h2></div>
+      <input id="ssTxTitle" placeholder="Title (optional)" />
+      <textarea id="ssTxText" rows="10" placeholder="Paste the transcript text here…"></textarea>
+      <div class="ss-mini-row">
+        <button class="ss-mini-btn primary" id="ssTxSave">Extract & match</button>
+        <button class="ss-mini-btn ghost" id="ssTxCancel">Cancel</button>
+      </div>
+    </div>
+  </div></div>`
+  const txt = $("ssTxText"); if (txt) txt.focus()
+  // drag-and-drop a file onto the textarea
+  if (txt) {
+    txt.addEventListener("dragover", e => e.preventDefault())
+    txt.addEventListener("drop", async e => {
+      e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return
+      try { txt.value = await f.text(); if (!$("ssTxTitle").value) $("ssTxTitle").value = f.name } catch (err) {}
+    })
+  }
+  $("ssTxCancel").onclick = () => { if (ssActiveSim) renderPersonaDetail(ssActiveSim); else { const c = $("ssCol2"); if (c) c.innerHTML = "" } }
+  $("ssTxSave").onclick = async () => {
+    const text = ($("ssTxText").value || "").trim()
+    if (text.length < 20) { ssToast("Add transcript text first."); return }
+    const title = ($("ssTxTitle").value || "").trim() || null
+    const btn = $("ssTxSave"); btn.disabled = true; btn.textContent = "Extracting…"
+    try {
+      const r = await fetch(pq('/api/transcripts'), {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ transcript: text, title }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.transcriptId) throw new Error(d.error || "upload failed")
+      const n = Array.isArray(d.matched) ? d.matched.length : 0
+      ssToast(`Extracted → matched ${n} sim${n === 1 ? "" : "s"}`)
+      ssTxMap = {}                       // invalidate transcript cache
+      await renderSimList(ssActiveSim ? (ssActiveSim._id || ssActiveSim.id) : null)
+      if (ssActiveSim) renderPersonaDetail(ssActiveSim)
+      else { const c = $("ssCol2"); if (c) c.innerHTML = "" }
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "Extract & match"
+      ssToast("Upload failed: " + e.message)
+    }
+  }
+}
 
 // transcript metadata cache (id → {title, sourceDate}) for provenance chips + the Transcript tab.
 let ssTxMap = {}
