@@ -1045,12 +1045,15 @@ Bun.serve({
         const domSig = body.domSig != null ? String(body.domSig) : null
         const screenshotDataUrl = String(body.screenshotDataUrl || "")
         const reqSimIds: string[] = Array.isArray(body.simIds) ? body.simIds.map(String) : []
+        const adhoc = body.adhoc === true
 
         // (a) AUTH + project access. Resolve project by matchMonitored(url) when projectId is absent — but
         //     only across projects the caller can access (no cross-project leakage / off-account capture).
         if (!meR) return wjson({ ok: false, reason: "unauthorized", error: "Sign in to continue." }, 401)
         let projectId: string | null = null
         const requestedProject = String(body.projectId || "") || url.searchParams.get("project")
+        // Adhoc reviews must always supply a projectId — auto-resolution via allowlist is passive-only.
+        if (adhoc && !requestedProject) return wjson({ ok: false, reason: "unauthorized", error: "Pick a project to analyze this page." }, 401)
         if (requestedProject) {
           const a = await resolveProject(meR, requestedProject)
           if (a) projectId = a.id
@@ -1074,21 +1077,25 @@ Bun.serve({
         // Resolve target Sims first (project Sims, or the caller-supplied subset) so we can key dedupe.
         const projectSims = await listPersonas(projectId)
         const targetSims = reqSimIds.length ? projectSims.filter((p) => reqSimIds.includes(p.id)) : projectSims
+
         const seenKeys = targetSims.map((s) => reviewDedupeKey(s.id, urlPath || "", domSig))
         const allSeen = targetSims.length > 0 && seenKeys.every((k) => reviewSeen(k))
 
         // (f) budget is the LAST gate and is the ONLY side-effecting pre-check (atomic consume). We only
         //     attempt it once gates a–e pass, so a blocked request never burns budget. Pre-evaluate a–e
         //     with budgetConsumed=true to find any earlier block without consuming.
-        const pre = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed: true })
+        const pre = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed: true, adhoc })
         if (!pre.ok) { console.log(`[review] blocked reason=${pre.reason} path=${urlPath || "/"} sims=${targetSims.length}`); return wjson({ ok: false, reason: pre.reason, error: pre.message, projectId }, pre.status) }
+
+        // No sims to review (all gates a–e passed) → return success without consuming a budget slot.
+        if (targetSims.length === 0) return wjson({ ok: true, projectId, reviews: [] }, 200)
 
         // All of a–e passed → atomically consume one budget slot (f).
         const proj = await projectById(projectId)
         const budget = proj?.reviewBudgetDaily ?? 0
         const day = reviewDay()
         const budgetConsumed = await tryConsumeReviewBudget(projectId, day, budget ?? 0)
-        const gate = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed })
+        const gate = reviewGate({ authed: true, reviewMode, consentStatus, allowlistMatch: !!allowlist, alreadyReviewed: allSeen, budgetConsumed, adhoc })
         if (!gate.ok) {
           if (gate.reason === "budgetExhausted") {
             // auto-pause the project + notify the admin (§5 cost guard).

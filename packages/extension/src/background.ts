@@ -219,7 +219,7 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
         const res = await fetch(`${config.backendUrl}/api/sim/review`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.token}` },
-          body: JSON.stringify({ projectId: msg.projectId, url: msg.url, domSig: msg.domSig, screenshotDataUrl: msg.screenshotDataUrl }),
+          body: JSON.stringify({ projectId: msg.projectId, url: msg.url, domSig: msg.domSig, screenshotDataUrl: msg.screenshotDataUrl, adhoc: msg.adhoc === true }),
         })
         const body = await res.json().catch(() => ({}))
         // budgetExhausted / paused changes server state — refresh cached review_mode.

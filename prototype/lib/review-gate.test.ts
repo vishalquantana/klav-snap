@@ -63,6 +63,48 @@ test("reviewDay: UTC YYYY-MM-DD", () => {
   expect(/^\d{4}-\d{2}-\d{2}$/.test(reviewDay())).toBe(true)
 })
 
+// ── Ad-hoc bypass tests (Task 1) ──────────────────────────────────────────────────────────────────
+
+const base = {
+  authed: true,
+  reviewMode: 'auto' as string | null,
+  consentStatus: 'granted' as string | null,
+  allowlistMatch: true,
+  alreadyReviewed: false,
+  budgetConsumed: true,
+}
+
+test('adhoc bypasses allowlist, consent, pause and dedupe when authed + budget', () => {
+  const r = reviewGate({
+    ...base,
+    adhoc: true,
+    reviewMode: 'paused',
+    consentStatus: null,
+    allowlistMatch: false,
+    alreadyReviewed: true,
+  })
+  expect(r.ok).toBe(true)
+})
+
+test('adhoc still blocks when not authed', () => {
+  const r = reviewGate({ ...base, adhoc: true, authed: false })
+  expect(r).toEqual({ ok: false, reason: 'unauthorized', status: 401, message: 'Sign in to continue.' })
+})
+
+test('adhoc still blocks when budget exhausted', () => {
+  const r = reviewGate({ ...base, adhoc: true, allowlistMatch: false, budgetConsumed: false })
+  expect(r.ok).toBe(false)
+  if (!r.ok) expect(r.reason).toBe('budgetExhausted')
+})
+
+test('non-adhoc behaviour unchanged (off-allowlist still blocks)', () => {
+  const r = reviewGate({ ...base, allowlistMatch: false })
+  expect(r.ok).toBe(false)
+  if (!r.ok) expect(r.reason).toBe('offAllowlist')
+})
+
+// ── End Ad-hoc bypass tests ───────────────────────────────────────────────────────────────────────
+
 test("content-sig dedup: same (sim,path,sig) spends budget at most once", () => {
   // Two review attempts arrive for the same sim+urlPath with the SAME content signature.
   // The dedupe key is identical for both, so the seen-set hit on attempt 2 means alreadyReviewed=true

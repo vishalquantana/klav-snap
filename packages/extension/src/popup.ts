@@ -190,6 +190,7 @@ async function renderSignedIn() {
   $('btn-feat').addEventListener('click', () => openModal('feature'))
 
   // ── Project picker ──
+  // (resolved before the analyze handler so activeProjectId + projects are in scope below)
   const config = await getConfig()
   const projects = config?.projects ?? []
   const sel = $('proj-select') as HTMLSelectElement
@@ -212,6 +213,27 @@ async function renderSignedIn() {
       await setSelectedProjectId(activeProjectId)
       await renderSims(s, activeProjectId)
     })
+  }
+
+  // ── Ad-hoc "Analyze this page" ──
+  const analyzeBtn = $('btn-analyze') as HTMLButtonElement
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  const unsupported = !activeTab?.url || /^(chrome|edge|about|view-source|chrome-extension|moz-extension|data|file):|chromewebstore\.google\.com|chrome\.google\.com\/webstore/.test(activeTab.url)
+  if (unsupported) {
+    analyzeBtn.disabled = true
+    analyzeBtn.title = "Can't analyze this page"
+  } else {
+    analyzeBtn.onclick = async () => {
+      const projectId = activeProjectId || projects[0]?.id || null
+      if (!projectId || !activeTab?.id) return
+      const tabId = activeTab.id
+      const send = () => chrome.tabs.sendMessage(tabId, { kind: 'KLAV_ADHOC_REVIEW', projectId }).catch(() => {})
+      chrome.tabs.sendMessage(tabId, { kind: 'KLAV_ADHOC_REVIEW', projectId }).catch(() => {
+        const cs = chrome.runtime.getManifest().content_scripts?.[0]
+        if (cs?.js?.length) chrome.scripting.executeScript({ target: { tabId }, files: cs.js }).then(() => setTimeout(send, 300)).catch(() => {})
+      })
+      window.close()
+    }
   }
 
   // Sign out
@@ -251,6 +273,12 @@ async function renderSims(s: KlavitySettings, projectId: string | null = null) {
 
   simsList.innerHTML = ''
   if (sims.length === 0) {
+    const ab = document.getElementById('btn-analyze') as HTMLButtonElement | null
+    if (ab) {
+      ab.classList.add('studio')
+      ab.textContent = 'Add a Sim first →'
+      ab.onclick = () => chrome.tabs.create({ url: `${base || 'https://klavity.quantana.top'}/app` })
+    }
     simsList.innerHTML = `
       <div class="empty-state">No sims yet. Build them in Klavity Studio.</div>
       <a class="empty-link" id="add-sim-link" href="#" style="text-align:center;">+ Open Sim Studio →</a>`

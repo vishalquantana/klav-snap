@@ -702,6 +702,11 @@ chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
     klavOnRouteChange()
     return
   }
+
+  if (msg.kind === 'KLAV_ADHOC_REVIEW') {
+    void klavRunAdhoc(msg.projectId)
+    return
+  }
 })
 
 // ── Custom right-click menu ──────────────────────────────────────────────────
@@ -1073,6 +1078,69 @@ function klavConsentPrompt(project: KlavMonitoredProject): Promise<boolean> {
     })
     root.appendChild(el)
   })
+}
+
+// ── Ad-hoc "Analyze this page" — per-domain consent helpers ─────────────────
+// Per-domain memory for explicit "Analyze this page" runs (so we confirm only once per domain).
+async function klavAdhocAllowed(domain: string): Promise<boolean> {
+  try { const r = await chrome.storage.local.get('klavAdhocDomains'); return Array.isArray(r.klavAdhocDomains) && r.klavAdhocDomains.includes(domain) } catch { return false }
+}
+async function klavAdhocRemember(domain: string): Promise<void> {
+  try {
+    const r = await chrome.storage.local.get('klavAdhocDomains')
+    const list: string[] = Array.isArray(r.klavAdhocDomains) ? r.klavAdhocDomains : []
+    if (!list.includes(domain)) { list.push(domain); await chrome.storage.local.set({ klavAdhocDomains: list }) }
+  } catch { /* non-fatal */ }
+}
+
+// One-time-per-domain confirm before an explicit ad-hoc review. Reuses the consent-card styling.
+function klavAdhocConfirm(domain: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const root = klavGetHost()
+    const el = document.createElement('div')
+    el.className = 'klav-consent'
+    el.innerHTML = `
+      <h4>Analyze this page?</h4>
+      <p>Your Sims will look at <b>${domain}</b>. We capture only the visible area (a viewport screenshot) and send it to Klavity to generate feedback.</p>
+      <div class="klav-crow">
+        <button class="klav-cprimary">Analyze</button>
+        <button class="klav-cghost">Cancel</button>
+      </div>`
+    const done = (ok: boolean) => { el.remove(); resolve(ok) }
+    el.querySelector('.klav-cprimary')!.addEventListener('click', () => done(true))
+    el.querySelector('.klav-cghost')!.addEventListener('click', () => done(false))
+    root.appendChild(el)
+  })
+}
+
+// Explicit "Analyze this page" — bypasses the allowlist + the klavSimsEnabled kill-switch by design.
+// Must be called OUTSIDE maybeActivate so it intentionally bypasses the global kill-switch.
+async function klavRunAdhoc(projectId: string): Promise<void> {
+  const domain = location.hostname
+  if (!(await klavAdhocAllowed(domain))) {
+    if (!(await klavAdhocConfirm(domain))) return
+    await klavAdhocRemember(domain)
+  }
+  klavNotice('Sims analyzing this page…')
+  const dataUrl = await klavCapture()
+  if (!dataUrl) { klavNotice("Couldn't capture this page — try again."); return }
+  const resp = await klavSend<{ ok: boolean; status: number; body: any }>({
+    kind: 'KLAV_REVIEW', projectId, url: location.href, domSig: klavDomSig(), screenshotDataUrl: dataUrl, adhoc: true,
+  })
+  const body = resp?.body || {}
+  if (resp?.ok && Array.isArray(body.reviews)) {
+    let n = 0
+    for (const rv of body.reviews) for (const r of (rv.reactions || [])) {
+      klavRenderBubble({ simName: rv.simName, initials: rv.initials, accent: rv.accent, observation: r.observation, severity: r?.suggestedBug?.severity, citation: r.citation, suggestedBug: r?.suggestedBug }); n++
+    }
+    if (n === 0) klavNotice('Your Sims had nothing to flag on this page.')
+  } else if (body.reason === 'budgetExhausted') {
+    klavNotice("Sims hit today’s review budget — try again tomorrow.")
+  } else if (body.reason === 'noConfig') {
+    klavNotice('Sign in from the Klavity popup first.')
+  } else {
+    klavNotice("Couldn’t analyze this page right now.")
+  }
 }
 
 // Capture the visible tab via the background SW (token + captureVisibleTab live there).

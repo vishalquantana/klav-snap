@@ -82,7 +82,7 @@ export type BackgroundMessage =
   | { kind: 'KLAV_GET_CONFIG' }                              // read cached config from storage (no fetch)
   | { kind: 'KLAV_SYNC_CONFIG' }                             // force a re-fetch of /api/extension/config
   | { kind: 'KLAV_CAPTURE_REVIEW' }                          // captureVisibleTab for a review (separate from bug CAPTURE_TAB)
-  | { kind: 'KLAV_REVIEW'; projectId: string; url: string; domSig: string; screenshotDataUrl: string } // POST /api/sim/review
+  | { kind: 'KLAV_REVIEW'; projectId: string; url: string; domSig: string; screenshotDataUrl: string; adhoc?: boolean } // POST /api/sim/review
   | { kind: 'KLAV_CONSENT'; projectId: string; status: 'granted' | 'paused' | 'revoked' }               // POST /api/consent
 
 export type KlavMonitoredProject = { id: string; name: string; reviewMode: string; monitoredUrls: string[] }
@@ -103,6 +103,8 @@ export type ContentMessage =
   | { kind: 'KLAV_CAPTURE_REVIEW_RESULT'; dataUrl: string; error?: string }
   | { kind: 'KLAV_CONFIG_UPDATED'; config: KlavConfig | null }   // pushed after a sync so content refreshes its cache
   | { kind: 'KLAV_NUDGE_ROUTE' }                                 // tabs.onUpdated SPA backstop → re-evaluate URL
+  // ── Ad-hoc "Analyze this page" (Task 4) ──
+  | { kind: 'KLAV_ADHOC_REVIEW'; projectId: string }             // popup → content: run an explicit one-shot review
 
 export type Shape =
   | { type: 'pen'; color: string; points: Array<{ x: number; y: number }> }

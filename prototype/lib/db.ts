@@ -1356,10 +1356,18 @@ export type ReviewGateInput = {
   allowlistMatch: boolean              // url matched an ENABLED monitored pattern
   alreadyReviewed: boolean             // (sim,urlPath,domSig) dedupe hit
   budgetConsumed: boolean              // tryConsumeReviewBudget succeeded (a slot was taken)
+  adhoc?: boolean                      // explicit user-initiated "Analyze this page" — bypasses passive gates
 }
 export type ReviewGateResult = { ok: true } | { ok: false; reason: string; status: number; message: string }
 export function reviewGate(i: ReviewGateInput): ReviewGateResult {
   if (!i.authed) return { ok: false, reason: "unauthorized", status: 401, message: "Sign in to continue." }
+  // Ad-hoc "Analyze this page" is an explicit, user-initiated one-shot review. It bypasses the passive-
+  // monitoring gates (admin/user pause, consent, allowlist, dedupe) — the extension's per-domain confirm
+  // covers consent — but the daily budget cost guard (gate f) still applies.
+  if (i.adhoc) {
+    if (!i.budgetConsumed) return { ok: false, reason: "budgetExhausted", status: 429, message: "The project's daily review budget is exhausted; reviews were auto-paused." }
+    return { ok: true }
+  }
   if (i.reviewMode === "paused") return { ok: false, reason: "paused", status: 423, message: "Reviews are paused for this project by an admin." }
   if (i.consentStatus === "paused" || i.consentStatus === "revoked") return { ok: false, reason: "userPaused", status: 423, message: "You have paused Sim reviews. Resume to continue." }
   if (i.consentStatus !== "granted") return { ok: false, reason: "needsConsent", status: 412, message: "Consent is required before Sims can review pages you visit." }
