@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject } from "./lib/db"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp } from "./lib/mail"
@@ -1352,6 +1352,67 @@ Bun.serve({
             }))
           return json({ simId, name: sim.name, events: timeline })
         } catch (e: any) { return json({ error: e?.message || "evolution failed" }, 500) }
+      }
+    }
+
+    // ── Sim Studio: versioned trait editing (list / manual create) — project-scoped, cookie OR Bearer ──
+    {
+      const m = path.match(/^\/api\/sims\/([^/]+)\/traits$/)
+      if (m && (req.method === "GET" || req.method === "POST")) {
+        const me2 = (await sessionEmail(req)) || (await bearerEmail(req))
+        if (!me2) return json({ error: "Sign in to continue." }, 401)
+        const proj2 = await resolveProject(me2, url.searchParams.get("project"))
+        if (!proj2) return json({ error: "No project." }, 400)
+        const simId = m[1]
+        if (req.method === "POST") {
+          const body = await req.json().catch(() => ({}))
+          const kind = ["pain", "want", "love"].includes(body.kind) ? body.kind : "pain"
+          const now = Date.now()
+          const trait = {
+            id: "trait_" + crypto.randomUUID(), simId, projectId: proj2.id,
+            kind, text: String(body.text || "").trim(), status: "active" as const, strength: 1,
+            srcTranscriptId: String(body.srcTranscriptId || "manual"),
+            srcQuote: String(body.srcQuote || ""), srcQuoteOffset: null,
+            srcSpeaker: body.srcSpeaker ? String(body.srcSpeaker) : null,
+            area: body.area ? String(body.area) : null, issueType: null,
+            severity: body.severity ? String(body.severity) : null,
+            createdAt: now, updatedAt: now,
+          }
+          if (!trait.text) return json({ error: "text required" }, 400)
+          await logTraitEdit({ op: "manual_create", trait, beforeText: null, actor: me2, now })
+          return json({ trait }, 201)
+        }
+        const traits = await listTraits(simId, { activeOnly: true })
+        return json({ simId, traits })
+      }
+    }
+    // ── Sim Studio: edit / soft-archive a single trait (versioned) — project-scoped ──
+    {
+      const m = path.match(/^\/api\/sims\/([^/]+)\/traits\/([^/]+)$/)
+      if (m && (req.method === "PUT" || req.method === "DELETE")) {
+        const me2 = (await sessionEmail(req)) || (await bearerEmail(req))
+        if (!me2) return json({ error: "Sign in to continue." }, 401)
+        const proj2 = await resolveProject(me2, url.searchParams.get("project"))
+        if (!proj2) return json({ error: "No project." }, 400)
+        const [, simId, traitId] = m
+        const current = (await listTraits(simId)).find(t => t.id === traitId)
+        if (!current) return json({ error: "Trait not found." }, 404)
+        const now = Date.now()
+        if (req.method === "DELETE") {
+          await logTraitEdit({ op: "manual_archive", trait: { ...current, status: "archived", updatedAt: now }, beforeText: current.text, actor: me2, now })
+          return json({ ok: true })
+        }
+        const body = await req.json().catch(() => ({}))
+        const next = {
+          ...current,
+          text: body.text != null ? String(body.text).trim() : current.text,
+          kind: ["pain", "want", "love"].includes(body.kind) ? body.kind : current.kind,
+          severity: body.severity != null ? String(body.severity) : current.severity,
+          area: body.area != null ? String(body.area) : current.area,
+          updatedAt: now,
+        }
+        await logTraitEdit({ op: "edit", trait: next, beforeText: current.text, actor: me2, now })
+        return json({ trait: next })
       }
     }
 
