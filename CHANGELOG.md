@@ -10,6 +10,21 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.21.0] — 2026-06-19
+
+### Changed
+- **Narrowed host permissions (no more `<all_urls>`).** The extension no longer requests
+  broad "all sites" access — removing the scary install warning and the Chrome Web Store
+  in-depth-review trigger. Click-driven flows ("Analyze this page", Report) run on the
+  current tab via `activeTab` and work anywhere with no grant. Passive auto-review now
+  runs only on the specific domains a user/admin has whitelisted **and** granted once via
+  a "Enable on N site(s)" popup action — registered dynamically with
+  `chrome.scripting.registerContentScripts` (active-tab/visibility-gated). Static
+  `host_permissions` are now explicit (klavity.quantana.top + the four trackers);
+  `optional_host_permissions` cover the per-site grants. The content module's
+  web-accessible-resources are widened to `<all_urls>` (resource access only — not a host
+  permission) so the on-demand loader works on third-party tabs.
+
 ## [0.20.0] — 2026-06-19
 
 ### Added
