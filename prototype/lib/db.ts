@@ -244,6 +244,8 @@ export async function applySchema(c: Client) {
     ["trait_events", "issue_type"],
     ["trait_events", "severity"],
     ["trait_events", "actor"],
+    ["sim_traits", "src_verified"],
+    ["trait_events", "verified"],
   ]
   for (const [table, col] of newTraitCols) {
     if (!(await columnExists(c, table, col))) {
@@ -258,6 +260,10 @@ export async function applySchema(c: Client) {
     ["assignee",   "TEXT"],
     ["notes",      "TEXT"],
     ["updated_at", "INTEGER"],
+    ["issue_key",             "TEXT"],
+    ["recurrence_count",      "INTEGER NOT NULL DEFAULT 1"],
+    ["recurrence_dates_json", "TEXT"],
+    ["last_seen_at",          "INTEGER"],
   ]
   for (const [col, def] of feedbackAlters) {
     if (!(await columnExists(c, "feedback", col))) {
@@ -265,6 +271,8 @@ export async function applySchema(c: Client) {
         console.warn(`feedback.${col} ALTER skipped:`, e?.message || e))
     }
   }
+  await c.execute(`CREATE INDEX IF NOT EXISTS feedback_issue_idx ON feedback (project_id, issue_key)`)
+    .catch((e: any) => console.warn("feedback_issue_idx skipped:", e?.message || e))
 }
 
 // ── schema_meta helpers ──
@@ -995,6 +1003,7 @@ function rowToTrait(x: any): Trait {
     status: String(x.status || "active") as TraitStatus, strength: Number(x.strength ?? 1),
     srcTranscriptId: String(x.src_transcript_id), srcQuote: String(x.src_quote),
     srcQuoteOffset: x.src_quote_offset != null ? Number(x.src_quote_offset) : null,
+    srcVerified: x.src_verified != null ? Number(x.src_verified) === 1 : null,
     srcSpeaker: x.src_speaker != null ? String(x.src_speaker) : null,
     createdAt: Number(x.created_at), updatedAt: Number(x.updated_at),
     area: x.area != null ? String(x.area) : null,
@@ -1005,10 +1014,12 @@ function rowToTrait(x: any): Trait {
 // Insert a brand-new trait. Accepts a fully-formed Trait (e.g. a TraitWrite{mode:'insert'}.trait).
 export async function insertTrait(t: Trait): Promise<string> {
   await db!.execute({
-    sql: `INSERT INTO sim_traits (id,sim_id,project_id,kind,text,status,strength,src_transcript_id,src_quote,src_quote_offset,src_speaker,area,issue_type,severity,created_at,updated_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO sim_traits (id,sim_id,project_id,kind,text,status,strength,src_transcript_id,src_quote,src_quote_offset,src_verified,src_speaker,area,issue_type,severity,created_at,updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [t.id, t.simId, t.projectId, t.kind, t.text, t.status, t.strength,
-           t.srcTranscriptId, t.srcQuote, t.srcQuoteOffset ?? null, t.srcSpeaker ?? null,
+           t.srcTranscriptId, t.srcQuote, t.srcQuoteOffset ?? null,
+           t.srcVerified == null ? null : (t.srcVerified ? 1 : 0),
+           t.srcSpeaker ?? null,
            t.area ?? null, t.issueType ?? null, t.severity ?? null, t.createdAt, t.updatedAt],
   })
   return t.id
@@ -1016,9 +1027,10 @@ export async function insertTrait(t: Trait): Promise<string> {
 // Update a trait's mutable columns (text/status/strength/provenance/updatedAt + typed fields) — used by reconcile writes.
 export async function updateTrait(t: Trait): Promise<void> {
   await db!.execute({
-    sql: `UPDATE sim_traits SET kind=?,text=?,status=?,strength=?,src_transcript_id=?,src_quote=?,src_quote_offset=?,src_speaker=?,area=?,issue_type=?,severity=?,updated_at=? WHERE id=?`,
+    sql: `UPDATE sim_traits SET kind=?,text=?,status=?,strength=?,src_transcript_id=?,src_quote=?,src_quote_offset=?,src_verified=?,src_speaker=?,area=?,issue_type=?,severity=?,updated_at=? WHERE id=?`,
     args: [t.kind, t.text, t.status, t.strength, t.srcTranscriptId, t.srcQuote,
-           t.srcQuoteOffset ?? null, t.srcSpeaker ?? null,
+           t.srcQuoteOffset ?? null, t.srcVerified == null ? null : (t.srcVerified ? 1 : 0),
+           t.srcSpeaker ?? null,
            t.area ?? null, t.issueType ?? null, t.severity ?? null, t.updatedAt, t.id],
   })
 }
@@ -1033,10 +1045,11 @@ export async function listTraits(simId: string, opts: { activeOnly?: boolean } =
 export async function insertTraitEvent(e: TraitEventRow): Promise<string> {
   const id = "tev_" + crypto.randomUUID()
   await db!.execute({
-    sql: `INSERT INTO trait_events (id,trait_id,sim_id,transcript_id,op,before_text,after_text,quote,quote_offset,speaker,source_date,reason,area,issue_type,severity,actor,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    sql: `INSERT INTO trait_events (id,trait_id,sim_id,transcript_id,op,before_text,after_text,quote,quote_offset,verified,speaker,source_date,reason,area,issue_type,severity,actor,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [id, e.traitId, e.simId, e.transcriptId, e.op, e.beforeText ?? null, e.afterText ?? null,
-           e.quote, e.quoteOffset ?? null, e.speaker ?? null, e.sourceDate, e.reason ?? null,
+           e.quote, e.quoteOffset ?? null, e.verified == null ? null : (e.verified ? 1 : 0),
+           e.speaker ?? null, e.sourceDate, e.reason ?? null,
            e.area ?? null, e.issueType ?? null, e.severity ?? null, e.actor ?? null, e.createdAt],
   })
   return id
@@ -1088,6 +1101,7 @@ function rowToTraitEvent(x: any): TraitEventRow {
     beforeText: x.before_text != null ? String(x.before_text) : null,
     afterText: x.after_text != null ? String(x.after_text) : null,
     quote: String(x.quote), quoteOffset: x.quote_offset != null ? Number(x.quote_offset) : null,
+    verified: x.verified != null ? Number(x.verified) === 1 : null,
     speaker: x.speaker != null ? String(x.speaker) : null,
     sourceDate: Number(x.source_date),
     reason: x.reason != null ? String(x.reason) : null,

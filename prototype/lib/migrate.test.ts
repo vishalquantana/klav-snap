@@ -286,3 +286,23 @@ test("persona-quality additive columns: migrated_v2 already set → applySchema 
     rmDb(file)
   }
 })
+
+test("grounded+dedup columns exist after initDb (additive, idempotent)", async () => {
+  const file = join(tmpdir(), `klav-dedup-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
+  const c = createClient({ url: "file:" + file })
+  try {
+    // No v1 seed — empty DB, exactly like a brand-new deployment.
+    await applySchema(c)
+    await migrateV2(c)
+
+    expect(await columnExistsT(c, "sim_traits", "src_verified")).toBe(true)
+    expect(await columnExistsT(c, "trait_events", "verified")).toBe(true)
+    expect(await columnExistsT(c, "feedback", "issue_key")).toBe(true)
+    expect(await columnExistsT(c, "feedback", "recurrence_count")).toBe(true)
+    expect(await columnExistsT(c, "feedback", "recurrence_dates_json")).toBe(true)
+    expect(await columnExistsT(c, "feedback", "last_seen_at")).toBe(true)
+  } finally {
+    c.close()
+    rmDb(file)
+  }
+})
