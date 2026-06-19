@@ -108,6 +108,8 @@ async function syncConfig(): Promise<KlavConfig | null> {
     await chrome.storage.local.set({ klavConfig: config })
     // Push to any open tabs so their content scripts refresh without a reload.
     broadcastConfig(config)
+    // New/removed monitored URLs may change which granted origins need a content script.
+    void reconcileDynamicScripts()
     return config
   } catch {
     return null // offline / not signed in — keep whatever cache we have
@@ -127,9 +129,57 @@ function broadcastConfig(config: KlavConfig | null) {
   })
 }
 
+// ── Dynamic content-script registration for granted monitored origins ───────────
+// Passive auto-review runs ONLY on the specific origins the user/admin has granted
+// (optional host permissions), registered at runtime — instead of a static <all_urls>
+// content script. The click-driven "Analyze this page" / Report flows are covered by
+// activeTab and need no host grant. The content MODULE is web-accessible to <all_urls>
+// (see vite.config), so the loader can import it on any granted/active tab.
+function contentFiles(): { js: string[]; css: string[] } {
+  const cs = chrome.runtime.getManifest().content_scripts?.[0]
+  return { js: cs?.js ?? [], css: cs?.css ?? [] }
+}
+
+// Monitored URL patterns ("host/path*") → host-scoped match patterns ("*://host/*").
+function monitoredOrigins(config: KlavConfig | null): string[] {
+  const set = new Set<string>()
+  for (const p of config?.projects ?? []) {
+    for (const pat of p.monitoredUrls ?? []) {
+      const host = String(pat).replace(/^[a-z]+:\/\//i, '').split('/')[0].trim()
+      if (host) set.add(`*://${host}/*`)
+    }
+  }
+  return [...set]
+}
+
+// Re-register our dynamic content scripts to match the granted ∩ monitored origins.
+// Clears ours first, so it also refreshes hashed file paths across extension updates
+// and handles add/remove uniformly. Dynamic scripts persist across SW restarts.
+async function reconcileDynamicScripts(): Promise<void> {
+  if (!chrome.scripting?.registerContentScripts) return
+  const config = await getConfig()
+  const desired = monitoredOrigins(config)
+  const granted: string[] = []
+  for (const o of desired) {
+    try { if (await chrome.permissions.contains({ origins: [o] })) granted.push(o) } catch { /* ignore */ }
+  }
+  let existing: chrome.scripting.RegisteredContentScript[] = []
+  try { existing = await chrome.scripting.getRegisteredContentScripts() } catch { /* ignore */ }
+  const ours = existing.filter((s) => s.id.startsWith('klav-')).map((s) => s.id)
+  if (ours.length) { try { await chrome.scripting.unregisterContentScripts({ ids: ours }) } catch { /* ignore */ } }
+  if (!granted.length) return
+  const { js, css } = contentFiles()
+  const scripts = granted.map((o) => ({
+    id: 'klav-' + o, matches: [o], js, css, runAt: 'document_idle' as const,
+  }))
+  try { await chrome.scripting.registerContentScripts(scripts) }
+  catch (e) { console.warn('[Klavity] registerContentScripts failed:', e) }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   // Native context menu replaced by custom overlay in content script.
   void syncConfig()
+  void reconcileDynamicScripts() // refresh registrations (e.g. file paths after an update)
 })
 chrome.runtime.onStartup?.addListener?.(() => { void syncConfig() })
 
@@ -180,6 +230,12 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
   }
   if (msg.kind === 'KLAV_SYNC_CONFIG') {
     syncConfig().then((config) => sendResponse({ ok: true, config }))
+    return true
+  }
+  // Popup calls this after the user grants host permission for monitored sites, so the
+  // content script is registered for the newly-granted origins without waiting for a sync.
+  if (msg.kind === 'KLAV_RECONCILE_SCRIPTS') {
+    reconcileDynamicScripts().then(() => sendResponse({ ok: true }))
     return true
   }
 

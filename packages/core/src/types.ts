@@ -84,6 +84,7 @@ export type BackgroundMessage =
   | { kind: 'KLAV_CAPTURE_REVIEW' }                          // captureVisibleTab for a review (separate from bug CAPTURE_TAB)
   | { kind: 'KLAV_REVIEW'; projectId: string; url: string; domSig: string; screenshotDataUrl: string; adhoc?: boolean } // POST /api/sim/review
   | { kind: 'KLAV_CONSENT'; projectId: string; status: 'granted' | 'paused' | 'revoked' }               // POST /api/consent
+  | { kind: 'KLAV_RECONCILE_SCRIPTS' }                       // re-register dynamic content scripts after a host-permission grant
 
 export type KlavMonitoredProject = { id: string; name: string; reviewMode: string; monitoredUrls: string[] }
 export interface KlavConfig {

@@ -241,6 +241,40 @@ async function renderSignedIn() {
 
   await renderSims(s, activeProjectId)
   await renderRecent()
+  await renderGrant(config)
+}
+
+// ── Monitored-site access (optional host permissions) ────────────────────
+// Passive auto-review needs a one-time host grant per whitelisted domain. List the
+// monitored domains from config that aren't granted yet and offer a single "Enable"
+// click; "Analyze this page" already works anywhere via activeTab and isn't gated here.
+async function renderGrant(config: Awaited<ReturnType<typeof getConfig>>) {
+  const wrap = $('grant-wrap')
+  const hosts = [...new Set(
+    (config?.projects ?? []).flatMap((p) =>
+      (p.monitoredUrls ?? []).map((u) => String(u).replace(/^[a-z]+:\/\//i, '').split('/')[0].trim()).filter(Boolean),
+    ),
+  )]
+  const ungranted: string[] = []
+  for (const h of hosts) {
+    const ok = await chrome.permissions.contains({ origins: [`*://${h}/*`] }).catch(() => false)
+    if (!ok) ungranted.push(h)
+  }
+  if (!ungranted.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return }
+  wrap.style.display = 'block'
+  const n = ungranted.length
+  wrap.innerHTML = `
+    <div class="grant-card">
+      <div class="grant-txt">Let your Sims auto-review your team's monitored ${n === 1 ? 'site' : 'sites'} as you browse.</div>
+      <button class="grant-btn" id="grant-btn">Enable on ${n} site${n > 1 ? 's' : ''}</button>
+    </div>`
+  $('grant-btn').addEventListener('click', async () => {
+    const granted = await chrome.permissions.request({ origins: ungranted.map((h) => `*://${h}/*`) }).catch(() => false)
+    if (granted) {
+      await chrome.runtime.sendMessage({ kind: 'KLAV_RECONCILE_SCRIPTS' }).catch(() => {})
+      await renderGrant(config) // refresh — should now hide
+    }
+  })
 }
 
 // ── Sims (project-scoped fetch added in Task 4) ──────────────────────────
