@@ -1130,10 +1130,144 @@ function ssFilterList(q) {
 // Stubs filled in later tasks (defined here so renderStudio never throws on missing fns).
 function openNewSimForm() { ssOpenNewSimForm() }
 function openTranscriptUpload() { ssOpenTranscriptUpload() }
-function renderPersonaDetail(sim) { const c = $("ssCol2"); if (c) c.innerHTML = `<div class="ss-c2-pad"><div class="ss-muted">Persona detail loading…</div></div>` }
-function renderInspector(trait) { const c = $("ssCol3"); if (c) c.innerHTML = "" }
 function ssOpenNewSimForm() {}
 function ssOpenTranscriptUpload() {}
+
+// transcript metadata cache (id → {title, sourceDate}) for provenance chips + the Transcript tab.
+let ssTxMap = {}
+async function ssLoadTxMap() {
+  try {
+    const r = await fetch(pq('/api/transcripts'))
+    const d = await r.json().catch(() => ({}))
+    ;(d.transcripts || []).forEach(t => { ssTxMap[t.id] = t })
+  } catch (e) { /* graceful */ }
+}
+
+// ── Column 2 — persona detail + traits (live, read) ──
+let ssPersonaEditing = false
+async function renderPersonaDetail(sim) {
+  const col = $("ssCol2"); if (!col) return
+  const simId = sim._id || sim.id || ""
+  col.innerHTML = `<div class="ss-scroll"><div class="ss-c2-pad" id="ssDetail"><div class="ss-muted">Loading…</div></div></div>`
+  if (!ssTxMap || !Object.keys(ssTxMap).length) await ssLoadTxMap()
+
+  // Identity header
+  const detail = $("ssDetail"); if (!detail) return
+  detail.innerHTML = ssPersonaHeaderHtml(sim) + `<div id="ssTraitsWrap"><div class="ss-muted">Loading traits…</div></div>`
+  ssWirePersonaHeader(sim)
+
+  // Traits
+  if (!simId) { const w = $("ssTraitsWrap"); if (w) w.innerHTML = `<div class="ss-muted">No Sim id — cannot load traits.</div>`; renderInspector(null); return }
+  try {
+    const r = await fetch(pq(`/api/sims/${encodeURIComponent(simId)}/traits`))
+    const d = await r.json().catch(() => ({}))
+    ssTraits = (d && d.traits) || []
+  } catch (e) { ssTraits = [] }
+  ssRenderTraits()
+  // Auto-select the first trait
+  if (ssTraits.length) { ssSelectedTraitId = ssTraits[0].id; renderInspector(ssTraits[0]) }
+  else renderInspector(null)
+}
+
+function ssPersonaHeaderHtml(sim) {
+  if (ssPersonaEditing) {
+    return `<div class="ss-id-card ss-id-edit">
+      <div class="ss-av" style="background:${esc(sim.accent || "#6366f1")}">${avatarInner({ avatar: sim.avatar, initials: sim.initials, name: sim.name })}</div>
+      <div class="ss-id-main">
+        <input id="ssEditName" value="${esc(sim.name || "")}" placeholder="Name" />
+        <input id="ssEditRole" value="${esc(sim.role || "")}" placeholder="Role" />
+        <textarea id="ssEditSummary" rows="3" placeholder="Summary">${esc(sim.summary || "")}</textarea>
+        <div class="ss-mini-row">
+          <button class="ss-mini-btn primary" id="ssPersonaSave">Save</button>
+          <button class="ss-mini-btn ghost" id="ssPersonaCancel">Cancel</button>
+        </div>
+      </div>
+    </div>`
+  }
+  const tc = ssTraits.length
+  const dateStr = (sim.updatedAt || sim.updated_at) ? fmtDate(sim.updatedAt || sim.updated_at) : ""
+  const metaParts = [tc + " trait" + (tc === 1 ? "" : "s"), dateStr ? ("updated " + dateStr) : ""].filter(Boolean)
+  return `<div class="ss-id-card">
+      <div class="ss-av" style="background:${esc(sim.accent || "#6366f1")}">${avatarInner({ avatar: sim.avatar, initials: sim.initials, name: sim.name })}</div>
+      <div class="ss-id-main">
+        <div class="ss-id-name">${esc(sim.name || "")}</div>
+        <div class="ss-id-role-line">
+          <span class="ss-id-role">${esc(sim.role || "")}</span>
+          ${sim.type ? `<span class="ss-chip">${esc(sim.type)}</span>` : ""}
+        </div>
+        ${sim.summary ? `<div class="ss-id-summary">${esc(sim.summary)}</div>` : ""}
+        <div class="ss-id-meta">${esc(metaParts.join(" · "))}</div>
+      </div>
+      <button class="ss-ghostbtn" id="ssEditPersona">Edit persona</button>
+    </div>`
+}
+
+function ssWirePersonaHeader(sim) {
+  const editBtn = $("ssEditPersona")
+  if (editBtn) editBtn.onclick = () => { ssPersonaEditing = true; renderPersonaDetail(sim) }
+  const saveBtn = $("ssPersonaSave")
+  if (saveBtn) saveBtn.onclick = () => ssSavePersona(sim)
+  const cancelBtn = $("ssPersonaCancel")
+  if (cancelBtn) cancelBtn.onclick = () => { ssPersonaEditing = false; renderPersonaDetail(sim) }
+}
+
+// Render the trait cards grouped PAIN/WANT/LOVE into #ssTraitsWrap.
+function ssRenderTraits() {
+  const wrap = $("ssTraitsWrap"); if (!wrap) return
+  if (!ssTraits.length) { wrap.innerHTML = `<div class="ss-traits-wrap"><div class="ss-muted">No traits yet for this Sim.</div></div>`; return }
+  const groups = { PAIN: [], WANT: [], LOVE: [] }
+  ssTraits.forEach(t => { const k = String(t.kind || "").toUpperCase(); if (groups[k]) groups[k].push(t) })
+  let html = '<div class="ss-traits-wrap">'
+  ;["PAIN", "WANT", "LOVE"].forEach(k => {
+    const list = groups[k]; if (!list.length) return
+    html += `<div class="ss-tgroup">
+      <div class="ss-tgroup-head">
+        <span class="ss-kind-dot ss-dot-${k}"></span>
+        <span class="ss-lbl ss-kind-${k}">${SS_KINDLABEL[k]}</span>
+        <span class="ss-ln"></span>
+        <span class="ss-gc">${list.length}</span>
+      </div>`
+    list.forEach(t => { html += ssTraitCardHtml(t, k) })
+    html += '</div>'
+  })
+  html += '</div>'
+  wrap.innerHTML = html
+  // wire selection + controls
+  wrap.querySelectorAll(".ss-trait[data-trait]").forEach(card => {
+    card.onclick = (e) => {
+      if (e.target.closest(".ss-trait-ctl") || e.target.closest(".ss-trait-edit")) return
+      const id = card.dataset.trait
+      ssSelectedTraitId = id
+      wrap.querySelectorAll(".ss-trait").forEach(c => c.classList.toggle("sel", c.dataset.trait === id))
+      const t = ssTraits.find(x => x.id === id)
+      renderInspector(t)
+    }
+  })
+  ssWireTraitControls()
+}
+
+function ssTraitCardHtml(t, k) {
+  const tx = ssTxMap[t.srcTranscriptId]
+  const provLabel = tx ? `${tx.title || t.srcTranscriptId} · ${fmtDate(tx.sourceDate)}` : (t.srcTranscriptId || "")
+  const strength = Math.max(1, Math.min(3, Number(t.strength || 1)))
+  let bars = `<div class="ss-strength" style="color:var(${SS_KINDVAR[k]})">`
+  for (let i = 0; i < 3; i++) bars += `<span class="ss-bar${i < strength ? " on" : ""}"></span>`
+  bars += '</div>'
+  return `<div class="ss-trait ${t.id === ssSelectedTraitId ? "sel" : ""}" data-trait="${esc(t.id)}">
+    <div class="ss-trait-ctl"><button data-tedit="${esc(t.id)}" title="Edit">✎</button><button data-tdel="${esc(t.id)}" title="Archive">✕</button></div>
+    <div class="ss-trait-text">${esc(t.text || "")}</div>
+    <div class="ss-trait-foot">
+      ${provLabel ? `<span class="ss-prov"><span class="ss-ar">↳</span>${esc(provLabel)}</span>` : ""}
+      ${bars}
+      <span class="ss-strength-lbl">${strength}×</span>
+    </div>
+  </div>`
+}
+
+// Filled in Task 6.
+function ssWireTraitControls() {}
+function ssSavePersona(sim) {}
+function renderInspector(trait) { const c = $("ssCol3"); if (c) c.innerHTML = "" }
 
 // ── Focused single-Sim view — rendered when ?sim=<id> is in the URL ──
 // Renders into #dock (inside #pane-sims). Shows header, provenance insights,
