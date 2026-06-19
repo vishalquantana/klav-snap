@@ -1,4 +1,5 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
+import { guardConnectorUrl } from "./guard"
 
 export const webhookConnector: Connector = {
   type: "webhook",
@@ -16,6 +17,11 @@ export const webhookConnector: Connector = {
   async createIssue(ticket: TicketPayload, cfg: Record<string, string>): Promise<ExportResult> {
     const headers: Record<string, string> = { "Content-Type": "application/json" }
     if (cfg.secret) headers["X-Klavity-Signature"] = cfg.secret
+
+    // SSRF guard (H3): the entire webhook URL is user-supplied. Block loopback /
+    // private / link-local / cloud-metadata targets and require https before the
+    // outbound POST. Throws a log-safe Error that callers record as a failed export.
+    await guardConnectorUrl(cfg.url)
 
     const res = await fetch(cfg.url, {
       method: "POST",

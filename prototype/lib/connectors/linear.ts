@@ -1,4 +1,7 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
+import { assertSafeUrl } from "../url-guard"
+
+const LINEAR_API = "https://api.linear.app/graphql"
 
 export const linearConnector: Connector = {
   type: "linear",
@@ -18,7 +21,12 @@ export const linearConnector: Connector = {
   async createIssue(ticket: TicketPayload, cfg: Record<string, string>): Promise<ExportResult> {
     const { api_key, team_id } = cfg
 
-    const res = await fetch("https://api.linear.app/graphql", {
+    // Endpoint is a fixed first-party host (not user-controlled). Guard for
+    // defense-in-depth — pin to linear.app and reject if it ever resolves to a
+    // private/loopback address (e.g. DNS-rebinding) before sending the API key.
+    await assertSafeUrl(LINEAR_API, { allowHosts: ["linear.app"] })
+
+    const res = await fetch(LINEAR_API, {
       method: "POST",
       headers: {
         "Authorization": api_key,

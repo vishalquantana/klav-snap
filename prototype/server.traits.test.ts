@@ -75,6 +75,24 @@ await rawExec(`INSERT INTO sim_traits (id, sim_id, project_id, kind, text, statu
 await rawExec(`INSERT INTO transcripts (id, project_id, title, raw_text, source_date, speakers_json, added_by, created_at) VALUES (?,?,?,?,?,?,?,?)`,
   ["tr_seed", PROJECT_ID, "Seed onboarding call", "Tester: it is so slow. shortcuts please.", NOW, null, AUTHED_EMAIL, NOW])
 
+// ── Victim tenant (separate account/project) the AUTHED_EMAIL user has NO access to. Used by the
+//    cross-tenant IDOR regression tests below: an attacker authed to their own project must not be
+//    able to read or mutate this tenant's Sim / traits / persona by id. ──
+const VICTIM_ACCOUNT = `acct_victim_${ts}`
+const VICTIM_PROJECT = `proj_victim_${ts}`
+const VICTIM_OWNER = `victim-${ts}@other.local`
+await rawExec(`INSERT INTO users (email, created_at) VALUES (?, ?)`, [VICTIM_OWNER, NOW])
+await rawExec(`INSERT INTO accounts (id, name, owner_email, created_at) VALUES (?, ?, ?, ?)`, [VICTIM_ACCOUNT, "Victim WS", VICTIM_OWNER, NOW])
+await rawExec(`INSERT INTO account_members (id, account_id, email, account_role, created_at) VALUES (?, ?, ?, ?, ?)`, [`am_${VICTIM_ACCOUNT}`, VICTIM_ACCOUNT, VICTIM_OWNER, "owner", NOW])
+await rawExec(`INSERT INTO projects (id, account_id, name, status, review_mode, review_budget_daily, observability_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [VICTIM_PROJECT, VICTIM_ACCOUNT, "Victim Project", "active", "auto", 200, "named", NOW, NOW])
+await rawExec(`INSERT INTO project_members (id, project_id, email, project_role, invited_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [`pm_victim_${ts}`, VICTIM_PROJECT, VICTIM_OWNER, "admin", null, NOW])
+await rawExec(`INSERT INTO personas (id, project_id, name, role, type, initials, accent, summary, insights_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ["sim_victim", VICTIM_PROJECT, "Victim Sim", "Secret", "client", "VS", "#111111", "confidential research", "[]", NOW, NOW])
+await rawExec(`INSERT INTO sim_traits (id, sim_id, project_id, kind, text, status, strength, src_transcript_id, src_quote, src_quote_offset, src_speaker, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  ["trait_victim", "sim_victim", VICTIM_PROJECT, "pain", "Confidential pain point", "active", 1, "tr_v", "secret quote", null, "user", NOW, NOW])
+await rawExec(`INSERT INTO persona_edits (id, persona_id, project_id, field, before_val, after_val, actor, created_at) VALUES (?,?,?,?,?,?,?,?)`,
+  ["pe_victim", "sim_victim", VICTIM_PROJECT, "name", "Old", "Victim Sim", VICTIM_OWNER, NOW])
+
 // ── Spawn the server ──
 let serverPort: number
 let serverProc: ReturnType<typeof Bun.spawn>
@@ -208,4 +226,84 @@ test("PUT /api/personas/:id logs identity edits + GET edits returns them", async
   const { edits } = await res.json()
   expect(edits.some((e: any) => e.field === "name" && e.afterVal === "Renamed Sim")).toBe(true)
   expect(edits.find((e: any) => e.field === "name").actor).toBe(AUTHED_EMAIL)
+})
+
+// ── Security: cross-tenant IDOR (C1/C2). Attacker is AUTHED_EMAIL, authed to their OWN project, but
+//    targets the victim tenant's Sim/trait/persona by id. Every route must 404 and leave data intact.
+//    `?project=${PROJECT_ID}` deliberately passes a project the attacker DOES own, so these exercise the
+//    per-Sim ownership guard specifically — not merely the project-access gate. ──
+
+test("C1: GET victim Sim traits is denied (no cross-tenant read)", async () => {
+  const res = await authedFetch(`/api/sims/sim_victim/traits?project=${PROJECT_ID}`)
+  expect(res.status).toBe(404)
+  const body = await res.json()
+  expect(body.traits).toBeUndefined()
+})
+
+test("C1: POST trait onto victim Sim is denied", async () => {
+  const res = await authedFetch(`/api/sims/sim_victim/traits?project=${PROJECT_ID}`, {
+    method: "POST", body: JSON.stringify({ kind: "pain", text: "injected", srcQuote: "x" }),
+  })
+  expect(res.status).toBe(404)
+  const rows = await rawClient.execute({ sql: `SELECT COUNT(*) AS n FROM sim_traits WHERE sim_id=?`, args: ["sim_victim"] })
+  expect(Number(rows.rows[0].n)).toBe(1) // still only the original seeded trait
+})
+
+test("C1: PUT victim trait is denied and leaves it unchanged", async () => {
+  const res = await authedFetch(`/api/sims/sim_victim/traits/trait_victim?project=${PROJECT_ID}`, {
+    method: "PUT", body: JSON.stringify({ text: "hijacked" }),
+  })
+  expect(res.status).toBe(404)
+  const rows = await rawClient.execute({ sql: `SELECT text FROM sim_traits WHERE id=?`, args: ["trait_victim"] })
+  expect(rows.rows[0].text).toBe("Confidential pain point")
+})
+
+test("C1: DELETE (archive) victim trait is denied and leaves it active", async () => {
+  const res = await authedFetch(`/api/sims/sim_victim/traits/trait_victim?project=${PROJECT_ID}`, { method: "DELETE" })
+  expect(res.status).toBe(404)
+  const rows = await rawClient.execute({ sql: `SELECT status FROM sim_traits WHERE id=?`, args: ["trait_victim"] })
+  expect(rows.rows[0].status).toBe("active")
+})
+
+test("C1: GET victim Sim evolution is denied", async () => {
+  const res = await authedFetch(`/api/sims/sim_victim/evolution?project=${PROJECT_ID}`)
+  expect(res.status).toBe(404)
+})
+
+test("C2: PUT victim persona is denied and does not overwrite it", async () => {
+  const res = await authedFetch(`/api/personas/sim_victim?project=${PROJECT_ID}`, {
+    method: "PUT", body: JSON.stringify({ name: "Pwned", role: "x", type: "client", initials: "PW", accent: "#000000", summary: "", insights: [] }),
+  })
+  expect(res.status).toBe(404)
+  const rows = await rawClient.execute({ sql: `SELECT name FROM personas WHERE id=?`, args: ["sim_victim"] })
+  expect(rows.rows[0].name).toBe("Victim Sim") // unchanged
+})
+
+test("C1: GET victim persona edit history is denied", async () => {
+  const res = await authedFetch(`/api/personas/sim_victim/edits?project=${PROJECT_ID}`)
+  expect(res.status).toBe(404)
+  const body = await res.json()
+  expect(body.edits).toBeUndefined()
+})
+
+// ── Security: SSRF guard on the Plane host (H2). Direct mode is unauthenticated and the host comes
+//    from form input — a link-local/loopback target must be refused before any outbound fetch. ──
+test("H2: /api/feedback refuses a link-local Plane host (SSRF)", async () => {
+  const form = new FormData()
+  form.set("description", "hi")
+  form.set("plane_token", "tok"); form.set("plane_workspace", "ws"); form.set("plane_project_id", "pp")
+  form.set("plane_host", "https://169.254.169.254") // cloud metadata range
+  const res = await fetch(`${BASE}/api/feedback`, { method: "POST", body: form })
+  expect(res.status).toBe(400)
+  expect((await res.json()).error).toBe("Invalid tracker host.")
+})
+
+test("H2: /api/feedback refuses a loopback Plane host (SSRF)", async () => {
+  const form = new FormData()
+  form.set("description", "hi")
+  form.set("plane_token", "tok"); form.set("plane_workspace", "ws"); form.set("plane_project_id", "pp")
+  form.set("plane_host", "https://127.0.0.1")
+  const res = await fetch(`${BASE}/api/feedback`, { method: "POST", body: form })
+  expect(res.status).toBe(400)
+  expect((await res.json()).error).toBe("Invalid tracker host.")
 })

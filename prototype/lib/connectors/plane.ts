@@ -1,4 +1,5 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
+import { guardConnectorUrl } from "./guard"
 
 export const planeConnector: Connector = {
   type: "plane",
@@ -21,6 +22,11 @@ export const planeConnector: Connector = {
     const host = cfg.host?.replace(/\/$/, "") || "https://api.plane.so"
     const { workspace, project_id, token } = cfg
     const apiUrl = `${host}/api/v1/workspaces/${workspace}/projects/${project_id}/issues/`
+
+    // SSRF guard (H3): `host` is user-supplied (self-hosted Plane is allowed, but
+    // must be a public https host). Block loopback / private / link-local /
+    // metadata targets before the outbound POST so the X-API-Key isn't leaked.
+    await guardConnectorUrl(apiUrl)
 
     const res = await fetch(apiUrl, {
       method: "POST",

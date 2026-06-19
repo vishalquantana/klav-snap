@@ -1,4 +1,5 @@
 import type { Connector, TicketPayload, ExportResult } from "./index"
+import { assertSafeUrl } from "../url-guard"
 
 export const githubConnector: Connector = {
   type: "github",
@@ -19,6 +20,11 @@ export const githubConnector: Connector = {
   async createIssue(ticket: TicketPayload, cfg: Record<string, string>): Promise<ExportResult> {
     const { owner, repo, token } = cfg
     const url = `https://api.github.com/repos/${owner}/${repo}/issues`
+
+    // Endpoint host is fixed (api.github.com), but owner/repo are user-supplied
+    // path segments. Guard for defense-in-depth — pin to github.com so a crafted
+    // owner/repo can't redirect the request host, and reject private resolutions.
+    await assertSafeUrl(url, { allowHosts: ["github.com"] })
 
     const res = await fetch(url, {
       method: "POST",

@@ -104,6 +104,9 @@ beforeAll(async () => {
       SENDGRID_API_KEY: "",
       KLAV_MAIL_FROM: "",
       OPENROUTER_API_KEY: "test-key",
+      // This suite points an auto-copy webhook at a real http://localhost receiver; opt the SSRF
+      // guard's loopback hatch on for THIS spawned server only. No deployment sets this.
+      KLAV_TEST_ALLOW_LOOPBACK: "1",
     },
     stdout: "pipe",
     stderr: "pipe",

@@ -10,6 +10,36 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.22.0] — 2026-06-20
+
+### Security
+OWASP review of the Klavity Cloud backend (Top 10:2025 · LLM Top 10:2025 · Agentic AI 2026).
+All Critical + High findings remediated, each with regression tests. See
+[`docs/security-owasp-review.md`](docs/security-owasp-review.md) for the full report.
+
+- **Fixed cross-tenant data access (IDOR, Critical — C1/C2).** The Sim trait, evolution,
+  persona-edit, and `PUT /api/personas/:id` routes were keyed only by object id and did not
+  verify the Sim/persona belonged to the caller's project — a member of one tenant could read or
+  modify another tenant's customer-research traits and personas. Every such route now enforces
+  per-Sim/per-persona ownership and returns 404 on a foreign id.
+- **Blocked SSRF to internal addresses (High — H2/H3).** New `lib/url-guard.ts` rejects requests to
+  loopback / private / link-local / cloud-metadata hosts (and non-https). It now guards the
+  `/api/feedback` Plane host and every outbound connector call (Jira, Plane, webhook, +
+  defense-in-depth host-pinning on Linear/GitHub), covering both the connector-test endpoint and the
+  auto-copy hook. **Behavior change:** tracker/connector hosts must now be **https** and public —
+  plaintext-http or internal-network endpoints will be refused.
+- **Throttled OTP login (High — H1).** Added per-email and per-IP rate limiting on code requests and a
+  per-(email, IP) lockout after repeated wrong codes (`lib/ratelimit.ts`), closing the brute-force and
+  email-bombing gap. A newly requested code now invalidates prior unused codes, and the live code is no
+  longer written to logs outside dev mode.
+- **Hardened AI prompts against injection (High — H4/LLM01).** Untrusted call transcripts and captured
+  page URLs are wrapped in `<untrusted_data>` markers with forged-delimiter stripping
+  (`lib/prompt-safety.ts`), and the extract/react/reconcile system prompts instruct the model to treat
+  that content as data, never instructions.
+- **Validated AI-generated colours (High — H5/LLM05).** Persona `accent` is now constrained to a strict
+  `#rrggbb` hex server-side and rendered through a hex guard in the dashboard, removing a stored-XSS /
+  CSS-injection sink fed by model output.
+
 ## [0.21.1] — 2026-06-19
 
 ### Changed

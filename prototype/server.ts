@@ -8,6 +8,9 @@ import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib
 import { buildIssueHtml, escapeHtml } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
 import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
+import { assertSafeUrl } from "./lib/url-guard"
+import { allow as rlAllow, record as rlRecord, count as rlCount, clear as rlClear } from "./lib/ratelimit"
+import { wrapUntrusted, UNTRUSTED_GUARD } from "./lib/prompt-safety"
 import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
 
 const KEY = process.env.OPENROUTER_API_KEY
@@ -190,7 +193,8 @@ function sanitizeTypedFields(o: any): { area: string | null; issueType: string |
 }
 
 async function extractPersonas(transcript: string, ctx?: { email?: string | null; projectId?: string | null }) {
-  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS }, { role: "user", content: "TRANSCRIPT:\n\n" + transcript }], 4000, false, { type: "extract", ...ctx })
+  // H4/LLM01: the transcript is untrusted — delimit it and tell the model to treat it as data.
+  const { content, usage } = await chat([{ role: "system", content: EXTRACT_SYS + UNTRUSTED_GUARD }, { role: "user", content: "TRANSCRIPT:\n" + wrapUntrusted(transcript) }], 4000, false, { type: "extract", ...ctx })
   const data = parseJSON(content)
   // Sanitize the new typed fields on each insight in every extracted persona.
   if (Array.isArray(data?.personas)) {
@@ -203,10 +207,12 @@ async function extractPersonas(transcript: string, ctx?: { email?: string | null
   return { data, usage }
 }
 async function reactToPage(persona: any, imageB64: string, mediaType: string, pageUrl: string, ctx?: { email?: string | null; projectId?: string | null }) {
+  // H4/LLM01: the persona is our own trusted data, but the page URL and the screenshot itself are
+  // attacker-influenceable — delimit the URL and instruct the model to ignore instructions in page data.
   const { content, usage } = await chat([
-    { role: "system", content: REACT_SYS },
+    { role: "system", content: REACT_SYS + UNTRUSTED_GUARD },
     { role: "user", content: [
-      { type: "text", text: "You are this persona:\n" + JSON.stringify(persona, null, 2) + `\n\nReact to this screenshot of ${pageUrl || "(unknown URL)"}.` },
+      { type: "text", text: "You are this persona:\n" + JSON.stringify(persona, null, 2) + `\n\nReact to this screenshot. The page URL (untrusted) is:\n` + wrapUntrusted(pageUrl || "(unknown URL)") },
       { type: "image_url", image_url: { url: `data:${mediaType};base64,${imageB64}` } },
     ] },
   ], 2500, false, { type: "react", ...ctx })
@@ -232,9 +238,10 @@ async function reconcileSim(
       ? "\n\nRECENTLY_RESOLVED (contradicted/superseded — emit 'reopen' targeting these traitIds if the issue resurfaces):\n" +
         JSON.stringify(resolvedForLLM, null, 2)
       : "") +
-    "\n\nNEW TRANSCRIPT:\n\n" + transcript
+    // H4/LLM01: the new transcript is untrusted — delimit it (the CURRENT TRAITS above are our own data).
+    "\n\nNEW TRANSCRIPT:\n" + wrapUntrusted(transcript)
   const { content, usage } = await chat([
-    { role: "system", content: RECONCILE_SYS },
+    { role: "system", content: RECONCILE_SYS + UNTRUSTED_GUARD },
     { role: "user", content: userMsg },
   ], 3000, false, { type: "reconcile", email: opts?.email, projectId: opts?.projectId })
   const data = parseJSON(content)
@@ -535,6 +542,14 @@ function splitUrl(pageUrl: string): { urlHost: string | null; urlPath: string | 
   catch { return { urlHost: null, urlPath: pageUrl.split(/[?#]/)[0] || null } }
 }
 
+// Normalize a persona accent to a strict #rrggbb hex, falling back to brand indigo (H5/LLM05).
+// `accent` is often model-generated and is interpolated into a style attribute in the dashboard —
+// validating it here is the primary defense against a colour value that breaks out of the attribute.
+function normAccent(v: unknown): string {
+  const s = String(v ?? "")
+  return /^#[0-9a-fA-F]{6}$/.test(s) ? s : "#6366f1"
+}
+
 // Build a normalized TicketPayload from a feedback row for the connector adapters.
 function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }, simName: string | null = null): TicketPayload {
   const title = fb.observation || "Sim report"
@@ -593,10 +608,25 @@ function connectorToClient(c: any): Record<string, any> {
   }
 }
 
+// OTP throttling knobs (H1). Windows are per-process; see lib/ratelimit.ts.
+const OTP_REQ_WINDOW = 15 * 60 * 1000  // 15 min
+const OTP_REQ_PER_EMAIL = 5            // code requests per email / window
+const OTP_REQ_PER_IP = 30             // code requests per IP / window (shared NAT headroom)
+const OTP_FAIL_WINDOW = 15 * 60 * 1000
+const OTP_FAIL_MAX = 5                 // wrong codes per (email,IP) before lockout
+
+// Best-effort client IP: behind Caddy the real client is the first X-Forwarded-For hop; fall back
+// to the socket address. Used only for abuse throttling, never for authorization.
+function clientIp(req: Request, server?: { requestIP?: (r: Request) => { address?: string } | null }): string {
+  const xff = req.headers.get("x-forwarded-for")
+  if (xff) return xff.split(",")[0].trim()
+  try { return server?.requestIP?.(req)?.address || "unknown" } catch { return "unknown" }
+}
+
 Bun.serve({
   port: PORT,
   idleTimeout: 180,
-  async fetch(req) {
+  async fetch(req, server) {
     const url = new URL(req.url)
     const path = url.pathname
 
@@ -651,12 +681,18 @@ Bun.serve({
         const { email } = await req.json()
         const e = String(email || "").trim().toLowerCase()
         if (!e || !e.includes("@")) return json({ error: "Enter a valid email." }, 400)
+        // Throttle issuance per email AND per IP (H1): stops OTP/email bombing and shrinks the window
+        // an attacker has to brute-force a code. Both must pass.
+        const reqIp = clientIp(req, server)
+        if (!rlAllow(`otpreq:e:${e}`, OTP_REQ_PER_EMAIL, OTP_REQ_WINDOW) || !rlAllow(`otpreq:ip:${reqIp}`, OTP_REQ_PER_IP, OTP_REQ_WINDOW))
+          return json({ error: "Too many code requests. Please wait a few minutes and try again." }, 429, { "Retry-After": "900" })
         const invited = await hasAnyMembership(e)
         if (!emailAllowed(e) && !invited) return json({ error: "This email isn't on the access list. Ask an admin to invite you." }, 403)
         const code = otp()
         await createOtp(e, code, Date.now() + 10 * 60 * 1000)
         let emailed = false
-        try { await sendOtp(e, code); emailed = true } catch (err: any) { console.error("OTP email failed:", err.message); console.log(`OTP for ${e} → ${code}`) }
+        // Never log the live code in normal operation (M3) — only when the dev flag is explicitly set.
+        try { await sendOtp(e, code); emailed = true } catch (err: any) { console.error("OTP email failed:", err.message); if (DEV_SHOW_OTP) console.log(`OTP for ${e} → ${code}`) }
         return json({ ok: true, emailed, ...(DEV_SHOW_OTP ? { devCode: code } : {}) })
       } catch (err: any) { return json({ error: err.message }, 500) }
     }
@@ -668,7 +704,16 @@ Bun.serve({
         const { email, code } = await req.json()
         const e = String(email || "").trim().toLowerCase()
         const c = String(code || "").trim()
-        if (!(await verifyOtp(e, c))) return json({ error: "Invalid or expired code." }, 401)
+        // Brute-force lockout (H1): after OTP_FAIL_MAX wrong codes for this (email,IP) within the
+        // window, refuse further attempts until it resets. Successful verify clears the counter.
+        const vIp = clientIp(req, server)
+        const failKey = `otpfail:${e}:${vIp}`
+        if (rlCount(failKey) >= OTP_FAIL_MAX) return json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429, { "Retry-After": "900" })
+        if (!(await verifyOtp(e, c))) {
+          rlRecord(failKey, OTP_FAIL_WINDOW)
+          return json({ error: "Invalid or expired code." }, 401)
+        }
+        rlClear(failKey)
         await upsertUser(e)
         // First-run funnel: capture whether this is a brand-new account BEFORE ensureAccount bootstraps
         // a default membership (which it always does on first login). A genuinely new user starts in the
@@ -857,6 +902,12 @@ Bun.serve({
         const citeLine = citation ? citationLine({ sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceDate: citation.sourceDate, recurrence: citation.recurrence }) : null
         const description_html = buildIssueHtml(description, pageUrl, imageUrls) +
           (citeLine ? `<p><em>${escapeHtml(citeLine)}</em></p>` : "")
+        // SSRF guard (H2): the Plane host can arrive from untrusted form input (direct mode is
+        // unauthenticated). Block requests to internal/loopback/link-local addresses — including the
+        // cloud metadata IP — and require https so the X-API-Key isn't sent in plaintext. Self-hosted
+        // public Plane instances over https still pass.
+        try { await assertSafeUrl(planeHost) }
+        catch (e: any) { console.warn("blocked tracker host:", e?.message || e); return json({ error: "Invalid tracker host." }, 400) }
         const res = await fetch(`${planeHost}/api/v1/workspaces/${planeWorkspace}/projects/${planeProject}/issues/`, {
           method: "POST",
           headers: { "X-API-Key": planeToken, "Content-Type": "application/json" },
@@ -907,7 +958,7 @@ Bun.serve({
             name: String(body.name || "Unnamed"), role: String(body.role || ""),
             type: body.type === "internal" ? "internal" : "client",
             initials: String(body.initials || "").slice(0, 2).toUpperCase(),
-            accent: String(body.accent || "#6366f1"),
+            accent: normAccent(body.accent),
             summary: String(body.summary || ""),
             insights: Array.isArray(body.insights) ? body.insights : [],
             avatar: body.avatar ? String(body.avatar) : null,
@@ -923,12 +974,15 @@ Bun.serve({
           try {
             const body = await req.json()
             const before = (await listPersonas(wid)).find(p => p.id === pid)
+            // Access control (C2): PUT is edit-only. If this persona id isn't in the caller's project,
+            // refuse — upsertPersona's ON CONFLICT(id) would otherwise overwrite another tenant's persona.
+            if (!before) return wjson({ error: "Not found" }, 404)
             const now = Date.now()
             await upsertPersona(pid, wid, {
               name: String(body.name || "Unnamed"), role: String(body.role || ""),
               type: body.type === "internal" ? "internal" : "client",
               initials: String(body.initials || "").slice(0, 2).toUpperCase(),
-              accent: String(body.accent || "#6366f1"),
+              accent: normAccent(body.accent),
               summary: String(body.summary || ""),
               insights: Array.isArray(body.insights) ? body.insights : [],
               avatar: body.avatar ? String(body.avatar) : null,
@@ -956,7 +1010,11 @@ Bun.serve({
       }
       const editsMatch = path.match(/^\/api\/personas\/([^/]+)\/edits$/)
       if (editsMatch && req.method === "GET") {
-        return wjson({ personaId: editsMatch[1], edits: await listPersonaEdits(editsMatch[1]) })
+        const pid = editsMatch[1]
+        // Access control (C1): listPersonaEdits is keyed only by persona id — verify the persona
+        // belongs to the caller's project before returning its edit history (no cross-tenant leak).
+        if (!(await listPersonas(wid)).some(p => p.id === pid)) return wjson({ error: "Not found" }, 404)
+        return wjson({ personaId: pid, edits: await listPersonaEdits(pid) })
       }
       return wjson({ error: "Not found" }, 404)
     }
@@ -1397,6 +1455,9 @@ Bun.serve({
         const proj2 = await resolveProject(me2, url.searchParams.get("project"))
         if (!proj2) return json({ error: "No project." }, 400)
         const simId = m[1]
+        // Access control (C1): trait routes are keyed only by sim id — verify the Sim belongs to the
+        // caller's resolved project before reading or writing its traits (no cross-tenant IDOR).
+        if (!(await listPersonas(proj2.id)).some(p => p.id === simId)) return json({ error: "Not found" }, 404)
         if (req.method === "POST") {
           const body = await req.json().catch(() => ({}))
           const kind = ["pain", "want", "love"].includes(body.kind) ? body.kind : "pain"
@@ -1428,6 +1489,10 @@ Bun.serve({
         const proj2 = await resolveProject(me2, url.searchParams.get("project"))
         if (!proj2) return json({ error: "No project." }, 400)
         const [, simId, traitId] = m
+        // Access control (C1): verify the Sim belongs to the caller's project before editing/archiving
+        // its traits — listTraits is keyed only by sim id, so without this an attacker could mutate
+        // another tenant's traits by id (cross-tenant IDOR).
+        if (!(await listPersonas(proj2.id)).some(p => p.id === simId)) return json({ error: "Not found" }, 404)
         const current = (await listTraits(simId)).find(t => t.id === traitId)
         if (!current) return json({ error: "Trait not found." }, 404)
         const now = Date.now()

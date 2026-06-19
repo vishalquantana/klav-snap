@@ -422,6 +422,9 @@ async function columnExists(c: Client, table: string, col: string): Promise<bool
 
 // ── OTP ──
 export async function createOtp(email: string, code: string, expiresAt: number) {
+  // Single live code per email (M1): retire any prior unused codes so only the newest can verify.
+  // Shrinks the brute-force surface and enforces clean single-use semantics.
+  await db!.execute({ sql: "UPDATE login_otps SET used=1 WHERE email=? AND used=0", args: [email] })
   await db!.execute({ sql: "INSERT INTO login_otps (email,code,expires_at,used) VALUES (?,?,?,0)", args: [email, code, expiresAt] })
 }
 export async function verifyOtp(email: string, code: string): Promise<boolean> {

@@ -56,21 +56,21 @@ test("webhook createIssue without secret omits header", async () => {
     return new Response(JSON.stringify({}), { status: 200 })
   }) as any
 
-  await getConnector("webhook")!.createIssue(TICKET, { url: "https://hook.example/x" })
+  await getConnector("webhook")!.createIssue(TICKET, { url: "https://203.0.113.10/x" })
   expect(calls[0][1].headers["X-Klavity-Signature"]).toBeUndefined()
 })
 
 test("webhook createIssue handles non-JSON 2xx response", async () => {
   globalThis.fetch = mock(async () => new Response("OK", { status: 200 })) as any
-  const r = await getConnector("webhook")!.createIssue(TICKET, { url: "https://hook.example/x" })
-  expect(r.externalUrl).toBe("https://hook.example/x")
+  const r = await getConnector("webhook")!.createIssue(TICKET, { url: "https://203.0.113.10/x" })
+  expect(r.externalUrl).toBe("https://203.0.113.10/x")
   expect(r.externalKey).toBeNull()
 })
 
 test("webhook createIssue throws on non-2xx", async () => {
   globalThis.fetch = mock(async () => new Response("Bad Request", { status: 400 })) as any
   await expect(
-    getConnector("webhook")!.createIssue(TICKET, { url: "https://hook.example/x" })
+    getConnector("webhook")!.createIssue(TICKET, { url: "https://203.0.113.10/x" })
   ).rejects.toThrow()
 })
 
@@ -290,4 +290,93 @@ test("linear createIssue throws on non-2xx", async () => {
 test("linear validate flags missing required fields", () => {
   expect(getConnector("linear")!.validate({ api_key: "k" }).ok).toBe(false)
   expect(getConnector("linear")!.validate({ api_key: "k", team_id: "tm" }).ok).toBe(true)
+})
+
+// ── SSRF guard (H3) ─────────────────────────────────────────────────────────────
+// The connector adapters fetch user-supplied hosts/URLs. assertSafeUrl must block
+// loopback / private / link-local / cloud-metadata targets BEFORE any outbound
+// request, so an admin (or anyone reaching the connector-test/auto-copy paths)
+// cannot make the server hit internal addresses.
+
+test("webhook createIssue blocks cloud-metadata IP without fetching", async () => {
+  let fetched = false
+  globalThis.fetch = mock(async () => { fetched = true; return new Response("{}", { status: 200 }) }) as any
+  await expect(
+    getConnector("webhook")!.createIssue(TICKET, { url: "https://169.254.169.254/latest/meta-data/" })
+  ).rejects.toThrow()
+  expect(fetched).toBe(false)
+})
+
+test("webhook createIssue blocks plaintext http (https required) without fetching", async () => {
+  let fetched = false
+  globalThis.fetch = mock(async () => { fetched = true; return new Response("{}", { status: 200 }) }) as any
+  await expect(
+    getConnector("webhook")!.createIssue(TICKET, { url: "http://203.0.113.10/hook" })
+  ).rejects.toThrow()
+  expect(fetched).toBe(false)
+})
+
+test("webhook createIssue blocks RFC1918 private host without fetching", async () => {
+  let fetched = false
+  globalThis.fetch = mock(async () => { fetched = true; return new Response("{}", { status: 200 }) }) as any
+  await expect(
+    getConnector("webhook")!.createIssue(TICKET, { url: "https://10.0.0.5/internal" })
+  ).rejects.toThrow()
+  expect(fetched).toBe(false)
+})
+
+test("plane createIssue blocks private RFC1918 host without fetching", async () => {
+  let fetched = false
+  globalThis.fetch = mock(async () => { fetched = true; return new Response("{}", { status: 200 }) }) as any
+  await expect(
+    getConnector("plane")!.createIssue(TICKET, {
+      host: "https://192.168.1.10",
+      workspace: "ws",
+      project_id: "p",
+      token: "t",
+    })
+  ).rejects.toThrow()
+  expect(fetched).toBe(false)
+})
+
+test("plane createIssue blocks cloud-metadata host without fetching", async () => {
+  let fetched = false
+  globalThis.fetch = mock(async () => { fetched = true; return new Response("{}", { status: 200 }) }) as any
+  await expect(
+    getConnector("plane")!.createIssue(TICKET, {
+      host: "https://169.254.169.254",
+      workspace: "ws",
+      project_id: "p",
+      token: "t",
+    })
+  ).rejects.toThrow()
+  expect(fetched).toBe(false)
+})
+
+test("jira createIssue blocks private RFC1918 host without fetching", async () => {
+  let fetched = false
+  globalThis.fetch = mock(async () => { fetched = true; return new Response("{}", { status: 200 }) }) as any
+  await expect(
+    getConnector("jira")!.createIssue(TICKET, {
+      host: "https://10.10.10.10",
+      email: "e",
+      token: "t",
+      project_key: "P",
+    })
+  ).rejects.toThrow()
+  expect(fetched).toBe(false)
+})
+
+test("jira createIssue blocks cloud-metadata host without fetching", async () => {
+  let fetched = false
+  globalThis.fetch = mock(async () => { fetched = true; return new Response("{}", { status: 200 }) }) as any
+  await expect(
+    getConnector("jira")!.createIssue(TICKET, {
+      host: "http://169.254.169.254",
+      email: "e",
+      token: "t",
+      project_key: "P",
+    })
+  ).rejects.toThrow()
+  expect(fetched).toBe(false)
 })

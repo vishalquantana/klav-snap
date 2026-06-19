@@ -468,6 +468,9 @@ const COLORS = ["#6366f1","#e8a24a","#10b981","#ec4899","#06b6d4","#8b5cf6"]
 const col = (s) => COLORS[[...String(s||"")].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length]
 const initials = (e) => String(e||"").slice(0,2).toUpperCase()
 const esc = (s) => String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))
+// Only ever emit a strict #rrggbb/#rgb hex into a style attribute. Model-generated `accent` is
+// untrusted (LLM05) — without this, a value like `#fff" onmouseover=…` would break out of the attr.
+const safeAccent = (v, fallback) => /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(String(v||"")) ? String(v) : fallback
 const ago = (ts) => {
   if (!ts) return ""
   const s = Math.max(0, Math.floor((Date.now()-Number(ts))/1000))
@@ -766,7 +769,7 @@ function renderSaying() {
     if (s.source === "insight") meta.push("from transcript insight")
     const nm = s.simName || "A Sim"
     return `<div class="say">
-      <div class="av" style="background:${s.accent||col(nm)}">${esc(s.initials||initials(nm))}</div>
+      <div class="av" style="background:${safeAccent(s.accent, col(nm))}">${esc(s.initials||initials(nm))}</div>
       <div class="body">
         <div class="name">${esc(nm)} ${tag}</div>
         <div class="obs">${esc(s.text)}</div>
@@ -790,7 +793,7 @@ function renderSims(admin) {
       : "/app?sim=" + encodeURIComponent(s.id)
     return `
     <a class="sim" href="${esc(href)}">
-      <div class="av" style="background:${s.accent||col(s.name)}">${esc(s.initials||initials(s.name))}</div>
+      <div class="av" style="background:${safeAccent(s.accent, col(s.name))}">${esc(s.initials||initials(s.name))}</div>
       <div class="body">
         <div class="name">${esc(s.name)}</div>
         <div class="role">${esc(s.role||"")}</div>
