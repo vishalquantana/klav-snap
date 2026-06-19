@@ -4,8 +4,6 @@ import { isIP } from "node:net"
 export interface UrlGuardOptions {
   /** Optional exact-or-suffix allowlist, e.g. ["plane.so"] matches "x.plane.so" and "plane.so". */
   allowHosts?: string[]
-  /** Default false — only https permitted unless true. */
-  allowHttp?: boolean
 }
 
 /**
@@ -22,14 +20,11 @@ export async function assertSafeUrl(raw: string, opts: UrlGuardOptions = {}): Pr
     throw new Error("invalid URL")
   }
 
-  // Scheme check.
-  const scheme = url.protocol
-  if (scheme === "https:") {
-    // ok
-  } else if (scheme === "http:") {
-    if (!opts.allowHttp) throw new Error("blocked scheme: http (https required)")
-  } else {
-    throw new Error(`blocked scheme: ${scheme}`)
+  // Scheme check — https only, no exceptions. Plaintext http is never permitted for an outbound
+  // call (it would expose API keys/tokens in transit and is an SSRF foothold); other schemes
+  // (file:, ftp:, gopher:, data:, …) are rejected outright.
+  if (url.protocol !== "https:") {
+    throw new Error(`blocked scheme: ${url.protocol} (https required)`)
   }
 
   // Reject embedded credentials (user:pass@host).

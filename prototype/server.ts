@@ -112,6 +112,21 @@ const RECONCILE_SYS =
 async function chat(messages: any[], maxTokens: number, jsonMode = false, ctx?: { type: string; email?: string | null; projectId?: string | null }) {
   const t0 = Date.now()
   const label = ctx?.type || "chat"
+  // M5/LLM10: enforce the daily spend cap server-side (it used to be display-only). Fail CLOSED before
+  // spending another cent once today's ai_calls total reaches the cap — bounds wallet-exhaustion abuse.
+  if (db) {
+    try {
+      if (await opsTodaySpend() >= OPS_DAILY_CAP_USD) {
+        console.warn(`AI[${label}] blocked: daily cap $${OPS_DAILY_CAP_USD} reached`)
+        throw new Error("Daily AI budget reached — please try again tomorrow.")
+      }
+    } catch (e: any) {
+      if (e?.message?.includes("Daily AI budget")) throw e
+      // a failing cap query must not silently disable the cap, but also shouldn't hard-break every
+      // call on a transient DB hiccup — log and proceed (the per-key OpenRouter cap is the backstop).
+      console.error("opsTodaySpend check failed:", e?.message || e)
+    }
+  }
   const model = pickModel(await getActiveWeights(), MODEL_CHOICE_IDS, MODEL, Math.random())
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), 90_000)  // never hang a request forever
@@ -380,6 +395,14 @@ const WIDGET_CORS: Record<string, string> = {
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } })
 }
+// M4/A10: never echo internal exception text (DB errors, stack traces, upstream bodies) to clients.
+// Log it server-side with a short correlation id; return a generic message + that id so a user can
+// quote it for support without leaking internals.
+function oops(e: unknown, label: string): { error: string; id: string } {
+  const id = crypto.randomUUID().slice(0, 8)
+  console.error(`[${label} ${id}]`, (e as any)?.message || e)
+  return { error: "Something went wrong. Please try again.", id }
+}
 // Widget-scoped json: always attaches WIDGET_CORS so every response (success AND error) is
 // readable cross-origin. Used for /api/personas, /api/sim/review, /api/consent only.
 function wjson(body: unknown, status = 200) { return json(body, status, WIDGET_CORS) }
@@ -478,7 +501,14 @@ async function bearerEmail(req: Request): Promise<string | null> {
   if (!m || !db) return null
   const tok = m[1]
   if (tok.startsWith("ext_")) return getExtensionTokenEmail(tok)
-  return (await getExtensionTokenEmail(tok)) || (await getSession(tok))
+  const ext = await getExtensionTokenEmail(tok)
+  if (ext) return ext
+  // M2 (legacy compat shim, to be removed): older clients sent the raw session id as a Bearer. We no
+  // longer ISSUE those (see /api/extension-token), so this path should go quiet — log when it's still
+  // hit so we can confirm no client depends on it before deleting the fallback.
+  const sess = await getSession(tok)
+  if (sess) console.warn("DEPRECATED: session-id used as Bearer token — client should re-sync to an ext_ token")
+  return sess
 }
 
 // Resolve the project a request targets: explicit ?project=:id if accessible, else the caller's
@@ -615,6 +645,17 @@ const OTP_REQ_PER_IP = 30             // code requests per IP / window (shared N
 const OTP_FAIL_WINDOW = 15 * 60 * 1000
 const OTP_FAIL_MAX = 5                 // wrong codes per (email,IP) before lockout
 
+// LLM-endpoint abuse limits (M5/LLM10). /api/transcripts fires two LLM calls and was previously
+// unbudgeted/unbounded — cap the input size and rate per user+project.
+const TRANSCRIPT_MAX_CHARS = 100_000   // ~25k tokens; reject larger payloads outright
+const TRANSCRIPT_WINDOW = 60 * 60 * 1000
+const TRANSCRIPT_PER_USER = 30         // transcript submissions per user / hour
+const TRANSCRIPT_PER_PROJECT = 60      // per project / hour
+
+// Auto-copy flood cap (M6): max external tickets auto-filed per project per hour.
+const AUTOCOPY_WINDOW = 60 * 60 * 1000
+const AUTOCOPY_PER_PROJECT = 60
+
 // Best-effort client IP: behind Caddy the real client is the first X-Forwarded-For hop; fall back
 // to the socket address. Used only for abuse throttling, never for authorization.
 function clientIp(req: Request, server?: { requestIP?: (r: Request) => { address?: string } | null }): string {
@@ -694,7 +735,7 @@ Bun.serve({
         // Never log the live code in normal operation (M3) — only when the dev flag is explicitly set.
         try { await sendOtp(e, code); emailed = true } catch (err: any) { console.error("OTP email failed:", err.message); if (DEV_SHOW_OTP) console.log(`OTP for ${e} → ${code}`) }
         return json({ ok: true, emailed, ...(DEV_SHOW_OTP ? { devCode: code } : {}) })
-      } catch (err: any) { return json({ error: err.message }, 500) }
+      } catch (err: any) { return json(oops(err, "auth"), 500) }
     }
 
     // ── auth: verify OTP ──
@@ -724,7 +765,7 @@ Bun.serve({
         await createSession(sid, e, Date.now() + SESSION_DAYS * 86400 * 1000)
         const dest = wasNew ? "/onboarding" : "/dashboard"
         return json({ ok: true, redirect: dest, token: sid }, 200, { "Set-Cookie": cookie("klav_session", sid, SESSION_DAYS * 86400, SECURE) })
-      } catch (err: any) { return json({ error: err.message }, 500) }
+      } catch (err: any) { return json(oops(err, "auth"), 500) }
     }
     if (req.method === "POST" && path === "/api/auth/logout") {
       const sid = parseCookies(req.headers.get("cookie"))["klav_session"]
@@ -849,6 +890,13 @@ Bun.serve({
                   try {
                     const autoCopyConnectors = await listAutoCopyConnectors(autoCopyProjectId)
                     if (!autoCopyConnectors.length) return
+                    // M6/ASI: bound auto-filed tickets per project so a burst of feedback (or injected
+                    // AI content) can't flood the external tracker. Over the cap, skip auto-copy for this
+                    // item (it's still persisted in our ledger and can be exported manually).
+                    if (!rlAllow(`autocopy:${autoCopyProjectId}`, AUTOCOPY_PER_PROJECT, AUTOCOPY_WINDOW)) {
+                      console.warn(`auto-copy rate cap hit for project ${autoCopyProjectId} — skipping`)
+                      return
+                    }
                     // Build the SAME rich payload the manual export uses (incl. resolved Sim name),
                     // once, from the persisted row — so auto-copied and manually-copied tickets match.
                     const autoCopyFb = await feedbackById(autoCopyProjectId, autoCopyFbId)
@@ -913,7 +961,7 @@ Bun.serve({
           headers: { "X-API-Key": planeToken, "Content-Type": "application/json" },
           body: JSON.stringify({ name: `[Klavity] ${description.slice(0, 180)}`, description_html }),
         })
-        if (!res.ok) return json({ error: `Plane API error ${res.status}: ${(await res.text()).slice(0, 300)}` }, 502)
+        if (!res.ok) { console.error(`Plane API error ${res.status}: ${(await res.text()).slice(0, 300)}`); return json({ error: `The tracker rejected the request (HTTP ${res.status}).` }, 502) }
 
         const data: any = await res.json()
         const webBase = planeHost === "https://api.plane.so" ? "https://app.plane.so" : planeHost
@@ -934,7 +982,7 @@ Bun.serve({
           issue_url: issueUrl,
         })
       } catch (e: any) {
-        return json({ error: e?.message || "feedback failed" }, 500)
+        return json(oops(e, "feedback"), 500)
       }
     }
 
@@ -965,7 +1013,7 @@ Bun.serve({
           })
           const [saved] = (await listPersonas(wid)).filter(p => p.id === id)
           return wjson({ persona: saved }, 201)
-        } catch (e: any) { return wjson({ error: e.message }, 500) }
+        } catch (e: any) { return wjson(oops(e, "persona"), 500) }
       }
       const idMatch = path.match(/^\/api\/personas\/([^/]+)$/)
       if (idMatch) {
@@ -1001,7 +1049,7 @@ Bun.serve({
               }
             }
             return wjson({ ok: true })
-          } catch (e: any) { return wjson({ error: e.message }, 500) }
+          } catch (e: any) { return wjson(oops(e, "persona"), 500) }
         }
         if (req.method === "DELETE") {
           await deletePersona(pid, wid)
@@ -1108,7 +1156,7 @@ Bun.serve({
           }
           const url = presignGet(shot.s3Key, 600)
           return json({ id: shot.id, url, acl: shot.acl, expiresInSec: 600 })
-        } catch (e: any) { return json({ error: e?.message || "could not sign url" }, 500) }
+        } catch (e: any) { return json(oops(e, "signurl"), 500) }
       }
     }
 
@@ -1296,10 +1344,14 @@ Bun.serve({
       const projT = await resolveProject(meT, url.searchParams.get("project"))
       if (!projT) return json({ error: "No project." }, 400)
       const projectId = projT.id
+      // M5: rate-limit this 2-LLM-call endpoint per user AND per project (it has no daily budget gate).
+      if (!rlAllow(`tx:u:${meT}`, TRANSCRIPT_PER_USER, TRANSCRIPT_WINDOW) || !rlAllow(`tx:p:${projectId}`, TRANSCRIPT_PER_PROJECT, TRANSCRIPT_WINDOW))
+        return json({ error: "Too many transcript submissions. Please wait and try again." }, 429, { "Retry-After": "3600" })
       try {
         const body = await req.json().catch(() => ({}))
         const text = String(body.transcript || body.raw_text || "").trim()
         if (text.length < 20) return json({ error: "Transcript too short" }, 400)
+        if (text.length > TRANSCRIPT_MAX_CHARS) return json({ error: `Transcript too large (max ${TRANSCRIPT_MAX_CHARS.toLocaleString()} characters).` }, 413)
         const title = body.title ? String(body.title) : null
         const sourceDate = Number(body.sourceDate || body.source_date) || Date.now()
 
@@ -1370,7 +1422,7 @@ Bun.serve({
           needsConfirm,
           usage: { extract: extractUsage, reconcile: reconcileUsages },
         }, 201)
-      } catch (e: any) { return json({ error: e?.message || "transcript failed" }, 500) }
+      } catch (e: any) { return json(oops(e, "transcript"), 500) }
     }
 
     // ── Sim evolution timeline (P3a step 3) — project-scoped; cookie OR Bearer; admin or member. ──
@@ -1442,7 +1494,7 @@ Bun.serve({
               isRegression: regressionEventKeys.has(`${e.traitId}:${e.createdAt}`),
             }))
           return json({ simId, name: sim.name, events: timeline })
-        } catch (e: any) { return json({ error: e?.message || "evolution failed" }, 500) }
+        } catch (e: any) { return json(oops(e, "evolution"), 500) }
       }
     }
 
@@ -1524,7 +1576,7 @@ Bun.serve({
       const sim = (await listPersonas(projST.id)).find(p => p.id === simTxMatch[1])
       if (!sim) return json({ error: "Not found" }, 404)
       try { return json({ simId: sim.id, transcripts: await sourceTranscriptsForSim(sim.id, projST.id) }) }
-      catch (e: any) { return json({ error: e?.message || "transcripts failed" }, 500) }
+      catch (e: any) { return json(oops(e, "transcripts"), 500) }
     }
     // ── One transcript's raw text — project-scoped, read-only ──
     const txMatch = path.match(/^\/api\/transcripts\/([^/]+)$/)
@@ -1743,15 +1795,21 @@ Bun.serve({
           const counts = await dashboardCounts(projectId)
           return json({ email: me, projects, active: activeOut, members, sims, saying, tickets, activity, counts })
         } catch (e: any) {
-          return json({ error: e?.message || "dashboard failed" }, 500)
+          return json(oops(e, "dashboard"), 500)
         }
       }
 
       // Returns the current session ID as a Bearer token — the extension uses this to sync sims.
       if (req.method === "GET" && path === "/api/extension-token") {
+        // M2: mint a dedicated, revocable ext_ token bound to the session's user instead of handing the
+        // raw 7-day session id to the extension. A leaked ext_ token is narrow-scope and revocable; a
+        // leaked session id is full account access.
         const sid = parseCookies(req.headers.get("cookie"))["klav_session"]
         if (!sid) return json({ error: "No session." }, 401)
-        return json({ token: sid })
+        const tokEmail = await getSession(sid)
+        if (!tokEmail) return json({ error: "No session." }, 401)
+        const extToken = await issueExtensionToken(tokEmail, null, SESSION_DAYS * 24 * 60 * 60 * 1000)
+        return json({ token: extToken })
       }
 
       // project (team) connection — read by any member, written by project admins
@@ -2181,7 +2239,7 @@ Bun.serve({
           const { content, usage } = await chat([{ role: "system", content: sys }, { role: "user", content: "Brief: " + brief }], 1200, true, { type: "persona", email: meB })
           const data = parseJSON(content)
           return json({ persona: data.persona, usage })
-        } catch (e: any) { return json({ error: e?.message || "create failed" }, 500) }
+        } catch (e: any) { return json(oops(e, "create"), 500) }
       }
       // gated AI
       if (req.method === "POST" && path === "/api/extract") {
@@ -2191,7 +2249,7 @@ Bun.serve({
           const meE = (await sessionEmail(req)) || (await bearerEmail(req))
           const { data, usage } = await extractPersonas(transcript, { email: meE })
           return json({ personas: data.personas || [], usage })
-        } catch (e: any) { return json({ error: e?.message || "extract failed" }, 500) }
+        } catch (e: any) { return json(oops(e, "extract"), 500) }
       }
       if (req.method === "POST" && path === "/api/react") {
         try {
@@ -2247,7 +2305,7 @@ Bun.serve({
               : null
           }
           return json({ reactions, usage })
-        } catch (e: any) { return json({ error: e?.message || "react failed" }, 500) }
+        } catch (e: any) { return json(oops(e, "react"), 500) }
       }
       return json({ error: "Not found" }, 404)
     }

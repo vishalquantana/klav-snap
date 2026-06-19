@@ -307,3 +307,21 @@ test("H2: /api/feedback refuses a loopback Plane host (SSRF)", async () => {
   expect(res.status).toBe(400)
   expect((await res.json()).error).toBe("Invalid tracker host.")
 })
+
+// ── M2: /api/extension-token mints a revocable ext_ token, NOT the raw session id ──
+test("M2: /api/extension-token returns an ext_ token, not the session id", async () => {
+  const res = await fetch(`${BASE}/api/extension-token`, { headers: { cookie: "klav_session=" + SID } })
+  expect(res.status).toBe(200)
+  const { token } = await res.json()
+  expect(token.startsWith("ext_")).toBe(true)
+  expect(token).not.toBe(SID)
+})
+
+// ── M5: /api/transcripts rejects an oversized payload before doing any LLM work ──
+test("M5: /api/transcripts rejects an oversized transcript with 413", async () => {
+  const huge = "a".repeat(100_001)
+  const res = await authedFetch(`/api/transcripts?project=${PROJECT_ID}`, {
+    method: "POST", body: JSON.stringify({ transcript: huge }),
+  })
+  expect(res.status).toBe(413)
+})

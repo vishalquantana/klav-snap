@@ -15,13 +15,15 @@ test("allows public https URL with path/query", async () => {
 
 // ── Scheme ────────────────────────────────────────────────────────────────
 
-test("rejects http when allowHttp is false", async () => {
-  await expect(assertSafeUrl("http://1.1.1.1/")).rejects.toThrow()
+test("rejects http — https is mandatory, no opt-out", async () => {
+  await expect(assertSafeUrl("http://1.1.1.1/")).rejects.toThrow(/https required/)
+  // Even a public host must be https.
+  await expect(assertSafeUrl("http://example.com/")).rejects.toThrow(/https required/)
 })
 
-test("allows http when allowHttp is true", async () => {
-  const u = await assertSafeUrl("http://1.1.1.1/", { allowHttp: true })
-  expect(u.protocol).toBe("http:")
+test("allows a public https host", async () => {
+  const u = await assertSafeUrl("https://1.1.1.1/")
+  expect(u.protocol).toBe("https:")
 })
 
 test("rejects file: scheme", async () => {

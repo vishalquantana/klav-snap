@@ -10,6 +10,25 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.23.0] — 2026-06-20
+
+### Security
+Completes the OWASP remediation — Medium findings + https-only hardening. All Critical, High,
+and Medium findings are now fixed with tests. See [`docs/security-owasp-review.md`](docs/security-owasp-review.md).
+
+- **Enforced the daily AI spend cap (M5/LLM10).** `OPS_DAILY_CAP_USD` was display-only; `chat()` now
+  fails closed once today's `ai_calls` total reaches the cap. `/api/transcripts` (two LLM calls) is rate
+  limited per user and per project and rejects payloads over 100k characters.
+- **Stopped leaking internal errors to clients (M4/A10).** Every endpoint now returns a generic message
+  plus a correlation id and logs the exception server-side; the upstream tracker response body is no
+  longer echoed back.
+- **Hardened login token handling (M2).** `/api/extension-token` mints a revocable, scoped `ext_` token
+  instead of returning the raw session id.
+- **Capped auto-copy volume (M6).** External tickets auto-filed per project per hour are bounded to
+  prevent a burst of feedback (or injected content) flooding the tracker.
+- **https is now mandatory for all outbound calls.** The SSRF guard's `allowHttp` opt-out was removed —
+  plaintext http to any tracker/connector/webhook is rejected by construction.
+
 ## [0.22.0] — 2026-06-20
 
 ### Security

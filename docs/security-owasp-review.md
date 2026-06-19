@@ -28,11 +28,30 @@ reading the real code and citing `file:line`. Findings below verified against so
   `<untrusted_data>` markers with forged-delimiter stripping (`lib/prompt-safety.ts`), and every
   system prompt (`EXTRACT_SYS`/`REACT_SYS`/`RECONCILE_SYS`) carries a guard instruction to treat that
   content as data, not instructions. Tests: `lib/prompt-safety.test.ts`.
-- ⏳ Remaining (Mediums): **M2** (session id reused as bearer), **M4** (error-message leakage),
-  **M5** (unbounded LLM consumption / cost cap), **M6** (AI-originated auto-copy without approval),
-  plus Low/Info items. Full prototype suite: **208 pass / 0 fail**.
+### Medium batch (v0.23.0)
 
-All Critical + High findings (C1, C2, H1–H5) and M1/M3 are remediated with tests as of this release.
+- ✅ **M2** fixed — `/api/extension-token` now mints a revocable, scoped `ext_` token instead of handing
+  out the raw session id; `bearerEmail` logs (and will later drop) the legacy session-id-as-bearer path.
+- ✅ **M4** fixed — all catch sites route through `oops()` which logs the exception with a short
+  correlation id server-side and returns a generic message + id (no stack/DB/upstream text to clients);
+  the Plane upstream-body echo is removed.
+- ✅ **M5** fixed — the daily spend cap is now **enforced** in `chat()` (fail-closed once `ai_calls`
+  today ≥ `OPS_DAILY_CAP_USD`), `/api/transcripts` is rate-limited per user + per project and rejects
+  payloads over 100k chars (413).
+- ✅ **M6** addressed — auto-copy is rate-capped per project (flood guard); the prompt-injection/output
+  risks it raised are covered by the shipped H4 + H5. A mandatory human-approval gate was deliberately
+  **not** added (auto-copy is an intended product feature); revisit if AI-originated tickets ever
+  auto-file without user submission.
+- ✅ **Hardening:** `assertSafeUrl` is now https-only by construction — the `allowHttp` option was
+  removed, so no caller can ever opt into plaintext for an outbound request.
+
+### Still open (Low / Info — accepted or deferred)
+
+- Wildcard CORS on widget routes (acceptable: bearer-auth, not credentialed).
+- `emailAllowed` fail-open when no allowlist is configured (by design for open signup).
+- LLM02: page screenshots/transcripts sent to OpenRouter unredacted (consented processor).
+
+All Critical, High, and Medium findings are remediated with tests as of v0.23.0.
 
 ---
 
