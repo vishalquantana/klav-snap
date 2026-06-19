@@ -115,3 +115,30 @@ test("walk lifecycle: start → addRunStep → finish, with reads", async () => 
 
   expect((await T.listWalks("proj_A", trail))[0].id).toBe(walk)
 })
+
+test("recordFinding dedups by dedup_key and bumps recurrence instead of duplicating", async () => {
+  const trail = await T.createTrail("proj_A", { name: "F", baseUrl: "https://app.test/" })
+  const walk = await T.startWalk("proj_A", trail)
+  const a = await T.recordFinding("proj_A", { runId: walk, trailId: trail, kind: "regression", title: "Checkout button gone", confidence: 0.95, dedupKey: "checkout-gone" })
+  expect(a.deduped).toBe(false)
+  expect(a.recurrence).toBe(1)
+
+  const b = await T.recordFinding("proj_A", { runId: walk, trailId: trail, kind: "regression", title: "Checkout button gone (again)", confidence: 0.96, dedupKey: "checkout-gone" })
+  expect(b.deduped).toBe(true)
+  expect(b.recurrence).toBe(2)
+
+  const all = await T.listFindings("proj_A")
+  expect(all.filter((f) => f.dedupKey === "checkout-gone").length).toBe(1) // collapsed, not duplicated
+  expect(all[0].recurrence).toBe(2)
+})
+
+test("listFindings filters by status; setFindingStatus transitions and records connectorRef", async () => {
+  const trail = await T.createTrail("proj_A", { name: "F2", baseUrl: "https://app.test/" })
+  const walk = await T.startWalk("proj_A", trail)
+  const f = await T.recordFinding("proj_A", { runId: walk, trailId: trail, kind: "visual", title: "Layout shift", confidence: 0.5, dedupKey: "layout-1", status: "queued" })
+  expect((await T.listFindings("proj_A", { status: "queued" })).some((x) => x.id === f.id)).toBe(true)
+  await T.setFindingStatus("proj_A", f.id, "filed", "plane:ISSUE-12")
+  const filed = (await T.listFindings("proj_A", { status: "filed" })).find((x) => x.id === f.id)
+  expect(filed?.connectorRef).toBe("plane:ISSUE-12")
+  expect((await T.listFindings("proj_A", { status: "queued" })).some((x) => x.id === f.id)).toBe(false)
+})

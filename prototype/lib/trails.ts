@@ -169,3 +169,51 @@ export async function listWalks(projectId: string, trailId: string): Promise<Wal
   const r = await db!.execute({ sql: `SELECT * FROM trail_runs WHERE project_id=? AND trail_id=? ORDER BY started_at DESC`, args: [projectId, trailId] })
   return r.rows.map(rowToWalk)
 }
+
+import type { Finding, FindingKind, FindingStatus } from "./trails-types"
+
+function rowToFinding(r: any): Finding {
+  return {
+    id: r.id, projectId: r.project_id, runId: r.run_id, stepId: r.step_id ?? null, trailId: r.trail_id,
+    kind: r.kind as FindingKind, title: r.title, evidence: pj<Record<string, unknown>>(r.evidence_json),
+    groundQuote: r.ground_quote ?? null, confidence: Number(r.confidence), dedupKey: r.dedup_key,
+    recurrence: Number(r.recurrence), status: r.status as FindingStatus, connectorRef: r.connector_ref ?? null,
+    createdAt: Number(r.created_at), updatedAt: Number(r.updated_at),
+  }
+}
+
+export async function recordFinding(
+  projectId: string,
+  input: { runId: string; trailId: string; stepId?: string; kind: FindingKind; title: string; evidence?: Record<string, unknown>; groundQuote?: string; confidence: number; dedupKey: string; status?: FindingStatus },
+): Promise<{ id: string; deduped: boolean; recurrence: number }> {
+  const open = await db!.execute({
+    sql: `SELECT id, recurrence FROM findings WHERE project_id=? AND dedup_key=? AND status IN ('queued','auto_filed','filed') ORDER BY created_at ASC LIMIT 1`,
+    args: [projectId, input.dedupKey],
+  })
+  if (open.rows.length) {
+    const id = String((open.rows[0] as any).id); const recurrence = Number((open.rows[0] as any).recurrence) + 1
+    await db!.execute({ sql: `UPDATE findings SET recurrence=?, updated_at=? WHERE id=?`, args: [recurrence, Date.now(), id] })
+    return { id, deduped: true, recurrence }
+  }
+  const id = uid("find_"); const now = Date.now()
+  await db!.execute({
+    sql: `INSERT INTO findings (id, project_id, run_id, step_id, trail_id, kind, title, evidence_json, ground_quote, confidence, dedup_key, recurrence, status, connector_ref, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?)`,
+    args: [id, projectId, input.runId, input.stepId ?? null, input.trailId, input.kind, input.title, j(input.evidence), input.groundQuote ?? null, input.confidence, input.dedupKey, input.status ?? "queued", now, now],
+  })
+  return { id, deduped: false, recurrence: 1 }
+}
+
+export async function listFindings(projectId: string, opts?: { status?: FindingStatus }): Promise<Finding[]> {
+  const r = opts?.status
+    ? await db!.execute({ sql: `SELECT * FROM findings WHERE project_id=? AND status=? ORDER BY updated_at DESC`, args: [projectId, opts.status] })
+    : await db!.execute({ sql: `SELECT * FROM findings WHERE project_id=? ORDER BY updated_at DESC`, args: [projectId] })
+  return r.rows.map(rowToFinding)
+}
+
+export async function setFindingStatus(projectId: string, id: string, status: FindingStatus, connectorRef?: string): Promise<void> {
+  await db!.execute({
+    sql: `UPDATE findings SET status=?, connector_ref=COALESCE(?, connector_ref), updated_at=? WHERE project_id=? AND id=?`,
+    args: [status, connectorRef ?? null, Date.now(), projectId, id],
+  })
+}
