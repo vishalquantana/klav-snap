@@ -22,6 +22,7 @@ export type Trait = {
   srcQuote: string
   srcQuoteOffset: number | null
   srcSpeaker: string | null
+  srcVerified?: boolean | null
   createdAt: number
   updatedAt: number
   area?: string | null
@@ -51,6 +52,7 @@ export type ReconcileCtx = {
   projectId: string
   transcriptId: string
   sourceDate: number
+  rawText?: string | null
   now?: number
   newId?: () => string // injectable for deterministic tests
 }
@@ -72,6 +74,7 @@ export type TraitEventRow = {
   afterText: string | null
   quote: string
   quoteOffset: number | null
+  verified?: boolean | null
   speaker: string | null
   sourceDate: number
   reason: string | null
@@ -195,15 +198,18 @@ export function applyReconcileOps(
     afterText: string | null,
     o: ReconcileOp,
     reason?: string | null,
-  ): TraitEventRow => ({
+  ): TraitEventRow => {
+    const g = groundQuote(ctx.rawText ?? null, o.quote)
+    return {
     traitId,
     simId: ctx.simId,
     transcriptId: ctx.transcriptId,
     op,
     beforeText,
     afterText,
-    quote: o.quote,
-    quoteOffset: o.quoteOffset ?? null,
+    quote: g.quote,
+    quoteOffset: g.offset,
+    verified: g.verified,
     speaker: o.speaker ?? null,
     sourceDate: ctx.sourceDate,
     reason: reason ?? o.reason ?? null,
@@ -211,9 +217,12 @@ export function applyReconcileOps(
     area: o.area ?? null,
     issueType: o.issueType ?? null,
     severity: o.severity ?? null,
-  })
+    }
+  }
 
-  const mkTrait = (o: ReconcileOp): Trait => ({
+  const mkTrait = (o: ReconcileOp): Trait => {
+    const g = groundQuote(ctx.rawText ?? null, o.quote)
+    return {
     id: newId(),
     simId: ctx.simId,
     projectId: ctx.projectId,
@@ -222,15 +231,17 @@ export function applyReconcileOps(
     status: "active",
     strength: 1,
     srcTranscriptId: ctx.transcriptId,
-    srcQuote: o.quote,
-    srcQuoteOffset: o.quoteOffset ?? null,
+    srcQuote: g.quote,
+    srcQuoteOffset: g.offset,
+    srcVerified: g.verified,
     srcSpeaker: o.speaker ?? null,
     createdAt: now,
     updatedAt: now,
     area: o.area ?? null,
     issueType: o.issueType ?? null,
     severity: o.severity ?? null,
-  })
+    }
+  }
 
   const addNew = (o: ReconcileOp) => {
     const t = mkTrait(o)
@@ -250,10 +261,12 @@ export function applyReconcileOps(
       }
       case "reinforce": {
         if (!targetActive) { addNew(o); break }
+        const g = groundQuote(ctx.rawText ?? null, o.quote)
         targetActive.strength += 1
         targetActive.srcTranscriptId = ctx.transcriptId
-        targetActive.srcQuote = o.quote
-        targetActive.srcQuoteOffset = o.quoteOffset ?? null
+        targetActive.srcQuote = g.quote
+        targetActive.srcQuoteOffset = g.offset
+        targetActive.srcVerified = g.verified
         targetActive.srcSpeaker = o.speaker ?? null
         targetActive.updatedAt = now
         targetActive.area = o.area ?? null
@@ -265,12 +278,14 @@ export function applyReconcileOps(
       }
       case "refine": {
         if (!targetActive) { addNew(o); break }
+        const g = groundQuote(ctx.rawText ?? null, o.quote)
         const before = targetActive.text
         targetActive.text = o.text
         targetActive.strength += 1
         targetActive.srcTranscriptId = ctx.transcriptId
-        targetActive.srcQuote = o.quote
-        targetActive.srcQuoteOffset = o.quoteOffset ?? null
+        targetActive.srcQuote = g.quote
+        targetActive.srcQuoteOffset = g.offset
+        targetActive.srcVerified = g.verified
         targetActive.srcSpeaker = o.speaker ?? null
         targetActive.updatedAt = now
         targetActive.area = o.area ?? null
@@ -318,12 +333,14 @@ export function applyReconcileOps(
         const targetResolved = o.traitId ? byId.get(o.traitId) : undefined
         const isResolved = targetResolved && (targetResolved.status === "contradicted" || targetResolved.status === "superseded")
         if (!isResolved) { addNew(o); break }
+        const g = groundQuote(ctx.rawText ?? null, o.quote)
         targetResolved.status = "active"
         targetResolved.strength += 1
         targetResolved.text = o.text
         targetResolved.srcTranscriptId = ctx.transcriptId
-        targetResolved.srcQuote = o.quote
-        targetResolved.srcQuoteOffset = o.quoteOffset ?? null
+        targetResolved.srcQuote = g.quote
+        targetResolved.srcQuoteOffset = g.offset
+        targetResolved.srcVerified = g.verified
         targetResolved.srcSpeaker = o.speaker ?? null
         targetResolved.updatedAt = now
         targetResolved.area = o.area ?? null

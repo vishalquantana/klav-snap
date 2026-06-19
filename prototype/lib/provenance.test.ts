@@ -639,3 +639,33 @@ test("groundQuote: fuzzy snap on a line with leading whitespace round-trips (off
   expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
   expect(g.quote.startsWith("Lee:")).toBe(true) // leading spaces trimmed off the quote
 })
+
+test("applyReconcileOps: grounds add quote against ctx.rawText (offset + verified)", () => {
+  const raw = "Pat: The settings page never saves my changes."
+  const res = applyReconcileOps([], [
+    { op: "add", kind: "pain", text: "settings don't save", quote: "The settings page never saves my changes.", speaker: "Pat" },
+  ], { simId: "s1", projectId: "p1", transcriptId: "t1", sourceDate: 100, now: 200, newId: () => "tid1", rawText: raw })
+
+  const w = res.traitWrites[0].trait
+  expect(w.srcVerified).toBe(true)
+  expect(w.srcQuoteOffset).toBe(raw.indexOf("The settings page never saves my changes."))
+  const evt = res.traitEvents[0]
+  expect(evt.verified).toBe(true)
+  expect(evt.quoteOffset).toBe(w.srcQuoteOffset)
+})
+
+test("applyReconcileOps: unmatched quote → verified false, offset null", () => {
+  const res = applyReconcileOps([], [
+    { op: "add", kind: "pain", text: "x", quote: "totally unrelated sentence here", speaker: "Pat" },
+  ], { simId: "s1", projectId: "p1", transcriptId: "t1", sourceDate: 100, now: 200, newId: () => "tid1", rawText: "Pat: hello." })
+  expect(res.traitWrites[0].trait.srcVerified).toBe(false)
+  expect(res.traitWrites[0].trait.srcQuoteOffset).toBeNull()
+})
+
+test("applyReconcileOps: no rawText in ctx → verified null (back-compat)", () => {
+  const res = applyReconcileOps([], [
+    { op: "add", kind: "pain", text: "x", quote: "anything", speaker: "Pat" },
+  ], { simId: "s1", projectId: "p1", transcriptId: "t1", sourceDate: 100, now: 200, newId: () => "tid1" })
+  expect(res.traitWrites[0].trait.srcVerified ?? null).toBeNull()
+  expect(res.traitEvents[0].verified ?? null).toBeNull()
+})
