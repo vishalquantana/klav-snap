@@ -30,8 +30,10 @@ reading the real code and citing `file:line`. Findings below verified against so
   content as data, not instructions. Tests: `lib/prompt-safety.test.ts`.
 ### Medium batch (v0.23.0)
 
-- ✅ **M2** fixed — `/api/extension-token` now mints a revocable, scoped `ext_` token instead of handing
-  out the raw session id; `bearerEmail` logs (and will later drop) the legacy session-id-as-bearer path.
+- ✅ **M2** fixed & **fully closed (v0.23.1)** — `/api/extension-token` mints a revocable, scoped `ext_`
+  token instead of the raw session id, and `bearerEmail` now accepts **only** `ext_` tokens; the legacy
+  session-id-as-bearer fallback is removed (prod logs showed zero usage). Session ids authenticate only
+  as first-party HttpOnly cookies.
 - ✅ **M4** fixed — all catch sites route through `oops()` which logs the exception with a short
   correlation id server-side and returns a generic message + id (no stack/DB/upstream text to clients);
   the Plane upstream-body echo is removed.

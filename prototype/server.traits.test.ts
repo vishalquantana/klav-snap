@@ -317,6 +317,22 @@ test("M2: /api/extension-token returns an ext_ token, not the session id", async
   expect(token).not.toBe(SID)
 })
 
+// ── M2 (closed): a raw session id is no longer accepted as a Bearer token ──
+test("M2: session id is rejected as a Bearer (cookie still works)", async () => {
+  // Bearer-only (no cookie): the session id must NOT authenticate the extension API anymore.
+  const bad = await fetch(`${BASE}/api/transcripts?project=${PROJECT_ID}`, { headers: { Authorization: "Bearer " + SID } })
+  expect(bad.status).toBe(401)
+  // The same session id as a first-party cookie still authenticates.
+  const viaCookie = await fetch(`${BASE}/api/transcripts?project=${PROJECT_ID}`, { headers: { cookie: "klav_session=" + SID } })
+  expect(viaCookie.status).toBe(200)
+})
+
+test("M2: a minted ext_ token authenticates as a Bearer with no cookie", async () => {
+  const { token } = await (await fetch(`${BASE}/api/extension-token`, { headers: { cookie: "klav_session=" + SID } })).json()
+  const res = await fetch(`${BASE}/api/transcripts?project=${PROJECT_ID}`, { headers: { Authorization: "Bearer " + token } })
+  expect(res.status).toBe(200)
+})
+
 // ── M5: /api/transcripts rejects an oversized payload before doing any LLM work ──
 test("M5: /api/transcripts rejects an oversized transcript with 413", async () => {
   const huge = "a".repeat(100_001)

@@ -10,6 +10,15 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.23.1] — 2026-06-20
+
+### Security
+- **Removed the legacy session-id-as-Bearer fallback (M2 fully closed).** `Authorization: Bearer`
+  credentials must now be a dedicated, revocable `ext_` extension token; a raw session id is no longer
+  accepted as a Bearer (it remains valid only as a first-party HttpOnly cookie). Prod logs showed zero
+  use of the deprecated path before removal. The ops dashboard spend cap caption now reflects that the
+  cap is enforced server-side (no longer "display only").
+
 ## [0.23.0] — 2026-06-20
 
 ### Security

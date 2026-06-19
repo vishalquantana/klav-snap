@@ -476,7 +476,7 @@ function renderOpsAdmin(d: {
   <div class="panel"><h2>Today vs daily cap</h2>
     <div>${fmtUsd(d.today)} <span style="color:var(--mut)">/ ${fmtUsd(d.cap)} (${todayPct}%)</span></div>
     <div class="meter"><i style="width:${todayPct}%"></i></div>
-    <p class="sub" style="margin:8px 0 0">Display only — the hard cap is enforced by OpenRouter on the API key.</p>
+    <p class="sub" style="margin:8px 0 0">Enforced server-side — AI calls fail closed once today's spend reaches the cap.</p>
   </div>
   <div class="panel"><h2>Daily spend (30d)</h2><div class="chart">${bars || '<span class="sub">No data</span>'}</div></div>
   <div class="panel"><h2>By project</h2><table><thead><tr><th>Project</th><th class="r">Cost</th><th class="r">Calls</th></tr></thead><tbody>${projRows}</tbody></table></div>
@@ -493,22 +493,16 @@ async function sessionEmail(req: Request): Promise<string | null> {
   return getSession(sid)
 }
 // Identify a request authenticated by an `Authorization: Bearer <token>` header (the extension).
-// R5 security pre-req: prefer a dedicated narrow-scope extension token (ext_…); fall back to the raw
-// 7-day session id for back-compat with already-connected extensions/popups until they re-sync.
+// Bearer credentials MUST be a dedicated narrow-scope extension token (ext_…) — the raw session id is
+// no longer accepted here (M2). First-party browser requests authenticate via the HttpOnly cookie.
 async function bearerEmail(req: Request): Promise<string | null> {
   const h = req.headers.get("authorization") || ""
   const m = h.match(/^Bearer\s+(.+)$/i)
   if (!m || !db) return null
-  const tok = m[1]
-  if (tok.startsWith("ext_")) return getExtensionTokenEmail(tok)
-  const ext = await getExtensionTokenEmail(tok)
-  if (ext) return ext
-  // M2 (legacy compat shim, to be removed): older clients sent the raw session id as a Bearer. We no
-  // longer ISSUE those (see /api/extension-token), so this path should go quiet — log when it's still
-  // hit so we can confirm no client depends on it before deleting the fallback.
-  const sess = await getSession(tok)
-  if (sess) console.warn("DEPRECATED: session-id used as Bearer token — client should re-sync to an ext_ token")
-  return sess
+  // M2 closed: only dedicated, revocable extension tokens (`ext_…`) are accepted as Bearer credentials.
+  // The raw session id is no longer honored as a Bearer — it remains valid only as a first-party
+  // HttpOnly cookie via sessionEmail(). A leaked Bearer is now always narrow-scope and revocable.
+  return getExtensionTokenEmail(m[1])
 }
 
 // Resolve the project a request targets: explicit ?project=:id if accessible, else the caller's
