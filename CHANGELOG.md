@@ -10,6 +10,19 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.18.0] — 2026-06-19
+
+### Added
+- **Ad-hoc "Analyze this page" (extension).** A signed-in user can run their project's
+  Sims on the current tab with one popup click — regardless of the admin URL allowlist.
+  First use on a domain shows a one-time confirm (a screenshot of the visible area is
+  sent to Klavity); reactions render in-page and persist as dashboard tickets like any
+  review. Built for solo devs: one project resolves silently, no setup. Server-side,
+  `POST /api/sim/review` accepts `adhoc:true` and `reviewGate` bypasses the passive-
+  monitoring gates (pause/consent/allowlist/dedupe) for the explicit action while still
+  enforcing sign-in/project-access and the daily review budget. The Options "Sims"
+  kill-switch does not gate ad-hoc (it is an explicit, user-initiated action).
+
 ## [0.17.0] — 2026-06-19
 
 ### Added
