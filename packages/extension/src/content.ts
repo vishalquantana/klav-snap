@@ -2,6 +2,7 @@ import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload
 import { Annotator } from '@klavity/core/annotator'
 import { cropDataUrl } from '@klavity/core/crop'
 import { klavContentSig, shouldCapture, DEBOUNCE_MS, ROUTE_COOLDOWN_MS, MAX_REVIEWS_PER_ROUTE } from './feedback-trigger'
+import { widgetPresent } from './coexist'
 
 // ── Error + network capture ring buffer ──────────────────────────────────────
 const consoleErrors: ConsoleError[] = []
@@ -813,6 +814,7 @@ function handleContextMenu(e: MouseEvent) {
     showToast('Extension reloaded. Please refresh the page.')
     return
   }
+  if (widgetPresent()) return // widget present → pass through to native menu; widget owns reporting
   if (e.shiftKey || nativeMenuPending) {
     nativeMenuPending = false
     return // pass through to native browser menu
@@ -822,6 +824,12 @@ function handleContextMenu(e: MouseEvent) {
 }
 
 document.addEventListener('contextmenu', handleContextMenu)
+
+// If the widget announces itself after we initialised, tear down our report UI; widget wins.
+document.addEventListener('klavity:widget-ready', () => {
+  closeCtxMenu()
+  if (shadowRoot?.querySelector('.klavity-overlay')) closeModal()
+})
 
 // ════════════════════════════════════════════════════════════════════════════
 // LIVE ACTIVATION (P3b, R5) — auto-comment on monitored URLs.
