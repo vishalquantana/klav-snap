@@ -54,12 +54,14 @@ test("groundQuote: smart-quote / dash variant snaps to the real span, verified t
   expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
 })
 
-test("groundQuote: reworded but same line ≥ threshold → snaps to the real line", () => {
-  const raw = "Lee: The checkout page keeps timing out when I pay.\nAna: ok"
-  const g = groundQuote(raw, "checkout page keeps timing out when I pay")
+test("groundQuote: case/whitespace variant of a line (not a verbatim substring) → snaps to the real line", () => {
+  // Quote differs from the line only by case + collapsed/extra whitespace, so exact (step 1)
+  // and char-normalized substring (step 2) both miss; fuzzy line-snap (step 3) catches it.
+  const raw = "Lee: The checkout page keeps timing out.\nAna: ok"
+  const g = groundQuote(raw, "lee: the   checkout   page   keeps   timing   out.")
   expect(g.verified).toBe(true)
   expect(g.offset).toBe(0)
-  expect(g.quote).toBe("Lee: The checkout page keeps timing out when I pay.")
+  expect(g.quote).toBe("Lee: The checkout page keeps timing out.")
 })
 
 test("groundQuote: unrelated quote < threshold → keep text, offset null, verified false", () => {

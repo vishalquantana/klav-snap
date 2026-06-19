@@ -95,6 +95,70 @@ function defaultNewId(): string {
   return "trait_" + Date.now().toString(36) + "_" + _counter
 }
 
+// ── Quote grounding: verify/anchor an LLM-returned quote against the transcript text. ──
+// Pure. Returns the real substring + char offset when found; flags (verified:false) when not.
+const GROUND_DICE_THRESHOLD = 0.75
+
+// 1:1 char substitutions (length-preserving so offsets stay valid against the ORIGINAL raw).
+function subsChars(s: string): string {
+  return s
+    .replace(/['']/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/[–—]/g, "-")
+    .replace(/ /g, " ")
+}
+function normTokens(s: string): Set<string> {
+  return new Set(subsChars(s).toLowerCase().replace(/\s+/g, " ").trim().split(" ").filter(Boolean))
+}
+function tokenDice(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0
+  let inter = 0
+  for (const t of a) if (b.has(t)) inter++
+  return (2 * inter) / (a.size + b.size)
+}
+// Line spans with their start offset in raw (skips blank lines).
+function lineSpans(raw: string): Array<{ start: number; end: number; text: string }> {
+  const out: Array<{ start: number; end: number; text: string }> = []
+  let i = 0
+  for (const line of raw.split("\n")) {
+    const start = i
+    const end = i + line.length
+    if (line.trim()) out.push({ start, end, text: line })
+    i = end + 1 // account for the consumed "\n"
+  }
+  return out
+}
+
+export function groundQuote(
+  rawText: string | null,
+  quote: string,
+): { quote: string; offset: number | null; verified: boolean | null } {
+  const q = (quote ?? "").trim()
+  if (rawText == null) return { quote: q, offset: null, verified: null }
+  if (!q) return { quote: q, offset: null, verified: false }
+
+  // 1) exact substring
+  const exact = rawText.indexOf(q)
+  if (exact >= 0) return { quote: q, offset: exact, verified: true }
+
+  // 2) length-preserving char-normalized substring (curly quotes, dashes, nbsp)
+  const subOffset = subsChars(rawText).indexOf(subsChars(q))
+  if (subOffset >= 0) return { quote: rawText.slice(subOffset, subOffset + q.length), offset: subOffset, verified: true }
+
+  // 3) fuzzy snap to the best-scoring line
+  const qTokens = normTokens(q)
+  if (qTokens.size === 0) return { quote: q, offset: null, verified: false }
+  let best = { score: 0, start: -1, end: -1 }
+  for (const sp of lineSpans(rawText)) {
+    const score = tokenDice(qTokens, normTokens(sp.text))
+    if (score > best.score) best = { score, start: sp.start, end: sp.end }
+  }
+  if (best.score >= GROUND_DICE_THRESHOLD && best.start >= 0) {
+    return { quote: rawText.slice(best.start, best.end).trim(), offset: best.start, verified: true }
+  }
+  return { quote: q, offset: null, verified: false }
+}
+
 /**
  * Apply a list of reconcile ops to a Sim's current trait set.
  *

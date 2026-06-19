@@ -11,6 +11,7 @@ import {
   applyReconcileOps,
   insightsFromTraits,
   recurrenceFromEvents,
+  groundQuote,
   type Trait,
   type ReconcileOp,
   type ReconcileCtx,
@@ -588,4 +589,44 @@ test("recurrenceFromEvents: create+contradict+reopen → regression summary has 
   expect(citedRecurrence.lastRaised).toBe(3500)   // must be reopen date
   // X and Y must differ: firstRaised (raise) != priorResolvedAt (resolve)
   expect(citedRecurrence.firstRaised).not.toBe(citedRecurrence.priorResolvedAt)
+})
+
+test("groundQuote: exact substring → real offset + verified true", () => {
+  const raw = "Sarah: The export button is hidden.\nJon: agreed."
+  const g = groundQuote(raw, "The export button is hidden.")
+  expect(g.verified).toBe(true)
+  expect(g.offset).toBe(raw.indexOf("The export button is hidden."))
+  expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
+})
+
+test("groundQuote: smart-quote / dash variant snaps to the real span, verified true", () => {
+  const raw = `Mia: I can't find the "Save" toggle — it's gone.`
+  const g = groundQuote(raw, `I can't find the "Save" toggle — it's gone.`)
+  expect(g.verified).toBe(true)
+  expect(g.offset).not.toBeNull()
+  // snapped text is taken from rawText, so it round-trips at the offset
+  expect(raw.slice(g.offset!, g.offset! + g.quote.length)).toBe(g.quote)
+})
+
+test("groundQuote: case/whitespace variant of a line (not a verbatim substring) → snaps to the real line", () => {
+  // Quote differs from the line only by case + collapsed/extra whitespace, so exact (step 1)
+  // and char-normalized substring (step 2) both miss; fuzzy line-snap (step 3) catches it.
+  const raw = "Lee: The checkout page keeps timing out.\nAna: ok"
+  const g = groundQuote(raw, "lee: the   checkout   page   keeps   timing   out.")
+  expect(g.verified).toBe(true)
+  expect(g.offset).toBe(0)
+  expect(g.quote).toBe("Lee: The checkout page keeps timing out.")
+})
+
+test("groundQuote: unrelated quote < threshold → keep text, offset null, verified false", () => {
+  const raw = "Sarah: The export button is hidden."
+  const g = groundQuote(raw, "the onboarding wizard crashed on step three")
+  expect(g.verified).toBe(false)
+  expect(g.offset).toBeNull()
+  expect(g.quote).toBe("the onboarding wizard crashed on step three")
+})
+
+test("groundQuote: null rawText → verified null (not attempted); empty quote → verified false", () => {
+  expect(groundQuote(null, "anything")).toEqual({ quote: "anything", offset: null, verified: null })
+  expect(groundQuote("some text", "")).toEqual({ quote: "", offset: null, verified: false })
 })
