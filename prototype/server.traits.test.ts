@@ -127,3 +127,18 @@ test("GET /api/sims/:id/traits returns active traits", async () => {
   expect(body.traits.length).toBe(2)
   expect(body.traits[0]).toHaveProperty("srcQuote")
 })
+
+// ── Task 4: POST traits — manual create + manual_create event ──
+test("POST /api/sims/:id/traits creates a trait + manual_create event", async () => {
+  const res = await authedFetch(`/api/sims/sim_t/traits?project=${PROJECT_ID}`, {
+    method: "POST",
+    body: JSON.stringify({ kind: "love", text: "Loves dark mode", srcQuote: "dark mode is great", srcTranscriptId: "tr_seed" }),
+  })
+  expect(res.status).toBe(201)
+  const { trait } = await res.json()
+  expect(trait.kind).toBe("love")
+  expect(trait.text).toBe("Loves dark mode")
+  const ev = await authedFetch(`/api/sims/sim_t/evolution?project=${PROJECT_ID}`)
+  const { events } = await ev.json()
+  expect(events.some((e: any) => e.op === "manual_create")).toBe(true)
+})
