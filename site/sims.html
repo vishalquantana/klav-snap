@@ -40,7 +40,7 @@
 {"@context":"https://schema.org","@graph":[
 {"@type":"SoftwareApplication","name":"Klavity Sims","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://klavity.quantana.top/sims","description":"AI user personas built from real customer interviews that review your actual product in their own voice and file grounded bugs to your tracker.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
 {"@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"How are Klavity Sims different from generic AI personas?","acceptedAnswer":{"@type":"Answer","text":"Every Sim trait is grounded in a verbatim line from a real customer call, so personas are provenance, not hallucination. Sims also react to your actual product via a vision model, not to a written description of it."}},
+{"@type":"Question","name":"How are Klavity Sims different from generic AI personas?","acceptedAnswer":{"@type":"Answer","text":"Every Sim trait is grounded in a verbatim line from a real customer call, so personas are on the record, not made up. Sims also react to your actual product by seeing it, not to a written description of it."}},
 {"@type":"Question","name":"What do you feed Klavity to build a Sim?","acceptedAnswer":{"@type":"Answer","text":"Drop in a real customer interview or support-call transcript. Klavity extracts the people in it as personas with pain, want and love traits, each traceable to the line that justifies it."}},
 {"@type":"Question","name":"Where do the bugs the Sims find go?","acceptedAnswer":{"@type":"Answer","text":"A Sim's reaction becomes a grounded bug — carrying the persona and the quote — filed straight into Plane, Jira, GitHub or Linear, with duplicates collapsed."}}
 ]}
@@ -77,7 +77,7 @@
     <h1 class="reveal" style="--d:.06s;max-width:18ch">Your customers, <em>in the room</em> while you <span class="accent">build</span>.</h1>
     <p class="reveal" style="--d:.14s;font-size:19px;color:var(--paper-dim);max-width:54ch;margin-top:22px">
       Turn real customer calls into AI personas that <b style="color:var(--paper);font-weight:600">review your product in their own voice</b>.
-      Each one is grounded in a verbatim quote — so what they tell you is provenance, not guesswork.
+      Each one is grounded in a verbatim quote — so what they tell you is on the record, not guesswork.
     </p>
     <div class="reveal" style="--d:.22s;display:flex;gap:12px;flex-wrap:wrap;margin-top:30px">
       <a class="btn btn-primary" href="/#cta">Build your first Sim</a>
@@ -133,7 +133,6 @@
           </div>
         </div>
         <div class="cap"><h3>Drop in a customer call</h3><p>Upload a real interview or support transcript — the raw voice of a customer, exactly as they said it.</p></div>
-        <div class="hood">transcript → <b>extract</b> (model-mix)</div>
       </div>
 
       <!-- 2 · Meet your Sims -->
@@ -146,7 +145,6 @@
           </div>
         </div>
         <div class="cap"><h3>Personas, grounded in quotes</h3><p>Klavity builds Sims with real pains, wants and loves — each one traceable to a verbatim line from the call.</p></div>
-        <div class="hood">traits: <b>pain · want · love</b> + src quote</div>
       </div>
 
       <!-- 3 · Sims react -->
@@ -161,8 +159,7 @@
             <span class="sim" style="position:absolute;right:14px;top:46px;--sz:24px;--sc:var(--rose)"><i>SC</i></span>
           </div>
         </div>
-        <div class="cap"><h3>They walk your real pages</h3><p>Each Sim reviews your actual product through a vision model and pins exactly what bothers them, in their own voice.</p></div>
-        <div class="hood">vision-LLM <b>react</b> · cites a trait</div>
+        <div class="cap"><h3>They walk your real pages</h3><p>Each Sim looks at your actual product and pins exactly what bothers them, in their own voice.</p></div>
       </div>
 
       <!-- 4 · Files the bug -->
@@ -179,7 +176,6 @@
           </div>
         </div>
         <div class="cap"><h3>A bug with a human behind it</h3><p>The reaction becomes a filed bug — carrying the persona and the quote that justifies it — straight into your tracker.</p></div>
-        <div class="hood">suggested-bug → <b>connector</b> · provenance kept</div>
       </div>
     </div>
   </div>
@@ -191,17 +187,17 @@
     <div class="sec-head reveal">
       <p class="tag">Why Sims, not synthetic users</p>
       <h2 id="why-h">Most AI personas <em>make people up</em>. Ours are <span class="accent">made of real ones</span>.</h2>
-      <p>Synthetic users that hallucinate a demographic tell you nothing. Klavity Sims are built from the voice of your actual customers, and they react to the product you actually shipped.</p>
+      <p>Made-up users with a made-up demographic tell you nothing. Klavity Sims are built from the voice of your actual customers, and they react to the product you actually shipped.</p>
     </div>
 
     <div class="auto-stagger" style="display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(248px,1fr))">
       <article class="card reveal">
-        <span class="chip rose" aria-hidden="true">⛓ provenance</span>
+        <span class="chip rose" aria-hidden="true">⛓ from real calls</span>
         <h3 style="font-size:21px;margin:14px 0 8px">Grounded in verbatim quotes</h3>
         <p style="color:var(--paper-dim);font-size:15px">Every pain, want and love links back to the exact line a customer said. No invented opinions — you can trace each insight to its source.</p>
       </article>
       <article class="card reveal">
-        <span class="chip rose" aria-hidden="true">👁 vision-LLM</span>
+        <span class="chip rose" aria-hidden="true">👁 reads your screen</span>
         <h3 style="font-size:21px;margin:14px 0 8px">Reacts to your actual product</h3>
         <p style="color:var(--paper-dim);font-size:15px">Sims walk your live pages and respond to what they see — not to a written spec. The feedback is about the thing you actually built.</p>
       </article>

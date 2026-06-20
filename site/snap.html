@@ -40,9 +40,9 @@
 {"@context":"https://schema.org","@graph":[
 {"@type":"SoftwareApplication","name":"Klavity Snap","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://klavity.quantana.top/snap","description":"Right-click any page to file a grounded bug report — screenshot, console and network attached — straight into Plane, Jira, GitHub or Linear. No browser extension required.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
 {"@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"Do I need a browser extension to use Klavity Snap?","acceptedAnswer":{"@type":"Answer","text":"No. The Klavity Snap widget owns the right-click contextmenu event itself, so anyone on the page can file a bug without installing anything."}},
+{"@type":"Question","name":"Do I need a browser extension to use Klavity Snap?","acceptedAnswer":{"@type":"Answer","text":"No. The Klavity Snap widget owns the right-click menu itself, so anyone on the page can file a bug without installing anything."}},
 {"@type":"Question","name":"What gets attached to a bug report?","acceptedAnswer":{"@type":"Answer","text":"A full-page screenshot is captured automatically, plus the page URL and the surrounding console and network errors — grounded to the exact element you clicked."}},
-{"@type":"Question","name":"Where do the bugs get filed?","acceptedAnswer":{"@type":"Answer","text":"Reports are auto-copied into your tracker via connectors for Plane, Jira, GitHub and Linear."}},
+{"@type":"Question","name":"Where do the bugs get filed?","acceptedAnswer":{"@type":"Answer","text":"Reports are auto-copied into your tracker — Plane, Jira, GitHub and Linear — or any other tool you use."}},
 {"@type":"Question","name":"Is Klavity Snap open source?","acceptedAnswer":{"@type":"Answer","text":"Yes. Klavity is open-core and self-hostable, so you can run the bug reporter on your own infrastructure."}}
 ]}
 ]}
@@ -141,7 +141,6 @@
           </div>
         </div>
         <div class="cap"><h3>Right-click anything</h3><p>No tool to open, no screenshot to take. Right-click the thing that's wrong.</p></div>
-        <div class="hood">widget owns <b>contextmenu</b> · no extension</div>
       </div>
 
       <div class="step reveal" style="--d:.1s">
@@ -158,7 +157,6 @@
           </div>
         </div>
         <div class="cap"><h3>The page is already attached</h3><p>A full-page screenshot is captured for you. Pick Bug or Feature, say what's wrong, hit Submit.</p></div>
-        <div class="hood"><b>html-to-image</b> capture · Bug / Feature</div>
       </div>
 
       <div class="step reveal" style="--d:.2s">
@@ -171,7 +169,6 @@
           </div>
         </div>
         <div class="cap"><h3>It arrives with context</h3><p>Klavity bundles the screenshot, the page, and the surrounding errors — and won't file a duplicate.</p></div>
-        <div class="hood">POST <b>/api/feedback</b> · groundQuote · dedup</div>
       </div>
 
       <div class="step reveal" style="--d:.3s">
@@ -187,7 +184,6 @@
           </div>
         </div>
         <div class="cap"><h3>Filed where you work</h3><p>A ready-to-fix ticket lands in Plane, Jira, GitHub or Linear — auto-copied.</p></div>
-        <div class="hood">connectors: <b>Plane · Jira · GitHub · Linear</b></div>
       </div>
     </div>
   </div>
@@ -206,7 +202,7 @@
       <div class="card reveal">
         <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">No extension</p>
         <h3 style="font-size:21px;margin:8px 0 6px">The widget owns the right-click</h3>
-        <p style="color:var(--paper-dim);font-size:14.5px">Drop one snippet on the page and the contextmenu becomes a bug composer for everyone — teammates, QA, even customers. Nothing to install.</p>
+        <p style="color:var(--paper-dim);font-size:14.5px">Drop one snippet on the page and the right-click menu becomes a bug composer for everyone — teammates, QA, even customers. Nothing to install.</p>
       </div>
       <div class="card reveal">
         <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">Grounded evidence</p>
@@ -224,9 +220,9 @@
         <p style="color:var(--paper-dim);font-size:14.5px">Run the whole bug reporter on your own infrastructure. No black box, no lock-in — read the source and host it yourself.</p>
       </div>
       <div class="card reveal">
-        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">Connectors</p>
+        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">Your tracker</p>
         <h3 style="font-size:21px;margin:8px 0 6px">Files to Plane, Jira, GitHub &amp; Linear</h3>
-        <p style="color:var(--paper-dim);font-size:14.5px">Pluggable connectors auto-copy each report into the tracker your team already lives in — or fan out via a plain webhook.</p>
+        <p style="color:var(--paper-dim);font-size:14.5px">Each report is auto-copied into the tracker your team already lives in — or sent on to any other tool you use.</p>
       </div>
       <div class="card reveal">
         <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">For everyone</p>
@@ -247,7 +243,7 @@
     <div class="auto-stagger" style="display:grid;gap:14px;max-width:760px">
       <details class="card reveal" style="padding:18px 22px">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Do I need a browser extension?</summary>
-        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">No. The Snap widget owns the right-click <span class="mono">contextmenu</span> event itself, so anyone on the page can file a bug without installing anything.</p>
+        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">No. The Snap widget owns the right-click menu itself, so anyone on the page can file a bug without installing anything.</p>
       </details>
       <details class="card reveal" style="padding:18px 22px">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">What gets attached to a report?</summary>
@@ -255,7 +251,7 @@
       </details>
       <details class="card reveal" style="padding:18px 22px">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Where do the bugs get filed?</summary>
-        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">Reports are auto-copied into your tracker via connectors for Plane, Jira, GitHub and Linear — or any endpoint via webhook.</p>
+        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">Reports are auto-copied into your tracker — Plane, Jira, GitHub and Linear — or any other tool you use.</p>
       </details>
       <details class="card reveal" style="padding:18px 22px">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Is Klavity Snap open source?</summary>

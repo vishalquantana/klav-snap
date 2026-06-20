@@ -270,8 +270,6 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 .cap h3,.cap h4{margin:0;font-family:var(--body);font-size:15px;font-weight:600;letter-spacing:-.01em}
 .cap p{margin:4px 0 0;font-size:13.5px;color:var(--paper-dim);line-height:1.5}
 /* under-the-hood mono note */
-.hood{margin:10px 2px 0;font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--paper-faint);padding-left:11px;border-left:2px solid var(--line)}
-.hood b{color:var(--accent-text);font-weight:600}
 
 /* ── 10. BROWSER MINI-SCREEN (.screen + chrome/body) ──────────────────── */
 .screen{

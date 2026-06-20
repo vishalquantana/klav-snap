@@ -10,6 +10,17 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.30.4] — 2026-06-20
+
+### Changed
+- **Plain-language pass over the feature pages — removed developer jargon.** Deleted the 13 monospace
+  `.hood` technical captions under the storyboard cards on `/snap`, `/sims`, `/autosim` (e.g. "widget
+  owns `contextmenu`", "POST `/api/feedback`", "connectors: Plane · Jira · GitHub · Linear"), and
+  rewrote the surrounding body copy, chips, FAQ, alt-text and SEO meta/JSON-LD to drop internal terms
+  (crystallize, locator cache, heal ladder, zero-LLM, role+accessible-name, vision-LLM, provenance,
+  hallucinate, selector, and "Playwright") in favour of plain English that keeps the meaning. Also
+  removed the now-dead `.hood` CSS from `kit.css`. The home page had none of these.
+
 ## [0.30.3] — 2026-06-20
 
 ### Fixed
