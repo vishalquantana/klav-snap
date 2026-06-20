@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="any">
+
+<!-- SEO -->
+<title>Klavity Sims — AI personas from customer calls · Klavity</title>
+<meta name="description" content="Turn real customer interviews into AI personas that review your actual product in their own voice — grounded in verbatim quotes — and file the bugs they find.">
+<link rel="canonical" href="https://klavity.quantana.top/sims">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Klavity">
+<meta property="og:title" content="Klavity Sims — AI personas from customer calls">
+<meta property="og:description" content="Turn real customer calls into AI personas that review your actual product in their own voice — grounded in verbatim quotes — and file the bugs they find.">
+<meta property="og:url" content="https://klavity.quantana.top/sims">
+<meta property="og:image" content="https://klavity.quantana.top/favicon.svg">
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Klavity Sims — AI personas from customer calls">
+<meta name="twitter:description" content="AI user personas built from real interviews that review your actual product and file grounded bugs.">
+<meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- Shared kit -->
+<link rel="stylesheet" href="/kit.css">
+<script src="/kit.js" defer></script>
+
+<!-- JSON-LD: SoftwareApplication + FAQPage -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"SoftwareApplication","name":"Klavity Sims","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://klavity.quantana.top/sims","description":"AI user personas built from real customer interviews that review your actual product in their own voice and file grounded bugs to your tracker.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"How are Klavity Sims different from generic AI personas?","acceptedAnswer":{"@type":"Answer","text":"Every Sim trait is grounded in a verbatim line from a real customer call, so personas are provenance, not hallucination. Sims also react to your actual product via a vision model, not to a written description of it."}},
+{"@type":"Question","name":"What do you feed Klavity to build a Sim?","acceptedAnswer":{"@type":"Answer","text":"Drop in a real customer interview or support-call transcript. Klavity extracts the people in it as personas with pain, want and love traits, each traceable to the line that justifies it."}},
+{"@type":"Question","name":"Where do the bugs the Sims find go?","acceptedAnswer":{"@type":"Answer","text":"A Sim's reaction becomes a grounded bug — carrying the persona and the quote — filed straight into Plane, Jira, GitHub or Linear, with duplicates collapsed."}}
+]}
+]}
+</script>
+</head>
+<body style="--accent:var(--rose)"> <!-- Snap=indigo · Sims=rose · AutoSim=green -->
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar"></div>
+
+<!-- ── NAV ─────────────────────────────────────────────────────────────── -->
+<nav class="nav" aria-label="Primary">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span> Klavity</a>
+    <div class="nav-links">
+      <a class="s-snap" href="/snap">Snap</a>
+      <a class="s-sims" href="/sims" aria-current="page">Sims</a>
+      <a class="s-autosim" href="/autosim">AutoSim</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="/snap">See Snap</a>
+      <a class="btn btn-primary" href="/#cta">Get early access</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+
+<!-- ── HERO ────────────────────────────────────────────────────────────── -->
+<header class="hero" style="padding-top:70px">
+  <div class="hero-ambient" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="eyebrow reveal" style="--d:0s">Phase 02 · live today <span class="dot live" style="vertical-align:middle"></span></p>
+    <h1 class="reveal" style="--d:.06s;max-width:18ch">Your customers, <em>in the room</em> while you <span class="accent">build</span>.</h1>
+    <p class="reveal" style="--d:.14s;font-size:19px;color:var(--paper-dim);max-width:54ch;margin-top:22px">
+      Turn real customer calls into AI personas that <b style="color:var(--paper);font-weight:600">review your product in their own voice</b>.
+      Each one is grounded in a verbatim quote — so what they tell you is provenance, not guesswork.
+    </p>
+    <div class="reveal" style="--d:.22s;display:flex;gap:12px;flex-wrap:wrap;margin-top:30px">
+      <a class="btn btn-primary" href="/#cta">Build your first Sim</a>
+      <a class="btn btn-ghost" href="#path">See how it works</a>
+    </div>
+
+    <!-- the signature trail: a Sim walking the phase line -->
+    <div class="trail reveal" style="--d:.3s;margin-top:64px" aria-label="The Klavity arc: Snap, then Sims, then AutoSim">
+      <div class="trail-line reveal" aria-hidden="true"></div>
+      <div class="waypoint a1">
+        <a href="/snap" aria-label="Klavity Snap"><span class="sim walk" style="--sz:34px;--sc:var(--indigo)"><i>K</i></span></a>
+        <div class="ph">Phase 01</div>
+        <h3>Snap</h3>
+        <p>A human catches a bug in one right-click.</p>
+      </div>
+      <div class="waypoint a2">
+        <span class="sim walk" style="--sz:40px;--sc:var(--rose)"><i>SC</i></span>
+        <div class="ph">Phase 02 · you are here</div>
+        <h3>Sims</h3>
+        <p>AI personas from real calls catch them for you.</p>
+      </div>
+      <div class="waypoint a3">
+        <a href="/autosim" aria-label="Klavity AutoSim"><span class="sim walk" style="--sz:34px;--sc:var(--green)"><i>AS</i></span></a>
+        <div class="ph">Phase 03</div>
+        <h3>AutoSim</h3>
+        <p>Those Sims test every release — and self-heal.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── THE CRITICAL PATH (mirrors _walkthroughs-reference.html, Sims phase) ─ -->
+<section id="path" aria-labelledby="path-h">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="tag">The Sims path · transcript → personas → reaction → bug</p>
+      <h2 id="path-h">From a customer call to a <em>grounded bug</em> — in their own words.</h2>
+      <p>Feed Klavity a real interview. It builds your Sims, walks them across your live product, and files what bothers them — carrying the person and the quote behind it.</p>
+    </div>
+
+    <div class="path auto-stagger">
+      <!-- 1 · Feed a call -->
+      <div class="step reveal">
+        <div class="n"><b>1</b><span>Feed a call</span></div>
+        <div class="screen">
+          <div class="chrome"><i></i><i></i><i></i><span class="url">acme — discovery call.txt</span></div>
+          <div class="body">
+            <div class="row"><span class="chip rose">📄 transcript</span><span class="chip">28 min</span></div>
+            <div class="ln l" style="margin-top:12px"></div>
+            <div class="ln m" style="margin-top:7px"></div>
+            <div class="ln l" style="margin-top:7px"></div>
+            <div class="ln s" style="margin-top:7px"></div>
+          </div>
+        </div>
+        <div class="cap"><h4>Drop in a customer call</h4><p>Upload a real interview or support transcript — the raw voice of a customer, exactly as they said it.</p></div>
+        <div class="hood">transcript → <b>extract</b> (model-mix)</div>
+      </div>
+
+      <!-- 2 · Meet your Sims -->
+      <div class="step reveal">
+        <div class="n"><b>2</b><span>Meet your Sims</span></div>
+        <div class="screen">
+          <div class="body" style="height:100%;display:flex;flex-direction:column;gap:7px;justify-content:center">
+            <div class="pc"><div class="av" style="background:var(--rose)">SC</div><div><div class="nm">Sarah Chen</div><div class="rl">CFO · client</div><span class="trait pain">pain · can't see what's overdue</span></div></div>
+            <div class="pc"><div class="av" style="background:var(--indigo)">RA</div><div><div class="nm">Ravi A.</div><div class="rl">PM · client</div><span class="trait want">want · bulk-approve</span></div></div>
+          </div>
+        </div>
+        <div class="cap"><h4>Personas, grounded in quotes</h4><p>Klavity builds Sims with real pains, wants and loves — each one traceable to a verbatim line from the call.</p></div>
+        <div class="hood">traits: <b>pain · want · love</b> + src quote</div>
+      </div>
+
+      <!-- 3 · Sims react -->
+      <div class="step reveal">
+        <div class="n"><b>3</b><span>Sims react</span></div>
+        <div class="screen react">
+          <div class="chrome"><i></i><i></i><i></i><span class="url">app.yourproduct.com/overview</span></div>
+          <div class="body">
+            <div class="ln m"></div><div class="ln l" style="margin-top:8px"></div>
+            <div class="hi" style="left:54px;top:58px;width:64px;height:26px"></div>
+            <div class="bubble" style="left:8px;bottom:10px"><div class="who">SC · CFO</div>These aren't sorted by urgency — I can't see what's overdue.</div>
+            <span class="sim" style="position:absolute;right:14px;top:46px;--sz:24px;--sc:var(--rose)"><i>SC</i></span>
+          </div>
+        </div>
+        <div class="cap"><h4>They walk your real pages</h4><p>Each Sim reviews your actual product through a vision model and pins exactly what bothers them, in their own voice.</p></div>
+        <div class="hood">vision-LLM <b>react</b> · cites a trait</div>
+      </div>
+
+      <!-- 4 · Files the bug -->
+      <div class="step reveal">
+        <div class="n"><b>4</b><span>Files the bug</span></div>
+        <div class="screen">
+          <div class="body" style="height:100%;display:flex;align-items:center">
+            <div class="tkt" style="width:100%;--c:var(--rose)">
+              <div class="top">PLANE · PROJ-57 · <span class="pill r">UX</span></div>
+              <h5>Overview list isn't ordered by urgency</h5>
+              <div class="q">"I can't see what's overdue at a glance." — Sarah Chen, CFO</div>
+              <div class="row" style="margin-top:8px"><span class="chip rose">👤 grounded in a Sim's want</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><h4>A bug with a human behind it</h4><p>The reaction becomes a filed bug — carrying the persona and the quote that justifies it — straight into your tracker.</p></div>
+        <div class="hood">suggested-bug → <b>connector</b> · provenance kept</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY IT'S DIFFERENT ───────────────────────────────────────────────── -->
+<section aria-labelledby="why-h" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="tag">Why Sims, not synthetic users</p>
+      <h2 id="why-h">Most AI personas <em>make people up</em>. Ours are <span class="accent">made of real ones</span>.</h2>
+      <p>Synthetic users that hallucinate a demographic tell you nothing. Klavity Sims are built from the voice of your actual customers, and they react to the product you actually shipped.</p>
+    </div>
+
+    <div class="auto-stagger" style="display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(248px,1fr))">
+      <article class="card reveal">
+        <span class="chip rose" aria-hidden="true">⛓ provenance</span>
+        <h3 style="font-size:21px;margin:14px 0 8px">Grounded in verbatim quotes</h3>
+        <p style="color:var(--paper-dim);font-size:15px">Every pain, want and love links back to the exact line a customer said. No invented opinions — you can trace each insight to its source.</p>
+      </article>
+      <article class="card reveal">
+        <span class="chip rose" aria-hidden="true">👁 vision-LLM</span>
+        <h3 style="font-size:21px;margin:14px 0 8px">Reacts to your actual product</h3>
+        <p style="color:var(--paper-dim);font-size:15px">Sims walk your live pages and respond to what they see — not to a written spec. The feedback is about the thing you actually built.</p>
+      </article>
+      <article class="card reveal">
+        <span class="chip rose" aria-hidden="true">🌱 evolving</span>
+        <h3 style="font-size:21px;margin:14px 0 8px">Personas evolve with every call</h3>
+        <p style="color:var(--paper-dim);font-size:15px">Add another interview and your Sims sharpen — new traits, new quotes, a richer picture of who you're really building for.</p>
+      </article>
+      <article class="card reveal">
+        <span class="chip rose" aria-hidden="true">🎫 filed</span>
+        <h3 style="font-size:21px;margin:14px 0 8px">Files grounded bugs to your tracker</h3>
+        <p style="color:var(--paper-dim);font-size:15px">A reaction isn't a dead-end note. It becomes a ready-to-fix ticket in Plane, Jira, GitHub or Linear — with the persona and quote attached, duplicates collapsed.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ── PERSONA SHOWCASE ─────────────────────────────────────────────────── -->
+<section aria-labelledby="cast-h" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="tag">The voice of the customer, made tangible</p>
+      <h2 id="cast-h">A cast you can <em>actually talk to</em>.</h2>
+      <p>Each Sim is a person extracted from a real call — with traits you can trust because they cite the line behind them.</p>
+    </div>
+
+    <div class="auto-stagger" style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+      <div class="card reveal" style="padding:18px">
+        <div class="pc" style="border:0;padding:0;background:transparent">
+          <div class="av" style="background:var(--rose)">SC</div>
+          <div><div class="nm" style="font-size:14px">Sarah Chen</div><div class="rl">CFO · enterprise client</div></div>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+          <span class="trait pain">pain · overdue items buried</span>
+          <span class="trait want">want · sort by urgency</span>
+        </div>
+        <p class="mono" style="margin-top:12px;font-size:11px;color:var(--paper-faint);border-left:2px solid var(--rose);padding-left:9px;font-style:normal">"I can't see what's overdue at a glance."</p>
+      </div>
+
+      <div class="card reveal" style="padding:18px">
+        <div class="pc" style="border:0;padding:0;background:transparent">
+          <div class="av" style="background:var(--indigo)">RA</div>
+          <div><div class="nm" style="font-size:14px">Ravi A.</div><div class="rl">PM · power user</div></div>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+          <span class="trait want">want · bulk-approve</span>
+          <span class="trait love">love · keyboard shortcuts</span>
+        </div>
+        <p class="mono" style="margin-top:12px;font-size:11px;color:var(--paper-faint);border-left:2px solid var(--indigo);padding-left:9px;font-style:normal">"I'm clicking approve forty times a morning."</p>
+      </div>
+
+      <div class="card reveal" style="padding:18px">
+        <div class="pc" style="border:0;padding:0;background:transparent">
+          <div class="av" style="background:var(--green)">MO</div>
+          <div><div class="nm" style="font-size:14px">Maya O.</div><div class="rl">Ops lead · new to the tool</div></div>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+          <span class="trait pain">pain · lost on first run</span>
+          <span class="trait love">love · the export</span>
+        </div>
+        <p class="mono" style="margin-top:12px;font-size:11px;color:var(--paper-faint);border-left:2px solid var(--green);padding-left:9px;font-style:normal">"I didn't know where to start, but the export saved me."</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ──────────────────────────────────────────────────────────────── -->
+<section aria-labelledby="cta-h" style="text-align:center">
+  <div class="wrap" style="position:relative">
+    <div class="hero-ambient" aria-hidden="true"></div>
+    <div class="reveal">
+      <span class="sim walk" style="--sz:46px;--sc:var(--rose);margin:0 auto 22px"><i>SC</i></span>
+      <h2 id="cta-h" style="font-family:var(--display);font-weight:460;font-size:clamp(28px,4.4vw,46px);letter-spacing:-.02em;max-width:20ch;margin:0 auto">
+        Put your customers <em>in the room</em> this week.
+      </h2>
+      <p style="color:var(--paper-dim);max-width:50ch;margin:16px auto 0;font-size:17px">
+        Bring one real call. Meet your Sims, watch them react to your product, and let them file the first grounded bug.
+      </p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px">
+        <a class="btn btn-primary" href="/#cta">Build your first Sim</a>
+        <a class="btn btn-ghost" href="/autosim">Next: AutoSim →</a>
+      </div>
+      <p class="mono" style="margin-top:22px;font-size:12px;color:var(--paper-faint)">
+        Snap catches it · <span style="color:var(--rose)">Sims review it</span> · AutoSim runs it forever
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ── FOOTER ───────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="wrap foot-in">
+    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span> Klavity</a>
+    <a href="/snap">Snap</a>
+    <a href="/sims" aria-current="page">Sims</a>
+    <a href="/autosim">AutoSim</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <span class="sp mono">© <span data-year>2026</span> Klavity · the user becomes the tester</span>
+  </div>
+</footer>
+
+</body>
+</html>
