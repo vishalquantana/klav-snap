@@ -1799,10 +1799,14 @@ Bun.serve({
       }
 
       // POST /api/trails/findings/:id/dismiss — human dismisses a queued finding.
+      // dismissFinding only acts on an existing, in-project, currently-queued finding; a no-op (missing /
+      // foreign-project / non-queued id) returns 404 rather than a misleading 200, and a cross-project
+      // write is impossible because the lookup is project-scoped.
       const dismissMatch = path.match(/^\/api\/trails\/findings\/([^/]+)\/dismiss$/)
       if (req.method === "POST" && dismissMatch) {
         try {
-          await dismissFinding(projectId, dismissMatch[1])
+          const ok = await dismissFinding(projectId, dismissMatch[1])
+          if (!ok) return json({ ok: false, error: "No such queued finding." }, 404)
           return json({ ok: true })
         } catch (e) {
           return json(oops(e, "trails-dismiss"), 500)

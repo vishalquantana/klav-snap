@@ -27,6 +27,9 @@ await rawExec(`CREATE TABLE IF NOT EXISTS project_members (id TEXT PRIMARY KEY, 
 await rawExec(`CREATE TABLE IF NOT EXISTS trails (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, intent TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL, baseline_ref TEXT, author_kind TEXT NOT NULL DEFAULT 'human', status TEXT NOT NULL DEFAULT 'draft', created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS trail_runs (id TEXT PRIMARY KEY, trail_id TEXT NOT NULL, project_id TEXT NOT NULL, trigger TEXT NOT NULL DEFAULT 'manual', status TEXT NOT NULL DEFAULT 'running', llm_calls INTEGER NOT NULL DEFAULT 0, summary_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS findings (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, run_id TEXT NOT NULL, step_id TEXT, trail_id TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, evidence_json TEXT, ground_quote TEXT, confidence REAL NOT NULL DEFAULT 0, dedup_key TEXT NOT NULL, recurrence INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'queued', connector_ref TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`)
+// connectors table, seeded but left EMPTY on purpose: the file→400 'no connector' assertion below must
+// prove the realFiler no-auto-copy-connector branch (returns null), not a swallowed error on a missing table.
+await rawExec(`CREATE TABLE IF NOT EXISTS connectors (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, type TEXT NOT NULL, name TEXT NOT NULL, config TEXT NOT NULL DEFAULT '{}', auto_copy INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, created_by TEXT)`)
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────────
 const ADMIN_EMAIL = `admin-${ts}@test.local`
@@ -56,6 +59,27 @@ await rawExec(`INSERT INTO trails (id, project_id, name, intent, base_url, autho
 await rawExec(`INSERT INTO trail_runs (id, trail_id, project_id, trigger, status, llm_calls, started_at, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [WALK_ID, TRAIL_ID, PROJECT_ID, "manual", "amber", 2, NOW, NOW + 1000])
 await rawExec(`INSERT INTO findings (id, project_id, run_id, step_id, trail_id, kind, title, evidence_json, ground_quote, confidence, dedup_key, recurrence, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [QUEUED_FINDING_ID, PROJECT_ID, WALK_ID, null, TRAIL_ID, "amber_heal", "Healed Checkout but unconfirmed", JSON.stringify({ rationale: "label moved", fromSelector: "#checkout", toSelector: ".pay" }), "label moved", 0.7, "k_amber", 1, "queued", NOW, NOW])
 await rawExec(`INSERT INTO findings (id, project_id, run_id, step_id, trail_id, kind, title, evidence_json, ground_quote, confidence, dedup_key, recurrence, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [REG_FINDING_ID, PROJECT_ID, WALK_ID, null, TRAIL_ID, "regression", "Checkout gone", JSON.stringify({ rationale: "element absent" }), "element absent", 0.95, "k_reg", 1, "queued", NOW, NOW])
+
+// ── Second project B (for IDOR / cross-project tests). MEMBER_EMAIL is NOT a member of project B. ──
+const ACCOUNT_B_ID = `acctB_${ts}`
+const PROJECT_B_ID = `proj_${ACCOUNT_B_ID}`
+const TRAIL_B_ID = `trlB_${ts}`
+const WALK_B_ID = `walkB_${ts}`
+const B_FINDING_ID = `find_b_${ts}`
+const OWNER_B_EMAIL = `ownerB-${ts}@test.local`
+await rawExec(`INSERT INTO users (email, created_at) VALUES (?, ?)`, [OWNER_B_EMAIL, NOW])
+await rawExec(`INSERT INTO accounts (id, name, owner_email, created_at) VALUES (?, ?, ?, ?)`, [ACCOUNT_B_ID, "Other Workspace", OWNER_B_EMAIL, NOW])
+await rawExec(`INSERT INTO account_members (id, account_id, email, account_role, created_at) VALUES (?, ?, ?, ?, ?)`, [`am_${ACCOUNT_B_ID}`, ACCOUNT_B_ID, OWNER_B_EMAIL, "owner", NOW])
+await rawExec(`INSERT INTO projects (id, account_id, name, status, review_mode, review_budget_daily, observability_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [PROJECT_B_ID, ACCOUNT_B_ID, "Project B", "active", "auto", 200, "named", NOW, NOW])
+await rawExec(`INSERT INTO project_members (id, project_id, email, project_role, invited_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [`pm_ownerB_${ts}`, PROJECT_B_ID, OWNER_B_EMAIL, "admin", null, NOW])
+await rawExec(`INSERT INTO trails (id, project_id, name, intent, base_url, author_kind, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [TRAIL_B_ID, PROJECT_B_ID, "B Trail", "", "https://b.test", "human", "active", OWNER_B_EMAIL, NOW, NOW])
+await rawExec(`INSERT INTO trail_runs (id, trail_id, project_id, trigger, status, llm_calls, started_at, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [WALK_B_ID, TRAIL_B_ID, PROJECT_B_ID, "manual", "red", 1, NOW, NOW + 1000])
+await rawExec(`INSERT INTO findings (id, project_id, run_id, step_id, trail_id, kind, title, evidence_json, ground_quote, confidence, dedup_key, recurrence, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [B_FINDING_ID, PROJECT_B_ID, WALK_B_ID, null, TRAIL_B_ID, "amber_heal", "B finding", JSON.stringify({ rationale: "b" }), "b", 0.7, "k_b", 1, "queued", NOW, NOW])
+
+async function findingStatus(id: string): Promise<string | null> {
+  const r = await rawClient.execute({ sql: `SELECT status FROM findings WHERE id=?`, args: [id] })
+  return r.rows.length ? String((r.rows[0] as any).status) : null
+}
 
 // ── Spawn the server ──────────────────────────────────────────────────────────────
 let serverPort: number
@@ -141,6 +165,26 @@ test("POST /api/trails/findings/:id/dismiss removes it from the queue", async ()
 test("POST /api/trails/findings/:id/file returns 400 when the project has no connector", async () => {
   const r = await api("POST", `/api/trails/findings/${REG_FINDING_ID}/file?project=${PROJECT_ID}`, {}, MEMBER_SID)
   expect(r.status).toBe(400)
+  expect((await r.json()).ok).toBe(false)
+})
+
+test("dismissing a foreign-project finding id under my project is blocked (B's finding unchanged)", async () => {
+  // MEMBER is a member of project A only. Targeting B's finding id but scoped to ?project=A:
+  // the project-scoped lookup finds nothing → 404, and B's finding is never touched (no cross-project write).
+  const r = await api("POST", `/api/trails/findings/${B_FINDING_ID}/dismiss?project=${PROJECT_ID}`, {}, MEMBER_SID)
+  expect(r.status).toBe(404)
+  expect(await findingStatus(B_FINDING_ID)).toBe("queued")
+})
+
+test("requesting a project the user is NOT a member of returns 403", async () => {
+  const r = await api("POST", `/api/trails/findings/${B_FINDING_ID}/dismiss?project=${PROJECT_B_ID}`, {}, MEMBER_SID)
+  expect(r.status).toBe(403)
+  expect(await findingStatus(B_FINDING_ID)).toBe("queued")
+})
+
+test("POST .../dismiss on a non-existent finding id returns 404 (not a misleading 200)", async () => {
+  const r = await api("POST", `/api/trails/findings/find_nope_${ts}/dismiss?project=${PROJECT_ID}`, {}, MEMBER_SID)
+  expect(r.status).toBe(404)
   expect((await r.json()).ok).toBe(false)
 })
 
