@@ -342,6 +342,23 @@ export async function applySchema(c: Client) {
        created_at INTEGER NOT NULL
      )`,
     `CREATE INDEX IF NOT EXISTS walk_replay_run_idx ON walk_replays(project_id, run_id)`,
+    // ── Expectations spine (discover→enforce): unifies Snap/Sim/AutoSim findings into one issue identity. ──
+    `CREATE TABLE IF NOT EXISTS expectations (
+       id TEXT PRIMARY KEY,
+       project_id TEXT NOT NULL,
+       title TEXT NOT NULL,
+       area TEXT,
+       url_path TEXT,
+       status TEXT NOT NULL DEFAULT 'candidate',     -- candidate | validated | enforced | retired
+       source_refs_json TEXT NOT NULL DEFAULT '[]',  -- [{kind:'snap'|'sim'|'finding', id}]
+       corroboration_json TEXT NOT NULL DEFAULT '{}',-- {snap:bool, sim:bool, recurrence:int}
+       dedup_key TEXT NOT NULL,
+       enforced_step_id TEXT,
+       created_at INTEGER NOT NULL,
+       updated_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS exp_proj_status_idx ON expectations(project_id, status)`,
+    `CREATE INDEX IF NOT EXISTS exp_proj_dedup_idx ON expectations(project_id, dedup_key)`,
   ]
   for (const s of stmts) await c.execute(s)
 

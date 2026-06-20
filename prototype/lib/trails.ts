@@ -206,6 +206,11 @@ export async function recordFinding(
     const id = String((open.rows[0] as any).id); const recurrence = Number((open.rows[0] as any).recurrence) + 1
     // recurrence + updated_at only; status is never changed here, so a dismissed row stays dismissed.
     await db!.execute({ sql: `UPDATE findings SET recurrence=?, updated_at=? WHERE id=?`, args: [recurrence, Date.now(), id] })
+    // best-effort spine bump for a recurring finding
+    try {
+      const { ingestFinding } = await import("./expectations-ingest")
+      await ingestFinding(db!, { projectId, findingId: id, title: input.title, dedupKey: input.dedupKey, urlPath: null })
+    } catch (e) { console.warn("[expectations] recordFinding dedup ingest skipped:", String(e)) }
     return { id, deduped: true, recurrence }
   }
   const id = uid("find_"); const now = Date.now()
@@ -214,6 +219,11 @@ export async function recordFinding(
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?)`,
     args: [id, projectId, input.runId, input.stepId ?? null, input.trailId, input.kind, input.title, j(input.evidence), input.groundQuote ?? null, input.confidence, input.dedupKey, input.status ?? "queued", now, now],
   })
+  // best-effort spine ingest: an AutoSim finding is also a discovery source
+  try {
+    const { ingestFinding } = await import("./expectations-ingest")
+    await ingestFinding(db!, { projectId, findingId: id, title: input.title, dedupKey: input.dedupKey, urlPath: null })
+  } catch (e) { console.warn("[expectations] recordFinding ingest skipped:", String(e)) }
   return { id, deduped: false, recurrence: 1 }
 }
 
@@ -229,4 +239,32 @@ export async function setFindingStatus(projectId: string, id: string, status: Fi
     sql: `UPDATE findings SET status=?, connector_ref=COALESCE(?, connector_ref), updated_at=? WHERE project_id=? AND id=?`,
     args: [status, connectorRef ?? null, Date.now(), projectId, id],
   })
+}
+
+// Insert an assert-type trail step at afterStepIdx+1. Returns the new "ts_"-prefixed step id.
+// Used by the enforce/confirm graduation endpoint to crystallize a validated expectation into a
+// deterministic Playwright assertion in an existing Trail.
+export async function insertAssertStep(
+  projectId: string,
+  trailId: string,
+  afterStepIdx: number,
+  target: Record<string, string>,
+  description: string,
+): Promise<string> {
+  const id = "ts_" + crypto.randomUUID()
+  await db!.execute({
+    sql: `UPDATE trail_steps SET idx = idx + 1 WHERE project_id=? AND trail_id=? AND idx >= ?`,
+    args: [projectId, trailId, afterStepIdx + 1],
+  })
+  await db!.execute({
+    sql: `INSERT INTO trail_steps (id, trail_id, project_id, idx, action, action_value, target_json, checkpoint_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, trailId, projectId, afterStepIdx + 1, "assert", null,
+           JSON.stringify(target), JSON.stringify({ kind: "visible", description }), Date.now()],
+  })
+  return id
+}
+
+export async function deleteTrailStep(projectId: string, stepId: string): Promise<void> {
+  await db!.execute({ sql: `DELETE FROM trail_steps WHERE id=? AND project_id=?`, args: [stepId, projectId] })
 }

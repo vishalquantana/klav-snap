@@ -10,11 +10,18 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
-## 0.32.0 — 2026-06-21
+## 0.33.0 — 2026-06-21
 ### Added
 - **Lead-gen widget — the report widget as a PLG funnel.** The right-click widget now has a per-project **mode** (`support` default · `leadgen` · `off`): on submit it shows a mode-aware **success screen** rendered through the themed/Genie modal — support nudges "we'll tell you when it's fixed", leadgen pitches "get it for your product" with email capture + CTA, off is a simple thanks. The captured email + the filed report become a **lead**: `POST /api/widget/lead` attaches `contact_email` and fires an instant email alert; leads land in a dedicated Plane project. Mode/CTA/notify-email are set in the same dashboard "Report widget" card and served via the unified `GET /api/projects/:id/config` (now returns `{ modalConfig, widget: { mode, ctaUrl } }`; the notify email stays server-side). "Powered by Klavity" footer on the composer.
 - **First-party anonymous intake on `POST /api/feedback`.** Logged-out visitors on Klavity's own site can file a report: anonymous submissions resolve the project from the form `project_id` only when the request is verified first-party (`Origin` === our base), rate-limited per IP, with a description size cap. No-Origin / foreign-Origin anonymous writes do not persist (the cross-origin surface stays deferred).
 - Embedded the lead-gen widget on all marketing pages, filing to a dedicated "Website" Plane leads project (leadgen mode).
+
+## [0.32.0] — 2026-06-21
+
+### Added
+- **Expectations spine + graduation (discover→enforce).** A new `expectations` table unifies Snap reports, Sim findings, and AutoSim findings into one issue identity (dedup-collapsed via exact issue-key then lexical similarity). Lifecycle: `candidate` → `validated` (auto, on cross-source corroboration — a real Snap report AND a Sim finding agreeing, or recurrence ≥ 3) → `enforced` → `retired`.
+- **Graduation to a deterministic check.** A validated issue can be graduated into a Trail `assert` step (target must be visible): an LLM drafts the assertion once (`ASSERT_SYS`, logged to `ai_calls` as `assert-gen`), a human confirms/edits it, and it then enforces on every zero-LLM replay. Endpoints: `GET /api/expectations`, `POST /api/expectations/:id/enforce`, `…/enforce/confirm`, `…/retire` (all project-scoped, IDOR-safe; re-confirm returns 409).
+- **Expectations dashboard** on `/trails`: Candidate · Validated · Enforced board with source badges and the Enforce→confirm flow.
 
 ## 0.31.0 — 2026-06-21
 ### Added

@@ -20,13 +20,16 @@ import { AsyncLocalStorage } from "node:async_hooks"
 // Per-request context. A project-bound Bearer token (widget token) records its bound project here so
 // resolveProject can constrain it to that project (F5) — without threading state through every route.
 const reqCtx = new AsyncLocalStorage<{ boundProject?: string | null }>()
+import { ingestSnapOrSim } from "./lib/expectations-ingest"
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
-import { listRunSteps } from "./lib/trails"
+import { listRunSteps, listTrails, getTrail, listTrailSteps, insertAssertStep, deleteTrailStep } from "./lib/trails"
 import { runWalkNow } from "./lib/trails-trigger"
 import { WalkBusyError } from "./lib/trails-browser"
 import { seedDemoTrails } from "./lib/trails-demo-seed"
+import { listExpectations, getExpectation, setExpectationStatus, setExpectationEnforced } from "./lib/expectations-db"
+import { validateAssertionDraft } from "./lib/assertion-spec"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -133,6 +136,15 @@ const RECONCILE_SYS =
   '{"ops":[{"op":"add"|"reinforce"|"refine"|"contradict"|"supersede"|"reopen","kind":"pain"|"want"|"love",' +
   '"text":string,"quote":string,"speaker":string,"traitId":string|null,"reason":string,' +
   '"area":string|null,"issueType":"label-copy"|"layout"|"performance"|"flow"|"error-handling"|"accessibility"|"visual"|null,"severity":"high"|"medium"|"low"|null}]}'
+
+const ASSERT_SYS =
+  "You convert a VALIDATED product issue into ONE deterministic UI assertion for an existing end-to-end Trail. " +
+  "The only supported checkpoint is that a target element must be VISIBLE on the page. " +
+  "Pick the Trail step (afterStepIdx) AFTER which the assertion should run, and describe the target by role+accessible-name " +
+  "(preferred), visible text, or a CSS selector (last resort). Be specific to the issue's screen.\n\n" +
+  "Respond with ONLY a JSON object in exactly this shape:\n" +
+  '{"trailId":string,"afterStepIdx":number,"action":"assert","target":{"role"?:string,"name"?:string,"text"?:string,"selector"?:string},' +
+  '"checkpoint":{"kind":"visible","description":string}}'
 
 // jsonMode forces structured output — safe for text calls, but Gemini's vision path
 // via OpenRouter often returns empty content under json_object, so leave it OFF for
@@ -273,6 +285,17 @@ async function reactToPage(persona: any, imageB64: string, mediaType: string, pa
     ] },
   ], 2500, false, { type: "react", ...ctx })
   return { data: parseJSON(content), usage }
+}
+
+async function draftAssertion(expectation: any, trail: any, steps: any[], ctx?: { email?: string | null; projectId?: string | null }) {
+  const { content, usage } = await chat([
+    { role: "system", content: ASSERT_SYS },
+    { role: "user", content:
+      "VALIDATED ISSUE:\n" + JSON.stringify({ title: expectation.title, area: expectation.area, urlPath: expectation.urlPath }, null, 2) +
+      "\n\nTARGET TRAIL:\n" + JSON.stringify({ id: trail.id, name: trail.name, baseUrl: trail.base_url }, null, 2) +
+      "\n\nTRAIL STEPS (idx, action, target):\n" + JSON.stringify(steps.map((s) => ({ idx: s.idx, action: s.action, target: s.target })), null, 0) },
+  ], 800, true, { type: "assert-gen", ...ctx })
+  return { content, usage }
 }
 
 // ── P3a reconcile: one LLM call that evolves ONE Sim against ONE transcript (§5 cost guard). ──
@@ -1128,6 +1151,16 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                   issueKey: suggestedBug ? issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds) : null,
                 })
               }
+              // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
+              if (suggestedBug && feedbackId && db) {
+                await ingestSnapOrSim(db, {
+                  projectId, feedbackId, isSnap: !simId,
+                  title: (suggestedBug?.title ?? observation ?? "").slice(0, 200),
+                  dedupKey: issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds),
+                  urlPath: urlPath ?? null, issueType: citation.issueType ?? null,
+                  citedTraitIds: Array.isArray(citation.citedTraitIds) ? citation.citedTraitIds.map(String) : [],
+                })
+              }
               if (!dedupedInto) {
                 await insertActivity({
                   projectId, type: "feedback_filed", actorEmail: actor, simId,
@@ -1602,6 +1635,16 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               ? { citedTraitIds: citation.citedTraitIds, sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate, sourceQuoteVerified: citation.sourceQuoteVerified, recurrence: citation.recurrence }
               : null
             r.feedbackId = feedbackId
+            // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
+            if (bug && feedbackId && db) {
+              await ingestSnapOrSim(db, {
+                projectId, feedbackId, isSnap: false,
+                title: (bug?.title ?? r?.observation ?? "").slice(0, 200),
+                dedupKey: issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds),
+                urlPath: urlPath ?? null, issueType: citation.issueType ?? null,
+                citedTraitIds: Array.isArray(citation.citedTraitIds) ? citation.citedTraitIds.map(String) : [],
+              })
+            }
           }
           // activity: a review ran (actor + sim + path + screenshot) — the R6 observability spine.
           await insertActivity({ projectId, type: "review_run", actorEmail: meR, simId: sim.id, urlHost, urlPath, screenshotId, meta: { reactions: reactions.length } })
@@ -1945,6 +1988,70 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         }
       }
       return file(SITE + "/onboarding.html")
+    }
+
+    // ── Expectations graduation endpoints (Layer E, Task 6) — project-scoped, authed. ──
+    // Placed before the generic /api/ gate so unauthenticated calls return JSON 401, not a login redirect.
+    if (path === "/api/expectations" || path.startsWith("/api/expectations/")) {
+      const meE = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meE) return json({ error: "auth" }, 401)
+      const projE = await resolveProject(meE, url.searchParams.get("project"))
+      if (!projE) return json({ error: "no project" }, 404)
+
+      // GET /api/expectations?project=&status= — list expectations for the project, optionally filtered.
+      if (req.method === "GET" && path === "/api/expectations") {
+        const rawStatus = url.searchParams.get("status")
+        const status = (["candidate", "validated", "enforced", "retired"] as const).includes(rawStatus as any) ? (rawStatus as "candidate" | "validated" | "enforced" | "retired") : undefined
+        return json({ expectations: await listExpectations(db!, projE.id, status) })
+      }
+
+      // POST /api/expectations/:id/enforce — draft an assertion (calls LLM). Persists nothing.
+      const enforceMatch = path.match(/^\/api\/expectations\/([^/]+)\/enforce$/)
+      if (req.method === "POST" && enforceMatch) {
+        const id = enforceMatch[1]
+        const exp = await getExpectation(db!, id)
+        if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        if (exp.status !== "validated") return json({ error: "not validated" }, 409)
+        const body = await req.json().catch(() => ({}))
+        const trailId = body.trailId || (await listTrails(projE.id))[0]?.id
+        if (!trailId) return json({ error: "no trail to attach to" }, 422)
+        const trail = await getTrail(projE.id, trailId)
+        if (!trail) return json({ error: "trail not found" }, 422)
+        const steps = await listTrailSteps(projE.id, trailId)
+        const { content } = await draftAssertion(exp, trail, steps, { email: meE, projectId: projE.id })
+        const draft = validateAssertionDraft({ ...parseJSON(content), trailId })
+        return json({ draft })
+      }
+
+      // POST /api/expectations/:id/enforce/confirm — write the assert step, mark expectation enforced.
+      const confirmMatch = path.match(/^\/api\/expectations\/([^/]+)\/enforce\/confirm$/)
+      if (req.method === "POST" && confirmMatch) {
+        const id = confirmMatch[1]
+        const exp = await getExpectation(db!, id)
+        if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        if (exp.status !== "validated") return json({ error: "not validated" }, 409)
+        const reqBody = await req.json().catch(() => ({}))
+        const draft = validateAssertionDraft(reqBody.draft)
+        if (!draft) return json({ error: "invalid draft" }, 400)
+        const trail = await getTrail(projE.id, draft.trailId)
+        if (!trail) return json({ error: "trail not found" }, 422)
+        const stepId = await insertAssertStep(projE.id, draft.trailId, draft.afterStepIdx, draft.target, draft.checkpoint.description)
+        await setExpectationEnforced(db!, id, stepId)
+        return json({ stepId })
+      }
+
+      // POST /api/expectations/:id/retire — mark expectation as retired.
+      const retireMatch = path.match(/^\/api\/expectations\/([^/]+)\/retire$/)
+      if (req.method === "POST" && retireMatch) {
+        const id = retireMatch[1]
+        const exp = await getExpectation(db!, id)
+        if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        if (exp.enforcedStepId) { try { await deleteTrailStep(projE.id, exp.enforcedStepId) } catch (e) { console.warn("[expectations] retire step delete skipped:", String(e)) } }
+        await setExpectationStatus(db!, id, "retired")
+        return json({ ok: true })
+      }
+
+      return json({ error: "Not found" }, 404)
     }
 
     // ── Klavity OS Trails (Layer E) — project-scoped, authed. Placed before the generic /api/ gate so
