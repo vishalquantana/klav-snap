@@ -93,9 +93,19 @@ await rawExec(`INSERT INTO trails (id, project_id, name, intent, base_url, autho
 await rawExec(`INSERT INTO trail_runs (id, trail_id, project_id, trigger, status, llm_calls, started_at, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [WALK_B_ID, TRAIL_B_ID, PROJECT_B_ID, "manual", "red", 1, NOW, NOW + 1000])
 await rawExec(`INSERT INTO findings (id, project_id, run_id, step_id, trail_id, kind, title, evidence_json, ground_quote, confidence, dedup_key, recurrence, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [B_FINDING_ID, PROJECT_B_ID, WALK_B_ID, null, TRAIL_B_ID, "amber_heal", "B finding", JSON.stringify({ rationale: "b" }), "b", 0.7, "k_b", 1, "queued", NOW, NOW])
 
+// A dedicated Trail for the walk-trigger smoke: an UNREACHABLE base_url so the spawned server's
+// background walk fails fast (no real Chromium work matters — the route returns right after startWalk).
+const WALK_TRAIL_ID = `trl_walk_${ts}`
+await rawExec(`INSERT INTO trails (id, project_id, name, intent, base_url, author_kind, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [WALK_TRAIL_ID, PROJECT_ID, "Walk smoke", "", "https://invalid.test/", "human", "active", ADMIN_EMAIL, NOW, NOW])
+
 async function findingStatus(id: string): Promise<string | null> {
   const r = await rawClient.execute({ sql: `SELECT status FROM findings WHERE id=?`, args: [id] })
   return r.rows.length ? String((r.rows[0] as any).status) : null
+}
+
+async function trailRunCount(trailId: string): Promise<number> {
+  const r = await rawClient.execute({ sql: `SELECT COUNT(*) AS n FROM trail_runs WHERE trail_id=?`, args: [trailId] })
+  return Number((r.rows[0] as any).n)
 }
 
 // ── Spawn the server ──────────────────────────────────────────────────────────────
@@ -245,10 +255,54 @@ test("the trails page references the rrweb-player replay assets", async () => {
   expect(html).toContain("/api/trails/walks/")
 })
 
+test("POST /api/trails/:id/walk triggers a walk and returns a runId (authed)", async () => {
+  const r = await api("POST", `/api/trails/${WALK_TRAIL_ID}/walk?project=${PROJECT_ID}`, {}, MEMBER_SID)
+  expect(r.status).toBe(200)
+  const b = await r.json(); expect(b.runId).toMatch(/^walk_/)
+})
+test("POST /api/trails/:id/walk is 401 without a session", async () => {
+  const r = await fetch(`${BASE}/api/trails/${WALK_TRAIL_ID}/walk?project=${PROJECT_ID}`, { method: "POST" })
+  expect(r.status).toBe(401)
+})
+test("POST /api/trails/:id/walk is 404 for an unknown trail", async () => {
+  const r = await api("POST", `/api/trails/trl_nope_${ts}/walk?project=${PROJECT_ID}`, {}, MEMBER_SID)
+  expect(r.status).toBe(404)
+})
+test("walking a foreign-project trail id under my project is blocked (no walk started for B)", async () => {
+  // MEMBER is a member of project A only. Targeting B's trail id but scoped to ?project=A: runWalkNow's
+  // getTrail is project-scoped → finds nothing → 404, and critically NO trail_runs row is minted for
+  // TRAIL_B (the slot is never even reserved). Mirrors the dismiss-IDOR test, for the walk route.
+  const before = await trailRunCount(TRAIL_B_ID)
+  const r = await api("POST", `/api/trails/${TRAIL_B_ID}/walk?project=${PROJECT_ID}`, {}, MEMBER_SID)
+  expect(r.status).toBe(404)
+  expect(await trailRunCount(TRAIL_B_ID)).toBe(before)
+})
+
+test("GET /trails-demo/journey/landing.html serves the bundled demo fixture (no auth)", async () => {
+  const r = await fetch(`${BASE}/trails-demo/journey/landing.html`)
+  expect(r.status).toBe(200)
+  const html = await r.text()
+  expect(html.toLowerCase()).toContain("<html")
+})
+
+test("GET /trails-demo with path traversal is rejected", async () => {
+  const r = await fetch(`${BASE}/trails-demo/..%2f..%2fserver.ts`)
+  expect(r.status).toBe(404)
+})
+
 test("GET /trails serves the dashboard page when authed", async () => {
   const r = await fetch(`${BASE}/trails`, { headers: { Cookie: `klav_session=${MEMBER_SID}` } })
   expect(r.status).toBe(200)
   const html = await r.text()
   expect(html).toContain("Trails")
   expect(html).toContain("/api/trails/dashboard")
+})
+
+test("the trails page has a per-trail Run affordance that POSTs the walk route", async () => {
+  const r = await fetch(`${BASE}/trails`, { headers: { Cookie: `klav_session=${MEMBER_SID}` } })
+  const html = await r.text()
+  // The Run button marker + the walk-trigger route the page POSTs to.
+  expect(html).toContain("data-run")
+  expect(html).toContain("/walk")
+  expect(html).toContain("Run")
 })

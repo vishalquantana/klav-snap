@@ -48,6 +48,27 @@ export interface WalkOptions {
    * Layer C/D (no context, no binding, no extra work) so the engine suite is unchanged.
    */
   replay?: boolean
+  /**
+   * Plan G — prod-safety. Extra args forwarded verbatim to `chromium.launch({ args })` (the 1GB box
+   * uses CHROMIUM_PROD_ARGS: --single-process --no-sandbox --disable-dev-shm-usage --disable-gpu
+   * --no-zygote). Absent (the test default) launches with no extra args — byte-identical to before.
+   */
+  launchArgs?: string[]
+  /**
+   * Plan G — prod-safety. A hard wall-clock budget (ms) for the WHOLE walk. Checked at the top of each
+   * step; when exceeded the step loop stops and the Walk finalizes `red` with `summary.error =
+   * "deadline_exceeded"`. Absent (the test default) = no budget = unchanged behavior. Default in prod
+   * is 120000ms (see lib/trails-trigger.ts), never set here so the engine suite is unaffected.
+   */
+  deadlineMs?: number
+  /**
+   * Plan G — trigger reconciliation. When present, the runner ADOPTS this pre-created Walk row (from
+   * runWalkNow's startWalk) instead of calling startWalk itself, so the run_steps / replay / verdict
+   * all land on the runId the caller already holds. Absent (every existing caller) → unchanged: the
+   * runner mints its own runId. This is the single seam that lets a triggered walk and the route share
+   * one runId without touching any finalize/replay logic below.
+   */
+  runId?: string
 }
 
 export interface WalkStepSummary {
@@ -225,13 +246,24 @@ export async function walkTrail(projectId: string, trailId: string, opts: WalkOp
   if (!trail) throw new Error(`trail ${trailId} not found in project ${projectId}`)
   const steps = await listTrailSteps(projectId, trailId)
 
-  const runId = await startWalk(projectId, trailId, "manual")
+  // Adopt a pre-created Walk row (Plan G trigger) so run_steps/replay/verdict share the caller's runId;
+  // otherwise mint our own as before (every existing caller). No behavior change when runId is absent.
+  const runId = opts.runId ?? (await startWalk(projectId, trailId, "manual"))
 
-  const browser: Browser = await chromium.launch({ headless: opts.headless ?? true })
+  const browser: Browser = await chromium.launch({ headless: opts.headless ?? true, args: opts.launchArgs })
   const stepSummaries: WalkStepSummary[] = []
   let walkVerdict: Verdict = "green"
   let healedCount = 0
   let llmCalls = 0
+  // Plan G hard per-walk deadline: a wall-clock budget checked at the top of each step. Infinity = off.
+  const deadline = opts.deadlineMs ? Date.now() + opts.deadlineMs : Infinity
+  let deadlineHit = false
+
+  // Plan G prod-safety — make the deadline a REAL ceiling, not just a between-steps check. A single
+  // live-network navigation (initial goto OR a navigate step) must NOT be allowed to hang on
+  // Playwright's 30s default and pin the single walk-slot + the browser on the 1GB box. Bound EVERY
+  // page operation (nav + waitFor + screenshot/content) to opTimeout: capped at <=15s, floored at 3s.
+  const opTimeout = Math.max(3000, Math.min(15000, opts.deadlineMs ?? 120000))
 
   // ── Plan E2: opt-in rrweb capture. DEFAULT-OFF leaves everything below byte-identical (no context,
   // no binding). When on, we open an explicit BrowserContext so setupReplayCapture can inject the
@@ -252,7 +284,12 @@ export async function walkTrail(projectId: string, trailId: string, opts: WalkOp
 
   try {
     const page: Page = context ? await context.newPage() : await browser.newPage()
-    await page.goto(opts.fixtureUrl)
+    // Cap EVERY default page operation/navigation at opTimeout so nothing falls back to Playwright's
+    // 30s default. The initial goto below is bounded explicitly too (belt-and-braces). A goto timeout
+    // THROWS — it is inside this try, so it finalizes the walk RED via the catch below, never a hang.
+    page.setDefaultNavigationTimeout(opTimeout)
+    page.setDefaultTimeout(opTimeout)
+    await page.goto(opts.fixtureUrl, { timeout: opTimeout })
 
     // Track the document URL across steps so a full-page navigation (click-driven or explicit
     // navigate) becomes a segment boundary: flush the page just LEFT, tagged with the idx of the
@@ -261,13 +298,18 @@ export async function walkTrail(projectId: string, trailId: string, opts: WalkOp
     let segIdx = 0
 
     for (const step of steps) {
+      // Plan G prod-safety: a hard per-walk deadline. If the wall-clock budget is blown, STOP the walk
+      // (don't run this or any further step) and roll the verdict to RED — the page-too-slow / runaway
+      // case can't pin the shared 1GB box. The browser is still closed in the `finally` below.
+      if (Date.now() > deadline) { walkVerdict = "red"; deadlineHit = true; break }
+
       // Drain the CURRENTLY-SHOWN document's rrweb buffer into the current segment BEFORE running the
       // step — if this step navigates, the boundary flush below seals exactly this page's events.
       if (capture) {
         try { await capture.drain(page) } catch (e) { console.warn("[trails-replay] pre-step drain failed:", String(e)) }
       }
 
-      const { tier, verdict, healed, llmCalls: stepLlm } = await runOneStep(projectId, runId, trail.id, page, step, opts)
+      const { tier, verdict, healed, llmCalls: stepLlm } = await runOneStep(projectId, runId, trail.id, page, step, opts, opTimeout)
       stepSummaries.push({ stepId: step.id, idx: step.idx, tier, verdict, healed })
       if (healed) healedCount++
       llmCalls += stepLlm
@@ -299,7 +341,7 @@ export async function walkTrail(projectId: string, trailId: string, opts: WalkOp
     await finishWalk(projectId, runId, {
       status: walkVerdict,
       llmCalls,
-      summary: { healedCount, stepCount: steps.length },
+      summary: { healedCount, stepCount: steps.length, ...(deadlineHit ? { error: "deadline_exceeded" } : {}) },
     })
 
     // Persist the replay AFTER finishWalk. Best-effort: a save failure never changes the Walk result.
@@ -333,12 +375,14 @@ async function runOneStep(
   page: Page,
   step: TrailStep,
   opts: WalkOptions,
+  opTimeout: number,
 ): Promise<OneStepResult> {
   const fixtureUrl = opts.fixtureUrl
   // navigate / wait have no element to resolve.
   if (step.action === "navigate") {
     // In Layer C the whole walk is scoped to fixtureUrl; re-navigate to it (origin already loaded).
-    await page.goto(step.actionValue && /^https?:|^file:/.test(step.actionValue) ? step.actionValue : fixtureUrl)
+    // Bound the nav at opTimeout (Plan G) so a live-network navigate step can't hang on the 30s default.
+    await page.goto(step.actionValue && /^https?:|^file:/.test(step.actionValue) ? step.actionValue : fixtureUrl, { timeout: opTimeout })
     await addRunStep(projectId, { runId, trailId, stepId: step.id, idx: step.idx, tier: "none", verdict: "green", confidence: 1, healed: false, evidence: { action: "navigate" } })
     return { tier: "none", verdict: "green", healed: false, llmCalls: 0 }
   }
@@ -383,7 +427,7 @@ async function runOneStep(
       // whose target could not be deterministically resolved is a checkpoint failure, never a heal
       // and never an amber_heal, regardless of what vision would classify.
       if (opts.vision) {
-        return await runVisionTier2(projectId, runId, trailId, page, step, opts, fp, cachedSelector, isAssert)
+        return await runVisionTier2(projectId, runId, trailId, page, step, opts, fp, cachedSelector, isAssert, opTimeout)
       }
       // No resolver → unchanged Layer C behavior: RED + needs-vision handoff marker (never green).
       const verdict: Verdict = "red"
@@ -486,6 +530,7 @@ async function runVisionTier2(
   fp: Fingerprint | null,
   cachedSelector: string | null,
   isAssert: boolean,
+  opTimeout: number,
 ): Promise<OneStepResult> {
   const gate = opts.confidenceGate ?? 0.9
 
@@ -518,7 +563,9 @@ async function runVisionTier2(
   let result: VisionResult
   let decision: VisionDecision
   try {
-    const shot = (await page.screenshot()).toString("base64")
+    const shot = (await page.screenshot({ timeout: opTimeout })).toString("base64")
+    // page.content() takes no per-call timeout in this Playwright version; it is already governed by
+    // the page-level setDefaultTimeout(opTimeout) set in walkTrail. screenshot IS bounded explicitly.
     dom = await page.content()
     const candidateSelectors: string[] = []
     if (cachedSelector) candidateSelectors.push(cachedSelector)
