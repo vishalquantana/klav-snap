@@ -10,6 +10,13 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.31.0] — 2026-06-20
+
+### Added
+- **Expectations spine + graduation (discover→enforce).** A new `expectations` table unifies Snap reports, Sim findings, and AutoSim findings into one issue identity (dedup-collapsed via exact issue-key then lexical similarity). Lifecycle: `candidate` → `validated` (auto, on cross-source corroboration — a real Snap report AND a Sim finding agreeing, or recurrence ≥ 3) → `enforced` → `retired`.
+- **Graduation to a deterministic check.** A validated issue can be graduated into a Trail `assert` step (target must be visible): an LLM drafts the assertion once (`ASSERT_SYS`, logged to `ai_calls` as `assert-gen`), a human confirms/edits it, and it then enforces on every zero-LLM replay. Endpoints: `GET /api/expectations`, `POST /api/expectations/:id/enforce`, `…/enforce/confirm`, `…/retire` (all project-scoped, IDOR-safe; re-confirm returns 409).
+- **Expectations dashboard** on `/trails`: Candidate · Validated · Enforced board with source badges and the Enforce→confirm flow.
+
 ## [0.30.1] — 2026-06-20
 
 ### Changed
