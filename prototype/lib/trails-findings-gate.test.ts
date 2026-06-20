@@ -72,6 +72,84 @@ test("dismissFinding removes it from the queue and precision", async () => {
   expect((await T.listFindings(proj, { status: "queued" })).some((x) => x.id === f.id)).toBe(false)
 })
 
+// ── Anti-slop guarantee: a dismissed finding is never re-filed (Priority 1) ───────
+// A human-dismissed regression that recurs on the next Walk must NOT be re-queued or auto-filed.
+test("recordFinding: a dismissed regression that recurs is NOT resurrected (stays dismissed, recurrence bumped)", async () => {
+  const proj = "proj_dismiss_dedup"
+  const walk1 = await T.startWalk(proj, "trl_dd")
+  const first = await T.recordFinding(proj, { runId: walk1, trailId: "trl_dd", kind: "regression", title: "flaky reg", confidence: 0.95, dedupKey: "rec1" })
+  expect(first.deduped).toBe(false)
+  await T.setFindingStatus(proj, first.id, "dismissed")
+
+  // Next Walk surfaces the SAME finding (same dedupKey).
+  const walk2 = await T.startWalk(proj, "trl_dd")
+  const again = await T.recordFinding(proj, { runId: walk2, trailId: "trl_dd", kind: "regression", title: "flaky reg", confidence: 0.95, dedupKey: "rec1" })
+
+  // Deduped onto the existing row — NOT a fresh queued insert.
+  expect(again.deduped).toBe(true)
+  expect(again.id).toBe(first.id)
+  expect(again.recurrence).toBe(2)
+
+  // Exactly one row for this dedupKey, still dismissed, never re-queued.
+  const all = await T.listFindings(proj)
+  const rows = all.filter((x) => x.dedupKey === "rec1")
+  expect(rows).toHaveLength(1)
+  expect(rows[0].status).toBe("dismissed")
+  expect(rows[0].recurrence).toBe(2)
+  expect((await T.listFindings(proj, { status: "queued" })).some((x) => x.dedupKey === "rec1")).toBe(false)
+
+  // And it would never auto-file: processWalkFindings only touches queued rows for this run.
+  let filerCalls = 0
+  const filer = async () => { filerCalls++; return { connectorRef: "plane:NOPE-1" } }
+  const res = await G.processWalkFindings(proj, walk2, { filer })
+  expect(res.autoFiled).toHaveLength(0)
+  expect(filerCalls).toBe(0)
+})
+
+// ── Resurrection guard on the human file route (Priority 2) ───────────────────────
+test("fileFindingById refuses to file a dismissed finding (ok:false, status unchanged)", async () => {
+  const proj = "proj_file_guard"
+  const walk = await T.startWalk(proj, "trl_fg")
+  const f = await T.recordFinding(proj, { runId: walk, trailId: "trl_fg", kind: "regression", title: "gone", confidence: 0.95, dedupKey: "fg1" })
+  await G.dismissFinding(proj, f.id)
+  let filerCalls = 0
+  const filer = async () => { filerCalls++; return { connectorRef: "plane:X-1" } }
+  const res = await G.fileFindingById(proj, f.id, { filer })
+  expect(res.ok).toBe(false)
+  expect(filerCalls).toBe(0) // never even attempted the push
+  const after = (await T.listFindings(proj)).find((x) => x.id === f.id)
+  expect(after?.status).toBe("dismissed")
+})
+
+test("fileFindingById refuses to re-file an already-filed finding", async () => {
+  const proj = "proj_file_guard2"
+  const walk = await T.startWalk(proj, "trl_fg2")
+  const f = await T.recordFinding(proj, { runId: walk, trailId: "trl_fg2", kind: "regression", title: "gone", confidence: 0.95, dedupKey: "fg2" })
+  const filer = async () => ({ connectorRef: "plane:Y-1" })
+  expect((await G.fileFindingById(proj, f.id, { filer })).ok).toBe(true)
+  // Second attempt on the now-'filed' finding is refused.
+  const res = await G.fileFindingById(proj, f.id, { filer })
+  expect(res.ok).toBe(false)
+})
+
+// ── dismiss hardening (Priority 3) ────────────────────────────────────────────────
+test("dismissFinding only acts on an existing, in-project, queued finding", async () => {
+  const proj = "proj_dismiss_guard"
+  const walk = await T.startWalk(proj, "trl_dg")
+  const f = await T.recordFinding(proj, { runId: walk, trailId: "trl_dg", kind: "amber_heal", title: "x", confidence: 0.7, dedupKey: "dg1" })
+
+  // Non-existent id → no-op false.
+  expect(await G.dismissFinding(proj, "find_does_not_exist")).toBe(false)
+  // Foreign project id → no-op false, original untouched.
+  expect(await G.dismissFinding("proj_other", f.id)).toBe(false)
+  expect((await T.listFindings(proj)).find((x) => x.id === f.id)?.status).toBe("queued")
+  // The real, queued finding → true.
+  expect(await G.dismissFinding(proj, f.id)).toBe(true)
+  expect((await T.listFindings(proj)).find((x) => x.id === f.id)?.status).toBe("dismissed")
+  // Already-dismissed → no-op false (not currently queued).
+  expect(await G.dismissFinding(proj, f.id)).toBe(false)
+})
+
 // ── Task 3: real connector filer (pure ticket build + no-connector null) ─────────
 
 test("buildTicketFromFinding embeds grounded evidence + heal diff", () => {

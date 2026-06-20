@@ -193,12 +193,18 @@ export async function recordFinding(
   projectId: string,
   input: { runId: string; trailId: string; stepId?: string; kind: FindingKind; title: string; evidence?: Record<string, unknown>; groundQuote?: string; confidence: number; dedupKey: string; status?: FindingStatus },
 ): Promise<{ id: string; deduped: boolean; recurrence: number }> {
+  // Dedup against ANY prior non-new row for this (project, dedupKey): the open states
+  // ('queued','auto_filed','filed') AND 'dismissed'. Including 'dismissed' is the §6 anti-slop guarantee
+  // — a human dismissal permanently suppresses that finding, so a recurrence must collapse onto the
+  // existing dismissed row (bump recurrence, KEEP status='dismissed') and never resurrect to a fresh
+  // queued/auto-fileable row. For open rows we behave as before (bump recurrence, status untouched).
   const open = await db!.execute({
-    sql: `SELECT id, recurrence FROM findings WHERE project_id=? AND dedup_key=? AND status IN ('queued','auto_filed','filed') ORDER BY created_at ASC LIMIT 1`,
+    sql: `SELECT id, recurrence FROM findings WHERE project_id=? AND dedup_key=? AND status IN ('queued','auto_filed','filed','dismissed') ORDER BY created_at ASC LIMIT 1`,
     args: [projectId, input.dedupKey],
   })
   if (open.rows.length) {
     const id = String((open.rows[0] as any).id); const recurrence = Number((open.rows[0] as any).recurrence) + 1
+    // recurrence + updated_at only; status is never changed here, so a dismissed row stays dismissed.
     await db!.execute({ sql: `UPDATE findings SET recurrence=?, updated_at=? WHERE id=?`, args: [recurrence, Date.now(), id] })
     return { id, deduped: true, recurrence }
   }

@@ -22,6 +22,9 @@ export const AUTO_FILE_THRESHOLD = 0.9
 
 // ── Pure decision ────────────────────────────────────────────────────────────────
 // auto_file iff it's a hard regression AND clears the high-confidence bar; everything else queues.
+// NOTE: "dedup-clean" is NOT re-checked here — it is enforced upstream at record time: recordFinding
+// collapses duplicates (and a dismissed dedupKey can never resurface as a fresh queued row), so anything
+// this function sees is already dedup-clean.
 export function decideFindingAction(
   f: Pick<Finding, "kind" | "confidence">,
   threshold = AUTO_FILE_THRESHOLD,
@@ -50,6 +53,11 @@ export type Filer = (projectId: string, finding: Finding) => Promise<{ connector
 // Executor: walk-scoped gate. For each still-queued finding of this run, auto-file the hard
 // high-confidence regressions (never double-file an already-filed item — we only consider 'queued'),
 // queue the rest. A filer failure leaves the finding queued (fail-loud, never silent-green).
+//
+// INTENTIONALLY INERT: this auto-file executor is NOT wired into walkTrail/the runner in this slice. The
+// live path today is the human review queue (manual file/dismiss). Auto-file stays behind a future
+// per-project opt-in toggle (it must ship together with the dismissed-dedup suppression in recordFinding),
+// so a Walk never auto-files anything today.
 export async function processWalkFindings(
   projectId: string,
   runId: string,
@@ -73,13 +81,16 @@ export async function processWalkFindings(
 }
 
 // Human "file from queue": load the finding, push it, mark 'filed' with the connector ref.
+// Status guard (§6 anti-slop): we ONLY file a still-'queued' finding — never a 'dismissed' one
+// (a dismissal permanently suppresses it) and never an already 'filed'/'auto_filed' one (no double-file /
+// duplicate ticket). Returns ok:false without ever invoking the filer in those cases.
 export async function fileFindingById(
   projectId: string,
   findingId: string,
   deps: { filer: Filer },
 ): Promise<{ ok: boolean; connectorRef?: string }> {
   const f = (await listFindings(projectId)).find((x) => x.id === findingId)
-  if (!f) return { ok: false }
+  if (!f || f.status !== "queued") return { ok: false }
   const r = await deps.filer(projectId, f).catch(() => null)
   if (!r) return { ok: false }
   await setFindingStatus(projectId, findingId, "filed", r.connectorRef)
@@ -87,8 +98,14 @@ export async function fileFindingById(
 }
 
 // Human "dismiss from queue": excludes it from the queue + precision; never re-filed.
-export async function dismissFinding(projectId: string, findingId: string): Promise<void> {
+// Hardening: only act on a finding that EXISTS, belongs to this project, and is currently 'queued'.
+// Returns true if it transitioned to dismissed; false (no-op) for missing/foreign/non-queued ids so the
+// route can answer 404 instead of a misleading 200.
+export async function dismissFinding(projectId: string, findingId: string): Promise<boolean> {
+  const f = (await listFindings(projectId)).find((x) => x.id === findingId)
+  if (!f || f.status !== "queued") return false
   await setFindingStatus(projectId, findingId, "dismissed")
+  return true
 }
 
 // ── Real connector filer ─────────────────────────────────────────────────────────
