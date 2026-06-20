@@ -2,6 +2,7 @@
 
 > **Right-click any page to file a grounded bug** — screenshot, console and network attached — straight into Jira, Linear, GitHub Issues, or Plane. No browser extension required, no tool to open.
 
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-install-4285F4.svg?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/klavity-%E2%80%93-ai-bug-reporter/olahjdcgbdjajbfmgnakjlehgjdmaene)
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-0f9d6b.svg)](LICENSE)
 [![Live demo](https://img.shields.io/badge/demo-klavity.quantana.top-6366f1.svg)](https://klavity.quantana.top)
 [![Open core](https://img.shields.io/badge/open-core-db2777.svg)](#license)
@@ -63,7 +64,7 @@ Embed the report widget on your own site so logged-in users can right-click → 
 
 ### Chrome extension (report on any site)
 
-**Chrome Web Store:** _(coming soon)_
+**[➜ Install from the Chrome Web Store](https://chromewebstore.google.com/detail/klavity-%E2%80%93-ai-bug-reporter/olahjdcgbdjajbfmgnakjlehgjdmaene)** — Klavity – AI Bug Reporter
 
 **Developer / self-hosted:**
 1. `pnpm install && pnpm -r build`
