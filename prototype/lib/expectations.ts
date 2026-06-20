@@ -29,7 +29,7 @@ export function nextStatus(current: ExpStatus, c: Corroboration, n: number = REC
 export function matchExpectation(
   cand: { title: string },
   existing: Array<{ id: string; title: string }>,
-  threshold = 0.75,
+  threshold = 0.82,
 ): string | null {
   let best: { id: string | null; score: number } = { id: null, score: 0 }
   for (const e of existing) {

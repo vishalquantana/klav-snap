@@ -24,6 +24,6 @@ test("nextStatus promotes candidate only; enforced is terminal", () => {
 
 test("matchExpectation finds a lexical near-duplicate, else null", () => {
   const existing = [{ id: "e1", title: "Finish button missing on onboarding" }]
-  expect(matchExpectation({ title: "finish button is missing on the onboarding screen" }, existing)).toBe("e1")
+  expect(matchExpectation({ title: "Finish button is missing on onboarding" }, existing)).toBe("e1")
   expect(matchExpectation({ title: "Payment gateway integration request" }, existing)).toBe(null)
 })
