@@ -44,6 +44,12 @@
 {"@type":"Question","name":"Will self-healing hide a real bug?","acceptedAnswer":{"@type":"Answer","text":"No. Healing is intent-verified and diagnosis-first. If the goal genuinely cannot complete, AutoSim files a grounded finding rather than quietly passing green — so it never produces a silent false-green."}},
 {"@type":"Question","name":"How much does it cost to run on every build?","acceptedAnswer":{"@type":"Answer","text":"Unchanged screens replay with no AI and the same result every time, making it cheap and fast enough to run on every release. AI is only used to set up, adapt, or diagnose."}},
 {"@type":"Question","name":"Is Klavity AutoSim open and exportable?","acceptedAnswer":{"@type":"Answer","text":"Yes. AutoSim is open-core and turns each flow into a real, standard test you own — keep it, export it, run it anywhere, with no lock-in."}}
+]},
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://klavity.quantana.top/"},
+{"@type":"ListItem","position":2,"name":"Snap","item":"https://klavity.quantana.top/snap"},
+{"@type":"ListItem","position":3,"name":"Sims","item":"https://klavity.quantana.top/sims"},
+{"@type":"ListItem","position":4,"name":"AutoSim","item":"https://klavity.quantana.top/autosim"}
 ]}
 ]}
 </script>
@@ -54,15 +60,17 @@
 
 <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
 <nav class="nav" aria-label="Primary"><div class="wrap nav-in">
-  <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
+  <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span> Klavity</a>
   <div class="nav-links">
+    <a href="/#how">How it works</a>
     <a class="s-snap" href="/snap">Snap</a>
     <a class="s-sims" href="/sims">Sims</a>
     <a class="s-autosim" href="/autosim" aria-current="page">AutoSim</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
   </div>
   <div class="nav-cta">
-    <a class="btn btn-ghost" href="/snap">Explore Snap</a>
-    <a class="btn btn-primary" href="https://klavity.quantana.top/trails">Open Trails</a>
+    <a class="btn btn-ghost" href="/login">Log in</a>
+    <a class="btn btn-primary" href="/onboarding">Get started</a>
   </div>
 </div></nav>
 
@@ -292,15 +300,29 @@
 </main>
 
 <!-- ── FOOTER ──────────────────────────────────────────────────────────── -->
-<footer class="footer"><div class="wrap foot-in">
-  <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
-  <a href="/snap">Snap</a>
-  <a href="/sims">Sims</a>
-  <a href="/autosim" aria-current="page">AutoSim</a>
-  <a href="/privacy">Privacy</a>
-  <a href="/terms">Terms</a>
-  <span class="sp">© <span data-year>2026</span> Klavity · the user becomes the tester</span>
-</div></footer>
+<footer class="footer">
+  <div class="wrap">
+    <!-- the Klavity arc strip -->
+    <nav class="foot-in" aria-label="The Klavity arc" style="justify-content:center;gap:10px;margin-bottom:28px;font-family:var(--mono);font-size:13px;flex-wrap:wrap">
+      <a href="/snap" style="color:var(--indigo-text);font-weight:600">Snap</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/sims" style="color:var(--rose-text);font-weight:600">Sims</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/autosim" style="color:var(--green-text);font-weight:600">AutoSim</a>
+    </nav>
+  </div>
+  <div class="wrap foot-in">
+    <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span> Klavity</a>
+    <a href="/">Home</a>
+    <a href="/snap">Snap</a>
+    <a href="/sims">Sims</a>
+    <a href="/autosim" aria-current="page">AutoSim</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <span class="sp">© <span data-year>2026</span> Klavity · the user becomes the tester</span>
+  </div>
+</footer>
 
 </body>
 </html>

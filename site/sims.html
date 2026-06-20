@@ -43,6 +43,12 @@
 {"@type":"Question","name":"How are Klavity Sims different from generic AI personas?","acceptedAnswer":{"@type":"Answer","text":"Every Sim trait is grounded in a verbatim line from a real customer call, so personas are on the record, not made up. Sims also react to your actual product by seeing it, not to a written description of it."}},
 {"@type":"Question","name":"What do you feed Klavity to build a Sim?","acceptedAnswer":{"@type":"Answer","text":"Drop in a real customer interview or support-call transcript. Klavity extracts the people in it as personas with pain, want and love traits, each traceable to the line that justifies it."}},
 {"@type":"Question","name":"Where do the bugs the Sims find go?","acceptedAnswer":{"@type":"Answer","text":"A Sim's reaction becomes a grounded bug — carrying the persona and the quote — filed straight into Plane, Jira, GitHub or Linear, with duplicates collapsed."}}
+]},
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://klavity.quantana.top/"},
+{"@type":"ListItem","position":2,"name":"Snap","item":"https://klavity.quantana.top/snap"},
+{"@type":"ListItem","position":3,"name":"Sims","item":"https://klavity.quantana.top/sims"},
+{"@type":"ListItem","position":4,"name":"AutoSim","item":"https://klavity.quantana.top/autosim"}
 ]}
 ]}
 </script>
@@ -54,15 +60,17 @@
 <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
 <nav class="nav" aria-label="Primary">
   <div class="wrap nav-in">
-    <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
+    <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span> Klavity</a>
     <div class="nav-links">
+      <a href="/#how">How it works</a>
       <a class="s-snap" href="/snap">Snap</a>
       <a class="s-sims" href="/sims" aria-current="page">Sims</a>
       <a class="s-autosim" href="/autosim">AutoSim</a>
+      <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
     <div class="nav-cta">
-      <a class="btn btn-ghost" href="/snap">See Snap</a>
-      <a class="btn btn-primary" href="/#cta">Get early access</a>
+      <a class="btn btn-ghost" href="/login">Log in</a>
+      <a class="btn btn-primary" href="/onboarding">Get started</a>
     </div>
   </div>
 </nav>
@@ -73,7 +81,7 @@
 <header class="hero" style="padding-top:70px">
   <div class="hero-ambient" aria-hidden="true"></div>
   <div class="wrap">
-    <p class="eyebrow reveal" style="--d:0s">Phase 02 · live today <span class="dot live" style="vertical-align:middle"></span></p>
+    <p class="eyebrow reveal" style="--d:0s">Phase 02 · Live <span class="dot live" style="vertical-align:middle"></span></p>
     <h1 class="reveal" style="--d:.06s;max-width:18ch">Your customers, <em>in the room</em> while you <span class="accent">build</span>.</h1>
     <p class="reveal" style="--d:.14s;font-size:19px;color:var(--paper-dim);max-width:54ch;margin-top:22px">
       Turn real customer calls into AI personas that <b style="color:var(--paper);font-weight:600">review your product in their own voice</b>.
@@ -291,11 +299,23 @@
 
 <!-- ── FOOTER ───────────────────────────────────────────────────────────── -->
 <footer class="footer">
+  <div class="wrap">
+    <!-- the Klavity arc strip -->
+    <nav class="foot-in" aria-label="The Klavity arc" style="justify-content:center;gap:10px;margin-bottom:28px;font-family:var(--mono);font-size:13px;flex-wrap:wrap">
+      <a href="/snap" style="color:var(--indigo-text);font-weight:600">Snap</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/sims" style="color:var(--rose-text);font-weight:600">Sims</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/autosim" style="color:var(--green-text);font-weight:600">AutoSim</a>
+    </nav>
+  </div>
   <div class="wrap foot-in">
-    <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
+    <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span> Klavity</a>
+    <a href="/">Home</a>
     <a href="/snap">Snap</a>
     <a href="/sims" aria-current="page">Sims</a>
     <a href="/autosim">AutoSim</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
     <a href="/privacy">Privacy</a>
     <a href="/terms">Terms</a>
     <span class="sp mono">© <span data-year>2026</span> Klavity · the user becomes the tester</span>
