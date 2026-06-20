@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
@@ -14,6 +14,11 @@ import { safeFetch } from "./lib/safe-fetch"
 import { allow as rlAllow, record as rlRecord, count as rlCount, clear as rlClear } from "./lib/ratelimit"
 import { wrapUntrusted, UNTRUSTED_GUARD } from "./lib/prompt-safety"
 import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
+import { AsyncLocalStorage } from "node:async_hooks"
+
+// Per-request context. A project-bound Bearer token (widget token) records its bound project here so
+// resolveProject can constrain it to that project (F5) — without threading state through every route.
+const reqCtx = new AsyncLocalStorage<{ boundProject?: string | null }>()
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
@@ -566,12 +571,26 @@ async function bearerEmail(req: Request): Promise<string | null> {
   // M2 closed: only dedicated, revocable extension tokens (`ext_…`) are accepted as Bearer credentials.
   // The raw session id is no longer honored as a Bearer — it remains valid only as a first-party
   // HttpOnly cookie via sessionEmail(). A leaked Bearer is now always narrow-scope and revocable.
-  return getExtensionTokenEmail(m[1])
+  const info = await getExtensionTokenInfo(m[1])
+  if (!info) return null
+  // F5: if this token is bound to a project (widget token), record it so resolveProject constrains the
+  // request to that project. Account-wide extension tokens (projectId null) leave the context unset.
+  const ctx = reqCtx.getStore(); if (ctx) ctx.boundProject = info.projectId ?? null
+  return info.email
 }
 
 // Resolve the project a request targets: explicit ?project=:id if accessible, else the caller's
 // first accessible project. Returns null if the caller has no accessible project. Gated by projectAccess.
 async function resolveProject(email: string, requested?: string | null): Promise<{ id: string; access: 'admin' | 'member' } | null> {
+  // F5: a project-bound Bearer token may ONLY act on its bound project. Reject a mismatched explicit
+  // request, and force the bound project when none was requested — so a leaked widget token can't reach
+  // the owner's other projects via ?project= or the first-project fallback.
+  const bound = reqCtx.getStore()?.boundProject
+  if (bound) {
+    if (requested && requested !== bound) return null
+    const a = await projectAccess(email, bound)
+    return a ? { id: bound, access: a } : null
+  }
   if (requested) {
     const a = await projectAccess(email, requested)
     if (a) return { id: requested, access: a }
@@ -720,6 +739,18 @@ const TRANSCRIPT_PER_PROJECT = 60      // per project / hour
 const AUTOCOPY_WINDOW = 60 * 60 * 1000
 const AUTOCOPY_PER_PROJECT = 60
 
+// Legacy AI demo endpoints (/api/persona/brief, /api/extract, /api/react) — each makes an LLM call but
+// had no per-user throttle or input cap (only the daily $ cap). Bound them per user/hour + size.
+const AI_DEMO_WINDOW = 60 * 60 * 1000
+const AI_DEMO_PER_USER = 40            // LLM demo calls per user / hour
+const AI_DEMO_MAX_CHARS = 100_000      // transcript/brief char cap
+const AI_DEMO_MAX_IMG_B64 = 12_000_000 // ~9 MB decoded — cap the react screenshot payload
+// Throttle key for an AI demo call: prefer the authed email, else the abuse-safe client IP.
+function aiDemoLimited(meEmail: string | null, req: Request, server: any): boolean {
+  const key = meEmail ? `aidemo:u:${meEmail}` : `aidemo:ip:${clientIp(req, server)}`
+  return !rlAllow(key, AI_DEMO_PER_USER, AI_DEMO_WINDOW)
+}
+
 // True when an address is loopback or RFC1918/link-local private — i.e. a trusted reverse proxy on
 // the same box (Caddy). Only such a peer may set X-Forwarded-For; a public peer's XFF is forged.
 function isTrustedProxyPeer(addr: string | null | undefined): boolean {
@@ -755,10 +786,36 @@ function clientIp(req: Request, server?: { requestIP?: (r: Request) => { address
   return peer || "unknown"
 }
 
-Bun.serve({
-  port: PORT,
-  idleTimeout: 180,
-  async fetch(req, server) {
+// ── Security response headers (M-2 / A02): applied to EVERY response. The CSP is permissive enough not
+// to break the dashboard / Trails replay / marketing (Google Fonts + inline styles+scripts + blob/data
+// for rrweb and images), while still locking frame-ancestors (clickjacking), object-src and base-uri,
+// and blocking third-party script origins. Tighten script-src to nonces in a later, browser-tested pass.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: data:",
+  "worker-src 'self' blob:",
+  "connect-src 'self' https:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "object-src 'none'",
+].join("; ")
+const SEC_HEADERS: Record<string, string> = {
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Content-Security-Policy": CSP,
+  ...(SECURE ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
+}
+function withSecurityHeaders(res: Response): Response {
+  try { for (const [k, v] of Object.entries(SEC_HEADERS)) if (!res.headers.has(k)) res.headers.set(k, v) } catch { /* immutable headers — skip */ }
+  return res
+}
+
+async function handle(req: Request, server: { requestIP?: (r: Request) => { address?: string } | null }): Promise<Response> {
     const url = new URL(req.url)
     const path = url.pathname
 
@@ -2497,9 +2554,11 @@ Bun.serve({
         try {
           const { brief } = await req.json()
           if (!brief || String(brief).trim().length < 4) return json({ error: "Describe your user in a sentence." }, 400)
+          if (String(brief).length > AI_DEMO_MAX_CHARS) return json({ error: "Brief too long." }, 413)
           const sys = "Create ONE believable user persona (a \"Sim\") from the user's brief. Invent a plausible first+last name and a role. " +
             "Respond with ONLY a JSON object, no prose: {\"persona\":{\"name\":string,\"role\":string,\"type\":\"client\"|\"internal\",\"initials\":string(2 uppercase letters),\"accent\":string(hex colour like #6366f1),\"summary\":string,\"insights\":[{\"kind\":\"pain\"|\"want\"|\"love\",\"text\":string,\"quote\":string}]}} with exactly 3 insights; each quote is a short first-person line this persona might actually say."
           const meB = (await sessionEmail(req)) || (await bearerEmail(req))
+          if (aiDemoLimited(meB, req, server)) return json({ error: "Too many requests. Please wait and try again." }, 429, { "Retry-After": "3600" })
           const { content, usage } = await chat([{ role: "system", content: sys }, { role: "user", content: "Brief: " + brief }], 1200, true, { type: "persona", email: meB })
           const data = parseJSON(content)
           return json({ persona: data.persona, usage })
@@ -2510,7 +2569,9 @@ Bun.serve({
         try {
           const { transcript } = await req.json()
           if (!transcript || transcript.trim().length < 20) return json({ error: "Transcript too short" }, 400)
+          if (String(transcript).length > AI_DEMO_MAX_CHARS) return json({ error: "Transcript too large." }, 413)
           const meE = (await sessionEmail(req)) || (await bearerEmail(req))
+          if (aiDemoLimited(meE, req, server)) return json({ error: "Too many requests. Please wait and try again." }, 429, { "Retry-After": "3600" })
           const { data, usage } = await extractPersonas(transcript, { email: meE })
           return json({ personas: data.personas || [], usage })
         } catch (e: any) { return json(oops(e, "extract"), 500) }
@@ -2519,7 +2580,9 @@ Bun.serve({
         try {
           const { persona, imageB64, mediaType, pageUrl } = await req.json()
           if (!persona || !imageB64) return json({ error: "persona and imageB64 required" }, 400)
+          if (String(imageB64).length > AI_DEMO_MAX_IMG_B64) return json({ error: "Image too large." }, 413)
           const meRx = (await sessionEmail(req)) || (await bearerEmail(req))
+          if (aiDemoLimited(meRx, req, server)) return json({ error: "Too many requests. Please wait and try again." }, 429, { "Retry-After": "3600" })
           // A01/IDOR: persona.id is attacker-supplied. Resolve the caller's project and only treat the
           // id as a real Sim when it belongs to that project — otherwise it's an EPHEMERAL persona
           // (simId=null) so no cross-tenant trait/citation lookup happens. The AI call still proceeds.
@@ -2580,6 +2643,15 @@ Bun.serve({
     }
 
     return new Response("Not found", { status: 404 })
+}
+
+Bun.serve({
+  port: PORT,
+  idleTimeout: 180,
+  async fetch(req, server) {
+    // Establish per-request context (for F5 token-project binding) and apply security headers to every
+    // response from a single chokepoint.
+    return reqCtx.run({}, async () => withSecurityHeaders(await handle(req, server)))
   },
 })
 

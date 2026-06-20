@@ -10,6 +10,26 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.29.0] — 2026-06-20
+
+### Security
+- **Widget Bearer tokens are now project-scoped (F5 — A01/ASI03).** A `ext_` token minted for the
+  embeddable report widget carries a `project_id` and is constrained to it: a leaked widget token can
+  no longer reach the owner's *other* projects via `?project=` or the first-project fallback. The
+  per-request bound project is threaded through `AsyncLocalStorage` so `resolveProject` rejects a
+  mismatched explicit project and forces the bound one. The extension's own account-wide token is
+  unaffected. (`getExtensionTokenInfo` returns `{email, projectId}`.)
+- **Legacy AI demo endpoints now rate- and size-limited (LLM10).** `/api/persona/brief`,
+  `/api/extract`, and `/api/react` each make an LLM call but had no per-user throttle or input cap
+  beyond the daily $ ceiling. Added a per-user/hour cap (40 calls, keyed by email else client IP →
+  429 + `Retry-After`) plus payload caps (100k chars for brief/transcript, ~9 MB for the react image →
+  413 before any model call).
+- **Security response headers on every response (A02).** Added `Content-Security-Policy`
+  (locks `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`; permissive enough for the
+  dashboard / Trails rrweb player / marketing fonts), `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and HSTS
+  (when serving over TLS).
+
 ## [0.28.1] — 2026-06-20
 
 ### Fixed

@@ -48,6 +48,8 @@ await rawExec(`CREATE TABLE IF NOT EXISTS transcripts (
    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, title TEXT, raw_text TEXT NOT NULL,
    source_date INTEGER NOT NULL, speakers_json TEXT, added_by TEXT NOT NULL, created_at INTEGER NOT NULL)`)
 await rawExec(`CREATE INDEX IF NOT EXISTS transcript_proj_idx ON transcripts (project_id, source_date)`)
+// F5: project-bound widget Bearer tokens.
+await rawExec(`CREATE TABLE IF NOT EXISTS extension_tokens (token TEXT PRIMARY KEY, email TEXT, project_id TEXT, created_at INTEGER, expires_at INTEGER, revoked INTEGER DEFAULT 0)`)
 
 // ── Fixtures ──
 const AUTHED_EMAIL = `studio-${ts}@test.local`
@@ -74,6 +76,13 @@ await rawExec(`INSERT INTO sim_traits (id, sim_id, project_id, kind, text, statu
 // A transcript belonging to the project, for the GET /api/transcripts list test.
 await rawExec(`INSERT INTO transcripts (id, project_id, title, raw_text, source_date, speakers_json, added_by, created_at) VALUES (?,?,?,?,?,?,?,?)`,
   ["tr_seed", PROJECT_ID, "Seed onboarding call", "Tester: it is so slow. shortcuts please.", NOW, null, AUTHED_EMAIL, NOW])
+
+// ── F5 fixtures: a SECOND project ALSO owned by AUTHED_EMAIL, plus an extension token BOUND to the
+//    first project. The bound token must reach PROJECT_ID but NOT this second owned project. ──
+const PROJECT_ID_2 = `proj2_${ACCOUNT_ID}`
+await rawExec(`INSERT INTO projects (id, account_id, name, status, review_mode, review_budget_daily, observability_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [PROJECT_ID_2, ACCOUNT_ID, "Second Project", "active", "auto", 200, "named", NOW, NOW])
+await rawExec(`INSERT INTO project_members (id, project_id, email, project_role, invited_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [`pm2_${ts}`, PROJECT_ID_2, AUTHED_EMAIL, "admin", null, NOW])
+await rawExec(`INSERT INTO extension_tokens (token, email, project_id, created_at, expires_at, revoked) VALUES (?, ?, ?, ?, ?, ?)`, ["ext_bound_x", AUTHED_EMAIL, PROJECT_ID, NOW, NOW + 86400_000, 0])
 
 // ── Victim tenant (separate account/project) the AUTHED_EMAIL user has NO access to. Used by the
 //    cross-tenant IDOR regression tests below: an attacker authed to their own project must not be
@@ -419,4 +428,39 @@ test("M5: /api/transcripts rejects an oversized transcript with 413", async () =
     method: "POST", body: JSON.stringify({ transcript: huge }),
   })
   expect(res.status).toBe(413)
+})
+
+// ── A02 / M-2: every response carries the security headers (clickjacking + sniffing + CSP). ──
+test("security headers (X-Frame-Options + CSP) are on every response", async () => {
+  // A 401 from an unauthenticated extension API — deterministic, no LLM/DB writes.
+  const res = await fetch(`${BASE}/api/personas?project=${PROJECT_ID}`, { headers: { Authorization: "Bearer ext_nope" } })
+  expect(res.headers.get("x-frame-options")).toBe("DENY")
+  expect(res.headers.get("x-content-type-options")).toBe("nosniff")
+  const csp = res.headers.get("content-security-policy") || ""
+  expect(csp).toContain("frame-ancestors 'none'")
+})
+
+// ── LLM10 / AI-demo size cap: an oversized brief is rejected with 413 BEFORE any LLM call (hermetic). ──
+test("AI demo: /api/persona/brief rejects an oversized brief with 413", async () => {
+  const huge = "a".repeat(100_001)
+  const res = await fetch(`${BASE}/api/persona/brief`, {
+    method: "POST",
+    headers: { cookie: "klav_session=" + SID, "content-type": "application/json" },
+    body: JSON.stringify({ brief: huge }),
+  })
+  expect(res.status).toBe(413)
+})
+
+// ── F5 (A01/ASI03): a project-bound widget Bearer token may act ONLY on its bound project, not on the
+//    owner's OTHER projects. Also proves AsyncLocalStorage propagates through Bun.serve/libsql awaits. ──
+test("F5: a project-bound ext token reaches its bound project", async () => {
+  const res = await fetch(`${BASE}/api/personas?project=${PROJECT_ID}`, { headers: { Authorization: "Bearer ext_bound_x" } })
+  expect(res.status).toBe(200)
+})
+
+test("F5: a project-bound ext token is DENIED the owner's other project", async () => {
+  const res = await fetch(`${BASE}/api/personas?project=${PROJECT_ID_2}`, { headers: { Authorization: "Bearer ext_bound_x" } })
+  // Mismatched ?project= → resolveProject returns null → 400 "No project." (NOT 200 — would mean ALS failed open).
+  expect(res.status).not.toBe(200)
+  expect([400, 404]).toContain(res.status)
 })

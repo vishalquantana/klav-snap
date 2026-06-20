@@ -72,12 +72,22 @@ with tests, via a multi-agent workflow.
 - ✅ **Connector error leak (Medium, A10)** — adapters throw generic errors (upstream body logged
   server-side only); the connector-test/export catches route through `oops()` so guard reasons aren't
   echoed (no blind-SSRF oracle).
+- ✅ **Widget Bearer tokens were account-wide, not project-scoped (Medium, F5 — A01/ASI03)** — fixed
+  v0.29.0. `getExtensionTokenInfo` returns the token's bound `project_id`; `bearerEmail` records it in
+  an `AsyncLocalStorage` per-request context and `resolveProject` constrains a bound token to that
+  project (rejects a mismatched `?project=`, forces the bound project on the fallback). The extension's
+  account-wide token (`project_id` null) is unaffected. Tested in `server.traits.test.ts` (bound token
+  reaches its project, denied the owner's second project — also proving ALS propagates through Bun).
+- ✅ **Legacy AI demo endpoints lacked per-user rate/size caps (Medium, LLM10)** — fixed v0.29.0.
+  `/api/persona/brief`, `/api/extract`, `/api/react` now enforce a per-user/hour cap (40, keyed by
+  email else client IP → 429 + `Retry-After`) and payload caps (100k chars brief/transcript, ~9 MB
+  react image → 413 before any model call). `aiDemoLimited` helper; size cap tested.
+- ✅ **No global security headers (Medium, A02)** — fixed v0.29.0. Every response carries CSP
+  (`frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`; permissive for dashboard / Trails
+  rrweb / Google Fonts), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy`, and HSTS over TLS — applied at a single `withSecurityHeaders` chokepoint. Tested.
 
 ### Still open (Low / Info — accepted or deferred)
-
-- **Medium, deferred:** `ext_` widget tokens are account-wide rather than project-scoped (F5); legacy
-  `/api/extract`/`/api/react`/`/api/persona/brief` lack per-user rate/size caps (the daily cost cap now
-  bounds spend); no global security headers (CSP/HSTS/X-Frame-Options) — next batch.
 - **Low:** verify response also returns `token: sid` in the body; `verifyOtp` check-then-act not atomic;
   `javascript:`/`data:` not scheme-checked on connector-supplied `href`s in the dashboard;
   `wrapUntrusted` regex is whitespace-naive (not independently exploitable).
@@ -86,6 +96,8 @@ with tests, via a multi-agent workflow.
   output escaped/validated).
 
 All Critical + High findings, and all exploitable Mediums, are remediated with tests as of v0.25.0.
+The three deferred Mediums (F5 token scoping, AI-demo rate/size caps, security headers) are fixed with
+tests as of v0.29.0. Only Lows remain (see above).
 
 ---
 

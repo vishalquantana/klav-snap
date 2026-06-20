@@ -1623,13 +1623,19 @@ export async function issueExtensionToken(email: string, projectId?: string | nu
   return token
 }
 // Resolve a dedicated extension token → email, honoring revoked + expiry. Returns null if not an ext token.
-export async function getExtensionTokenEmail(token: string): Promise<string | null> {
-  const r = await db!.execute({ sql: "SELECT email, expires_at, revoked FROM extension_tokens WHERE token=?", args: [token] })
+// Resolve a Bearer extension token to its owner AND the project it is bound to (null = account-wide).
+// Widget tokens (minted via /api/widget/token) carry a project_id and MUST be constrained to it (F5);
+// the extension's own token is account-wide (project_id null).
+export async function getExtensionTokenInfo(token: string): Promise<{ email: string; projectId: string | null } | null> {
+  const r = await db!.execute({ sql: "SELECT email, project_id, expires_at, revoked FROM extension_tokens WHERE token=?", args: [token] })
   if (!r.rows.length) return null
   const x = r.rows[0] as any
   if (Number(x.revoked) === 1) return null
   if (x.expires_at != null && Number(x.expires_at) < Date.now()) return null
-  return String(x.email)
+  return { email: String(x.email), projectId: x.project_id != null ? String(x.project_id) : null }
+}
+export async function getExtensionTokenEmail(token: string): Promise<string | null> {
+  return (await getExtensionTokenInfo(token))?.email ?? null
 }
 export async function revokeExtensionToken(token: string): Promise<void> {
   await db!.execute({ sql: "UPDATE extension_tokens SET revoked=1 WHERE token=?", args: [token] })
