@@ -429,7 +429,6 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <a href="/snap">Snap</a>
       <a href="/sims">Sims</a>
       <a href="/autosim">AutoSim</a>
-      <a href="#phases">Roadmap</a>
       <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
     <div class="nav-cta" id="navCta">
@@ -519,6 +518,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .parc .parc-head h2{font-family:var(--display);font-weight:450;font-size:clamp(30px,4vw,44px);line-height:1.08;letter-spacing:-.02em}
 .parc .parc-head h2 em{font-style:italic;color:var(--amber-text)}
 .parc .parc-head p{font-size:17px;color:var(--paper-dim);margin:14px auto 0;max-width:54ch}
+.parc .parc-head .parc-name{font-size:13.5px;color:var(--paper-faint);margin-top:10px;max-width:52ch;font-style:italic}
 
 /* the walking trail */
 .parc .parc-arc{position:relative;max-width:880px;margin:46px auto 8px;display:grid;grid-template-columns:repeat(3,1fr)}
@@ -585,6 +585,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <span class="tag">One product · three phases</span>
       <h2 id="arc-title">The Klavity arc: <em>Snap → Sims → AutoSim.</em></h2>
       <p>One thread pulled all the way — the people who use your product become the ones who catch its bugs. A human snaps it, AI Sims catch it, AutoSim runs it forever.</p>
+      <p class="parc-name">Named after Ekalavya, the self-taught master — Klavity learns your product and your customers, then acts on its own.</p>
     </div>
 
     <!-- the Sim character walking the colored phase trail -->
@@ -752,34 +753,6 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 </section>
 
-<!-- PHASES -->
-<section id="phases">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="tag">The arc</span>
-      <h2>Snap shipped. <em>Sims live.</em> AutoSim shipped.</h2>
-      <p>Named after Ekalavya, the self-taught master — Klavity learns your product and your customers, then acts on its own.</p>
-    </div>
-    <div class="phases">
-      <div class="phase live">
-        <span class="ph-stat s-live">● Shipped</span>
-        <h3>Klavity Snap</h3><div class="pl">the eyes</div>
-        <p>Right-click bug reporting from any page, into any tracker. Free and open source — the wedge the rest is built on.</p>
-      </div>
-      <div class="phase build">
-        <span class="ph-stat s-live">● Live</span>
-        <h3>Klavity Sims</h3><div class="pl">the voices</div>
-        <p>AI personas built from real customer interviews that review your product pages — automatically on allowlisted URLs, or on demand with one click — and file what they find.</p>
-      </div>
-      <div class="phase">
-        <span class="ph-stat s-live">● Shipped</span>
-        <h3>Klavity AutoSim</h3><div class="pl">the autopilot</div>
-        <p>Your Sims test every release — and self-heal. Deterministic zero-AI replay heals when the UI moves, and a real break files a grounded finding instead of a silent false-green.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- TRUST -->
 <section>
   <div class="wrap">
@@ -860,7 +833,6 @@ const NOTES = [
   { sel: '#sims .sec-head h2', who: 'PR', mood: 'love', text: "That italic on 'the people from your calls' — yes. Lean into that contrast everywhere." },
   { sel: '#sims .persona', who: 'SC', mood: 'neutral', text: "These quote cards earn trust fast. Put a company logo on them and I'm sold." },
   { sel: '#snap .snap-menu', who: 'JM', mood: 'love', text: "Showing the real right-click menu is clever — I know exactly what I'm installing before I click." },
-  { sel: '.phase.build', who: 'AK', mood: 'love', text: "'Live' — good, I don't have to wait. Now show me how to turn my last call into a Sim." },
   { sel: '.trust', who: 'SC', mood: 'love', text: "THIS is the section that closes me. The verbatim-quote answer kills my 'is this fake?' worry." },
   { sel: '#cta .btn-indigo', who: 'PR', mood: 'frustrated', text: "Two CTAs here — 'Get started' should clearly win over 'Add to Chrome'." },
 ];
