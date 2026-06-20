@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Klavity Mock Checkout (moved: sign-in relocated + re-anchored)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    .hidden { display: none; }
+    button { padding: .5rem 1rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <!-- The SAME Sign-in affordance still exists, but every Tier-0/1 anchor changed:
+           - id is "totally-new-id" (not #signin) -> Tier 0 cache miss
+           - role="button" but aria-label="Account access" -> role+name("Sign in") miss
+           - visible text is "Enter" (not "Sign in") -> text miss
+           - no data-testid="signin-btn" -> testid miss
+           - it lives in <header><nav>, not in #login-form -> structural/domPath miss
+           Only a vision model could recognise this as the "Sign in" control. -->
+      <a id="totally-new-id" href="#" role="button" aria-label="Account access"
+         onclick="document.getElementById('checkout').classList.remove('hidden'); document.getElementById('login-form').classList.add('hidden'); return false;">Enter</a>
+    </nav>
+  </header>
+  <main>
+    <form id="login-form">
+      <label>Email <input id="email" type="email" aria-label="Email" data-testid="email-input" /></label>
+      <label>Password <input id="password" type="password" aria-label="Password" data-testid="password-input" /></label>
+    </form>
+
+    <section id="checkout" class="hidden">
+      <h1 class="dashboard-title" data-testid="dashboard-title">Dashboard</h1>
+      <button id="add-plan" class="btn-add" type="button" aria-label="Add the $20 plan" data-testid="add-plan-btn">
+        Add $20 plan
+      </button>
+    </section>
+  </main>
+</body>
+</html>

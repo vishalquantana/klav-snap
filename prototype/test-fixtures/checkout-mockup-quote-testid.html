@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Klavity Mock — testid with embedded double-quote</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    button { padding: .5rem 1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <!-- testid value contains a literal double-quote: weird"id. Selector escaping must round-trip. -->
+    <button id="quote-btn" type="button" aria-label="Quote" data-testid='weird"id'>Quote</button>
+  </main>
+</body>
+</html>

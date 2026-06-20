@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Klavity Mock — mixed heal signals</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    .hidden { display: none; }
+    button { padding: .5rem 1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sign in</h1>
+    <form id="login-form">
+      <label>Email <input id="email" type="email" aria-label="Email" data-testid="email-input" /></label>
+      <label>Password <input id="password" type="password" aria-label="Password" data-testid="password-input" /></label>
+      <!-- Sign in: id renamed, aria-label dropped, AND visible text changed to "Continue" so the
+           accessible name is no longer "Sign in" -> role+accessible-name FAILS and text("Sign in")
+           FAILS; but the data-testid survives -> heals via the TESTID signal (confidence 0.92). -->
+      <button id="auth-x9" class="cta" type="button" data-testid="signin-btn"
+              onclick="document.getElementById('checkout').classList.remove('hidden'); document.getElementById('login-form').classList.add('hidden');">
+        Continue
+      </button>
+    </form>
+
+    <section id="checkout" class="hidden">
+      <h1 class="dashboard-title" data-testid="dashboard-title">Dashboard</h1>
+      <!-- Add plan: id renamed but role (button) + accessible-name (aria-label) PRESERVED
+           -> heals via the ROLE+NAME signal (confidence 0.95). -->
+      <button id="add-plan-renamed" class="btn-add" type="button" aria-label="Add the $20 plan" data-testid="add-plan-btn"
+              onclick="document.getElementById('confirmation').classList.remove('hidden');">
+        Add $20 plan
+      </button>
+      <p id="confirmation" class="hidden" data-testid="confirmation">Plan added to cart</p>
+    </section>
+  </main>
+</body>
+</html>

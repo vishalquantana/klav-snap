@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('klav-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trails · Klavity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/vendor/rrweb-player.css" />
+<style>
+:root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
+--display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+[data-theme="dark"]{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;--indigo:#8b8bf5;--indigo-deep:#6366f1;--amber:#e8a24a;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height:100vh}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(80% 50% at 50% -5%,rgba(139,139,245,.08),transparent 60%)}
+a{color:inherit;text-decoration:none}
+.bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:var(--ink-2);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1060px;margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em}
+.nav{margin-left:8px;display:flex;gap:4px}
+.nav a{font-size:13px;color:var(--paper-faint);padding:6px 11px;border-radius:9px}
+.nav a:hover{color:var(--paper-dim)} .nav a.on{color:var(--paper);background:var(--ink-3)}
+.right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.who{font-size:13px;color:var(--paper-dim)}
+.lo{font-size:13px;color:var(--paper-faint);cursor:pointer;background:none;border:none;font-family:var(--body)}.lo:hover{color:var(--paper-dim)}
+.wrap{max-width:1060px;margin:0 auto;padding:34px 24px}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02em;margin-bottom:4px}
+.lead{color:var(--paper-dim);font-size:15px}
+.switcher{display:flex;align-items:center;gap:8px}
+.switcher .sw-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint)}
+.proj-select{appearance:none;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 34px 9px 13px;color:var(--paper);font-family:var(--body);font-weight:600;font-size:14px;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.proj-select:focus{border-color:var(--indigo)}
+
+/* precision banner */
+.banner{display:flex;align-items:center;gap:20px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.05));border:1px solid rgba(139,139,245,.3);border-radius:18px;padding:22px 24px;margin-bottom:22px}
+.banner .pct{font-family:var(--display);font-weight:500;font-size:42px;line-height:1;letter-spacing:-.02em}
+.banner .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:6px}
+.banner .sub{color:var(--paper-dim);font-size:14px;max-width:52ch}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;padding:22px}
+.card h2{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card h2 .count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--paper-faint);background:var(--ink-3);padding:2px 8px;border-radius:20px}
+.list{display:flex;flex-direction:column;gap:10px}
+
+/* walk rows + verdict pills */
+.walk{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--ink);border:1px solid var(--line);border-radius:12px}
+.walk .body{flex:1;min-width:0}
+.walk .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.walk .d{font-size:12px;color:var(--paper-faint);margin-top:2px;font-family:var(--mono)}
+.pill{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:20px;flex-shrink:0}
+.pill.green{background:rgba(15,157,107,.16);color:var(--green)}
+.pill.amber{background:rgba(217,131,36,.18);color:var(--amber)}
+.pill.red{background:rgba(219,39,119,.16);color:var(--rose)}
+.pill.running,.pill.skip{background:var(--ink-3);color:var(--paper-faint)}
+
+/* review queue */
+.find{padding:15px 16px;background:var(--ink);border:1px solid var(--line);border-radius:14px}
+.find .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.find .kind{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;background:var(--ink-3);color:var(--paper-faint)}
+.find .kind.regression{background:rgba(219,39,119,.14);color:var(--rose)}
+.find .kind.amber_heal{background:rgba(217,131,36,.16);color:var(--amber)}
+.find .kind.visual{background:rgba(99,102,241,.14);color:var(--indigo)}
+.find .conf{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--paper-faint)}
+.find .ft{font-size:14.5px;font-weight:600;line-height:1.4}
+.find .quote{font-size:13px;color:var(--paper-dim);margin-top:6px;border-left:2px solid var(--line);padding-left:10px;line-height:1.45}
+.find .diff{font-family:var(--mono);font-size:12px;color:var(--paper-faint);margin-top:8px;background:var(--ink-3);padding:7px 10px;border-radius:8px;overflow-x:auto}
+.find .acts{display:flex;gap:8px;margin-top:12px}
+.btn{font-family:var(--body);font-weight:600;font-size:13px;padding:8px 14px;border-radius:9px;border:none;cursor:pointer;transition:transform .1s}
+.btn:active{transform:translateY(1px)}
+.btn-indigo{color:#fff;background:linear-gradient(135deg,#a9a9ff,var(--indigo))}
+[data-theme="dark"] .btn-indigo{color:#0c0a08}
+.btn-ghost{color:var(--paper);background:transparent;border:1px solid var(--line)}.btn-ghost:hover{border-color:var(--paper-faint)}
+.empty{text-align:center;padding:24px 16px;color:var(--paper-faint)}
+.empty .em{font-size:26px;margin-bottom:8px}
+.empty p{font-size:13.5px;line-height:1.5}
+.muted{color:var(--paper-faint);font-size:13px}
+.msg{font-size:12.5px;color:var(--green);margin-top:8px;min-height:16px}
+
+/* replay button on a walk row */
+.walk .replay-btn{flex-shrink:0;font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:5px 10px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--paper-dim);cursor:pointer}
+.walk .replay-btn:hover{border-color:var(--indigo);color:var(--paper)}
+
+/* replay modal */
+.modal-bg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px}
+.modal-bg.open{display:flex}
+.modal{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;max-width:1000px;width:100%;max-height:92vh;overflow:auto;padding:20px 22px}
+.modal .mhead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.modal .mhead h3{font-family:var(--display);font-weight:500;font-size:20px}
+.modal .mclose{margin-left:auto;background:none;border:1px solid var(--line);border-radius:9px;color:var(--paper-dim);font-size:18px;line-height:1;padding:4px 10px;cursor:pointer}
+.modal .mclose:hover{color:var(--paper)}
+/* step timeline above the player */
+.steptl{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.steptl .sp{font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:4px 9px;border-radius:8px;border:1px solid var(--line);background:var(--ink-3);color:var(--paper-faint);cursor:pointer}
+.steptl .sp.green{color:var(--green)} .steptl .sp.amber{color:var(--amber);border-color:rgba(217,131,36,.4)} .steptl .sp.red{color:var(--rose);border-color:rgba(219,39,119,.4)}
+.steptl .sp.focus{outline:2px solid var(--indigo);outline-offset:1px}
+/* chapter tabs (per-page segments) */
+.chapters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chapters .ch{font-family:var(--mono);font-size:10px;padding:4px 9px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--paper-faint);cursor:pointer}
+.chapters .ch.on{color:var(--paper);border-color:var(--indigo);background:var(--ink-3)}
+#playerHost{min-height:200px;border-radius:12px;overflow:hidden}
+.modal .mnote{font-size:12.5px;color:var(--paper-faint);margin-top:10px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <a class="brand" href="/dashboard"><img src="/favicon.svg" width="28" height="28" alt="Klavity" style="border-radius:8px;display:block" />Klavity</a>
+  <nav class="nav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/trails" class="on">Trails</a>
+  </nav>
+  <div class="right">
+    <span class="who" id="who"></span>
+    <button class="lo" id="logout">Log out</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>Trails</h1>
+      <p class="lead" id="lead">Authored user-flows, walked deterministically — AI only steps in on a break.</p>
+    </div>
+    <div class="switcher">
+      <span class="sw-lbl">Project</span>
+      <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
+    </div>
+  </div>
+
+  <!-- precision banner (legit-bug rate) -->
+  <div class="banner">
+    <div>
+      <div class="lbl">Precision · legit-bug rate</div>
+      <div class="pct" id="precPct">—</div>
+    </div>
+    <div class="sub" id="precSub">Once you've filed or dismissed findings, this is the share that were real bugs. A wrong heal is worse than a red test — we never silently pass.</div>
+  </div>
+
+  <div class="grid">
+    <!-- Walks -->
+    <div class="card">
+      <h2>Walks <span class="count" id="walksCount">0</span></h2>
+      <div class="list" id="walks"></div>
+    </div>
+    <!-- Review queue -->
+    <div class="card">
+      <h2>Review queue <span class="count" id="queueCount">0</span></h2>
+      <div class="list" id="queue"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Walk replay modal (rrweb-player) -->
+<div class="modal-bg" id="replayBg">
+  <div class="modal">
+    <div class="mhead">
+      <h3>Walk replay</h3>
+      <button class="mclose" id="replayClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="steptl" id="replaySteps"></div>
+    <div class="chapters" id="replayChapters"></div>
+    <div id="playerHost"></div>
+    <div class="mnote" id="replayNote"></div>
+  </div>
+</div>
+
+<script src="/vendor/rrweb-player.umd.min.js"></script>
+<script>
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function projParam(){try{return new URLSearchParams(location.search).get("project")}catch(e){return null}}
+
+// ── Walk replay (rrweb-player) ───────────────────────────────────────────────────
+var replayState = { segments: [], steps: [], player: null, focusStep: null }
+
+function destroyPlayer(){
+  try { if (replayState.player && replayState.player.$destroy) replayState.player.$destroy() } catch(e){}
+  replayState.player = null
+  var host = $("playerHost"); if (host) host.innerHTML = ""
+}
+
+// Play one per-page segment as a chapter. rrweb-player needs ≥2 events; pad if a segment is thin.
+function playSegment(i){
+  var seg = replayState.segments[i]; if (!seg) return
+  destroyPlayer()
+  // highlight the active chapter tab
+  var tabs = $("replayChapters").querySelectorAll(".ch")
+  tabs.forEach(function(t,idx){ t.classList.toggle("on", idx===i) })
+  var events = (seg.events||[]).slice()
+  if (events.length < 2){ $("replayNote").textContent = "Chapter "+(i+1)+": too few frames to scrub (page changed too fast)."; return }
+  try {
+    replayState.player = new rrwebPlayer({
+      target: $("playerHost"),
+      props: { events: events, width: 920, autoPlay: true, showController: true },
+    })
+    $("replayNote").textContent = "Chapter "+(i+1)+" of "+replayState.segments.length+" · "+(seg.url||"")
+  } catch(e){
+    $("replayNote").textContent = "Could not start the player for this chapter."
+  }
+}
+
+// Which segment (chapter) covers a given step idx: the last segment whose boundary idx <= step idx.
+function chapterForStep(stepIdx){
+  var best = 0
+  for (var i=0;i<replayState.segments.length;i++){ if (replayState.segments[i].idx <= stepIdx) best = i }
+  return best
+}
+
+function renderReplaySteps(){
+  var el = $("replaySteps"); el.innerHTML = ""
+  replayState.steps.forEach(function(s){
+    var v = String(s.verdict||"skip")
+    var sp = document.createElement("button")
+    sp.className = "sp "+v + (replayState.focusStep!=null && s.idx===replayState.focusStep ? " focus" : "")
+    sp.textContent = "#"+s.idx+" "+v
+    sp.onclick = function(){ playSegment(chapterForStep(s.idx)) }
+    el.appendChild(sp)
+  })
+}
+
+function renderChapters(){
+  var el = $("replayChapters"); el.innerHTML = ""
+  replayState.segments.forEach(function(seg,i){
+    var ch = document.createElement("button")
+    ch.className = "ch"
+    var name = String(seg.url||"").split("/").pop() || ("page "+(i+1))
+    ch.textContent = (i+1)+". "+name
+    ch.onclick = function(){ playSegment(i) }
+    el.appendChild(ch)
+  })
+}
+
+async function openReplay(runId){
+  var pid = projParam()
+  var qs = pid ? "?project=" + encodeURIComponent(pid) : ""
+  $("replayNote").textContent = "Loading replay…"
+  $("replaySteps").innerHTML = ""; $("replayChapters").innerHTML = ""
+  destroyPlayer()
+  $("replayBg").classList.add("open")
+  var r
+  try { r = await fetch("/api/trails/walks/" + encodeURIComponent(runId) + "/replay" + qs) }
+  catch(e){ $("replayNote").textContent = "Network error loading replay."; return }
+  if (r.status === 404){ $("replayNote").textContent = "No replay was recorded for this Walk."; return }
+  if (!r.ok){ $("replayNote").textContent = "Couldn't load the replay."; return }
+  var d = await r.json()
+  replayState.segments = d.segments || []
+  replayState.steps = d.steps || []
+  // Auto-highlight the FIRST amber/red step — "where it went wrong" focus — and open its chapter.
+  var firstBad = replayState.steps.find(function(s){ var v=String(s.verdict); return v==="amber"||v==="red" })
+  replayState.focusStep = firstBad ? firstBad.idx : null
+  renderReplaySteps()
+  renderChapters()
+  playSegment(replayState.focusStep!=null ? chapterForStep(replayState.focusStep) : 0)
+}
+
+$("replayClose").onclick = function(){ $("replayBg").classList.remove("open"); destroyPlayer() }
+$("replayBg").onclick = function(e){ if (e.target === $("replayBg")){ $("replayBg").classList.remove("open"); destroyPlayer() } }
+
+async function load(){
+  const pid = projParam()
+  let r
+  try {
+    r = await fetch("/api/trails/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
+  } catch(e){ return }
+  if (r.status === 401) { location.href = "/login"; return }
+  if (!r.ok) { $("lead").textContent = "Couldn't load Trails."; return }
+  const d = await r.json()
+  $("who").textContent = d.email || ""
+
+  // precision
+  const p = d.precision || {}
+  if (p.precision == null) {
+    $("precPct").textContent = "—"
+    $("precSub").textContent = "No findings filed or dismissed yet. Precision appears once you start reviewing the queue."
+  } else {
+    $("precPct").textContent = Math.round(p.precision * 100) + "%"
+    $("precSub").textContent = p.filed + " filed · " + p.dismissed + " dismissed — the share of reviewed findings that were real bugs."
+  }
+
+  // walks
+  const walks = d.recentWalks || []
+  $("walksCount").textContent = String(walks.length)
+  const wEl = $("walks")
+  wEl.innerHTML = walks.length ? "" : '<div class="empty"><div class="em">🐾</div><p>No Walks yet. Author a Trail and walk it to see verdicts here.</p></div>'
+  for (const w of walks) {
+    const v = String(w.status || "running")
+    const when = w.startedAt ? new Date(w.startedAt).toLocaleString() : ""
+    const row = document.createElement("div")
+    row.className = "walk"
+    row.innerHTML = '<div class="body"><div class="t">'+esc(w.trailId)+'</div><div class="d">'+esc(w.id)+' · '+esc(when)+' · '+esc(w.llmCalls||0)+' LLM</div></div>'
+      + (w.hasReplay ? '<button class="replay-btn" data-replay="'+esc(w.id)+'">&#9654; Replay</button>' : '')
+      + '<span class="pill '+esc(v)+'">'+esc(v)+'</span>'
+    wEl.appendChild(row)
+  }
+  wEl.querySelectorAll("button[data-replay]").forEach(function(btn){
+    btn.onclick = function(){ openReplay(btn.getAttribute("data-replay")) }
+  })
+
+  // review queue
+  const queue = d.queue || []
+  $("queueCount").textContent = String(queue.length)
+  renderQueue(queue)
+}
+
+function renderQueue(queue){
+  const qEl = $("queue")
+  qEl.innerHTML = queue.length ? "" : '<div class="empty"><div class="em">✓</div><p>Queue clear — nothing waiting for review.</p></div>'
+  for (const f of queue) {
+    const ev = f.evidence || {}
+    const rationale = ev.rationale || f.groundQuote || ""
+    const fromSel = ev.fromSelector, toSel = ev.toSelector
+    const card = document.createElement("div")
+    card.className = "find"
+    let html = '<div class="top"><span class="kind '+esc(f.kind)+'">'+esc(f.kind)+'</span><span class="conf">conf '+esc(f.confidence)+'</span></div>'
+    html += '<div class="ft">'+esc(f.title)+'</div>'
+    if (rationale) html += '<div class="quote">'+esc(rationale)+'</div>'
+    if (fromSel || toSel) html += '<div class="diff">'+esc(fromSel || "(none)")+' &rarr; '+esc(toSel || "(none)")+'</div>'
+    html += '<div class="acts">'
+      + '<button class="btn btn-indigo" data-act="file" data-id="'+esc(f.id)+'">File</button>'
+      + '<button class="btn btn-ghost" data-act="dismiss" data-id="'+esc(f.id)+'">Dismiss</button>'
+      + '</div><div class="msg" data-msg="'+esc(f.id)+'"></div>'
+    card.innerHTML = html
+    qEl.appendChild(card)
+  }
+  qEl.querySelectorAll("button[data-act]").forEach(function(btn){
+    btn.onclick = function(){ act(btn.getAttribute("data-act"), btn.getAttribute("data-id")) }
+  })
+}
+
+async function act(kind, id){
+  const pid = projParam()
+  const qs = pid ? "?project=" + encodeURIComponent(pid) : ""
+  const msg = document.querySelector('[data-msg="'+id+'"]')
+  try {
+    const r = await fetch("/api/trails/findings/" + encodeURIComponent(id) + "/" + kind + qs, {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    })
+    const b = await r.json().catch(function(){return {}})
+    if (r.ok && b.ok) { await load() }
+    else if (msg) { msg.style.color = "var(--rose)"; msg.textContent = b.error || "Action failed." }
+  } catch(e){ if (msg) { msg.style.color = "var(--rose)"; msg.textContent = "Network error." } }
+}
+
+$("logout").onclick = async function(){ await fetch("/api/auth/logout", { method:"POST" }); location.href = "/" }
+$("projSwitch").onchange = function(){ const v = $("projSwitch").value; location.href = "/trails?project=" + encodeURIComponent(v) }
+
+load()
+</script>
+</body>
+</html>

@@ -236,6 +236,110 @@ export async function applySchema(c: Client) {
        id TEXT PRIMARY KEY, persona_id TEXT NOT NULL, project_id TEXT NOT NULL,
        field TEXT NOT NULL, before_val TEXT, after_val TEXT, actor TEXT NOT NULL, created_at INTEGER NOT NULL)`,
     `CREATE INDEX IF NOT EXISTS persona_edits_idx ON persona_edits (persona_id, created_at)`,
+    // ── Klavity OS "Trails" (test automation): authored flows, steps, locator cache, walks, run-steps, findings ──
+    `CREATE TABLE IF NOT EXISTS trails (
+       id TEXT PRIMARY KEY,
+       project_id TEXT NOT NULL,
+       name TEXT NOT NULL,
+       intent TEXT NOT NULL DEFAULT '',
+       base_url TEXT NOT NULL,
+       baseline_ref TEXT,
+       author_kind TEXT NOT NULL DEFAULT 'human',
+       status TEXT NOT NULL DEFAULT 'draft',
+       created_by TEXT,
+       created_at INTEGER NOT NULL,
+       updated_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS trail_proj_idx ON trails(project_id, status)`,
+    `CREATE TABLE IF NOT EXISTS trail_steps (
+       id TEXT PRIMARY KEY,
+       trail_id TEXT NOT NULL,
+       project_id TEXT NOT NULL,
+       idx INTEGER NOT NULL,
+       action TEXT NOT NULL,
+       action_value TEXT,
+       target_json TEXT,
+       checkpoint_json TEXT,
+       created_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS tstep_trail_idx ON trail_steps(trail_id, idx)`,
+    `CREATE TABLE IF NOT EXISTS locator_cache (
+       id TEXT PRIMARY KEY,
+       project_id TEXT NOT NULL,
+       trail_id TEXT NOT NULL,
+       step_id TEXT NOT NULL,
+       cache_key TEXT NOT NULL,
+       resolved_selector TEXT NOT NULL,
+       fingerprint_json TEXT,
+       confidence REAL NOT NULL DEFAULT 1.0,
+       source TEXT NOT NULL DEFAULT 'crystallize',
+       created_at INTEGER NOT NULL,
+       updated_at INTEGER NOT NULL
+     )`,
+    // Per-step identity: one cache row per (project, step). cache_key is a stored page-state
+    // fingerprint column but NOT the uniqueness key (removes Layer B's salt hack). Greenfield table,
+    // no prod data — changing the CREATE INDEX is sufficient (additive/idempotent).
+    `CREATE UNIQUE INDEX IF NOT EXISTS lc_key_uq ON locator_cache(project_id, step_id)`,
+    `CREATE TABLE IF NOT EXISTS trail_runs (
+       id TEXT PRIMARY KEY,
+       trail_id TEXT NOT NULL,
+       project_id TEXT NOT NULL,
+       trigger TEXT NOT NULL DEFAULT 'manual',
+       status TEXT NOT NULL DEFAULT 'running',
+       llm_calls INTEGER NOT NULL DEFAULT 0,
+       summary_json TEXT,
+       started_at INTEGER NOT NULL,
+       finished_at INTEGER
+     )`,
+    `CREATE INDEX IF NOT EXISTS walk_trail_idx ON trail_runs(trail_id, started_at)`,
+    `CREATE TABLE IF NOT EXISTS run_steps (
+       id TEXT PRIMARY KEY,
+       run_id TEXT NOT NULL,
+       trail_id TEXT NOT NULL,
+       step_id TEXT NOT NULL,
+       project_id TEXT NOT NULL,
+       idx INTEGER NOT NULL,
+       tier TEXT NOT NULL DEFAULT 'none',
+       verdict TEXT NOT NULL DEFAULT 'skip',
+       confidence REAL NOT NULL DEFAULT 0,
+       diagnosis TEXT,
+       healed INTEGER NOT NULL DEFAULT 0,
+       evidence_json TEXT,
+       created_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS rstep_run_idx ON run_steps(run_id, idx)`,
+    `CREATE TABLE IF NOT EXISTS findings (
+       id TEXT PRIMARY KEY,
+       project_id TEXT NOT NULL,
+       run_id TEXT NOT NULL,
+       step_id TEXT,
+       trail_id TEXT NOT NULL,
+       kind TEXT NOT NULL,
+       title TEXT NOT NULL,
+       evidence_json TEXT,
+       ground_quote TEXT,
+       confidence REAL NOT NULL DEFAULT 0,
+       dedup_key TEXT NOT NULL,
+       recurrence INTEGER NOT NULL DEFAULT 1,
+       status TEXT NOT NULL DEFAULT 'queued',
+       connector_ref TEXT,
+       created_at INTEGER NOT NULL,
+       updated_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS finding_dedup_idx ON findings(project_id, dedup_key)`,
+    // ── Klavity OS Trails (Plan E2): walk_replays — gzipped rrweb session-replay segments per Walk. ──
+    // segments_gz is base64(gzip(JSON.stringify(ReplaySegment[]))); one row per saved replay (opt-in
+    // capture). Project-scoped; the route reads the latest row for a (project_id, run_id).
+    `CREATE TABLE IF NOT EXISTS walk_replays (
+       id TEXT PRIMARY KEY,
+       run_id TEXT NOT NULL,
+       project_id TEXT NOT NULL,
+       segments_gz TEXT NOT NULL,
+       n_segments INTEGER,
+       n_events INTEGER,
+       created_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS walk_replay_run_idx ON walk_replays(project_id, run_id)`,
   ]
   for (const s of stmts) await c.execute(s)
 
