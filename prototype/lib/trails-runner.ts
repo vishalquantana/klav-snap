@@ -297,9 +297,10 @@ async function runOneStep(
       //   - regression     → RED + grounded, deduped finding (kind 'regression', auto-file-eligible).
       //   - amber_low_conf → AMBER + queue-only finding (kind 'amber_heal'); never act on an
       //                       unconfirmed target (§6.3).
-      // A failed CHECKPOINT/assert never reaches here as a heal: the assert path stays RED and is
-      // never vision-healed (§6.5). Vision is only consulted for an unresolved target, and an
-      // assert whose target is gone is treated as a regression (RED), not a heal.
+      // §6.5 (healing never overrides a checkpoint): if the gone step is an ASSERT, runVisionTier2
+      // short-circuits at its TOP to a hard RED 'regression' BEFORE consulting the model — an assert
+      // whose target could not be deterministically resolved is a checkpoint failure, never a heal
+      // and never an amber_heal, regardless of what vision would classify.
       if (opts.vision) {
         return await runVisionTier2(projectId, runId, trailId, page, step, opts, fp, cachedSelector, isAssert)
       }
@@ -406,6 +407,26 @@ async function runVisionTier2(
   isAssert: boolean,
 ): Promise<OneStepResult> {
   const gate = opts.confidenceGate ?? 0.9
+
+  // §6.5 — HARD checkpoint guardrail, BEFORE any model I/O. Reaching the vision tier means Tier-0/1
+  // exhausted the deterministic resolvers: the assert's target is GONE. Healing never overrides a
+  // checkpoint, so this is a regression (RED), auto-file-eligible — NEVER a heal, NEVER amber_heal,
+  // regardless of what the model would classify (moved / low-confidence / restyled). No model call.
+  if (isAssert) {
+    const title = `Checkpoint target gone: ${fp?.accessibleName ?? fp?.text ?? step.checkpoint?.description ?? step.action}`
+    await recordFinding(projectId, {
+      runId, trailId, stepId: step.id, kind: "regression", title,
+      evidence: { reason: "checkpoint_gone", target: fp, pageUrl: opts.fixtureUrl, checkpoint: step.checkpoint?.description ?? null },
+      groundQuote: title, confidence: 1,
+      dedupKey: `${trailId}:${step.id}:checkpoint-gone`,
+    })
+    await addRunStep(projectId, {
+      runId, trailId, stepId: step.id, idx: step.idx,
+      tier: "vision", verdict: "red", confidence: 1, diagnosis: "regression", healed: false,
+      evidence: { reason: "checkpoint_gone", target: fp, cachedSelector, needsVision: false, checkpoint: step.checkpoint?.description ?? null },
+    })
+    return { tier: "vision", verdict: "red", healed: false, llmCalls: 0 }
+  }
 
   // Capture the perceptual + structural context the resolver needs.
   const shot = (await page.screenshot()).toString("base64")

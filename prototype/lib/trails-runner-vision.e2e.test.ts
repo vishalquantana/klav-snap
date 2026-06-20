@@ -39,6 +39,24 @@ async function seedTrail(): Promise<string> {
   return trailId
 }
 
+// A single-step ASSERT trail whose checkpoint target resolves Tier-0 (#signin) on the BASELINE
+// fixture but is gone from every Tier-0/1 anchor on the moved/removed fixtures — so it reaches the
+// vision tier. §6.5: an assert whose target is gone is a HARD checkpoint failure and must NEVER be
+// vision-downgraded to amber_heal, regardless of what the model classifies.
+async function seedAssertTrail(): Promise<string> {
+  const { trailId } = await crystallize(PROJ, {
+    name: "Sign in visible",
+    baseUrl: FIX("checkout-mockup.html"),
+    authorKind: "llm",
+    steps: [
+      { action: "assert", intent: "the Sign in button is visible", url: FIX("checkout-mockup.html"), domHash: "h0",
+        checkpoint: { description: "Sign in button visible" },
+        target: { role: "button", accessibleName: "Sign in", text: "Sign in", testId: "signin-btn", resolvedSelector: "#signin" } },
+    ],
+  } as any)
+  return trailId
+}
+
 const visionHeal: VisionResolver = async () => ({ found: true, selector: "#totally-new-id", confidence: 0.95, classification: "moved", rationale: "the Sign in button moved into the top bar" })
 const visionRemoved: VisionResolver = async () => ({ found: false, selector: null, confidence: 0.9, classification: "removed", rationale: "no Sign in affordance exists anymore" })
 const visionLowConf: VisionResolver = async () => ({ found: true, selector: "#maybe", confidence: 0.6, classification: "moved", rationale: "unsure" })
@@ -77,6 +95,36 @@ test("Tier-2 low confidence → AMBER + queue-only finding, element NOT acted on
   expect(steps[0].healed).toBe(false) // an unconfirmed target is never acted on / persisted
   const fs = await T.listFindings(PROJ)
   expect(fs.some((x) => x.kind === "amber_heal")).toBe(true)
+})
+
+// ── §6.5 trust guardrail: a gone-assert is ALWAYS a hard RED regression, never amber_heal ──
+// Even when the vision model says "moved" (would-be heal) OR returns low-confidence, an ASSERT whose
+// target could not be deterministically resolved is a checkpoint failure. It must short-circuit to
+// RED + a kind 'regression' finding and never resolve to amber_heal / never be acted on.
+test("gone ASSERT under visionHeal('moved') → RED regression, NEVER amber heal", async () => {
+  const trailId = await seedAssertTrail()
+  const walk = await walkTrail(PROJ, trailId, { fixtureUrl: FIX("checkout-mockup-moved.html"), vision: visionHeal })
+  expect(walk.verdict).toBe("red")
+  const steps = await T.listRunSteps(PROJ, walk.runId)
+  expect(steps[0].verdict).toBe("red")
+  expect(steps[0].healed).toBe(false)
+  expect(steps[0].diagnosis).toBe("regression")
+  // Findings are project-scoped & accumulate across tests — scope assertions to THIS run's step.
+  const fs = (await T.listFindings(PROJ)).filter((x) => x.stepId === steps[0].stepId && x.runId === walk.runId)
+  expect(fs.some((x) => x.kind === "regression")).toBe(true)
+  expect(fs.some((x) => x.kind === "amber_heal")).toBe(false)
+})
+
+test("gone ASSERT under visionLowConf → RED regression, NEVER amber heal", async () => {
+  const trailId = await seedAssertTrail()
+  const walk = await walkTrail(PROJ, trailId, { fixtureUrl: FIX("checkout-mockup-moved.html"), vision: visionLowConf })
+  expect(walk.verdict).toBe("red")
+  const steps = await T.listRunSteps(PROJ, walk.runId)
+  expect(steps[0].verdict).toBe("red")
+  expect(steps[0].diagnosis).toBe("regression")
+  const fs = (await T.listFindings(PROJ)).filter((x) => x.stepId === steps[0].stepId && x.runId === walk.runId)
+  expect(fs.some((x) => x.kind === "regression")).toBe(true)
+  expect(fs.some((x) => x.kind === "amber_heal")).toBe(false)
 })
 
 test("no vision resolver → unchanged RED + needsVision (backward compatible)", async () => {
