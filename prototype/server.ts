@@ -23,10 +23,12 @@ import { ingestSnapOrSim } from "./lib/expectations-ingest"
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
-import { listRunSteps } from "./lib/trails"
+import { listRunSteps, listTrails, getTrail, listTrailSteps, insertAssertStep } from "./lib/trails"
 import { runWalkNow } from "./lib/trails-trigger"
 import { WalkBusyError } from "./lib/trails-browser"
 import { seedDemoTrails } from "./lib/trails-demo-seed"
+import { listExpectations, getExpectation, setExpectationStatus, setExpectationEnforced } from "./lib/expectations-db"
+import { validateAssertionDraft } from "./lib/assertion-spec"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -1912,6 +1914,65 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         }
       }
       return file(SITE + "/onboarding.html")
+    }
+
+    // ── Expectations graduation endpoints (Layer E, Task 6) — project-scoped, authed. ──
+    // Placed before the generic /api/ gate so unauthenticated calls return JSON 401, not a login redirect.
+    if (path === "/api/expectations" || path.startsWith("/api/expectations/")) {
+      const meE = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meE) return json({ error: "auth" }, 401)
+      const projE = await resolveProject(meE, url.searchParams.get("project"))
+      if (!projE) return json({ error: "no project" }, 404)
+
+      // GET /api/expectations?project=&status= — list expectations for the project, optionally filtered.
+      if (req.method === "GET" && path === "/api/expectations") {
+        const status = url.searchParams.get("status") as any
+        return json({ expectations: await listExpectations(db!, projE.id, status || undefined) })
+      }
+
+      // POST /api/expectations/:id/enforce — draft an assertion (calls LLM). Persists nothing.
+      const enforceMatch = path.match(/^\/api\/expectations\/([^/]+)\/enforce$/)
+      if (req.method === "POST" && enforceMatch) {
+        const id = enforceMatch[1]
+        const exp = await getExpectation(db!, id)
+        if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        if (exp.status !== "validated") return json({ error: "not validated" }, 409)
+        const body = await req.json().catch(() => ({}))
+        const trailId = body.trailId || (await listTrails(projE.id))[0]?.id
+        if (!trailId) return json({ error: "no trail to attach to" }, 422)
+        const trail = await getTrail(projE.id, trailId)
+        if (!trail) return json({ error: "trail not found" }, 422)
+        const steps = await listTrailSteps(projE.id, trailId)
+        const { content } = await draftAssertion(exp, trail, steps, { email: meE, projectId: projE.id })
+        const draft = validateAssertionDraft({ ...parseJSON(content), trailId })
+        return json({ draft })
+      }
+
+      // POST /api/expectations/:id/enforce/confirm — write the assert step, mark expectation enforced.
+      const confirmMatch = path.match(/^\/api\/expectations\/([^/]+)\/enforce\/confirm$/)
+      if (req.method === "POST" && confirmMatch) {
+        const id = confirmMatch[1]
+        const exp = await getExpectation(db!, id)
+        if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        const reqBody = await req.json().catch(() => ({}))
+        const draft = validateAssertionDraft(reqBody.draft)
+        if (!draft) return json({ error: "invalid draft" }, 400)
+        const stepId = await insertAssertStep(projE.id, draft.trailId, draft.afterStepIdx, draft.target, draft.checkpoint.description)
+        await setExpectationEnforced(db!, id, stepId)
+        return json({ stepId })
+      }
+
+      // POST /api/expectations/:id/retire — mark expectation as retired.
+      const retireMatch = path.match(/^\/api\/expectations\/([^/]+)\/retire$/)
+      if (req.method === "POST" && retireMatch) {
+        const id = retireMatch[1]
+        const exp = await getExpectation(db!, id)
+        if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        await setExpectationStatus(db!, id, "retired")
+        return json({ ok: true })
+      }
+
+      return json({ error: "Not found" }, 404)
     }
 
     // ── Klavity OS Trails (Layer E) — project-scoped, authed. Placed before the generic /api/ gate so

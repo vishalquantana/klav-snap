@@ -240,3 +240,23 @@ export async function setFindingStatus(projectId: string, id: string, status: Fi
     args: [status, connectorRef ?? null, Date.now(), projectId, id],
   })
 }
+
+// Insert an assert-type trail step at afterStepIdx+1. Returns the new "ts_"-prefixed step id.
+// Used by the enforce/confirm graduation endpoint to crystallize a validated expectation into a
+// deterministic Playwright assertion in an existing Trail.
+export async function insertAssertStep(
+  projectId: string,
+  trailId: string,
+  afterStepIdx: number,
+  target: Record<string, string>,
+  description: string,
+): Promise<string> {
+  const id = "ts_" + crypto.randomUUID()
+  await db!.execute({
+    sql: `INSERT INTO trail_steps (id, trail_id, project_id, idx, action, action_value, target_json, checkpoint_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [id, trailId, projectId, afterStepIdx + 1, "assert", null,
+           JSON.stringify(target), JSON.stringify({ kind: "visible", description }), Date.now()],
+  })
+  return id
+}
