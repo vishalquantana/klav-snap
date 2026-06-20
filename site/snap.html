@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- SEO -->
+<title>Klavity Snap — right-click bug reporting · Klavity</title>
+<meta name="description" content="Right-click any page to file a grounded bug — screenshot, console and network attached — straight into Plane, Jira, GitHub or Linear. No tool to open.">
+<link rel="canonical" href="https://klavity.quantana.top/snap">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Klavity">
+<meta property="og:title" content="Klavity Snap — right-click bug reporting">
+<meta property="og:description" content="Right-click any page to file a grounded bug — screenshot, console and network attached — straight into your tracker.">
+<meta property="og:url" content="https://klavity.quantana.top/snap">
+<meta property="og:image" content="https://klavity.quantana.top/favicon.svg">
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Klavity Snap — right-click bug reporting">
+<meta name="twitter:description" content="Right-click any page to file a grounded bug — straight into your tracker.">
+<meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg">
+
+<!-- Fonts (exact link from local.html) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- Shared kit -->
+<link rel="stylesheet" href="/kit.css">
+<script src="/kit.js" defer></script>
+
+<!-- JSON-LD: SoftwareApplication + FAQPage (one block, an @graph array) -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"SoftwareApplication","name":"Klavity Snap","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://klavity.quantana.top/snap","description":"Right-click any page to file a grounded bug report — screenshot, console and network attached — straight into Plane, Jira, GitHub or Linear. No browser extension required.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Do I need a browser extension to use Klavity Snap?","acceptedAnswer":{"@type":"Answer","text":"No. The Klavity Snap widget owns the right-click contextmenu event itself, so anyone on the page can file a bug without installing anything."}},
+{"@type":"Question","name":"What gets attached to a bug report?","acceptedAnswer":{"@type":"Answer","text":"A full-page screenshot is captured automatically, plus the page URL and the surrounding console and network errors — grounded to the exact element you clicked."}},
+{"@type":"Question","name":"Where do the bugs get filed?","acceptedAnswer":{"@type":"Answer","text":"Reports are auto-copied into your tracker via connectors for Plane, Jira, GitHub and Linear."}},
+{"@type":"Question","name":"Is Klavity Snap open source?","acceptedAnswer":{"@type":"Answer","text":"Yes. Klavity is open-core and self-hostable, so you can run the bug reporter on your own infrastructure."}}
+]}
+]}
+</script>
+</head>
+<body style="--accent:var(--indigo)">  <!-- Snap=indigo · Sims=rose · AutoSim=green -->
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="topbar"></div>
+
+<!-- ── NAV ─────────────────────────────────────────────────────────────── -->
+<nav class="nav" aria-label="Primary">
+  <div class="wrap nav-in">
+    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span>Klavity</a>
+    <div class="nav-links">
+      <a class="s-snap" href="/snap" aria-current="page">Snap</a>
+      <a class="s-sims" href="/sims">Sims</a>
+      <a class="s-autosim" href="/autosim">AutoSim</a>
+      <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="/login">Log in</a>
+      <a class="btn btn-primary" href="/onboarding">Get started</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+
+<!-- ── HERO ────────────────────────────────────────────────────────────── -->
+<header class="hero" style="position:relative;padding-bottom:24px">
+  <div class="hero-ambient" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="eyebrow reveal" style="--d:0s;display:flex;align-items:center;gap:9px">
+      <span class="dot live" aria-hidden="true"></span> Phase 01 · live today
+    </p>
+    <h1 class="reveal" style="--d:.08s;max-width:17ch;margin-top:14px">
+      Catch a bug <em>without leaving</em> the page.
+    </h1>
+    <p class="reveal" style="--d:.16s;margin:22px 0 0;max-width:54ch;font-size:19px;color:var(--paper-dim)">
+      <b style="color:var(--paper);font-weight:600">Klavity Snap</b> is an in-app bug reporting widget your whole team can use.
+      Right-click anything that's wrong, describe it, and a <span class="accent" style="font-weight:600">grounded</span> ticket —
+      with screenshot, console and network attached — lands in your tracker. Right-click → describe → done.
+    </p>
+    <div class="reveal" style="--d:.24s;margin:28px 0 0;display:flex;gap:12px;flex-wrap:wrap">
+      <a class="btn btn-primary" href="/onboarding">Add the widget</a>
+      <a class="btn btn-ghost" href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">View on GitHub ↗</a>
+    </div>
+    <p class="reveal mono" style="--d:.3s;margin:18px 0 0;font-size:12px;color:var(--paper-faint)">
+      no browser extension · open-source · self-hostable
+    </p>
+
+    <!-- the Sim walking a trail through the three phases -->
+    <div class="trail reveal" style="--d:.36s;margin:56px 0 8px" aria-label="The Klavity arc: Snap, then Sims, then AutoSim">
+      <span class="trail-line reveal" aria-hidden="true"></span>
+      <div class="waypoint a1">
+        <span class="sim walk" style="--sz:36px;--sc:var(--indigo)" aria-hidden="true"><i>K</i></span>
+        <div class="ph">Phase 01 · you are here</div>
+        <h3>Snap</h3>
+        <p>A human catches a bug in one right-click.</p>
+      </div>
+      <div class="waypoint a2">
+        <span class="sim" style="--sz:36px;--sc:var(--rose)" aria-hidden="true"><i>SC</i></span>
+        <div class="ph">Phase 02</div>
+        <h3><a href="/sims" style="color:inherit">Sims</a></h3>
+        <p>AI personas from real calls catch them for you.</p>
+      </div>
+      <div class="waypoint a3">
+        <span class="sim" style="--sz:36px;--sc:var(--green)" aria-hidden="true"><i>AS</i></span>
+        <div class="ph">Phase 03</div>
+        <h3><a href="/autosim" style="color:inherit">AutoSim</a></h3>
+        <p>Those Sims test every release — and self-heal.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── CRITICAL PATH STORYBOARD ────────────────────────────────────────── -->
+<section id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <div class="sec-head reveal" style="--d:0s">
+      <p class="eyebrow">The critical path</p>
+      <h2 id="how-h">From a right-click to a <em>ready-to-fix ticket</em>.</h2>
+      <p>No screenshot tool, no copy-pasting the URL, no chasing the console. The widget does the legwork so a bug report arrives with everything a developer needs — and never as a duplicate.</p>
+    </div>
+
+    <div class="path">
+      <div class="step reveal" style="--d:0s">
+        <div class="n"><b>1</b><span>Right-click</span></div>
+        <div class="screen" role="img" aria-label="A web page with a right-click menu open, highlighting Report a bug">
+          <div class="chrome"><i></i><i></i><i></i><span class="url">app.yourproduct.com/checkout</span></div>
+          <div class="body">
+            <div class="row" style="justify-content:space-between"><div class="ln s"></div><div class="ln" style="width:18%"></div></div>
+            <div class="ln l" style="margin-top:12px"></div><div class="ln m" style="margin-top:8px"></div>
+            <div class="ctx"><div class="hot">🐞 Report a bug</div><div>💡 Request a feature</div></div>
+            <div class="cursor" aria-hidden="true">▾</div>
+          </div>
+        </div>
+        <div class="cap"><h4>Right-click anything</h4><p>No tool to open, no screenshot to take. Right-click the thing that's wrong.</p></div>
+        <div class="hood">widget owns <b>contextmenu</b> · no extension</div>
+      </div>
+
+      <div class="step reveal" style="--d:.1s">
+        <div class="n"><b>2</b><span>Describe</span></div>
+        <div class="screen" role="img" aria-label="A dark bug composer sheet with a full-page screenshot attached and a description field">
+          <div class="chrome"><i></i><i></i><i></i><span class="url">app.yourproduct.com/checkout</span></div>
+          <div class="body">
+            <div class="modal">
+              <div class="tabs"><b class="on">🐞 Bug</b><b>💡 Feature</b></div>
+              <div class="shot" aria-hidden="true"></div>
+              <div class="ta">The total doesn't update when I remove an item…</div>
+              <div class="sub">Submit</div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><h4>The page is already attached</h4><p>A full-page screenshot is captured for you. Pick Bug or Feature, say what's wrong, hit Submit.</p></div>
+        <div class="hood"><b>html-to-image</b> capture · Bug / Feature</div>
+      </div>
+
+      <div class="step reveal" style="--d:.2s">
+        <div class="n"><b>3</b><span>Grounded</span></div>
+        <div class="screen" role="img" aria-label="Status chips: grounded to the element and URL, screenshot console and network attached, deduped and not a repeat">
+          <div class="body" style="height:100%;display:flex;flex-direction:column;gap:9px;justify-content:center">
+            <div class="chip indigo">⛓ grounded to the element + URL</div>
+            <div class="chip">🖼 screenshot · console · network</div>
+            <div class="chip ok">✓ deduped — not a repeat</div>
+          </div>
+        </div>
+        <div class="cap"><h4>It arrives with context</h4><p>Klavity bundles the screenshot, the page, and the surrounding errors — and won't file a duplicate.</p></div>
+        <div class="hood">POST <b>/api/feedback</b> · groundQuote · dedup</div>
+      </div>
+
+      <div class="step reveal" style="--d:.3s">
+        <div class="n"><b>4</b><span>In your tracker</span></div>
+        <div class="screen" role="img" aria-label="A filed ticket in Plane with the bug title, quote, screenshot and page path">
+          <div class="body" style="height:100%;display:flex;align-items:center">
+            <div class="tkt" style="width:100%;--c:var(--indigo)">
+              <div class="top">PLANE · PROJ-42 · <span class="pill r">Bug</span></div>
+              <h5>Cart total doesn't update on item removal</h5>
+              <div class="q">"The total doesn't update when I remove an item."</div>
+              <div class="row" style="margin-top:8px"><span class="chip">🖼 capture</span><span class="chip">/checkout</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><h4>Filed where you work</h4><p>A ready-to-fix ticket lands in Plane, Jira, GitHub or Linear — auto-copied.</p></div>
+        <div class="hood">connectors: <b>Plane · Jira · GitHub · Linear</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY IT'S DIFFERENT ──────────────────────────────────────────────── -->
+<section id="why" aria-labelledby="why-h" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head reveal" style="--d:0s">
+      <p class="eyebrow">Why it's different</p>
+      <h2 id="why-h">A screenshot bug report that's actually <em>grounded</em>.</h2>
+      <p>Most visual feedback tools either need an extension, or fire off AI-slop with no evidence behind it. Klavity Snap does neither.</p>
+    </div>
+
+    <div class="path auto-stagger" style="display:grid;grid-auto-flow:row;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px">
+      <div class="card reveal">
+        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">No extension</p>
+        <h3 style="font-size:21px;margin:8px 0 6px">The widget owns the right-click</h3>
+        <p style="color:var(--paper-dim);font-size:14.5px">Drop one snippet on the page and the contextmenu becomes a bug composer for everyone — teammates, QA, even customers. Nothing to install.</p>
+      </div>
+      <div class="card reveal">
+        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Grounded evidence</p>
+        <h3 style="font-size:21px;margin:8px 0 6px">Evidence, not AI-slop</h3>
+        <p style="color:var(--paper-dim);font-size:14.5px">Every report carries a full-page screenshot, the URL, and the surrounding console &amp; network errors — quoted verbatim, tied to the element you clicked.</p>
+      </div>
+      <div class="card reveal">
+        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Dedup</p>
+        <h3 style="font-size:21px;margin:8px 0 6px">No repeat tickets</h3>
+        <p style="color:var(--paper-dim);font-size:14.5px">When the same issue is reported again, Klavity collapses it and bumps recurrence — instead of cluttering your tracker with duplicate bugs.</p>
+      </div>
+      <div class="card reveal">
+        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Open-core</p>
+        <h3 style="font-size:21px;margin:8px 0 6px">Open-source &amp; self-hostable</h3>
+        <p style="color:var(--paper-dim);font-size:14.5px">Run the whole bug reporter on your own infrastructure. No black box, no lock-in — read the source and host it yourself.</p>
+      </div>
+      <div class="card reveal">
+        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Connectors</p>
+        <h3 style="font-size:21px;margin:8px 0 6px">Files to Plane, Jira, GitHub &amp; Linear</h3>
+        <p style="color:var(--paper-dim);font-size:14.5px">Pluggable connectors auto-copy each report into the tracker your team already lives in — or fan out via a plain webhook.</p>
+      </div>
+      <div class="card reveal">
+        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">For everyone</p>
+        <h3 style="font-size:21px;margin:8px 0 6px">Anyone on the page can file</h3>
+        <p style="color:var(--paper-dim);font-size:14.5px">An in-app bug reporting widget your whole team — and your customers — can use without leaving what they're doing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ─────────────────────────────────────────────────────────────── -->
+<section id="faq" aria-labelledby="faq-h" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head reveal" style="--d:0s">
+      <p class="eyebrow">Questions</p>
+      <h2 id="faq-h">The short answers.</h2>
+    </div>
+    <div class="auto-stagger" style="display:grid;gap:14px;max-width:760px">
+      <details class="card reveal" style="padding:18px 22px">
+        <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Do I need a browser extension?</summary>
+        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">No. The Snap widget owns the right-click <span class="mono">contextmenu</span> event itself, so anyone on the page can file a bug without installing anything.</p>
+      </details>
+      <details class="card reveal" style="padding:18px 22px">
+        <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">What gets attached to a report?</summary>
+        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">A full-page screenshot is captured automatically, plus the page URL and the surrounding console and network errors — grounded to the exact element you clicked.</p>
+      </details>
+      <details class="card reveal" style="padding:18px 22px">
+        <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Where do the bugs get filed?</summary>
+        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">Reports are auto-copied into your tracker via connectors for Plane, Jira, GitHub and Linear — or any endpoint via webhook.</p>
+      </details>
+      <details class="card reveal" style="padding:18px 22px">
+        <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Is Klavity Snap open source?</summary>
+        <p style="color:var(--paper-dim);font-size:15px;margin-top:8px">Yes. Klavity is open-core and self-hostable, so you can run the bug reporter on your own infrastructure.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ── CLOSING CTA ─────────────────────────────────────────────────────── -->
+<section id="cta" aria-labelledby="cta-h" style="border-top:1px solid var(--line);text-align:center;position:relative;overflow:hidden">
+  <div class="hero-ambient" aria-hidden="true"></div>
+  <div class="wrap reveal" style="--d:0s">
+    <span class="sim walk" style="--sz:48px;--sc:var(--indigo);margin:0 auto 22px" aria-hidden="true"><i>K</i></span>
+    <h2 id="cta-h" style="font-family:var(--display);font-weight:460;font-size:clamp(28px,4.4vw,46px);letter-spacing:-.02em;max-width:18ch;margin:0 auto 14px">
+      Stop screenshotting bugs into Slack. <em>Right-click them instead.</em>
+    </h2>
+    <p style="color:var(--paper-dim);max-width:48ch;margin:0 auto 26px;font-size:17px">
+      Add the Klavity Snap widget and turn every person on the page into a grounded bug reporter.
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a class="btn btn-primary" href="/onboarding">Add the widget</a>
+      <a class="btn btn-ghost" href="/sims">See Sims, next →</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ── FOOTER ──────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="wrap">
+    <!-- the Klavity arc strip -->
+    <nav class="foot-in" aria-label="The Klavity arc" style="justify-content:center;gap:10px;margin-bottom:28px;font-family:var(--mono);font-size:13px;flex-wrap:wrap">
+      <a href="/snap" style="color:var(--indigo);font-weight:600">Snap</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/sims" style="color:var(--rose);font-weight:600">Sims</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/autosim" style="color:var(--green);font-weight:600">AutoSim</a>
+    </nav>
+  </div>
+  <div class="wrap foot-in">
+    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span>Klavity</a>
+    <a href="/">Home</a>
+    <a href="/snap" aria-current="page">Snap</a>
+    <a href="/sims">Sims</a>
+    <a href="/autosim">AutoSim</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <span class="sp">© <span data-year>2026</span> Klavity · A human snaps it · AI Sims catch it · AutoSim runs it.</span>
+  </div>
+</footer>
+
+</body>
+</html>
