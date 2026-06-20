@@ -402,6 +402,12 @@ export async function applySchema(c: Client) {
   }
   await c.execute(`CREATE INDEX IF NOT EXISTS feedback_issue_idx ON feedback (project_id, issue_key)`)
     .catch((e: any) => console.warn("feedback_issue_idx skipped:", e?.message || e))
+
+  // ── widget-config columns (leadgen integration task-1) ──
+  await c.execute("ALTER TABLE projects ADD COLUMN widget_mode TEXT NOT NULL DEFAULT 'support'").catch((e) => console.warn("projects.widget_mode ALTER skipped:", e?.message || e))
+  await c.execute("ALTER TABLE projects ADD COLUMN widget_cta_url TEXT").catch((e) => console.warn("projects.widget_cta_url ALTER skipped:", e?.message || e))
+  await c.execute("ALTER TABLE projects ADD COLUMN widget_notify_email TEXT").catch((e) => console.warn("projects.widget_notify_email ALTER skipped:", e?.message || e))
+  await c.execute("ALTER TABLE feedback ADD COLUMN contact_email TEXT").catch((e) => console.warn("feedback.contact_email ALTER skipped:", e?.message || e))
 }
 
 // ── schema_meta helpers ──
@@ -597,6 +603,7 @@ export type ProjectRow = {
   id: string; accountId: string; name: string; status: string
   reviewMode: string; reviewBudgetDaily: number | null; observabilityMode: string
   createdAt: number; updatedAt: number
+  widgetMode: string; widgetCtaUrl: string | null; widgetNotifyEmail: string | null
 }
 function rowToProject(x: any): ProjectRow {
   return {
@@ -605,6 +612,9 @@ function rowToProject(x: any): ProjectRow {
     reviewBudgetDaily: x.review_budget_daily != null ? Number(x.review_budget_daily) : null,
     observabilityMode: String(x.observability_mode || "named"),
     createdAt: Number(x.created_at), updatedAt: Number(x.updated_at),
+    widgetMode: String(x.widget_mode || "support"),
+    widgetCtaUrl: x.widget_cta_url != null ? String(x.widget_cta_url) : null,
+    widgetNotifyEmail: x.widget_notify_email != null ? String(x.widget_notify_email) : null,
   }
 }
 
@@ -712,6 +722,36 @@ export async function setProjectModalConfig(projectId: string, config: Record<st
 export async function isAccountPro(accountId: string): Promise<boolean> {
   const r = await db!.execute({ sql: "SELECT plan FROM accounts WHERE id=?", args: [accountId] })
   return r.rows.length ? String((r.rows[0] as any).plan) === "pro" : false
+}
+
+// ── widget-config helpers (leadgen integration task-1) ──
+const DEFAULT_WIDGET_CTA = "https://klavity.quantana.top/onboarding"
+
+export async function getWidgetConfig(projectId: string): Promise<{ mode: string; ctaUrl: string } | null> {
+  const p = await projectById(projectId)
+  if (!p) return null
+  const mode = ["support", "leadgen", "off"].includes(p.widgetMode) ? p.widgetMode : "support"
+  return { mode, ctaUrl: p.widgetCtaUrl || DEFAULT_WIDGET_CTA }
+}
+
+export async function getWidgetNotifyEmail(projectId: string): Promise<string | null> {
+  const p = await projectById(projectId)
+  return p?.widgetNotifyEmail || null
+}
+
+export async function setWidgetConfig(projectId: string, cfg: { mode?: string; ctaUrl?: string | null; notifyEmail?: string | null }): Promise<void> {
+  const sets: string[] = [], args: any[] = []
+  if (cfg.mode !== undefined) { sets.push("widget_mode=?"); args.push(["support", "leadgen", "off"].includes(cfg.mode) ? cfg.mode : "support") }
+  if (cfg.ctaUrl !== undefined) { sets.push("widget_cta_url=?"); args.push(cfg.ctaUrl || null) }
+  if (cfg.notifyEmail !== undefined) { sets.push("widget_notify_email=?"); args.push(cfg.notifyEmail || null) }
+  if (!sets.length) return
+  sets.push("updated_at=?"); args.push(Date.now()); args.push(projectId)
+  await db!.execute({ sql: `UPDATE projects SET ${sets.join(", ")} WHERE id=?`, args })
+}
+
+export async function setFeedbackContactEmail(feedbackId: string, projectId: string, email: string): Promise<boolean> {
+  const r = await db!.execute({ sql: "UPDATE feedback SET contact_email=? WHERE id=? AND project_id=?", args: [email, feedbackId, projectId] })
+  return (r.rowsAffected ?? 0) > 0
 }
 
 // §2.3 effective role: max(account_role, project_role); account owner/admin ⇒ implicit project-admin.

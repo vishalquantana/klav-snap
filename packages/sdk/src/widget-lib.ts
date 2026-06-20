@@ -5,6 +5,35 @@ export function parseScriptConfig(scriptEl: { dataset: { project?: string }, src
   return { projectId, backendUrl }
 }
 
+export interface SuccessCopy {
+  headline: string
+  body: string
+  emailLabel: string
+  ctaText: string
+  ctaUrl: string
+  showEmail: boolean
+  showCta: boolean
+}
+
+export function successCopy(mode: string, ctaUrl: string): SuccessCopy {
+  if (mode === "leadgen") return {
+    headline: "That's exactly how Klavity works",
+    body: "You just right-clicked → auto-screenshot → filed a real ticket. Your users could do this for you.",
+    emailLabel: "Send me the 2-min setup", ctaText: "Start free →", ctaUrl,
+    showEmail: true, showCta: true,
+  }
+  if (mode === "off") return {
+    headline: "Thanks — your report is filed", body: "", emailLabel: "", ctaText: "", ctaUrl,
+    showEmail: false, showCta: false,
+  }
+  return { // support (default)
+    headline: "Bug filed ✓",
+    body: "Want to know when it's fixed? Drop your email and we'll ping you.",
+    emailLabel: "Notify me", ctaText: "", ctaUrl,
+    showEmail: true, showCta: false,
+  }
+}
+
 export function gateMessage(reason: string): string {
   switch (reason) {
     case "paused": return "Sims are paused for this project."
