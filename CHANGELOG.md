@@ -10,6 +10,14 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.30.3] — 2026-06-20
+
+### Fixed
+- **Home brand mark is now the open `( )` logo, not the full twisted helix.** The home nav + footer
+  brand SVG drew two crossing strands (a full DNA double helix); the canonical Klavity mark is the
+  **open `( )` shape** — two non-crossing parens with faint rungs and a gap at top/bottom (consistent
+  with `favicon.svg` and the locked DNA-logo rest state). Swapped both instances in `site/index.html`.
+
 ## [0.30.2] — 2026-06-20
 
 ### Changed
