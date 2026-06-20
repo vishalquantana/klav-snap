@@ -788,11 +788,12 @@ function clientIp(req: Request, server?: { requestIP?: (r: Request) => { address
 
 // ── Security response headers (M-2 / A02): applied to EVERY response. The CSP is permissive enough not
 // to break the dashboard / Trails replay / marketing (Google Fonts + inline styles+scripts + blob/data
-// for rrweb and images), while still locking frame-ancestors (clickjacking), object-src and base-uri,
+// for rrweb and images + esm.sh for the index page's html-to-image module import), while still locking
+// frame-ancestors (clickjacking), object-src and base-uri,
 // and blocking third-party script origins. Tighten script-src to nonces in a later, browser-tested pass.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://esm.sh",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",

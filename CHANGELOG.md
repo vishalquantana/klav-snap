@@ -10,6 +10,14 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.29.1] — 2026-06-20
+
+### Fixed
+- **CSP regression: allow `https://esm.sh` in `script-src`.** The v0.29.0 Content-Security-Policy
+  (`script-src 'self' …`) blocked the landing page's `html-to-image` ES-module import from
+  `https://esm.sh` (the "save persona card as PNG" export), since module imports are governed by
+  `script-src`. Added `https://esm.sh` to `script-src`. Caught in post-deploy CSP verification.
+
 ## [0.29.0] — 2026-06-20
 
 ### Security
