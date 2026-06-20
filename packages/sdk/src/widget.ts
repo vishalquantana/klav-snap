@@ -42,6 +42,13 @@ async function mount() {
   document.dispatchEvent(new CustomEvent("klavity:widget-ready"))
 
   const firstParty = isFirstParty(location.origin, cfg.backendUrl)
+
+  let modalConfig: any = {}
+  try {
+    const r = await fetch(cfg.backendUrl + "/api/projects/" + encodeURIComponent(cfg.projectId) + "/config")
+    if (r.ok) modalConfig = (await r.json()).modalConfig || {}
+  } catch { /* default theme */ }
+
   const reportBtn = document.createElement("button")
   reportBtn.textContent = "🐞 Report a bug"
   reportBtn.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#E94F37;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(233,79,55,.35)"
@@ -54,7 +61,7 @@ async function mount() {
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots },
       ),
-    })
+    }, modalConfig)
   }
   reportBtn.onclick = () => openReport("bug")
   reportDock.appendChild(reportBtn)
