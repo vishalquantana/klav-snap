@@ -485,7 +485,22 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
         <label>Thank-you message
           <input type="text" id="kl-thankyou" maxlength="140" placeholder="✓ Filed as KLAV-123 (default)">
         </label>
-        <button id="kl-save-appearance">Save appearance</button>
+        <label>Widget mode
+          <select id="kl-mode">
+            <option value="support">Support (default)</option>
+            <option value="leadgen">Lead-gen</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+        <p style="font-size:12px;opacity:.7;margin-top:-4px">Lead-gen mode shows a "get it for your product" screen after submit.</p>
+        <label>CTA URL
+          <input type="url" id="kl-cta" placeholder="https://...">
+        </label>
+        <label>Lead-notify email
+          <input type="email" id="kl-notify" placeholder="you@company.com">
+        </label>
+        <p style="font-size:12px;opacity:.7;margin-top:-4px">Leave blank to keep the existing notify address.</p>
+        <button id="kl-save-appearance">Save settings</button>
         <span id="kl-appearance-msg"></span>
       </div>
     </div>
@@ -1406,18 +1421,20 @@ async function loadAppearance() {
     sel.addEventListener("change", sync)
     $("kl-save-appearance").addEventListener("click", async function () {
       const isPro = !!($("kl-pro-note") && $("kl-pro-note").dataset.pro === "1")
-      const body = { theme: sel.value, thankYou: $("kl-thankyou").value }
+      const body = { theme: sel.value, thankYou: $("kl-thankyou").value, mode: $("kl-mode").value, cta_url: $("kl-cta").value.trim() }
       if (sel.value === "custom" && isPro) {
         body.primary = $("kl-primary").value
         body.secondary = $("kl-secondary").value
         body.background = $("kl-bg").value
         body.font = $("kl-font").value
       }
+      const notifyVal = $("kl-notify").value.trim()
+      if (notifyVal) body.notify_email = notifyVal
       msg.textContent = "Saving…"
       try {
         const r = await fetch(projPath("/config"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
         const d = await r.json().catch(() => ({}))
-        msg.textContent = d.ok ? "Saved ✓" : ("Error: " + (d.error || "failed"))
+        msg.textContent = d.ok ? "Settings saved ✓" : ("Error: " + (d.error || "failed"))
       } catch { msg.textContent = "Network error" }
     })
   }
@@ -1435,6 +1452,10 @@ async function loadAppearance() {
     if (c.background) $("kl-bg").value = c.background
     if (c.font) $("kl-font").value = c.font
     if (c.thankYou) $("kl-thankyou").value = c.thankYou
+    // Pre-fill lead-gen widget fields (notify email is never returned — left blank)
+    const w = d.widget || {}
+    $("kl-mode").value = w.mode || "support"
+    $("kl-cta").value = w.ctaUrl || ""
     // Store isPro on the note element for the save handler to read
     proNote.dataset.pro = isPro ? "1" : "0"
     proNote.style.display = isPro ? "none" : "block"
