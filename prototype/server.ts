@@ -134,6 +134,15 @@ const RECONCILE_SYS =
   '"text":string,"quote":string,"speaker":string,"traitId":string|null,"reason":string,' +
   '"area":string|null,"issueType":"label-copy"|"layout"|"performance"|"flow"|"error-handling"|"accessibility"|"visual"|null,"severity":"high"|"medium"|"low"|null}]}'
 
+const ASSERT_SYS =
+  "You convert a VALIDATED product issue into ONE deterministic UI assertion for an existing end-to-end Trail. " +
+  "The only supported checkpoint is that a target element must be VISIBLE on the page. " +
+  "Pick the Trail step (afterStepIdx) AFTER which the assertion should run, and describe the target by role+accessible-name " +
+  "(preferred), visible text, or a CSS selector (last resort). Be specific to the issue's screen.\n\n" +
+  "Respond with ONLY a JSON object in exactly this shape:\n" +
+  '{"trailId":string,"afterStepIdx":number,"action":"assert","target":{"role"?:string,"name"?:string,"text"?:string,"selector"?:string},' +
+  '"checkpoint":{"kind":"visible","description":string}}'
+
 // jsonMode forces structured output — safe for text calls, but Gemini's vision path
 // via OpenRouter often returns empty content under json_object, so leave it OFF for
 // image calls and rely on the prompt + parseJSON's extraction instead.
@@ -273,6 +282,17 @@ async function reactToPage(persona: any, imageB64: string, mediaType: string, pa
     ] },
   ], 2500, false, { type: "react", ...ctx })
   return { data: parseJSON(content), usage }
+}
+
+async function draftAssertion(expectation: any, trail: any, steps: any[], ctx?: { email?: string | null; projectId?: string | null }) {
+  const { content, usage } = await chat([
+    { role: "system", content: ASSERT_SYS },
+    { role: "user", content:
+      "VALIDATED ISSUE:\n" + JSON.stringify({ title: expectation.title, area: expectation.area, urlPath: expectation.urlPath }, null, 2) +
+      "\n\nTARGET TRAIL:\n" + JSON.stringify({ id: trail.id, name: trail.name, baseUrl: trail.base_url }, null, 2) +
+      "\n\nTRAIL STEPS (idx, action, target):\n" + JSON.stringify(steps.map((s) => ({ idx: s.idx, action: s.action, target: s.target })), null, 0) },
+  ], 800, true, { type: "assert-gen", ...ctx })
+  return { content, usage }
 }
 
 // ── P3a reconcile: one LLM call that evolves ONE Sim against ONE transcript (§5 cost guard). ──
