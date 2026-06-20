@@ -4,11 +4,44 @@
 <script>(function(){try{var t=localStorage.getItem('klav-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Klavity — your customers, in the room while you build</title>
-<meta name="description" content="Klavity turns real customer interviews into living personas that review your product in their own words — and files the bugs they find straight to Jira, Linear, GitHub, or Plane." />
+<title>Klavity — customers in the room while you build · Klavity</title>
+<meta name="description" content="Klavity turns real customer calls into AI personas that review your product, file the bugs they find to Jira, Linear, GitHub or Plane — then test every release." />
+<link rel="canonical" href="https://klavity.quantana.top/" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Klavity" />
+<meta property="og:title" content="Klavity — customers in the room while you build" />
+<meta property="og:description" content="Real customer calls become AI personas that review your product, file the bugs they find to your tracker, then test every release and self-heal." />
+<meta property="og:url" content="https://klavity.quantana.top/" />
+<meta property="og:image" content="https://klavity.quantana.top/favicon.svg" />
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Klavity — customers in the room while you build" />
+<meta name="twitter:description" content="Real customer calls become AI personas that review your product and file the bugs they find — straight to your tracker." />
+<meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<!-- Shared marketing kit (scoped to the product-arc section on this page) -->
+<link rel="stylesheet" href="/kit.css" />
+<script src="/kit.js" defer></script>
+
+<!-- Structured data: Organization + SoftwareApplication + BreadcrumbList -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"Organization","name":"Klavity","url":"https://klavity.quantana.top/","logo":"https://klavity.quantana.top/favicon.svg","sameAs":["https://github.com/vishalquantana/klav-snap"]},
+{"@type":"SoftwareApplication","name":"Klavity","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://klavity.quantana.top/","description":"Turn real customer calls into AI personas that review your product, file the bugs they find to your tracker, then test every release.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://klavity.quantana.top/"},
+{"@type":"ListItem","position":2,"name":"Snap","item":"https://klavity.quantana.top/snap"},
+{"@type":"ListItem","position":3,"name":"Sims","item":"https://klavity.quantana.top/sims"},
+{"@type":"ListItem","position":4,"name":"AutoSim","item":"https://klavity.quantana.top/autosim"}
+]}
+]}
+</script>
 <style>
 :root{
   /* ── LIGHT (default) ── */
@@ -446,6 +479,156 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div></div>
 </header>
 
+<!-- ════════════ PRODUCT ARC (Snap → Sims → AutoSim) ════════════ -->
+<!-- Scoped under .parc so it never collides with the page's own styles. -->
+<style>
+.parc{padding:64px 0 80px;position:relative;overflow:hidden}
+.parc .parc-head{max-width:680px;margin:0 auto 18px;text-align:center}
+.parc .parc-head .tag{display:block;margin-bottom:12px}
+.parc .parc-head h2{font-family:var(--display);font-weight:450;font-size:clamp(30px,4vw,44px);line-height:1.08;letter-spacing:-.02em}
+.parc .parc-head h2 em{font-style:italic;color:var(--amber)}
+.parc .parc-head p{font-size:17px;color:var(--paper-dim);margin:14px auto 0;max-width:54ch}
+
+/* the walking trail */
+.parc .parc-arc{position:relative;max-width:880px;margin:46px auto 8px;display:grid;grid-template-columns:repeat(3,1fr)}
+.parc .parc-line{position:absolute;left:16%;right:16%;top:21px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--indigo) 0 33%,var(--rose) 33% 66%,var(--green) 66% 100%);
+  transform-origin:left center;transform:scaleX(0);opacity:.9}
+.parc .parc-wp{position:relative;text-align:center;padding:0 10px}
+.parc .parc-wp .parc-dot{width:14px;height:14px;border-radius:50%;background:var(--ink);
+  border:3px solid var(--c);margin:14px auto 0;box-shadow:0 0 0 5px var(--ink);position:relative;z-index:2}
+.parc .parc-wp .parc-ph{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);margin-top:14px}
+.parc .parc-wp h3{font-family:var(--display);font-weight:550;font-size:21px;margin:2px 0 0;color:var(--c)}
+.parc .parc-wp.a1{--c:var(--indigo)} .parc .parc-wp.a2{--c:var(--rose)} .parc .parc-wp.a3{--c:var(--green)}
+
+/* the circle-with-legs Sim character */
+.parc .parc-sim{display:inline-block;position:relative;width:var(--sz,34px);height:var(--sz,34px)}
+.parc .parc-sim i{position:absolute;inset:0;border-radius:50%;background:var(--sc,var(--indigo));display:grid;place-items:center;color:#fff;font-family:var(--mono);font-size:calc(var(--sz,34px)*.34);font-weight:600;font-style:normal}
+.parc .parc-sim::before,.parc .parc-sim::after{content:"";position:absolute;bottom:calc(var(--sz,34px)*-.22);width:2px;height:calc(var(--sz,34px)*.28);background:var(--sc,var(--indigo));border-radius:2px}
+.parc .parc-sim::before{left:38%;transform:rotate(8deg)} .parc .parc-sim::after{right:38%;transform:rotate(-8deg)}
+
+/* phase cards */
+.parc .parc-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:46px}
+.parc .parc-card{position:relative;display:flex;flex-direction:column;background:var(--ink-2);
+  border:1px solid var(--line);border-top:3px solid var(--c);border-radius:18px;padding:24px 22px;
+  box-shadow:0 14px 40px rgba(17,17,19,.08);transition:transform .25s var(--ease,cubic-bezier(.2,.7,.2,1)),box-shadow .25s,border-color .25s}
+.parc .parc-card:hover{transform:translateY(-5px);box-shadow:0 24px 50px rgba(17,17,19,.14)}
+.parc .parc-card.a1{--c:var(--indigo)} .parc .parc-card.a2{--c:var(--rose)} .parc .parc-card.a3{--c:var(--green)}
+.parc .parc-card .pc-top{display:flex;align-items:center;gap:11px}
+.parc .parc-card .pc-stat{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.parc .parc-card h3{font-family:var(--display);font-weight:600;font-size:23px;letter-spacing:-.01em}
+.parc .parc-card .pc-line{font-family:var(--display);font-style:italic;font-size:16.5px;color:var(--paper-dim);margin:10px 0 0;line-height:1.4}
+.parc .parc-teaser{list-style:none;margin:18px 0 0;padding:14px 0 0;border-top:1px solid var(--line-2);display:flex;flex-direction:column;gap:9px}
+.parc .parc-teaser li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--paper-dim);font-family:var(--mono);line-height:1.4}
+.parc .parc-teaser .ix{flex:none;width:18px;height:18px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-size:9.5px;font-weight:600;margin-top:1px}
+.parc .parc-more{margin-top:auto;padding-top:18px}
+.parc .parc-more a{display:inline-flex;align-items:center;gap:7px;font-family:var(--body);font-weight:600;font-size:14px;color:var(--c);
+  border:1px solid color-mix(in srgb,var(--c) 35%,transparent);background:color-mix(in srgb,var(--c) 7%,transparent);
+  padding:9px 15px;border-radius:30px;transition:gap .2s,background .2s,border-color .2s}
+.parc .parc-more a:hover{gap:11px;background:color-mix(in srgb,var(--c) 14%,transparent);border-color:var(--c)}
+
+/* scroll reveal (reuses kit.js .reveal hook + page's own fallback) */
+.parc .reveal{opacity:0;transform:translateY(16px)}
+.parc .reveal.in{opacity:1;transform:none;transition:opacity .7s var(--ease,cubic-bezier(.2,.7,.2,1)),transform .7s var(--ease,cubic-bezier(.2,.7,.2,1));transition-delay:var(--d,0s)}
+
+@media (prefers-reduced-motion:no-preference){
+  .parc .reveal.in .parc-line{animation:parcDraw .9s var(--ease,cubic-bezier(.2,.7,.2,1)) .15s forwards}
+  @keyframes parcDraw{to{transform:scaleX(1)}}
+  .parc .parc-sim{animation:parcWalk 1.8s ease-in-out infinite alternate}
+  @keyframes parcWalk{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-3px) rotate(2deg)}}
+}
+@media (prefers-reduced-motion:reduce){.parc .parc-line{transform:none}.parc .reveal{opacity:1;transform:none}}
+/* if JS never runs, content must still show */
+.parc .reveal{animation:parcRise .8s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes parcRise{to{opacity:1;transform:none}}
+.parc .reveal.in{animation:none}
+
+@media(max-width:880px){
+  .parc .parc-arc,.parc .parc-cards{grid-template-columns:1fr;gap:24px}
+  .parc .parc-line{display:none}
+}
+</style>
+<section class="parc" id="arc" aria-labelledby="arc-title">
+  <div class="wrap">
+    <div class="parc-head reveal" style="--d:0s">
+      <span class="tag">One product · three phases</span>
+      <h2 id="arc-title">The Klavity arc: <em>Snap → Sims → AutoSim.</em></h2>
+      <p>One thread pulled all the way — the people who use your product become the ones who catch its bugs. A human snaps it, AI Sims catch it, AutoSim runs it forever.</p>
+    </div>
+
+    <!-- the Sim character walking the colored phase trail -->
+    <div class="parc-arc reveal" style="--d:.08s" role="img" aria-label="Three Sim characters walking a colored trail across the Snap, Sims and AutoSim phases">
+      <span class="parc-line" aria-hidden="true"></span>
+      <div class="parc-wp a1">
+        <span class="parc-sim" style="--sz:36px;--sc:var(--indigo)" aria-hidden="true"><i>K</i></span>
+        <div class="parc-dot" aria-hidden="true"></div>
+        <div class="parc-ph">Phase 01</div><h3>Snap</h3>
+      </div>
+      <div class="parc-wp a2">
+        <span class="parc-sim" style="--sz:36px;--sc:var(--rose)" aria-hidden="true"><i>SC</i></span>
+        <div class="parc-dot" aria-hidden="true"></div>
+        <div class="parc-ph">Phase 02</div><h3>Sims</h3>
+      </div>
+      <div class="parc-wp a3">
+        <span class="parc-sim" style="--sz:36px;--sc:var(--green)" aria-hidden="true"><i>AS</i></span>
+        <div class="parc-dot" aria-hidden="true"></div>
+        <div class="parc-ph">Phase 03</div><h3>AutoSim</h3>
+      </div>
+    </div>
+
+    <!-- per-phase preview cards -->
+    <div class="parc-cards">
+      <!-- SNAP -->
+      <article class="parc-card a1 reveal" style="--d:.05s">
+        <div class="pc-top">
+          <span class="parc-sim" style="--sz:30px;--sc:var(--indigo)" aria-hidden="true"><i>K</i></span>
+          <h3>Klavity Snap</h3>
+          <span class="pc-stat">Shipped</span>
+        </div>
+        <p class="pc-line">Catch a bug in one right-click — no tool to open.</p>
+        <ol class="parc-teaser">
+          <li><span class="ix">1</span> Right-click anything on the page</li>
+          <li><span class="ix">2</span> Describe it — screenshot auto-attached</li>
+          <li><span class="ix">3</span> Filed to Plane, Jira, GitHub or Linear</li>
+        </ol>
+        <div class="parc-more"><a href="/snap" aria-label="Learn more about Klavity Snap">Learn more →</a></div>
+      </article>
+
+      <!-- SIMS -->
+      <article class="parc-card a2 reveal" style="--d:.15s">
+        <div class="pc-top">
+          <span class="parc-sim" style="--sz:30px;--sc:var(--rose)" aria-hidden="true"><i>SC</i></span>
+          <h3>Klavity Sims</h3>
+          <span class="pc-stat">Live</span>
+        </div>
+        <p class="pc-line">Your customers, in the room while you build.</p>
+        <ol class="parc-teaser">
+          <li><span class="ix">1</span> Feed in a real customer call</li>
+          <li><span class="ix">2</span> Sims react on your actual pages</li>
+          <li><span class="ix">3</span> File the bug — quote &amp; persona attached</li>
+        </ol>
+        <div class="parc-more"><a href="/sims" aria-label="Learn more about Klavity Sims">Learn more →</a></div>
+      </article>
+
+      <!-- AUTOSIM -->
+      <article class="parc-card a3 reveal" style="--d:.25s">
+        <div class="pc-top">
+          <span class="parc-sim" style="--sz:30px;--sc:var(--green)" aria-hidden="true"><i>AS</i></span>
+          <h3>Klavity AutoSim</h3>
+          <span class="pc-stat">Shipped</span>
+        </div>
+        <p class="pc-line">Your Sims test every release — and self-heal.</p>
+        <ol class="parc-teaser">
+          <li><span class="ix">1</span> Author a run once, in plain English</li>
+          <li><span class="ix">2</span> Replays free — heals when UI moves</li>
+          <li><span class="ix">3</span> Real break → a grounded finding filed</li>
+        </ol>
+        <div class="parc-more"><a href="/autosim" aria-label="Learn more about Klavity AutoSim">Learn more →</a></div>
+      </article>
+    </div>
+  </div>
+</section>
+
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
@@ -559,7 +742,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
       <div class="phase">
         <span class="ph-stat s-soon">○ Next</span>
-        <h3>Klavity OS</h3><div class="pl">the autopilot</div>
+        <h3>Klavity AutoSim</h3><div class="pl">the autopilot</div>
         <p>An autonomous UAT agent that explores your staging build, predicts regressions, and fixes the test suite before you ship.</p>
       </div>
     </div>
