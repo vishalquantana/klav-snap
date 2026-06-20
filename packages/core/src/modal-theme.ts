@@ -11,9 +11,15 @@ export interface ModalConfig {
 }
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/
+const FONT_OK = /^[\w \-,'"().]+$/
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 const hex = (v: unknown): string | undefined => (typeof v === 'string' && HEX.test(v.trim()) ? v.trim() : undefined)
 const str = (v: unknown, max: number): string | undefined => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined)
+const fontStr = (v: unknown): string | undefined => {
+  if (typeof v !== 'string') return undefined
+  const t = v.trim().slice(0, 120)
+  return t && FONT_OK.test(t) ? t : undefined
+}
 
 // CSS-variable palettes per built-in theme (ported from packages/core/demo/popup-themes.html).
 const THEMES: Record<Exclude<ModalTheme, 'custom'>, Record<string, string>> = {
@@ -37,7 +43,7 @@ export function resolveModalConfig(raw: unknown): ModalConfig & { theme: ModalTh
   const r = isObj(raw) ? raw : {}
   const theme = (typeof r.theme === 'string' && (ALLOWED_THEMES as string[]).includes(r.theme)) ? (r.theme as ModalTheme) : 'light'
   const out: ModalConfig & { theme: ModalTheme } = { theme }
-  const p = hex(r.primary), s = hex(r.secondary), bg = hex(r.background), ty = str(r.thankYou, 140), f = str(r.font, 120)
+  const p = hex(r.primary), s = hex(r.secondary), bg = hex(r.background), ty = str(r.thankYou, 140), f = fontStr(r.font)
   if (p) out.primary = p
   if (s) out.secondary = s
   if (bg) out.background = bg
@@ -76,7 +82,7 @@ export function validateModalConfigInput(body: unknown, opts: { isPro: boolean }
   const ty = str(body.thankYou, 140)
   if (ty) config.thankYou = ty
   if (opts.isPro) {
-    const p = hex(body.primary), s = hex(body.secondary), bg = hex(body.background), f = str(body.font, 120)
+    const p = hex(body.primary), s = hex(body.secondary), bg = hex(body.background), f = fontStr(body.font)
     if (p) config.primary = p
     if (s) config.secondary = s
     if (bg) config.background = bg

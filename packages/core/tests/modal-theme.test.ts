@@ -17,6 +17,14 @@ describe("resolveModalConfig", () => {
     expect(c.primary).toBe("#5b5bf0")
     expect(c.secondary).toBeUndefined()
   })
+  it("accepts valid font names", () => {
+    const c = resolveModalConfig({ theme: "custom", font: "Georgia, serif" })
+    expect(c.font).toBe("Georgia, serif")
+  })
+  it("rejects font with CSS-breaking characters", () => {
+    const c = resolveModalConfig({ theme: "custom", font: "x} :host{display:none" })
+    expect(c.font).toBeUndefined()
+  })
 })
 
 describe("themeCss", () => {
@@ -50,6 +58,16 @@ describe("validateModalConfigInput", () => {
     const r = validateModalConfigInput({ theme: "custom", primary: "#5b5bf0", secondary: "red" }, { isPro: true })
     expect(r.ok).toBe(true)
     if (r.ok) { expect(r.config.primary).toBe("#5b5bf0"); expect(r.config.secondary).toBeUndefined() }
+  })
+  it("accepts valid font names when Pro", () => {
+    const r = validateModalConfigInput({ theme: "custom", font: "Inter, sans-serif" }, { isPro: true })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.config.font).toBe("Inter, sans-serif")
+  })
+  it("rejects font with CSS-breaking characters even when Pro", () => {
+    const r = validateModalConfigInput({ theme: "custom", font: "x} :host{display:none" }, { isPro: true })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.config.font).toBeUndefined()
   })
   it("exposes the allowed theme set", () => {
     expect(ALLOWED_THEMES).toContain("liquid")
