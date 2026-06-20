@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Klavity Journey — Products</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    button { padding: .5rem 1rem; }
+    a.cart { display: inline-block; padding: .5rem 1rem; margin-top: 1rem; }
+    #added { color: #2b6; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Products</h1>
+    <section>
+      <h2>The $20 Widget</h2>
+      <button id="add-to-cart" class="btn-add" type="button" role="button" aria-label="Add to cart" data-testid="add-to-cart-btn"
+              onclick="document.getElementById('added').classList.remove('hidden');">
+        Add to cart
+      </button>
+      <p id="added" class="hidden" data-testid="added-msg">Added to cart</p>
+    </section>
+    <a id="cart" class="cart" role="button" href="cart.html" aria-label="Cart" data-testid="cart-link">Cart</a>
+  </main>
+  <style>.hidden { display: none; }</style>
+</body>
+</html>

@@ -1741,6 +1741,14 @@ Bun.serve({
 
     if (req.method === "GET" && path === "/dashboard") return me ? file(PUB + "/dashboard.html") : redirect("/login")
     if (req.method === "GET" && path === "/trails") return me ? file(PUB + "/trails.html") : redirect("/login")
+    // Plan G — served demo fixtures the seeded demo Trails walk against (public, non-sensitive HTML).
+    // Sanitized: reject path traversal; serve only from PUB/trails-demo. No auth (a Walk hits these
+    // unauthenticated, same-origin) — the files are bundled static fixtures, never user data.
+    if (req.method === "GET" && path.startsWith("/trails-demo/")) {
+      const rel = decodeURIComponent(path.slice("/trails-demo/".length))
+      if (rel.includes("..") || rel.includes("\\") || rel.startsWith("/")) return new Response("Not found", { status: 404 })
+      return new Response(Bun.file(PUB + "/trails-demo/" + rel), { headers: { "content-type": "text/html; charset=utf-8" } })
+    }
     if (req.method === "GET" && path === "/opsadmin") {
       if (!me || !isOpsAdmin(me)) return new Response("Not found", { status: 404 }) // hide route from non-ops
       const offset = Math.max(0, Number(url.searchParams.get("offset") || 0) || 0)

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Klavity Journey — Cart</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    a.proceed-pay { display: inline-block; padding: .6rem 1.2rem; background: #36c; color: #fff; text-decoration: none; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Your Cart</h1>
+    <ul>
+      <li>The $20 Widget — $20.00</li>
+    </ul>
+    <!-- DRIFT-T1: id changed (#checkout -> #pay-now-btn) and class changed; role=button + accessible-name "Checkout" preserved.
+         Tier-0 by #checkout MISSES; Tier-1 heals by role+accessible-name. -->
+    <a id="pay-now-btn" class="proceed-pay" role="button" href="confirm.html" aria-label="Checkout" data-testid="checkout-link">Checkout</a>
+  </main>
+</body>
+</html>

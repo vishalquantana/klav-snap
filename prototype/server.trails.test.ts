@@ -245,6 +245,18 @@ test("the trails page references the rrweb-player replay assets", async () => {
   expect(html).toContain("/api/trails/walks/")
 })
 
+test("GET /trails-demo/journey/landing.html serves the bundled demo fixture (no auth)", async () => {
+  const r = await fetch(`${BASE}/trails-demo/journey/landing.html`)
+  expect(r.status).toBe(200)
+  const html = await r.text()
+  expect(html.toLowerCase()).toContain("<html")
+})
+
+test("GET /trails-demo with path traversal is rejected", async () => {
+  const r = await fetch(`${BASE}/trails-demo/..%2f..%2fserver.ts`)
+  expect(r.status).toBe(404)
+})
+
 test("GET /trails serves the dashboard page when authed", async () => {
   const r = await fetch(`${BASE}/trails`, { headers: { Cookie: `klav_session=${MEMBER_SID}` } })
   expect(r.status).toBe(200)
