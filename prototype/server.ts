@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, setFeedbackContactEmail } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
@@ -1826,7 +1826,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       if (req.method === "GET" && m && new URL(req.url).searchParams.get("admin") !== "1") {
         const proj = await projectById(m[1])
         if (!proj) return json({ error: "Not found." }, 404)
-        return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(m[1])) })
+        return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(m[1])), widget: (await getWidgetConfig(m[1])) || { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding" } })
       }
     }
 
@@ -2516,7 +2516,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           return json({ error: "Not found" }, 404)
         }
 
-        // Report widget appearance config — admin-only write.
+        // Report widget appearance config — admin-only write; also carries widget mode/cta/notify.
         if (sub === "/config") {
           if (req.method === "POST") {
             if (access !== "admin") return json({ error: "Only project admins can change widget appearance." }, 403)
@@ -2525,10 +2525,19 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             const v = validateModalConfigInput(body, { isPro: pro })
             if (!v.ok) return json({ error: v.error }, 400)
             await setProjectModalConfig(pid, v.config as any)
+            // Persist widget mode/cta/notify if any were provided (partial update).
+            const hasWidget = body.mode !== undefined || body.cta_url !== undefined || body.notify_email !== undefined
+            if (hasWidget) {
+              const wCfg: { mode?: string; ctaUrl?: string | null; notifyEmail?: string | null } = {}
+              if (body.mode !== undefined) wCfg.mode = body.mode
+              if (body.cta_url !== undefined) wCfg.ctaUrl = body.cta_url
+              if (body.notify_email !== undefined) wCfg.notifyEmail = body.notify_email
+              await setWidgetConfig(pid, wCfg)
+            }
             return json({ ok: true, modalConfig: v.config, pro })
           }
-          // GET here (session-authed) returns current + pro flag for the admin UI
-          return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(pid)), pro: await isAccountPro(proj.accountId) })
+          // GET here (session-authed) returns current + pro flag + widget config for the admin UI
+          return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(pid)), pro: await isAccountPro(proj.accountId), widget: await getWidgetConfig(pid) })
         }
 
         // Named observability (R6) — admin-only Activity view: WHO ran WHICH Sim on WHICH path, with the
