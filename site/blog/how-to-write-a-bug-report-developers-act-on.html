@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to write a bug report developers will actually act on · Klavity</title>
+<meta name="description" content="A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.">
+<link rel="canonical" href="https://klavity.quantana.top/blog/how-to-write-a-bug-report-developers-act-on">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="any">
+<meta property="og:type" content="article"><meta property="og:site_name" content="Klavity">
+<meta property="og:title" content="How to write a bug report developers will actually act on"><meta property="og:description" content="A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.">
+<meta property="og:url" content="https://klavity.quantana.top/blog/how-to-write-a-bug-report-developers-act-on"><meta property="og:image" content="https://klavity.quantana.top/favicon.svg">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="How to write a bug report developers will actually act on"><meta name="twitter:description" content="A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format."><meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Hanken+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500;700&display=optional">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Hanken+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500;700&display=optional" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Hanken+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500;700&display=optional"></noscript>
+<link rel="stylesheet" href="/kit.css"><script src="/kit.js" defer></script>
+<style>
+.post{max-width:720px;margin:0 auto;padding:40px 22px 80px}
+.post .crumb{font-family:var(--mono);font-size:12.5px;color:var(--paper-faint);letter-spacing:.04em;margin-bottom:18px}
+.post h1{font-family:var(--display);font-weight:600;font-size:clamp(34px,6vw,52px);line-height:1.06;letter-spacing:-.02em;margin:0 0 10px}
+.post .by{font-family:var(--mono);font-size:12.5px;color:var(--paper-faint);margin-bottom:26px}
+.tldr-box{background:var(--ink-2,#efe9df);border:1px solid var(--line);border-left:4px solid var(--accent-text,var(--indigo));border-radius:14px;padding:18px 20px;margin:0 0 30px;font-size:17px;line-height:1.5}
+.tldr-box b{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-faint);display:block;margin-bottom:6px}
+.prose{font-size:18px;line-height:1.72;color:var(--paper-dim)}
+.prose h2{font-family:var(--display);font-weight:600;font-size:28px;color:var(--paper);margin:42px 0 12px;line-height:1.15}
+.prose h3{font-weight:700;font-size:20px;color:var(--paper);margin:30px 0 8px}
+.prose p{margin:0 0 18px}.prose ul,.prose ol{margin:0 0 18px;padding-left:24px}.prose li{margin:6px 0}
+.prose a{color:var(--accent-text,var(--indigo));text-decoration:underline}
+.prose strong{color:var(--paper)}
+.faq{margin:48px 0 0;border-top:1px solid var(--line);padding-top:30px}
+.faq h2{font-family:var(--display);font-size:26px;margin:0 0 16px}
+.faq details{border-bottom:1px solid var(--line);padding:14px 0}.faq summary{font-weight:600;cursor:pointer;font-size:17px}
+.faq p{margin:10px 0 0;color:var(--paper-dim);line-height:1.6}
+.takeaways{margin:40px 0 0;background:var(--ink-2,#efe9df);border-radius:16px;padding:24px 26px}
+.takeaways h2{font-family:var(--display);font-size:22px;margin:0 0 12px}.takeaways ul{margin:0;padding-left:20px}.takeaways li{margin:8px 0;line-height:1.5}
+.cta{margin:48px 0 0;text-align:center;padding:34px;border:1px solid var(--line);border-radius:18px}
+.cta h2{font-family:var(--display);font-size:24px;margin:0 0 8px}.cta p{color:var(--paper-dim);margin:0 0 18px}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to write a bug report developers will actually act on","description":"A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.","datePublished":"2026-06-21","dateModified":"2026-06-21","author":{"@type":"Person","name":"Vishal Kumar · Quantana"},"publisher":{"@type":"Organization","name":"Klavity","logo":{"@type":"ImageObject","url":"https://klavity.quantana.top/favicon.svg"}},"mainEntityOfPage":"https://klavity.quantana.top/blog/how-to-write-a-bug-report-developers-act-on","inLanguage":"en"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://klavity.quantana.top/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://klavity.quantana.top/blog"},{"@type":"ListItem","position":3,"name":"How to write a bug report developers will actually act on","item":"https://klavity.quantana.top/blog/how-to-write-a-bug-report-developers-act-on"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","speakable":{"@type":"SpeakableSpecification","cssSelector":["h1",".tldr-box",".prose > p:first-of-type"]},"url":"https://klavity.quantana.top/blog/how-to-write-a-bug-report-developers-act-on"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What makes a bug report 'good'?","acceptedAnswer":{"@type":"Answer","text":"Three things a developer would otherwise have to ask for: exact reproduction steps, the environment (browser, OS, URL, account/role), and evidence — a screenshot plus the console and network errors at the moment it happened."}},{"@type":"Question","name":"Do I need to reproduce the bug before reporting it?","acceptedAnswer":{"@type":"Answer","text":"No. Report it the moment you see it, with whatever state you have. A report captured at the moment of failure — with console/network attached automatically — is more useful than a polished one written from memory an hour later."}},{"@type":"Question","name":"How much detail is too much?","acceptedAnswer":{"@type":"Answer","text":"Lead with the one-sentence summary and the expected-vs-actual. Put logs, long traces, and screenshots below the fold. Reviewers skim top-down; front-load the decision-making facts."}}]}</script>
+</head><body style="--accent:var(--indigo);--accent-text:var(--indigo-text)">
+<a class="skip-link" href="#main">Skip to content</a><nav class="nav" aria-label="Primary"><div class="wrap nav-in">
+  <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span>Klavity</a>
+  <div class="nav-links">
+    <a href="/#how">How it works</a><a class="s-snap" href="/snap">Snap</a>
+    <a class="s-sims" href="/sims">Sims</a><a class="s-autosim" href="/autosim">AutoSim</a>
+    <a href="/blog" aria-current="page">Blog</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+  <div class="nav-cta"><a class="btn btn-ghost" href="/login">Log in</a><a class="btn btn-primary" href="/onboarding">Get started</a></div>
+</div></nav><main id="main">
+  <article class="post">
+    <div class="crumb"><a href="/blog">Blog</a> · Guides · 2026-06-21</div>
+    <h1>How to write a bug report developers will actually act on</h1>
+    <div class="by">Vishal Kumar · Quantana</div>
+    <div class="tldr-box"><b>TL;DR</b>The fastest-fixed bug reports answer three questions before a developer has to ask: what did you do, what environment were you in, and what did the system actually do. Attach a full-page screenshot, the URL, and the last console + network errors — reports with reproduction steps and evidence are resolved markedly faster than 'it's broken' tickets.</div>
+    <div class="prose"><p>A bug report gets fixed fast when it answers three questions before a developer has to ask them: <strong>what did you do, what environment were you in, and what did the system actually do.</strong> Miss any one and the ticket bounces back with "can't reproduce" — the single most common reason bugs sit untouched.</p><h2>The three-part format that gets bugs fixed</h2><p>Every actionable report has the same skeleton, in this order:</p><ol><li><strong>Summary + expected vs. actual.</strong> One sentence: "Clicking <em>Pay now</em> does nothing on the first click; I expected the order to submit."</li><li><strong>Environment.</strong> Browser + version, OS, the exact URL, and the account or role you were signed in as. A bug that only happens for admin users is invisible without this.</li><li><strong>Evidence.</strong> A full-page screenshot, plus the console errors and failed network requests from the moment it happened.</li></ol><h2>Why evidence beats description</h2><p>A description written from memory drops the one detail that mattered — the 500 in the network tab, the stack trace in the console. Evidence captured <strong>at the moment of failure</strong> keeps those. This is exactly why in-app reporting beats a Slack message: the context is attached automatically, not reconstructed later.</p><h2>Report at the point of failure</h2><p>Don't wait until you can reproduce a bug "cleanly." The highest-value report is the messy one filed the instant something breaks, with the real state intact. Tools like <a href="/snap">Klavity Snap</a> let anyone right-click and file a grounded report — screenshot, console, and network attached — without leaving the page or installing anything.</p></div>
+    <section class="takeaways"><h2>Key takeaways</h2><ul><li>Open with one sentence: what you expected vs. what happened.</li><li>Always include environment: browser, OS, URL, and the account/role you were using.</li><li>Attach evidence captured at the moment of failure — screenshot + console + network, not a description from memory.</li><li>Report at the point of failure; don't wait until you can 'reproduce it cleanly'.</li></ul></section><section class="faq"><h2>FAQ</h2><details><summary>What makes a bug report 'good'?</summary><p>Three things a developer would otherwise have to ask for: exact reproduction steps, the environment (browser, OS, URL, account/role), and evidence — a screenshot plus the console and network errors at the moment it happened.</p></details><details><summary>Do I need to reproduce the bug before reporting it?</summary><p>No. Report it the moment you see it, with whatever state you have. A report captured at the moment of failure — with console/network attached automatically — is more useful than a polished one written from memory an hour later.</p></details><details><summary>How much detail is too much?</summary><p>Lead with the one-sentence summary and the expected-vs-actual. Put logs, long traces, and screenshots below the fold. Reviewers skim top-down; front-load the decision-making facts.</p></details></section>
+    <section class="cta"><h2>Catch bugs the moment a human sees them</h2><p>Klavity: right-click bug reports, AI personas that review your product, and self-healing tests.</p><a class="btn btn-primary" href="/onboarding">Get started free</a></section>
+  </article></main><footer class="footer"><div class="wrap foot-in">
+  <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span>Klavity</a>
+  <div class="foot-links"><a href="/">Home</a><a href="/snap">Snap</a><a href="/sims">Sims</a><a href="/autosim">AutoSim</a><a href="/blog">Blog</a><a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+  <span class="sp"></span><span class="mono">© <span data-year>2026</span> Klavity</span>
+</div></footer></body></html>

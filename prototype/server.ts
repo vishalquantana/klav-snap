@@ -883,9 +883,24 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     if (req.method === "GET" && path === "/snap") return file(SITE + "/snap.html")
     if (req.method === "GET" && path === "/sims") return file(SITE + "/sims.html")
     if (req.method === "GET" && path === "/autosim") return file(SITE + "/autosim.html")
+    // ── blog (Claude-authored, auto-published; static files under site/blog/) ──
+    if (req.method === "GET" && path === "/blog") return file(SITE + "/blog/index.html")
+    if (req.method === "GET" && path.startsWith("/blog/") && /^[a-z0-9-]+$/.test(path.slice(6))) {
+      const bf = Bun.file(SITE + "/blog/" + path.slice(6) + ".html")
+      if (await bf.exists()) return new Response(bf, { headers: { "content-type": "text/html; charset=utf-8" } })
+    }
     if (req.method === "GET" && path === "/kit.css") return new Response(Bun.file(SITE + "/kit.css"), { headers: { "content-type": "text/css; charset=utf-8" } })
     if (req.method === "GET" && path === "/kit.js") return new Response(Bun.file(SITE + "/kit.js"), { headers: { "content-type": "text/javascript; charset=utf-8" } })
-    if (req.method === "GET" && path === "/sitemap.xml") return new Response(Bun.file(SITE + "/sitemap.xml"), { headers: { "content-type": "text/xml; charset=utf-8" } })
+    if (req.method === "GET" && path === "/sitemap.xml") {
+      const core = ["/", "/snap", "/sims", "/autosim", "/blog", "/privacy", "/terms"]
+      let blog: Array<{ slug: string; date: string }> = []
+      try { blog = JSON.parse(await Bun.file(SITE + "/blog/index.json").text()) } catch { /* no posts yet */ }
+      const urls = [
+        ...core.map((p) => `<url><loc>https://klavity.quantana.top${p}</loc></url>`),
+        ...blog.map((b) => `<url><loc>https://klavity.quantana.top/blog/${b.slug}</loc><lastmod>${b.date}</lastmod></url>`),
+      ].join("")
+      return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`, { headers: { "content-type": "text/xml; charset=utf-8" } })
+    }
     if (req.method === "GET" && path === "/robots.txt") return new Response(Bun.file(SITE + "/robots.txt"), { headers: { "content-type": "text/plain; charset=utf-8" } })
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
     // ── vendored rrweb-player assets (Trails Walk replay scrubber) ──
