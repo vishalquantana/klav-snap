@@ -3,7 +3,7 @@ import { createSim, injectSimStyles, emotionFromSentiment } from "@klavity/core/
 import { toPng } from "html-to-image"
 import { buildModal } from "@klavity/core/modal"
 import { cropDataUrl } from "@klavity/core/crop"
-import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm } from "./widget-lib"
+import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
 
 const HOST_ID = "klavity-widget-host"
 const TOKEN_KEY = "klavity_widget_token"
@@ -43,11 +43,25 @@ async function mount() {
 
   const firstParty = isFirstParty(location.origin, cfg.backendUrl)
 
+  // ONE unified fetch: the project config endpoint returns BOTH the appearance theme (modalConfig,
+  // → buildModal 3rd arg) AND the lead-gen widget settings (widget: {mode, ctaUrl}, → success copy).
   let modalConfig: any = {}
+  let widget: { mode: string; ctaUrl: string } = { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding" }
   try {
     const r = await fetch(cfg.backendUrl + "/api/projects/" + encodeURIComponent(cfg.projectId) + "/config")
-    if (r.ok) modalConfig = (await r.json()).modalConfig || {}
-  } catch { /* default theme */ }
+    if (r.ok) {
+      const j = await r.json()
+      modalConfig = j.modalConfig || {}
+      if (j.widget) widget = { mode: j.widget.mode || "support", ctaUrl: j.widget.ctaUrl || widget.ctaUrl }
+    }
+  } catch { /* default theme + support mode */ }
+
+  async function postLead(feedbackId: string, email: string) {
+    await fetch(cfg.backendUrl + "/api/widget/lead", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ project_id: cfg.projectId, feedback_id: feedbackId, email }),
+    })
+  }
 
   const reportBtn = document.createElement("button")
   reportBtn.textContent = "🐞 Report a bug"
@@ -61,6 +75,7 @@ async function mount() {
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots },
       ),
+      success: { copy: successCopy(widget.mode, widget.ctaUrl), onLead: postLead },
     }, modalConfig)
   }
   reportBtn.onclick = () => openReport("bug")

@@ -2,6 +2,16 @@ import type { ReportType } from './types'
 import { Annotator } from './annotator'
 import { themeCss, resolveModalConfig, type ModalConfig } from './modal-theme'
 
+export interface SuccessCopy {
+  headline: string
+  body: string
+  emailLabel: string
+  ctaText: string
+  ctaUrl: string
+  showEmail: boolean
+  showCta: boolean
+}
+
 export interface ModalCallbacks {
   onCaptureFull: () => Promise<string>
   onRegionCapture?: (rect: { x: number; y: number; w: number; h: number }) => Promise<string>
@@ -10,6 +20,15 @@ export interface ModalCallbacks {
     description: string
     screenshots: string[]
   }) => Promise<{ issueKey: string; issueUrl: string }>
+  // Mode-aware success screen. When provided, a successful submit swaps the modal body for this
+  // screen (headline/body, optional email-lead capture, optional CTA) and DOES NOT auto-close —
+  // the user must interact. When absent, falls back to the themed thankYou/✓ Filed auto-close card.
+  // `copy` is static (built by the host from successCopy()); `onLead` POSTs the captured email,
+  // referencing the returned feedback id (= issueKey).
+  success?: {
+    copy: SuccessCopy
+    onLead?: (feedbackId: string, email: string) => Promise<void>
+  }
 }
 
 export interface ModalController {
@@ -59,6 +78,16 @@ export function buildModal(
     .klavity-submit{width:100%;padding:12px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
     .klavity-submit:disabled{opacity:.5;cursor:not-allowed;}
     .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
+    .klavity-success h2{margin:0 0 8px;font-size:18px;color:var(--kl-fg);}
+    .klavity-success p{margin:0 0 16px;font-size:14px;color:var(--kl-muted);line-height:1.4;}
+    .klavity-lead{display:flex;gap:8px;margin-bottom:12px;}
+    .klavity-lead input{flex:1;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:6px;padding:9px 10px;font-size:14px;box-sizing:border-box;}
+    .klavity-lead button{padding:9px 14px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .klavity-lead button:disabled{opacity:.5;cursor:not-allowed;}
+    .klavity-thanks{font-size:13px;color:var(--kl-fg);margin-bottom:12px;}
+    .klavity-cta{display:inline-block;padding:10px 16px;background:var(--kl-accent);color:var(--kl-on-accent);border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:12px;}
+    .klavity-pb{text-align:center;font-size:10px;color:var(--kl-muted);margin-top:12px;}
+    .klavity-pb a{color:var(--kl-muted);text-decoration:none;}
     @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing{animation-duration:.01ms;}}
   `
   shadowRoot.appendChild(style)
@@ -167,16 +196,23 @@ export function buildModal(
     errEl.style.display = 'none'
     try {
       const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots] })
-      const wrap = document.createElement('div')
-      wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:all;'
-      const card = document.createElement('div')
-      card.style.cssText = 'background:var(--kl-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:var(--kl-radius);padding:32px;font-family:var(--kl-font,system-ui),sans-serif;font-size:16px;text-align:center;box-shadow:var(--kl-shadow);'
-      card.textContent = cfg.thankYou ? cfg.thankYou : `✓ Filed as ${result.issueKey}`
-      wrap.appendChild(card)
-      // keep the themed style element; swap only the body
-      overlay.remove()
-      shadowRoot.appendChild(wrap)
-      setTimeout(close, cfg.thankYou ? 2600 : 1500)
+      if (callbacks.success) {
+        // Mode-aware lead/CTA screen rendered THROUGH the existing themed modal — no auto-close;
+        // the user must interact (submit email or click the CTA, or dismiss via overlay/esc).
+        renderSuccess(result.issueKey, callbacks.success)
+      } else {
+        // Their themed auto-close card: custom thank-you (2600ms) or "✓ Filed as KEY" (1500ms).
+        const wrap = document.createElement('div')
+        wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:all;'
+        const card = document.createElement('div')
+        card.style.cssText = 'background:var(--kl-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:var(--kl-radius);padding:32px;font-family:var(--kl-font,system-ui),sans-serif;font-size:16px;text-align:center;box-shadow:var(--kl-shadow);'
+        card.textContent = cfg.thankYou ? cfg.thankYou : `✓ Filed as ${result.issueKey}`
+        wrap.appendChild(card)
+        // keep the themed style element; swap only the body
+        overlay.remove()
+        shadowRoot.appendChild(wrap)
+        setTimeout(close, cfg.thankYou ? 2600 : 1500)
+      }
     } catch (err) {
       errEl.textContent = (err as Error).message
       errEl.style.display = 'block'
@@ -299,6 +335,68 @@ export function buildModal(
       }, { capture: true, once: true })
     }
     img.src = dataUrl
+  }
+
+  // Mode-aware success screen: swap the modal body in-place (keeps the themed modal element + its
+  // Genie animation + injected --kl-* vars) for headline/body, optional email-lead capture, optional
+  // CTA, and an always-on "Powered by Klavity" footer. Dynamic data (feedbackId, email) is never
+  // injected via innerHTML — only static copy uses innerHTML — matching this file's XSS guards.
+  function renderSuccess(feedbackId: string, success: NonNullable<ModalCallbacks['success']>) {
+    const { copy, onLead } = success
+    modal.innerHTML = ''
+    const wrap = document.createElement('div')
+    wrap.className = 'klavity-success'
+
+    const h = document.createElement('h2')
+    h.textContent = copy.headline
+    wrap.appendChild(h)
+
+    if (copy.body) {
+      const p = document.createElement('p')
+      p.textContent = copy.body
+      wrap.appendChild(p)
+    }
+
+    if (copy.showEmail) {
+      const row = document.createElement('div')
+      row.className = 'klavity-lead'
+      const input = document.createElement('input')
+      input.type = 'email'
+      input.placeholder = 'you@company.com'
+      const btn = document.createElement('button')
+      btn.textContent = copy.emailLabel
+      const submitLead = async () => {
+        const email = input.value.trim()
+        if (!email) return
+        btn.disabled = true
+        try { if (onLead) await onLead(feedbackId, email) } catch { /* swallow — confirm anyway */ }
+        const thanks = document.createElement('div')
+        thanks.className = 'klavity-thanks'
+        thanks.textContent = "Thanks — we'll be in touch."
+        row.replaceWith(thanks)
+      }
+      btn.addEventListener('click', submitLead)
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLead() })
+      row.append(input, btn)
+      wrap.appendChild(row)
+    }
+
+    if (copy.showCta && copy.ctaUrl) {
+      const a = document.createElement('a')
+      a.className = 'klavity-cta'
+      a.href = copy.ctaUrl
+      a.target = '_blank'
+      a.rel = 'noopener'
+      a.textContent = copy.ctaText
+      wrap.appendChild(a)
+    }
+
+    modal.appendChild(wrap)
+
+    const pb = document.createElement('div')
+    pb.className = 'klavity-pb'
+    pb.innerHTML = `Powered by <a href="https://klavity.quantana.top" target="_blank" rel="noopener">Klavity</a>`
+    modal.appendChild(pb)
   }
 
   return controller
