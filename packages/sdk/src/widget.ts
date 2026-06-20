@@ -179,8 +179,9 @@ async function mount() {
     setTimeout(() => b.remove(), 16000)
   }
 
-  // Boot
-  if (getToken()) loadSims(); else renderConnectButton()
+  // Boot — the Sims-review dock is for embedded customer sites. On first-party (the klavity.quantana.top
+  // dogfood) we show only the report launcher, so users don't see a confusing second "Connect" dock.
+  if (!firstParty) { if (getToken()) loadSims(); else renderConnectButton() }
   ;(window as any).KlavityWidget = { mount }
 }
 

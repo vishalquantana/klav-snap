@@ -370,10 +370,22 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <a href="#phases">Roadmap</a>
       <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
-    <div class="nav-cta">
+    <div class="nav-cta" id="navCta">
       <a class="btn btn-ghost" href="/login">Log in</a>
       <a class="btn btn-indigo" href="/onboarding">Get started</a>
     </div>
+    <script>
+      // If a session is already active, swap the logged-out CTAs for a Dashboard link.
+      fetch("/api/me", { credentials: "include" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.email) {
+            var c = document.getElementById("navCta");
+            if (c) c.innerHTML = '<a class="btn btn-indigo" href="/dashboard">Dashboard →</a>';
+          }
+        })
+        .catch(function () {});
+    </script>
   </div>
 </nav>
 

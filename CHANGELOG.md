@@ -10,6 +10,12 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.26.1] — 2026-06-20
+
+### Fixed
+- **Marketing nav reflects auth state.** The landing page (`/`) showed "Log in / Get started" even when already signed in; it now swaps to a **Dashboard** link when a session is active (checked via `/api/me`).
+- **No double dock in the dogfood.** On klavity.quantana.top the embedded widget now shows only the **"Report a bug"** launcher — the Sims-review "Connect to Klavity" dock is suppressed on first-party so users don't see two competing widgets. (Cross-origin customer embeds still get the Sims dock.)
+
 ## [0.26.0] — 2026-06-20
 
 ### Added
