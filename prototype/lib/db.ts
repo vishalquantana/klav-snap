@@ -25,6 +25,8 @@ export async function initDb() {
   if (!(await columnExists(db, "accounts", "domain"))) {
     await db.execute("ALTER TABLE accounts ADD COLUMN domain TEXT").catch((e) => console.warn("accounts.domain ALTER skipped:", e?.message || e))
   }
+  await db!.execute("ALTER TABLE projects ADD COLUMN modal_config_json TEXT DEFAULT '{}'").catch((e: any) => console.warn("projects.modal_config_json ALTER skipped:", e?.message || e))
+  await db!.execute("ALTER TABLE accounts ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'").catch((e: any) => console.warn("accounts.plan ALTER skipped:", e?.message || e))
   await migrateConnectorsPlane(db)
   console.log("✓ Turso connected, schema ready")
 }
@@ -678,6 +680,21 @@ export async function createProject(accountId: string, name: string): Promise<Pr
 export async function renameProject(projectId: string, name: string): Promise<ProjectRow | null> {
   await db!.execute({ sql: "UPDATE projects SET name=?, updated_at=? WHERE id=?", args: [name, Date.now(), projectId] })
   return projectById(projectId)
+}
+
+export async function getProjectModalConfig(projectId: string): Promise<Record<string, unknown>> {
+  const r = await db!.execute({ sql: "SELECT modal_config_json FROM projects WHERE id=?", args: [projectId] })
+  if (!r.rows.length) return {}
+  try { return JSON.parse(String((r.rows[0] as any).modal_config_json || "{}")) || {} } catch { return {} }
+}
+
+export async function setProjectModalConfig(projectId: string, config: Record<string, unknown>): Promise<void> {
+  await db!.execute({ sql: "UPDATE projects SET modal_config_json=?, updated_at=? WHERE id=?", args: [JSON.stringify(config || {}), Date.now(), projectId] })
+}
+
+export async function isAccountPro(accountId: string): Promise<boolean> {
+  const r = await db!.execute({ sql: "SELECT plan FROM accounts WHERE id=?", args: [accountId] })
+  return r.rows.length ? String((r.rows[0] as any).plan) === "pro" : false
 }
 
 // §2.3 effective role: max(account_role, project_role); account owner/admin ⇒ implicit project-admin.

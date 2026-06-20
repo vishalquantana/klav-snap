@@ -10,6 +10,10 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## 0.31.0 — 2026-06-21
+### Added
+- Per-project report widget appearance settings: theme (light default, dark, glass, neon, custom [Pro], liquid [experimental]), optional custom colors/font, and a custom post-submit thank-you message. Genie open/close animation. Configured in the dashboard; served to the widget via `GET /api/projects/:id/config`.
+
 ## [0.30.5] — 2026-06-20
 
 ### Changed
