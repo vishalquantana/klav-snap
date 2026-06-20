@@ -283,3 +283,12 @@ test("GET /trails serves the dashboard page when authed", async () => {
   expect(html).toContain("Trails")
   expect(html).toContain("/api/trails/dashboard")
 })
+
+test("the trails page has a per-trail Run affordance that POSTs the walk route", async () => {
+  const r = await fetch(`${BASE}/trails`, { headers: { Cookie: `klav_session=${MEMBER_SID}` } })
+  const html = await r.text()
+  // The Run button marker + the walk-trigger route the page POSTs to.
+  expect(html).toContain("data-run")
+  expect(html).toContain("/walk")
+  expect(html).toContain("Run")
+})

@@ -82,6 +82,17 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .muted{color:var(--paper-faint);font-size:13px}
 .msg{font-size:12.5px;color:var(--green);margin-top:8px;min-height:16px}
 
+/* trail rows + Run button */
+.trail{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--ink);border:1px solid var(--line);border-radius:12px}
+.trail .body{flex:1;min-width:0}
+.trail .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trail .d{font-size:12px;color:var(--paper-faint);margin-top:2px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trail .run-btn{flex-shrink:0;font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:7px 13px;border-radius:9px;border:1px solid var(--line);background:var(--ink-3);color:var(--paper);cursor:pointer}
+.trail .run-btn:hover:not(:disabled){border-color:var(--indigo)}
+.trail .run-btn:disabled{opacity:.55;cursor:default}
+.trail .heal-diff{font-family:var(--mono);font-size:11px;color:var(--paper-faint);background:var(--ink-3);padding:5px 9px;border-radius:8px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+.trail .run-msg{font-family:var(--mono);font-size:10px;color:var(--amber);flex-shrink:0}
+
 /* replay button on a walk row */
 .walk .replay-btn{flex-shrink:0;font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:5px 10px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--paper-dim);cursor:pointer}
 .walk .replay-btn:hover{border-color:var(--indigo);color:var(--paper)}
@@ -139,6 +150,12 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
       <div class="pct" id="precPct">—</div>
     </div>
     <div class="sub" id="precSub">Once you've filed or dismissed findings, this is the share that were real bugs. A wrong heal is worse than a red test — we never silently pass.</div>
+  </div>
+
+  <!-- Trails (each runnable on-demand) -->
+  <div class="card" style="margin-bottom:18px">
+    <h2>Trails <span class="count" id="trailsCount">0</span></h2>
+    <div class="list" id="trails"></div>
   </div>
 
   <div class="grid">
@@ -261,16 +278,105 @@ async function openReplay(runId){
 $("replayClose").onclick = function(){ $("replayBg").classList.remove("open"); destroyPlayer() }
 $("replayBg").onclick = function(e){ if (e.target === $("replayBg")){ $("replayBg").classList.remove("open"); destroyPlayer() } }
 
-async function load(){
-  const pid = projParam()
-  let r
+// Latest Walk (any verdict) for a given trail id, from the dashboard's recentWalks (newest-first).
+function latestWalkFor(walks, trailId){
+  for (var i=0;i<walks.length;i++){ if (walks[i].trailId === trailId) return walks[i] }
+  return null
+}
+
+// ── Run a Trail on-demand: POST /walk → poll the dashboard until that Trail's latest Walk leaves
+// 'running' → reload (which paints the verdict pill, heal-diff, and replay button). 409 = busy. ──
+async function runTrail(trailId, btn, row){
+  var pid = projParam()
+  var qs = pid ? "?project=" + encodeURIComponent(pid) : ""
+  var msg = row.querySelector(".run-msg")
+  btn.disabled = true; btn.textContent = "running…"; if (msg) msg.textContent = ""
+  var r
+  try { r = await fetch("/api/trails/" + encodeURIComponent(trailId) + "/walk" + qs, { method:"POST", headers:{ "content-type":"application/json" }, body:"{}" }) }
+  catch(e){ btn.disabled=false; btn.textContent="▶ Run"; if(msg) msg.textContent="network error"; return }
+  if (r.status === 409){ btn.disabled=false; btn.textContent="▶ Run"; if(msg){ msg.style.color="var(--amber)"; msg.textContent="a walk is already running" } return }
+  if (!r.ok){ btn.disabled=false; btn.textContent="▶ Run"; if(msg){ msg.style.color="var(--rose)"; msg.textContent="couldn't start" } return }
+  var b = await r.json().catch(function(){return{}})
+  var runId = b.runId
+  // Poll the dashboard until this run leaves 'running' (~1.5s cadence, bounded).
+  for (var i=0;i<80;i++){
+    await new Promise(function(res){ setTimeout(res, 1500) })
+    var dd = await loadData()
+    if (!dd) continue
+    var w = (dd.recentWalks||[]).find(function(x){ return x.id === runId })
+    if (w && w.status !== "running"){ await render(dd); return }
+  }
+  await load() // give up polling; show whatever the dashboard has
+}
+
+// Fetch a Walk's run_steps via the replay route and return the first heal-diff (fromSelector→toSelector).
+async function healDiffFor(runId){
+  var pid = projParam(); var qs = pid ? "?project=" + encodeURIComponent(pid) : ""
   try {
-    r = await fetch("/api/trails/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
-  } catch(e){ return }
-  if (r.status === 401) { location.href = "/login"; return }
-  if (!r.ok) { $("lead").textContent = "Couldn't load Trails."; return }
-  const d = await r.json()
+    var r = await fetch("/api/trails/walks/" + encodeURIComponent(runId) + "/replay" + qs)
+    if (!r.ok) return null
+    var d = await r.json()
+    var step = (d.steps||[]).find(function(s){ var e=s.evidence||{}; return e.healed && (e.fromSelector||e.toSelector) })
+    if (!step) return null
+    var e = step.evidence||{}
+    return { from: e.fromSelector || "(none)", to: e.toSelector || "(none)" }
+  } catch(e){ return null }
+}
+
+function renderTrails(d){
+  var trails = d.trails || []
+  $("trailsCount").textContent = String(trails.length)
+  var tEl = $("trails")
+  tEl.innerHTML = trails.length ? "" : '<div class="empty"><div class="em">🐾</div><p>No Trails yet.</p></div>'
+  trails.forEach(function(t){
+    var w = latestWalkFor(d.recentWalks||[], t.id)
+    var v = w ? String(w.status||"") : ""
+    var row = document.createElement("div")
+    row.className = "trail"
+    var html = '<div class="body"><div class="t">'+esc(t.name)+'</div><div class="d">'+esc(t.baseUrl)+'</div></div>'
+    html += '<span class="run-msg"></span>'
+    html += '<span class="heal-diff" data-heal="'+esc(t.id)+'" style="display:none"></span>'
+    if (v) html += '<span class="pill '+esc(v)+'">'+esc(v)+'</span>'
+    if (w && w.hasReplay) html += '<button class="replay-btn" data-replay="'+esc(w.id)+'">&#9654; Replay</button>'
+    html += '<button class="run-btn" data-run="'+esc(t.id)+'">&#9654; Run</button>'
+    row.innerHTML = html
+    tEl.appendChild(row)
+    // For an AMBER latest walk, surface the heal-diff (#checkout → …) asynchronously.
+    if (w && v === "amber"){
+      healDiffFor(w.id).then(function(diff){
+        if (!diff) return
+        var el = row.querySelector('[data-heal="'+t.id+'"]')
+        if (el){ el.style.display=""; el.textContent = diff.from + " → " + diff.to }
+      })
+    }
+  })
+  tEl.querySelectorAll("button[data-run]").forEach(function(btn){
+    btn.onclick = function(){ runTrail(btn.getAttribute("data-run"), btn, btn.closest(".trail")) }
+  })
+  tEl.querySelectorAll("button[data-replay]").forEach(function(btn){
+    btn.onclick = function(){ openReplay(btn.getAttribute("data-replay")) }
+  })
+}
+
+async function loadData(){
+  const pid = projParam()
+  try {
+    const r = await fetch("/api/trails/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
+    if (r.status === 401) { location.href = "/login"; return null }
+    if (!r.ok) return null
+    return await r.json()
+  } catch(e){ return null }
+}
+
+async function load(){
+  const d = await loadData()
+  if (!d) { $("lead").textContent = "Couldn't load Trails."; return }
+  await render(d)
+}
+
+async function render(d){
   $("who").textContent = d.email || ""
+  renderTrails(d)
 
   // precision
   const p = d.precision || {}

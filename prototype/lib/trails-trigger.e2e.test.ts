@@ -17,7 +17,7 @@ const T = await import("./trails")
 const { seedDemoTrails, DEMO_TRAIL_NAMES } = await import("./trails-demo-seed")
 const { runWalkNow } = await import("./trails-trigger")
 const { walkTrail } = await import("./trails-runner")
-const { CHROMIUM_PROD_ARGS } = await import("./trails-browser")
+const { CHROMIUM_PROD_ARGS, isWalkInFlight } = await import("./trails-browser")
 const R = await import("./trails-replay")
 import type { VisionResolver } from "./trails-vision"
 
@@ -29,7 +29,9 @@ const PROJ = "proj_e2e"
 const waitDone = async (runId: string) => {
   for (let i = 0; i < 300; i++) {
     const w = await T.getWalk(PROJ, runId)
-    if (w && w.status !== "running") return w
+    // The single walk-slot releases a microtask AFTER finishWalk writes the row, so also wait for the
+    // slot to clear before returning — otherwise the next runWalkNow could race into a WalkBusyError.
+    if (w && w.status !== "running" && !isWalkInFlight()) return w
     await new Promise(r => setTimeout(r, 100))
   }
   throw new Error("walk did not finish")
