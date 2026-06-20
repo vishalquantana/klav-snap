@@ -97,6 +97,31 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .walk .replay-btn{flex-shrink:0;font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:5px 10px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--paper-dim);cursor:pointer}
 .walk .replay-btn:hover{border-color:var(--indigo);color:var(--paper)}
 
+/* expectations board — three kanban columns */
+.exp-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+@media(max-width:820px){.exp-board{grid-template-columns:minmax(0,1fr)}}
+.exp-col{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;padding:20px}
+.exp-col h2{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.exp-col h2 .count{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--paper-faint);background:var(--ink-3);padding:2px 8px;border-radius:20px}
+.exp-card{background:var(--ink);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px}
+.exp-card:last-child{margin-bottom:0}
+.exp-card .ec-title{font-size:14px;font-weight:600;line-height:1.35;margin-bottom:6px}
+.exp-card .ec-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
+.ec-badge{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;flex-shrink:0}
+.ec-badge.snap{background:rgba(99,102,241,.14);color:var(--indigo)}
+.ec-badge.sim{background:rgba(15,157,107,.14);color:var(--green)}
+.ec-badge.recur{background:rgba(217,131,36,.16);color:var(--amber)}
+.ec-badge.enforced-ok{background:rgba(15,157,107,.14);color:var(--green)}
+.exp-card .ec-meta{font-family:var(--mono);font-size:11px;color:var(--paper-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp-card .ec-acts{margin-top:10px}
+/* enforce confirm inline panel */
+.exp-card .ec-confirm{margin-top:10px;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+.exp-card .ec-confirm .cc-target{font-family:var(--mono);font-size:10px;color:var(--paper-faint);margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp-card .ec-confirm textarea{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--paper);font-family:var(--body);font-size:13px;padding:8px 10px;resize:vertical;min-height:56px;outline:none}
+.exp-card .ec-confirm textarea:focus{border-color:var(--indigo)}
+.exp-card .ec-confirm .cc-acts{display:flex;gap:7px;margin-top:8px;align-items:center}
+.exp-card .ec-msg{font-family:var(--mono);font-size:11px;color:var(--green);margin-top:6px;min-height:14px}
+
 /* replay modal */
 .modal-bg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px}
 .modal-bg.open{display:flex}
@@ -168,6 +193,26 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
     <div class="card">
       <h2>Review queue <span class="count" id="queueCount">0</span></h2>
       <div class="list" id="queue"></div>
+    </div>
+  </div>
+
+  <!-- Expectations board (Candidate · Validated · Enforced) -->
+  <div style="margin-top:22px;margin-bottom:8px;display:flex;align-items:baseline;gap:10px">
+    <h2 style="font-family:var(--display);font-weight:450;font-size:22px;letter-spacing:-.02em">Expectations</h2>
+    <span style="color:var(--paper-faint);font-size:14px">Discovered requirements — enforce to crystallise into a Trail assertion</span>
+  </div>
+  <div class="exp-board">
+    <div class="exp-col">
+      <h2>Candidate <span class="count" id="expCandCount">0</span></h2>
+      <div id="expCand"></div>
+    </div>
+    <div class="exp-col">
+      <h2>Validated <span class="count" id="expValidCount">0</span></h2>
+      <div id="expValid"></div>
+    </div>
+    <div class="exp-col">
+      <h2>Enforced <span class="count" id="expEnfCount">0</span></h2>
+      <div id="expEnf"></div>
     </div>
   </div>
 </div>
@@ -456,7 +501,181 @@ async function act(kind, id){
 $("logout").onclick = async function(){ await fetch("/api/auth/logout", { method:"POST" }); location.href = "/" }
 $("projSwitch").onchange = function(){ const v = $("projSwitch").value; location.href = "/trails?project=" + encodeURIComponent(v) }
 
+// ── Expectations board ────────────────────────────────────────────────────────
+
+function renderExpBadges(corroboration) {
+  var c = corroboration || {}
+  var html = ""
+  if (c.snap) html += '<span class="ec-badge snap">Snap</span>'
+  if (c.sim)  html += '<span class="ec-badge sim">Sim</span>'
+  if ((c.recurrence || 0) > 1) html += '<span class="ec-badge recur">×' + esc(c.recurrence) + '</span>'
+  return html
+}
+
+function expCardHtml(exp) {
+  var meta = [exp.area, exp.urlPath].filter(Boolean).join(" · ")
+  var badges = renderExpBadges(exp.corroboration)
+  var html = '<div class="ec-title">'+esc(exp.title)+'</div>'
+  if (badges) html += '<div class="ec-badges">'+badges+'</div>'
+  if (meta)   html += '<div class="ec-meta">'+esc(meta)+'</div>'
+  return html
+}
+
+async function enforceExpectation(expId, card) {
+  var pid = projParam()
+  var qs  = pid ? "?project=" + encodeURIComponent(pid) : ""
+  var btn  = card.querySelector("[data-enforce]")
+  var msgEl = card.querySelector(".ec-msg")
+  if (btn) { btn.disabled = true; btn.textContent = "drafting…" }
+  if (msgEl) msgEl.textContent = ""
+  var r
+  try { r = await fetch("/api/expectations/" + encodeURIComponent(expId) + "/enforce" + qs, {
+    method: "POST", headers: { "content-type": "application/json" }, body: "{}"
+  }) } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = "Enforce" }
+    if (msgEl) { msgEl.style.color = "var(--rose)"; msgEl.textContent = "Network error." }
+    return
+  }
+  var b = await r.json().catch(function(){ return {} })
+  if (!r.ok) {
+    if (btn) { btn.disabled = false; btn.textContent = "Enforce" }
+    if (msgEl) { msgEl.style.color = "var(--rose)"; msgEl.textContent = b.error || "Enforce failed." }
+    return
+  }
+  var draft = b.draft
+  if (!draft) {
+    if (btn) { btn.disabled = false; btn.textContent = "Enforce" }
+    if (msgEl) { msgEl.style.color = "var(--amber)"; msgEl.textContent = "Couldn't draft an assertion — try a different Trail." }
+    return
+  }
+  // Show inline confirm panel
+  var actsEl = card.querySelector(".ec-acts")
+  if (actsEl) actsEl.style.display = "none"
+  if (msgEl) msgEl.textContent = ""
+  var confirmEl = document.createElement("div")
+  confirmEl.className = "ec-confirm"
+  var target = (draft.target || "")
+  var desc   = (draft.checkpoint && draft.checkpoint.description) ? draft.checkpoint.description : (draft.description || "")
+  confirmEl.innerHTML = (target ? '<div class="cc-target">Target: ' + esc(target) + '</div>' : "")
+    + '<textarea rows="3" placeholder="Assertion description…">' + esc(desc) + '</textarea>'
+    + '<div class="cc-acts">'
+    + '<button class="btn btn-indigo" data-confirm-enforce>Confirm</button>'
+    + '<button class="btn btn-ghost" data-cancel-enforce>Cancel</button>'
+    + '</div>'
+  card.appendChild(confirmEl)
+  var textarea = confirmEl.querySelector("textarea")
+
+  confirmEl.querySelector("[data-cancel-enforce]").onclick = function() {
+    confirmEl.remove()
+    if (actsEl) actsEl.style.display = ""
+    if (msgEl) msgEl.textContent = ""
+    if (btn) { btn.disabled = false; btn.textContent = "Enforce" }
+  }
+  confirmEl.querySelector("[data-confirm-enforce]").onclick = async function() {
+    var confirmBtn = this
+    confirmBtn.disabled = true; confirmBtn.textContent = "saving…"
+    // Merge edited description back into draft
+    var editedDesc = textarea.value.trim()
+    var finalDraft = Object.assign({}, draft)
+    if (finalDraft.checkpoint) {
+      finalDraft.checkpoint = Object.assign({}, finalDraft.checkpoint, { description: editedDesc })
+    } else {
+      finalDraft.description = editedDesc
+    }
+    var r2
+    try { r2 = await fetch("/api/expectations/" + encodeURIComponent(expId) + "/enforce/confirm" + qs, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ draft: finalDraft })
+    }) } catch(e) {
+      confirmBtn.disabled = false; confirmBtn.textContent = "Confirm"
+      if (msgEl) { msgEl.style.color = "var(--rose)"; msgEl.textContent = "Network error." }
+      return
+    }
+    var b2 = await r2.json().catch(function(){ return {} })
+    if (!r2.ok) {
+      confirmBtn.disabled = false; confirmBtn.textContent = "Confirm"
+      if (msgEl) { msgEl.style.color = "var(--rose)"; msgEl.textContent = b2.error || "Confirm failed." }
+      return
+    }
+    // Success — reload expectations board (card moves to Enforced)
+    confirmEl.remove()
+    if (msgEl) { msgEl.style.color = "var(--green)"; msgEl.textContent = "Enforced ✓" }
+    setTimeout(loadExpectations, 600)
+  }
+}
+
+function renderExpectations(expectations) {
+  var cand = [], valid = [], enf = []
+  ;(expectations || []).forEach(function(e) {
+    if      (e.status === "candidate") cand.push(e)
+    else if (e.status === "validated") valid.push(e)
+    else if (e.status === "enforced")  enf.push(e)
+    // retired: ignored
+  })
+
+  $("expCandCount").textContent  = String(cand.length)
+  $("expValidCount").textContent = String(valid.length)
+  $("expEnfCount").textContent   = String(enf.length)
+
+  function emptyExp(text) {
+    return '<div class="empty"><p>' + esc(text) + '</p></div>'
+  }
+
+  // Candidate column
+  var candEl = $("expCand")
+  candEl.innerHTML = cand.length ? "" : emptyExp("No candidates yet.")
+  cand.forEach(function(exp) {
+    var card = document.createElement("div")
+    card.className = "exp-card"
+    card.innerHTML = expCardHtml(exp)
+    + '<div class="ec-msg"></div>'
+    candEl.appendChild(card)
+  })
+
+  // Validated column
+  var validEl = $("expValid")
+  validEl.innerHTML = valid.length ? "" : emptyExp("No validated expectations yet.")
+  valid.forEach(function(exp) {
+    var card = document.createElement("div")
+    card.className = "exp-card"
+    card.innerHTML = expCardHtml(exp)
+    + '<div class="ec-acts" style="margin-top:10px">'
+    + '<button class="btn btn-indigo" style="font-size:12px;padding:7px 13px" data-enforce="'+esc(exp.id)+'">Enforce</button>'
+    + '</div>'
+    + '<div class="ec-msg"></div>'
+    validEl.appendChild(card)
+    card.querySelector("[data-enforce]").onclick = function() {
+      enforceExpectation(exp.id, card)
+    }
+  })
+
+  // Enforced column
+  var enfEl = $("expEnf")
+  enfEl.innerHTML = enf.length ? "" : emptyExp("Nothing enforced yet.")
+  enf.forEach(function(exp) {
+    var card = document.createElement("div")
+    card.className = "exp-card"
+    card.innerHTML = expCardHtml(exp)
+    + (exp.enforcedStepId
+        ? '<div class="ec-badges" style="margin-top:8px"><span class="ec-badge enforced-ok">enforced ✓</span><span class="ec-meta" style="margin-left:4px;font-size:10px">'+esc(exp.enforcedStepId)+'</span></div>'
+        : '<div class="ec-badges" style="margin-top:8px"><span class="ec-badge enforced-ok">enforced ✓</span></div>')
+    enfEl.appendChild(card)
+  })
+}
+
+async function loadExpectations() {
+  var pid = projParam()
+  var qs  = pid ? "?project=" + encodeURIComponent(pid) : ""
+  try {
+    var r = await fetch("/api/expectations" + qs)
+    if (r.status === 401) { location.href = "/login"; return }
+    if (!r.ok) return
+    var d = await r.json()
+    renderExpectations(d.expectations || [])
+  } catch(e) { /* non-fatal: board stays empty */ }
+}
+
 load()
+loadExpectations()
 </script>
 </body>
 </html>
