@@ -10,6 +10,15 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.30.1] — 2026-06-20
+
+### Changed
+- **Home page: removed the redundant "Roadmap" section.** It duplicated the `#arc` three-phase
+  block (Snap → Sims → AutoSim) immediately above it, and with all three phases now Shipped/Live it
+  was no longer a roadmap. Its one unique element — the Ekalavya naming line — was folded into the
+  `#arc` intro. Also dropped the now-orphaned "Roadmap" nav link and the roaming-Sims tour stop that
+  pointed at the deleted element.
+
 ## [0.30.0] — 2026-06-20
 
 ### Added
