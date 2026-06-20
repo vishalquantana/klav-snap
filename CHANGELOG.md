@@ -10,6 +10,14 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.30.2] — 2026-06-20
+
+### Changed
+- **Removed the redundant `local.html` home-page mirror.** The `/` route now serves
+  `site/index.html` directly (where all other marketing pages already live), instead of a
+  byte-identical `local.html` copy in the repo root that had to be kept in sync by hand. The `/local`
+  alias now redirects to `/`. Eliminates the dual-file maintenance trap behind the 0.30.1 follow-up.
+
 ## [0.30.1] — 2026-06-20
 
 ### Changed

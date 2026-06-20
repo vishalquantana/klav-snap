@@ -830,8 +830,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     if (req.method === "GET" && path === "/favicon.ico") return file(PUB + "/favicon.ico")
 
     // ── public marketing + login ──
-    if (req.method === "GET" && path === "/") return file(import.meta.dir + "/../local.html")
-    if (req.method === "GET" && path === "/local") return file(import.meta.dir + "/../local.html")
+    if (req.method === "GET" && path === "/") return file(SITE + "/index.html")
+    if (req.method === "GET" && path === "/local") return redirect("/")
     if (req.method === "GET" && path === "/home") return redirect("/")
     if (req.method === "GET" && path === "/login") {
       // Already signed in → skip the login page and land on the dashboard.

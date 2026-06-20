@@ -1,7 +1,7 @@
 /* ============================================================================
    KLAVITY MARKETING KIT  ·  kit.css
    Shared design tokens, page shell, and components for every marketing page.
-   Source of truth for the brand: site/_walkthroughs-reference.html + local.html.
+   Source of truth for the brand: site/_walkthroughs-reference.html + site/index.html.
    Mobile-first · prefers-reduced-motion respected · :focus-visible styled.
    Each PAGE sets its phase colour via  <body style="--accent:var(--rose)">  etc.
    ========================================================================== */
