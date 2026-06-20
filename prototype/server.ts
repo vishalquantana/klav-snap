@@ -1552,7 +1552,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               : null
             r.feedbackId = feedbackId
             // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
-            if (bug && db) {
+            if (bug && feedbackId && db) {
               await ingestSnapOrSim(db, {
                 projectId, feedbackId, isSnap: false,
                 title: (bug?.title ?? r?.observation ?? "").slice(0, 200),

@@ -206,6 +206,11 @@ export async function recordFinding(
     const id = String((open.rows[0] as any).id); const recurrence = Number((open.rows[0] as any).recurrence) + 1
     // recurrence + updated_at only; status is never changed here, so a dismissed row stays dismissed.
     await db!.execute({ sql: `UPDATE findings SET recurrence=?, updated_at=? WHERE id=?`, args: [recurrence, Date.now(), id] })
+    // best-effort spine bump for a recurring finding
+    try {
+      const { ingestFinding } = await import("./expectations-ingest")
+      await ingestFinding(db!, { projectId, findingId: id, title: input.title, dedupKey: input.dedupKey, urlPath: null })
+    } catch (e) { console.warn("[expectations] recordFinding dedup ingest skipped:", String(e)) }
     return { id, deduped: true, recurrence }
   }
   const id = uid("find_"); const now = Date.now()
