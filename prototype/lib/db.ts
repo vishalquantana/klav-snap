@@ -327,6 +327,19 @@ export async function applySchema(c: Client) {
        updated_at INTEGER NOT NULL
      )`,
     `CREATE INDEX IF NOT EXISTS finding_dedup_idx ON findings(project_id, dedup_key)`,
+    // ── Klavity OS Trails (Plan E2): walk_replays — gzipped rrweb session-replay segments per Walk. ──
+    // segments_gz is base64(gzip(JSON.stringify(ReplaySegment[]))); one row per saved replay (opt-in
+    // capture). Project-scoped; the route reads the latest row for a (project_id, run_id).
+    `CREATE TABLE IF NOT EXISTS walk_replays (
+       id TEXT PRIMARY KEY,
+       run_id TEXT NOT NULL,
+       project_id TEXT NOT NULL,
+       segments_gz TEXT NOT NULL,
+       n_segments INTEGER,
+       n_events INTEGER,
+       created_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS walk_replay_run_idx ON walk_replays(project_id, run_id)`,
   ]
   for (const s of stmts) await c.execute(s)
 
