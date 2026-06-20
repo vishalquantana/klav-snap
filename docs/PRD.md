@@ -20,8 +20,8 @@ switch**: a single `backendUrl`):
 | Phase | Product | One-liner | Status |
 |---|---|---|---|
 | 1 | **Klavity Snap** — the *eyes* | Right-click to file annotated bug/feature reports to Jira, Linear, GitHub, or Plane from any site. | ✅ Shipping (this repo) |
-| 2 | **Klavity Sims** — the *judgment* | AI personas (virtual QA engineers) that look at a page and react in character, then file what they find. | 🔜 Live prototype |
-| 3 | **Klavity OS** — the *autonomy* | Autonomous UAT agent that exercises a product end-to-end and reports regressions. | 🔜 Planned |
+| 2 | **Klavity Sims** — the *judgment* | AI personas (virtual QA engineers) that look at a page and react in character, then file what they find. | ✅ Live |
+| 3 | **Klavity AutoSim** — the *autonomy* | Self-healing end-to-end testing: author once, replay with zero AI, heal-or-file when the UI changes (formerly "Klavity OS"). | ✅ Shipped |
 
 Open-core, FSL-1.1-ALv2; Turso/SQLite backend. Built by
 [Quantana](https://quantana.com.au).
@@ -81,7 +81,7 @@ manifests + this PRD header, then commit and tag `vX.Y.Z`.
 - Phase 2: productionise Sims into `services/api` (Bun + Hono).
 - Sign in with GitHub (OAuth) in extension + web app — reduce sign-up friction.
 - Wire the reusable Sim component (`@klavity/core/sim`) into live surfaces.
-- Phase 3: Klavity OS autonomous UAT agent (design pending).
+- Phase 3: Klavity AutoSim — self-healing end-to-end testing (shipped; formerly "Klavity OS").
 
 ### Note — regression detection is prospective
 
