@@ -1763,7 +1763,10 @@ Bun.serve({
     if (req.method === "GET" && path.startsWith("/trails-demo/")) {
       const rel = decodeURIComponent(path.slice("/trails-demo/".length))
       if (rel.includes("..") || rel.includes("\\") || rel.startsWith("/")) return new Response("Not found", { status: 404 })
-      return new Response(Bun.file(PUB + "/trails-demo/" + rel), { headers: { "content-type": "text/html; charset=utf-8" } })
+      // Derive the content-type from the file extension (Bun.file(...).type), falling back to text/html
+      // for extensionless/unknown fixtures, so a bundled .css/.js/.svg demo asset isn't mis-served as HTML.
+      const demoFile = Bun.file(PUB + "/trails-demo/" + rel)
+      return new Response(demoFile, { headers: { "content-type": demoFile.type || "text/html; charset=utf-8" } })
     }
     if (req.method === "GET" && path === "/opsadmin") {
       if (!me || !isOpsAdmin(me)) return new Response("Not found", { status: 404 }) // hide route from non-ops

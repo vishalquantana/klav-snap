@@ -103,6 +103,11 @@ async function findingStatus(id: string): Promise<string | null> {
   return r.rows.length ? String((r.rows[0] as any).status) : null
 }
 
+async function trailRunCount(trailId: string): Promise<number> {
+  const r = await rawClient.execute({ sql: `SELECT COUNT(*) AS n FROM trail_runs WHERE trail_id=?`, args: [trailId] })
+  return Number((r.rows[0] as any).n)
+}
+
 // ── Spawn the server ──────────────────────────────────────────────────────────────
 let serverPort: number
 let serverProc: ReturnType<typeof Bun.spawn>
@@ -262,6 +267,15 @@ test("POST /api/trails/:id/walk is 401 without a session", async () => {
 test("POST /api/trails/:id/walk is 404 for an unknown trail", async () => {
   const r = await api("POST", `/api/trails/trl_nope_${ts}/walk?project=${PROJECT_ID}`, {}, MEMBER_SID)
   expect(r.status).toBe(404)
+})
+test("walking a foreign-project trail id under my project is blocked (no walk started for B)", async () => {
+  // MEMBER is a member of project A only. Targeting B's trail id but scoped to ?project=A: runWalkNow's
+  // getTrail is project-scoped → finds nothing → 404, and critically NO trail_runs row is minted for
+  // TRAIL_B (the slot is never even reserved). Mirrors the dismiss-IDOR test, for the walk route.
+  const before = await trailRunCount(TRAIL_B_ID)
+  const r = await api("POST", `/api/trails/${TRAIL_B_ID}/walk?project=${PROJECT_ID}`, {}, MEMBER_SID)
+  expect(r.status).toBe(404)
+  expect(await trailRunCount(TRAIL_B_ID)).toBe(before)
 })
 
 test("GET /trails-demo/journey/landing.html serves the bundled demo fixture (no auth)", async () => {
