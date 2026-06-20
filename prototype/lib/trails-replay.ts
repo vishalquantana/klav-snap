@@ -11,8 +11,9 @@
 // once at the end. Capture is OPT-IN (WalkOptions.replay) and best-effort/try-caught: a
 // recorder failure yields no replay but NEVER fails or slows a Walk.
 import { db } from "./db"
-import type { BrowserContext } from "playwright"
-import { readFileSync } from "node:fs"
+import type { BrowserContext, Page } from "playwright"
+import { readFileSync, existsSync } from "node:fs"
+import { dirname, join as joinPath } from "node:path"
 import { createRequire } from "node:module"
 
 export interface ReplaySegment {
@@ -50,37 +51,58 @@ let rrwebSource: string | null = null
 function loadRrwebSource(): string {
   if (rrwebSource != null) return rrwebSource
   const require = createRequire(import.meta.url)
-  // rrweb ships a UMD bundle that defines window.rrweb (record/Replayer). Resolve its dist file.
-  let path: string
-  try {
-    path = require.resolve("rrweb/dist/rrweb.umd.cjs")
-  } catch {
-    try { path = require.resolve("rrweb/dist/rrweb.min.js") }
-    catch { path = require.resolve("rrweb/dist/rrweb.js") }
+  // rrweb ships a UMD bundle that defines window.rrweb (record/Replayer). Its package.json `exports`
+  // blocks direct subpath resolution of the UMD file, so resolve the main entry (dist/rrweb.cjs),
+  // take its dist dir, and prefer the minified UMD bundle inside it.
+  const main = require.resolve("rrweb") // → .../rrweb/dist/rrweb.cjs
+  const dist = dirname(main)
+  const candidates = ["rrweb.umd.min.cjs", "rrweb.umd.cjs", "rrweb.js"]
+  let path = main
+  for (const c of candidates) {
+    const p = joinPath(dist, c)
+    if (existsSync(p)) { path = p; break }
   }
   rrwebSource = readFileSync(path, "utf8")
   return rrwebSource
 }
 
 export interface ReplayCapture {
-  /** Snapshot the events accumulated for the page just left into a segment, then start fresh. */
-  flush: (idx: number, url: string) => Promise<void>
+  /**
+   * Pull the live page's in-page rrweb buffer into the current segment's accumulator WITHOUT sealing.
+   * Called by the runner at the top of each step so the document currently shown has its
+   * snapshot/interactions captured into `current` BEFORE a step navigates away (correct per-page
+   * attribution; the 250ms in-page timer is a backstop, not the primary path).
+   */
+  drain: (page: Page) => Promise<void>
+  /**
+   * Seal the accumulated events for the page just left into a segment, then start fresh.
+   * `final=true` means `page` still shows this segment's document (the last page of the Walk): poll
+   * the live page briefly so its async full-snapshot is captured even after a fast final assert.
+   */
+  flush: (idx: number, url: string, page: Page, final?: boolean) => Promise<void>
   segments: ReplaySegment[]
 }
 
 /**
- * Wire rrweb capture into a BrowserContext. exposeBinding gives the page a function to push each
- * recorded event back to the runner; addInitScript injects the recorder + a call to rrweb.record
- * on every fresh document (so a full-page navigation transparently starts a new recording). The
- * runner calls flush(idx, url) at each navigation boundary to seal the previous page as a segment.
+ * Wire rrweb capture into a BrowserContext. exposeBinding gives the page a function to push BATCHES
+ * of recorded events back to the runner; addInitScript injects the recorder + a call to rrweb.record
+ * on every fresh document (so a full-page navigation transparently starts a new recording).
+ *
+ * IMPORTANT (deadlock avoidance): rrweb's `emit` is NOT wired directly to the binding. During the
+ * initial full-DOM snapshot rrweb emits synchronously while the document is still loading; calling
+ * an exposeBinding (a CDP round-trip) inside that synchronous burst can stall page load. Instead the
+ * recorder pushes events into an in-page buffer and a timer drains the buffer to the binding in
+ * batches — fully decoupled from the snapshot. The runner's flush(idx,url,page) forces a final drain
+ * (page.evaluate) so no tail events are lost before a navigation, then seals the page as a segment.
  */
 export async function setupReplayCapture(context: BrowserContext): Promise<ReplayCapture> {
   let current: unknown[] = []
   const segments: ReplaySegment[] = []
 
-  // The page calls this for every rrweb event. _src is the binding source (unused).
-  await context.exposeBinding("__klavReplayPush", (_src, ev: unknown) => {
-    current.push(ev)
+  // The page calls this with a BATCH of rrweb events. _src is the binding source (unused).
+  await context.exposeBinding("__klavReplayPush", (_src, batch: unknown) => {
+    if (Array.isArray(batch)) for (const ev of batch) current.push(ev)
+    else if (batch != null) current.push(batch)
   })
 
   const rrweb = loadRrwebSource()
@@ -93,15 +115,51 @@ export async function setupReplayCapture(context: BrowserContext): Promise<Repla
         if (window.__klavRrwebStarted) return; window.__klavRrwebStarted = true;
         var rec = (window.rrweb && window.rrweb.record) ? window.rrweb.record : (typeof rrwebRecord!=='undefined'?rrwebRecord:null);
         if (!rec) return;
-        rec({ emit: function(ev){ try{ window.__klavReplayPush(ev); }catch(e){} } });
+        // In-page buffer: emit just appends (cheap, synchronous-safe). A timer drains batches to the
+        // binding off the snapshot path. __klavDrain() forces an immediate drain (used at flush).
+        window.__klavBuf = [];
+        window.__klavDrain = function(){
+          if (!window.__klavBuf.length) return;
+          var batch = window.__klavBuf; window.__klavBuf = [];
+          try { window.__klavReplayPush(batch); } catch(e) {}
+        };
+        function startRec(){
+          // Skip the implicit about:blank Playwright opens before the first goto — recording it
+          // deadlocks page creation and yields no useful frames. Only record real documents.
+          try { if (!location || location.href === 'about:blank' || !document.body) return; } catch(e){ return; }
+          if (window.__klavRecording) return; window.__klavRecording = true;
+          rec({ emit: function(ev){ try{ window.__klavBuf.push(ev); }catch(e){} } });
+          setInterval(function(){ try{ window.__klavDrain(); }catch(e){} }, 250);
+        }
+        // Defer to a real document: run on DOMContentLoaded (and immediately if already loaded).
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', startRec, { once: true });
+        } else {
+          startRec();
+        }
       }catch(e){}})();`,
   })
 
   return {
     segments,
-    async flush(idx: number, url: string) {
-      // Seal whatever this page recorded into a segment, then reset the buffer for the next page.
-      // Skip empty flushes so a no-op navigation doesn't create a junk segment.
+    async drain(page: Page) {
+      // Force the live page to flush its buffer to the binding (→ `current`). Best-effort.
+      try { await page.evaluate("window.__klavDrain && window.__klavDrain()") } catch {}
+    },
+    async flush(idx: number, url: string, page: Page, final?: boolean) {
+      if (final) {
+        // The page still shows THIS document. Its rrweb full snapshot is emitted asynchronously after
+        // DOMContentLoaded, so poll (bounded ~600ms) until at least one event has buffered, draining
+        // each iteration. Reliably captures a just-loaded final page whose only interaction was a fast
+        // assert. Immediate when events are already present.
+        for (let i = 0; i < 12 && current.length === 0; i++) {
+          try { await page.evaluate("window.__klavDrain && window.__klavDrain()") } catch { break }
+          if (current.length > 0) break
+          try { await page.waitForTimeout(50) } catch { break }
+        }
+      }
+      // For a navigation-boundary flush we do NOT touch `page` (it holds the next document now); the
+      // 250ms timer already drained this page's events into `current`. Seal and reset.
       if (current.length === 0) return
       segments.push({ idx, url, events: current })
       current = []

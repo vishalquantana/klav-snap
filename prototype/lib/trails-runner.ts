@@ -9,7 +9,7 @@
 //
 // Project-scoped: projectId is the first arg of every persisted call and every query.
 import { chromium } from "playwright"
-import type { Browser, Page, Locator } from "playwright"
+import type { Browser, BrowserContext, Page, Locator } from "playwright"
 import type { Fingerprint, Tier, Verdict, TrailStep } from "./trails-types"
 import {
   getTrail, listTrailSteps, getCacheForStep, upsertLocatorCache,
@@ -17,6 +17,7 @@ import {
 } from "./trails"
 import { stepCacheKey } from "./trails-crystallize"
 import { decideFromVision, type VisionResolver, type VisionInput, type VisionResult, type VisionDecision } from "./trails-vision"
+import { setupReplayCapture, saveReplay, type ReplayCapture } from "./trails-replay"
 
 // Cap the DOM sent to the vision MODEL (robustness #5) — separate from the evidence domExcerpt cap.
 // Keeps the model input bounded so an oversized page can't blow the token budget / 4xx context limit.
@@ -39,6 +40,14 @@ export interface WalkOptions {
    * resolver uses DEFAULT_WEIGHTS. Wired here for a future per-project read (opsadmin model mix).
    */
   visionWeights?: Record<string, number>
+  /**
+   * Plan E2 — OPT-IN, DEFAULT-OFF rrweb session-replay capture. When true, the runner injects the
+   * rrweb recorder (via an explicit BrowserContext + addInitScript) and collects per-page event
+   * segments, persisting them after finishWalk. Capture is best-effort/try-caught: a recorder failure
+   * yields no replay but NEVER fails or slows the Walk. With it OFF, behavior is byte-identical to
+   * Layer C/D (no context, no binding, no extra work) so the engine suite is unchanged.
+   */
+  replay?: boolean
 }
 
 export interface WalkStepSummary {
@@ -224,16 +233,67 @@ export async function walkTrail(projectId: string, trailId: string, opts: WalkOp
   let healedCount = 0
   let llmCalls = 0
 
+  // ── Plan E2: opt-in rrweb capture. DEFAULT-OFF leaves everything below byte-identical (no context,
+  // no binding). When on, we open an explicit BrowserContext so setupReplayCapture can inject the
+  // recorder + a binding; the page lives in that context. ALL capture is best-effort/try-caught. ──
+  let context: BrowserContext | null = null
+  let capture: ReplayCapture | null = null
+  if (opts.replay) {
+    try {
+      context = await browser.newContext()
+      capture = await setupReplayCapture(context)
+    } catch (e) {
+      console.warn("[trails-replay] capture setup failed, walking without replay:", String(e))
+      if (context) { try { await context.close() } catch {} }
+      context = null
+      capture = null
+    }
+  }
+
   try {
-    const page: Page = await browser.newPage()
+    const page: Page = context ? await context.newPage() : await browser.newPage()
     await page.goto(opts.fixtureUrl)
 
+    // Track the document URL across steps so a full-page navigation (click-driven or explicit
+    // navigate) becomes a segment boundary: flush the page just LEFT, tagged with the idx of the
+    // step that triggered the nav, then the next page records into a fresh buffer.
+    let segUrl = page.url()
+    let segIdx = 0
+
     for (const step of steps) {
+      // Drain the CURRENTLY-SHOWN document's rrweb buffer into the current segment BEFORE running the
+      // step — if this step navigates, the boundary flush below seals exactly this page's events.
+      if (capture) {
+        try { await capture.drain(page) } catch (e) { console.warn("[trails-replay] pre-step drain failed:", String(e)) }
+      }
+
       const { tier, verdict, healed, llmCalls: stepLlm } = await runOneStep(projectId, runId, trail.id, page, step, opts)
       stepSummaries.push({ stepId: step.id, idx: step.idx, tier, verdict, healed })
       if (healed) healedCount++
       llmCalls += stepLlm
       walkVerdict = worse(walkVerdict, verdict)
+
+      if (capture) {
+        try {
+          const nowUrl = page.url()
+          if (nowUrl !== segUrl) {
+            // The page navigated during this step → seal the page we just left as a segment, then
+            // the new document (which re-ran the rrweb init script) begins at the NEXT step's idx.
+            await capture.flush(segIdx, segUrl, page)
+            segUrl = nowUrl
+            segIdx = step.idx + 1
+          }
+        } catch (e) {
+          console.warn("[trails-replay] segment flush failed (continuing):", String(e))
+        }
+      }
+    }
+
+    // Seal the final page (still loaded → poll the live page so its async snapshot is captured).
+    if (capture) {
+      try { await capture.flush(segIdx, page.url(), page, true) } catch (e) {
+        console.warn("[trails-replay] final flush failed:", String(e))
+      }
     }
 
     await finishWalk(projectId, runId, {
@@ -241,6 +301,13 @@ export async function walkTrail(projectId: string, trailId: string, opts: WalkOp
       llmCalls,
       summary: { healedCount, stepCount: steps.length },
     })
+
+    // Persist the replay AFTER finishWalk. Best-effort: a save failure never changes the Walk result.
+    if (capture && capture.segments.length) {
+      try { await saveReplay(projectId, runId, capture.segments) } catch (e) {
+        console.warn("[trails-replay] saveReplay failed:", String(e))
+      }
+    }
     return { runId, verdict: walkVerdict, llmCalls, steps: stepSummaries, healedCount }
   } catch (e) {
     // Anything thrown (e.g. an unreachable fixtureUrl) must STILL finalize the run — never leave it
