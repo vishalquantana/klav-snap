@@ -797,6 +797,14 @@ Bun.serve({
     if (req.method === "GET" && path === "/intro-reel") return file(SITE + "/intro-reel.html")
     if (req.method === "GET" && path === "/privacy") return file(SITE + "/privacy.html")
     if (req.method === "GET" && path === "/terms") return file(SITE + "/terms.html")
+    // ── marketing product pages + shared kit assets ──
+    if (req.method === "GET" && path === "/snap") return file(SITE + "/snap.html")
+    if (req.method === "GET" && path === "/sims") return file(SITE + "/sims.html")
+    if (req.method === "GET" && path === "/autosim") return file(SITE + "/autosim.html")
+    if (req.method === "GET" && path === "/kit.css") return new Response(Bun.file(SITE + "/kit.css"), { headers: { "content-type": "text/css; charset=utf-8" } })
+    if (req.method === "GET" && path === "/kit.js") return new Response(Bun.file(SITE + "/kit.js"), { headers: { "content-type": "text/javascript; charset=utf-8" } })
+    if (req.method === "GET" && path === "/sitemap.xml") return new Response(Bun.file(SITE + "/sitemap.xml"), { headers: { "content-type": "text/xml; charset=utf-8" } })
+    if (req.method === "GET" && path === "/robots.txt") return new Response(Bun.file(SITE + "/robots.txt"), { headers: { "content-type": "text/plain; charset=utf-8" } })
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
     // ── vendored rrweb-player assets (Trails Walk replay scrubber) ──
     if (req.method === "GET" && path === "/vendor/rrweb-player.umd.min.js") {

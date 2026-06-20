@@ -1,23 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/favicon.ico" sizes="any">
+<script>(function(){try{var t=localStorage.getItem('klav-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Klavity — your customers, in the room while you build</title>
-<meta name="description" content="Klavity turns real customer interviews into living personas that review your product in their own words — and files the bugs they find straight to Jira, Linear, GitHub, or Plane." />
+<title>Klavity — customers in the room while you build · Klavity</title>
+<meta name="description" content="Klavity turns real customer calls into AI personas that review your product, file the bugs they find to Jira, Linear, GitHub or Plane — then test every release." />
+<link rel="canonical" href="https://klavity.quantana.top/" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Klavity" />
+<meta property="og:title" content="Klavity — customers in the room while you build" />
+<meta property="og:description" content="Real customer calls become AI personas that review your product, file the bugs they find to your tracker, then test every release and self-heal." />
+<meta property="og:url" content="https://klavity.quantana.top/" />
+<meta property="og:image" content="https://klavity.quantana.top/favicon.svg" />
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Klavity — customers in the room while you build" />
+<meta name="twitter:description" content="Real customer calls become AI personas that review your product and file the bugs they find — straight to your tracker." />
+<meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<!-- Shared marketing kit (scoped to the product-arc section on this page) -->
+<link rel="stylesheet" href="/kit.css" />
+<script src="/kit.js" defer></script>
+
+<!-- Structured data: Organization + SoftwareApplication + BreadcrumbList -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"Organization","name":"Klavity","url":"https://klavity.quantana.top/","logo":"https://klavity.quantana.top/favicon.svg","sameAs":["https://github.com/vishalquantana/klav-snap"]},
+{"@type":"SoftwareApplication","name":"Klavity","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://klavity.quantana.top/","description":"Turn real customer calls into AI personas that review your product, file the bugs they find to your tracker, then test every release.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://klavity.quantana.top/"},
+{"@type":"ListItem","position":2,"name":"Snap","item":"https://klavity.quantana.top/snap"},
+{"@type":"ListItem","position":3,"name":"Sims","item":"https://klavity.quantana.top/sims"},
+{"@type":"ListItem","position":4,"name":"AutoSim","item":"https://klavity.quantana.top/autosim"}
+]}
+]}
+</script>
 <style>
 :root{
+  /* ── LIGHT (default) ── */
+  --ink:#f5f3ee;        /* app background */
+  --ink-2:#ffffff;      /* cards / panels */
+  --ink-3:#efeae0;      /* subtle insets */
+  --paper:#19140f;      /* primary text */
+  --paper-dim:#574f45;  /* secondary text */
+  --paper-faint:#8a8076;/* muted text */
+  --line:rgba(25,20,15,.12); --line-2:rgba(25,20,15,.08);
+  --indigo:#6366f1; --indigo-deep:#4f46e5;
+  --amber:#d98324; --rose:#db2777; --green:#0f9d6b;
+  --display:'Fraunces',serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+}
+[data-theme="dark"]{
   --ink:#0c0a08; --ink-2:#15110d; --ink-3:#1e1813;
-  --paper:#f3ece1; --paper-dim:#b3a896; --paper-faint:#a89e91;
+  --paper:#f3ece1; --paper-dim:#b3a896; --paper-faint:#776c5d;
+  --line:rgba(243,236,225,.11); --line-2:rgba(243,236,225,.08);
   --indigo:#8b8bf5; --indigo-deep:#6366f1;
   --amber:#e8a24a; --rose:#e8849a; --green:#9fd6a0;
-  --line:rgba(243,236,225,.11); --line-2:rgba(243,236,225,.06);
-  --display:'Fraunces',serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -166,11 +210,11 @@ section{padding:90px 0; position:relative}
 .feature-list li{display:flex; gap:13px; font-size:15.5px; color:var(--paper-dim)}
 .feature-list .ck{color:var(--green); font-family:var(--mono); flex-shrink:0}
 .snap-card{background:var(--ink-2); border:1px solid var(--line); border-radius:18px; padding:8px; box-shadow:0 30px 60px rgba(0,0,0,.4)}
-.snap-menu{background:#faf7f1; color:#1d1a16; border-radius:12px; overflow:hidden}
-.sm-item{padding:11px 15px; font-size:13.5px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #efe9de; cursor:default}
+.snap-menu{background:#eceef2; color:#18181b; border-radius:12px; overflow:hidden}
+.sm-item{padding:11px 15px; font-size:13.5px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(0,0,0,.07); cursor:default}
 .sm-item:last-child{border-bottom:none}
-.sm-item:hover{background:#f1ebe0}
-.sm-item .k{margin-left:auto; font-family:var(--mono); font-size:10px; color:#9a8f7d}
+.sm-item:hover{background:#e3e5ea}
+.sm-item .k{margin-left:auto; font-family:var(--mono); font-size:10px; color:#8b909b}
 .integrations{display:flex; gap:9px; margin-top:16px; flex-wrap:wrap}
 .intg{font-family:var(--mono); font-size:11px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; color:var(--paper-dim)}
 
@@ -269,7 +313,7 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 .rv.aim-down .rv-arm{top:auto;bottom:10px;transform:rotate(40deg)}
 .rv .rv-tag{font-family:var(--mono);font-size:9px;letter-spacing:.07em;margin-bottom:5px;display:flex;align-items:center;gap:6px;color:var(--indigo)}
 .rv .rv-emoji{margin-left:auto;font-size:14px}
-.klavity-hl{position:fixed;border:2px solid var(--indigo);border-radius:9px;box-shadow:0 0 0 4px rgba(139,139,245,.12);pointer-events:none;z-index:60;opacity:0;transition:opacity .3s,left .3s,top .3s,width .3s,height .3s}
+.klavity-hl{position:fixed;border:3px solid var(--indigo);border-radius:9px;box-shadow:0 0 0 4px rgba(139,139,245,.12);pointer-events:none;z-index:60;opacity:0;transition:opacity .3s,left .3s,top .3s,width .3s,height .3s,border-color .3s}
 .klavity-hl.on{opacity:1}
 #klavity-toggle{position:fixed;right:18px;bottom:18px;z-index:64;font-family:var(--body);font-weight:600;font-size:13px;padding:11px 16px;border-radius:30px;border:1px solid var(--line);background:rgba(21,17,13,.92);backdrop-filter:blur(12px);color:var(--paper);cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 12px 30px rgba(0,0,0,.45);transition:border-color .2s,transform .12s}
 #klavity-toggle:hover{border-color:var(--indigo)}
@@ -279,16 +323,79 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 @keyframes tgpulse{0%,100%{box-shadow:0 12px 30px rgba(0,0,0,.45)}50%{box-shadow:0 12px 30px rgba(0,0,0,.45),0 0 0 7px rgba(139,139,245,.13)}}
 @media (prefers-reduced-motion: reduce){.rv,.klavity-hl,.io{transition:none}.io{opacity:1;transform:none}}
 
+/* ════════ surface / accent re-skin (theme-aware) ════════ */
+.topbar{position:fixed;top:0;left:0;right:0;height:4px;z-index:100;background:var(--indigo)}
+body::before{opacity:.08;mix-blend-mode:overlay}
+body::after{background:
+  linear-gradient(to right, var(--line-2) 1px, transparent 1px) 0 0/44px 44px,
+  linear-gradient(to bottom, var(--line-2) 1px, transparent 1px) 0 0/44px 44px
+  }
+nav{background:color-mix(in srgb, var(--ink) 78%, transparent); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-bottom:1px solid var(--line-2)}
+.brand .spark{background:#161310!important; color:#fff!important; box-shadow:0 4px 10px rgba(0,0,0,0.15); border-radius:8px}
+.nav-links a::after{background:var(--indigo)}
+h1{font-family:var(--display); font-weight:450; font-size:clamp(44px,6vw,76px); line-height:1.02; letter-spacing:-.025em; text-transform:none}
+h1 em{font-style:italic; color:var(--amber); font-variation-settings:'WONK' 1, 'SOFT' 30; display:inline-block}
+h1 .ind{color:var(--paper)}
+.eyebrow{background:var(--ink-2); border-color:var(--line); border-radius:30px}
+.eyebrow .tag{color:var(--paper-dim); font-weight:700}
+.eyebrow .dot{background:var(--green); box-shadow:0 0 0 4px color-mix(in srgb, var(--green) 18%, transparent)}
+.btn-indigo{color:#fff; background:var(--indigo-deep); border-radius:30px; box-shadow:0 6px 16px rgba(79,70,229,0.22); border:none}
+.btn-indigo:hover{background:var(--indigo)}
+.btn-ghost{color:var(--paper); background:var(--ink-2); border-color:var(--line); border-radius:30px}
+.btn-ghost:hover{border-color:var(--paper-faint); background:var(--ink-3)}
+.btn-solid{color:var(--ink-2); background:var(--paper)}
+.prod-card{background:#eceef2!important; border:1px solid rgba(0,0,0,0.07)!important; box-shadow:0 26px 60px rgba(0,0,0,0.10)!important; border-radius:20px!important}
+.pc-bar{background:#ffffff!important; border-bottom:1px solid rgba(0,0,0,0.05)!important}
+.pc-kpi{background:#ffffff!important; border:1px solid rgba(0,0,0,0.05)!important; border-radius:12px!important; box-shadow:0 1px 2px rgba(0,0,0,0.03)!important}
+.pc-target{outline:2px solid var(--rose)!important; box-shadow:0 0 0 4px color-mix(in srgb, var(--rose) 15%, transparent)!important}
+.snap-card{background:var(--ink-2); border:1px solid var(--line); box-shadow:0 18px 46px rgba(17,17,19,0.10); border-radius:20px}
+.step, .persona, .phase{background:var(--ink-2); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:0 14px 40px rgba(17,17,19,0.08); position:relative; overflow:hidden; border-radius:20px}
+.step:hover, .persona:hover, .phase:hover{border-color:var(--paper-faint); background:var(--ink-3); box-shadow:0 20px 40px rgba(0,0,0,0.06)}
+.step::after, .persona::after, .phase::after{content:""; position:absolute; top:0; right:0; width:40px; height:40px; background-image:repeating-linear-gradient(45deg, var(--line-2), var(--line-2) 4px, transparent 4px, transparent 8px); clip-path:polygon(100% 0, 0 0, 100% 100%); opacity:0.8}
+.sim .speech{background:var(--ink-2); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 44px rgba(17,17,19,0.14)}
+.sim .speech .sp-tag{color:var(--indigo); font-weight:700}
+.sim .speech::after{border-top-color:var(--ink-2)}
+.rv .rv-bubble{background:var(--ink-2); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--line); border-radius:16px; box-shadow:0 22px 54px rgba(17,17,19,0.17), 0 0 0 1px var(--line-2)}
+.rv .rv-bubble::after{border-top-color:var(--ink-2)}
+.rv.b-below .rv-bubble::after{border-bottom-color:var(--ink-2)}
+.rv.b-right .rv-bubble::after{border-right-color:var(--ink-2)}
+.rv.b-left .rv-bubble::after{border-left-color:var(--ink-2)}
+.rv .rv-tag{color:var(--indigo); font-weight:700}
+.trust{background:#18181b!important; border:none!important; color:#fff!important; border-radius:24px!important; padding:60px!important; box-shadow:0 12px 36px rgba(0,0,0,0.06)!important}
+.trust h2{color:#fff!important}
+.trust h2 em{color:#fff!important; font-style:italic!important}
+.trust p{color:rgba(255,255,255,0.9)!important}
+.trust .tag{color:rgba(255,255,255,0.8)!important}
+.chip.pain{background:rgba(219,39,119,0.10); color:var(--rose)}
+.chip.want{background:rgba(99,102,241,0.12); color:var(--indigo)}
+.chip.love{background:rgba(15,157,107,0.12); color:var(--green)}
+.stage::before{content:""; position:absolute; top:50%; left:-20px; width:1px; height:120px; background:linear-gradient(to bottom, var(--paper-faint), transparent); z-index:1}
+.stage::after{content:""; position:absolute; top:50%; left:-24px; width:9px; height:9px; border-radius:50%; background:var(--paper-faint); box-shadow:0 0 0 4px color-mix(in srgb, var(--paper-faint) 18%, transparent); z-index:1}
+#klavity-toggle{background:var(--paper)!important; color:var(--ink-2)!important; border-radius:30px!important; border:1px solid var(--line)!important; box-shadow:0 10px 24px rgba(0,0,0,0.15)!important}
+#klavity-toggle:hover{border-color:var(--indigo)!important}
+#klavity-toggle .live{background:var(--green)!important}
+/* italic accents */
+.sec-head h2 em, .final h2 em{color:var(--indigo); font-style:italic}
+/* Sim persona cards tinted to match each Sim's colour (and to stand out on white) */
+#sims .sims-row .persona:nth-child(1){background:rgba(99,102,241,0.10)!important; border-color:rgba(99,102,241,0.42)!important; box-shadow:0 16px 40px rgba(99,102,241,0.16)!important}
+#sims .sims-row .persona:nth-child(2){background:rgba(232,140,74,0.11)!important; border-color:rgba(232,140,74,0.44)!important; box-shadow:0 16px 40px rgba(232,140,74,0.16)!important}
+#sims .sims-row .persona:nth-child(3){background:rgba(16,185,129,0.10)!important; border-color:rgba(16,185,129,0.42)!important; box-shadow:0 16px 40px rgba(16,185,129,0.16)!important}
+
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
-a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #2563eb;outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+.p-role{color:var(--paper-dim)!important}
+/* ── theme toggle ── */
+.theme-toggle{position:fixed;right:16px;bottom:72px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12)}
 </style>
 </head>
 <body>
 
+<div class="topbar"></div>
+
 <nav>
   <div class="wrap nav-in">
-    <a class="brand" href="#"><span class="spark">⚡</span>Klavity</a>
+    <a class="brand" href="#"><span class="spark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M7 2C7 7 17 7 17 12 17 17 7 17 7 22"/><path d="M17 2C17 7 7 7 7 12 7 17 17 17 17 22"/><path d="M9 5.2h6M9 18.8h6" stroke-width="1.4"/><path d="M7.6 9h8.8M7.6 15h8.8" stroke-width="1.2" opacity=".8"/></svg></span>Klavity</a>
     <div class="nav-links">
       <a href="#how">How it works</a>
       <a href="#sims">Sims</a>
@@ -296,10 +403,22 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <a href="#phases">Roadmap</a>
       <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
-    <div class="nav-cta">
+    <div class="nav-cta" id="navCta">
       <a class="btn btn-ghost" href="/login">Log in</a>
       <a class="btn btn-indigo" href="/onboarding">Get started</a>
     </div>
+    <script>
+      // If a session is already active, swap the logged-out CTAs for a Dashboard link.
+      fetch("/api/me", { credentials: "include" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.email) {
+            var c = document.getElementById("navCta");
+            if (c) c.innerHTML = '<a class="btn btn-indigo" href="/dashboard">Dashboard →</a>';
+          }
+        })
+        .catch(function () {});
+    </script>
   </div>
 </nav>
 
@@ -308,7 +427,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <div>
       <span class="eyebrow reveal d1"><span class="dot"></span><span class="tag">Turn customer calls into product reviews</span></span>
       <h1 class="reveal d2">Your customers are <em>in the room</em> while you <span class="ind">build.</span></h1>
-      <p class="lede reveal d3">Klavity turns real interview transcripts into living personas — <strong>Sims</strong> — that review your product in their own words, point at what's broken, and file the bug for you.</p>
+      <p class="lede reveal d3">Klavity turns real customer interview transcripts into AI personas — <strong>Sims</strong> — who walk your actual product pages, react in each customer's own voice, and file the bugs and feature requests they find straight to your tracker.</p>
       <div class="hero-cta reveal d4">
         <a class="btn btn-indigo" href="/onboarding">Get started</a>
         <a class="btn btn-ghost" href="https://github.com/vishalquantana/klav-snap#install" target="_blank" rel="noopener">⊕ Add to Chrome</a>
@@ -360,6 +479,156 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div></div>
 </header>
 
+<!-- ════════════ PRODUCT ARC (Snap → Sims → AutoSim) ════════════ -->
+<!-- Scoped under .parc so it never collides with the page's own styles. -->
+<style>
+.parc{padding:64px 0 80px;position:relative;overflow:hidden}
+.parc .parc-head{max-width:680px;margin:0 auto 18px;text-align:center}
+.parc .parc-head .tag{display:block;margin-bottom:12px}
+.parc .parc-head h2{font-family:var(--display);font-weight:450;font-size:clamp(30px,4vw,44px);line-height:1.08;letter-spacing:-.02em}
+.parc .parc-head h2 em{font-style:italic;color:var(--amber)}
+.parc .parc-head p{font-size:17px;color:var(--paper-dim);margin:14px auto 0;max-width:54ch}
+
+/* the walking trail */
+.parc .parc-arc{position:relative;max-width:880px;margin:46px auto 8px;display:grid;grid-template-columns:repeat(3,1fr)}
+.parc .parc-line{position:absolute;left:16%;right:16%;top:21px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--indigo) 0 33%,var(--rose) 33% 66%,var(--green) 66% 100%);
+  transform-origin:left center;transform:scaleX(0);opacity:.9}
+.parc .parc-wp{position:relative;text-align:center;padding:0 10px}
+.parc .parc-wp .parc-dot{width:14px;height:14px;border-radius:50%;background:var(--ink);
+  border:3px solid var(--c);margin:14px auto 0;box-shadow:0 0 0 5px var(--ink);position:relative;z-index:2}
+.parc .parc-wp .parc-ph{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);margin-top:14px}
+.parc .parc-wp h3{font-family:var(--display);font-weight:550;font-size:21px;margin:2px 0 0;color:var(--c)}
+.parc .parc-wp.a1{--c:var(--indigo)} .parc .parc-wp.a2{--c:var(--rose)} .parc .parc-wp.a3{--c:var(--green)}
+
+/* the circle-with-legs Sim character */
+.parc .parc-sim{display:inline-block;position:relative;width:var(--sz,34px);height:var(--sz,34px)}
+.parc .parc-sim i{position:absolute;inset:0;border-radius:50%;background:var(--sc,var(--indigo));display:grid;place-items:center;color:#fff;font-family:var(--mono);font-size:calc(var(--sz,34px)*.34);font-weight:600;font-style:normal}
+.parc .parc-sim::before,.parc .parc-sim::after{content:"";position:absolute;bottom:calc(var(--sz,34px)*-.22);width:2px;height:calc(var(--sz,34px)*.28);background:var(--sc,var(--indigo));border-radius:2px}
+.parc .parc-sim::before{left:38%;transform:rotate(8deg)} .parc .parc-sim::after{right:38%;transform:rotate(-8deg)}
+
+/* phase cards */
+.parc .parc-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:46px}
+.parc .parc-card{position:relative;display:flex;flex-direction:column;background:var(--ink-2);
+  border:1px solid var(--line);border-top:3px solid var(--c);border-radius:18px;padding:24px 22px;
+  box-shadow:0 14px 40px rgba(17,17,19,.08);transition:transform .25s var(--ease,cubic-bezier(.2,.7,.2,1)),box-shadow .25s,border-color .25s}
+.parc .parc-card:hover{transform:translateY(-5px);box-shadow:0 24px 50px rgba(17,17,19,.14)}
+.parc .parc-card.a1{--c:var(--indigo)} .parc .parc-card.a2{--c:var(--rose)} .parc .parc-card.a3{--c:var(--green)}
+.parc .parc-card .pc-top{display:flex;align-items:center;gap:11px}
+.parc .parc-card .pc-stat{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.parc .parc-card h3{font-family:var(--display);font-weight:600;font-size:23px;letter-spacing:-.01em}
+.parc .parc-card .pc-line{font-family:var(--display);font-style:italic;font-size:16.5px;color:var(--paper-dim);margin:10px 0 0;line-height:1.4}
+.parc .parc-teaser{list-style:none;margin:18px 0 0;padding:14px 0 0;border-top:1px solid var(--line-2);display:flex;flex-direction:column;gap:9px}
+.parc .parc-teaser li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--paper-dim);font-family:var(--mono);line-height:1.4}
+.parc .parc-teaser .ix{flex:none;width:18px;height:18px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-size:9.5px;font-weight:600;margin-top:1px}
+.parc .parc-more{margin-top:auto;padding-top:18px}
+.parc .parc-more a{display:inline-flex;align-items:center;gap:7px;font-family:var(--body);font-weight:600;font-size:14px;color:var(--c);
+  border:1px solid color-mix(in srgb,var(--c) 35%,transparent);background:color-mix(in srgb,var(--c) 7%,transparent);
+  padding:9px 15px;border-radius:30px;transition:gap .2s,background .2s,border-color .2s}
+.parc .parc-more a:hover{gap:11px;background:color-mix(in srgb,var(--c) 14%,transparent);border-color:var(--c)}
+
+/* scroll reveal (reuses kit.js .reveal hook + page's own fallback) */
+.parc .reveal{opacity:0;transform:translateY(16px)}
+.parc .reveal.in{opacity:1;transform:none;transition:opacity .7s var(--ease,cubic-bezier(.2,.7,.2,1)),transform .7s var(--ease,cubic-bezier(.2,.7,.2,1));transition-delay:var(--d,0s)}
+
+@media (prefers-reduced-motion:no-preference){
+  .parc .reveal.in .parc-line{animation:parcDraw .9s var(--ease,cubic-bezier(.2,.7,.2,1)) .15s forwards}
+  @keyframes parcDraw{to{transform:scaleX(1)}}
+  .parc .parc-sim{animation:parcWalk 1.8s ease-in-out infinite alternate}
+  @keyframes parcWalk{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-3px) rotate(2deg)}}
+}
+@media (prefers-reduced-motion:reduce){.parc .parc-line{transform:none}.parc .reveal{opacity:1;transform:none}}
+/* if JS never runs, content must still show */
+.parc .reveal{animation:parcRise .8s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes parcRise{to{opacity:1;transform:none}}
+.parc .reveal.in{animation:none}
+
+@media(max-width:880px){
+  .parc .parc-arc,.parc .parc-cards{grid-template-columns:1fr;gap:24px}
+  .parc .parc-line{display:none}
+}
+</style>
+<section class="parc" id="arc" aria-labelledby="arc-title">
+  <div class="wrap">
+    <div class="parc-head reveal" style="--d:0s">
+      <span class="tag">One product · three phases</span>
+      <h2 id="arc-title">The Klavity arc: <em>Snap → Sims → AutoSim.</em></h2>
+      <p>One thread pulled all the way — the people who use your product become the ones who catch its bugs. A human snaps it, AI Sims catch it, AutoSim runs it forever.</p>
+    </div>
+
+    <!-- the Sim character walking the colored phase trail -->
+    <div class="parc-arc reveal" style="--d:.08s" role="img" aria-label="Three Sim characters walking a colored trail across the Snap, Sims and AutoSim phases">
+      <span class="parc-line" aria-hidden="true"></span>
+      <div class="parc-wp a1">
+        <span class="parc-sim" style="--sz:36px;--sc:var(--indigo)" aria-hidden="true"><i>K</i></span>
+        <div class="parc-dot" aria-hidden="true"></div>
+        <div class="parc-ph">Phase 01</div><h3>Snap</h3>
+      </div>
+      <div class="parc-wp a2">
+        <span class="parc-sim" style="--sz:36px;--sc:var(--rose)" aria-hidden="true"><i>SC</i></span>
+        <div class="parc-dot" aria-hidden="true"></div>
+        <div class="parc-ph">Phase 02</div><h3>Sims</h3>
+      </div>
+      <div class="parc-wp a3">
+        <span class="parc-sim" style="--sz:36px;--sc:var(--green)" aria-hidden="true"><i>AS</i></span>
+        <div class="parc-dot" aria-hidden="true"></div>
+        <div class="parc-ph">Phase 03</div><h3>AutoSim</h3>
+      </div>
+    </div>
+
+    <!-- per-phase preview cards -->
+    <div class="parc-cards">
+      <!-- SNAP -->
+      <article class="parc-card a1 reveal" style="--d:.05s">
+        <div class="pc-top">
+          <span class="parc-sim" style="--sz:30px;--sc:var(--indigo)" aria-hidden="true"><i>K</i></span>
+          <h3>Klavity Snap</h3>
+          <span class="pc-stat">Shipped</span>
+        </div>
+        <p class="pc-line">Catch a bug in one right-click — no tool to open.</p>
+        <ol class="parc-teaser">
+          <li><span class="ix">1</span> Right-click anything on the page</li>
+          <li><span class="ix">2</span> Describe it — screenshot auto-attached</li>
+          <li><span class="ix">3</span> Filed to Plane, Jira, GitHub or Linear</li>
+        </ol>
+        <div class="parc-more"><a href="/snap" aria-label="Learn more about Klavity Snap">Learn more →</a></div>
+      </article>
+
+      <!-- SIMS -->
+      <article class="parc-card a2 reveal" style="--d:.15s">
+        <div class="pc-top">
+          <span class="parc-sim" style="--sz:30px;--sc:var(--rose)" aria-hidden="true"><i>SC</i></span>
+          <h3>Klavity Sims</h3>
+          <span class="pc-stat">Live</span>
+        </div>
+        <p class="pc-line">Your customers, in the room while you build.</p>
+        <ol class="parc-teaser">
+          <li><span class="ix">1</span> Feed in a real customer call</li>
+          <li><span class="ix">2</span> Sims react on your actual pages</li>
+          <li><span class="ix">3</span> File the bug — quote &amp; persona attached</li>
+        </ol>
+        <div class="parc-more"><a href="/sims" aria-label="Learn more about Klavity Sims">Learn more →</a></div>
+      </article>
+
+      <!-- AUTOSIM -->
+      <article class="parc-card a3 reveal" style="--d:.25s">
+        <div class="pc-top">
+          <span class="parc-sim" style="--sz:30px;--sc:var(--green)" aria-hidden="true"><i>AS</i></span>
+          <h3>Klavity AutoSim</h3>
+          <span class="pc-stat">Shipped</span>
+        </div>
+        <p class="pc-line">Your Sims test every release — and self-heal.</p>
+        <ol class="parc-teaser">
+          <li><span class="ix">1</span> Author a run once, in plain English</li>
+          <li><span class="ix">2</span> Replays free — heals when UI moves</li>
+          <li><span class="ix">3</span> Real break → a grounded finding filed</li>
+        </ol>
+        <div class="parc-more"><a href="/autosim" aria-label="Learn more about Klavity AutoSim">Learn more →</a></div>
+      </article>
+    </div>
+  </div>
+</section>
+
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="wrap">
@@ -377,8 +646,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
       <div class="step">
         <span class="ic">🧬</span><span class="num">02 / REVIEW</span>
-        <h3>They review your live product</h3>
-        <p>Point Klavity at your product's URL. The moment you — or a teammate — open it, your Sims jump out and react in the real customer's voice, right on the page. No transcript yet? A ready-made review team — the Six Thinking Hats — works on any page.</p>
+        <h3>A Sim reviews your screen</h3>
+        <p>While you browse your own app, the right Sim walks to the element it cares about, points at it, and reacts in the real customer's voice — grounded, specific, in character.</p>
         <div class="seam"></div>
       </div>
       <div class="step">
@@ -430,6 +699,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
       <ul class="feature-list">
         <li><span class="ck">✓</span> Right-click → Report a Bug / Request a Feature, on any website</li>
+        <li><span class="ck">✓</span> <strong>One-click "Analyze this page"</strong> — open the extension popup, hit Analyze, and your Sims review the current tab on demand. No allowlist, no setup.</li>
+        <li><span class="ck">✓</span> Sims also auto-review allowlisted pages as you browse — both modes, your call</li>
         <li><span class="ck">✓</span> Auto full-page screenshot, region capture, and canvas annotation</li>
         <li><span class="ck">✓</span> Last 50 console errors + network failures captured automatically</li>
         <li><span class="ck">✓</span> Files to Jira, Linear, GitHub Issues, or Plane — or your own backend</li>
@@ -441,9 +712,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <div class="snap-card">
       <div class="snap-menu">
         <div class="sm-item">🔎 &nbsp;Inspect</div>
-        <div class="sm-item" style="background:#ece4f7; color:#4338ca; font-weight:600">⚡ &nbsp;Klavity — Report a Bug <span class="k">⌘⇧K</span></div>
+        <div class="sm-item" style="background:#dfe2e8; color:#18181b; font-weight:600">⚡ &nbsp;Klavity — Report a Bug <span class="k">⌘⇧K</span></div>
         <div class="sm-item">💡 &nbsp;Klavity — Request a Feature</div>
-        <div class="sm-item">🧬 &nbsp;Klavity — Ask a Sim</div>
+        <div class="sm-item" style="font-weight:600">🧬 &nbsp;Klavity — Analyze this page</div>
         <div class="sm-item">📋 &nbsp;View submissions</div>
       </div>
     </div>
@@ -455,7 +726,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <div class="wrap">
     <div class="sec-head">
       <span class="tag">The arc</span>
-      <h2>Snap today. <em>Sims now.</em> An autonomous tester next.</h2>
+      <h2>Snap today. <em>Sims now.</em> Autonomous UAT next.</h2>
       <p>Named after Ekalavya, the self-taught master — Klavity learns your product and your customers, then acts on its own.</p>
     </div>
     <div class="phases">
@@ -467,11 +738,11 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="phase build">
         <span class="ph-stat s-build">◐ Building</span>
         <h3>Klavity Sims</h3><div class="pl">the voices</div>
-        <p>Synthetic users from real transcripts that review your product in-context and file what they find. Private beta now.</p>
+        <p>AI personas built from real customer interviews that review your product pages — automatically on allowlisted URLs, or on demand with one click — and file what they find. Private beta now.</p>
       </div>
       <div class="phase">
         <span class="ph-stat s-soon">○ Next</span>
-        <h3>Klavity OS</h3><div class="pl">the autopilot</div>
+        <h3>Klavity AutoSim</h3><div class="pl">the autopilot</div>
         <p>An autonomous UAT agent that explores your staging build, predicts regressions, and fixes the test suite before you ship.</p>
       </div>
     </div>
@@ -502,14 +773,20 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 </section>
 
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
+
 <footer>
   <div class="wrap foot">
-    <a class="brand" href="#" style="font-size:18px"><span class="spark" style="width:24px;height:24px;font-size:13px">⚡</span>Klavity</a>
+    <a class="brand" href="#" style="font-size:18px"><span class="spark" style="width:24px;height:24px;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 2C7 7 17 7 17 12 17 17 7 17 7 22"/><path d="M17 2C17 7 7 7 7 12 7 17 17 17 17 22"/><path d="M9 5.2h6M9 18.8h6" stroke-width="1.5"/></svg></span>Klavity</a>
     <a href="#how">How it works</a><a href="#snap">Snap</a><a href="#cta">Early access</a>
     <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
     <span class="sp">Built by <a href="https://quantana.com.au" target="_blank" rel="noopener">Quantana</a> · FSL-1.1 · © 2026</span>
   </div>
 </footer>
+
+<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.textContent=dark()?'☀️':'🌙'}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
 
 <script>
 // duplicate the marquee track for a seamless loop
@@ -613,7 +890,10 @@ function showNote(n) {
   const el = document.querySelector(n.sel);
   if (!el || !inView(el)) return false;
   activeEl = el; buildRv(n.who); const p = REVIEWERS[n.who];
+  // Match the selection outline to the reviewing Sim's colour.
+  hl.style.borderColor = p.leg; hl.style.boxShadow = '0 0 0 4px ' + p.leg + '26';
   rv.classList.add('walk'); rv.classList.remove('point', 'say');
+  rv.style.opacity = '1';
   place(el);
   const b = rv.querySelector('.rv-bubble');
   b.innerHTML = `<div class="rv-tag">${p.name.toUpperCase()} · ${p.role.toUpperCase()}<span class="rv-emoji">${MOODS[n.mood] || ''}</span></div>${n.text}`;
@@ -624,12 +904,13 @@ function step() {
   if (!tourOn) return;
   let n = null, tries = 0;
   while (tries < NOTES.length) { const c = NOTES[ix % NOTES.length]; ix++; tries++; const el = document.querySelector(c.sel); if (el && inView(el)) { n = c; break; } }
-  if (n) showNote(n); else { hl.classList.remove('on'); rv.classList.remove('say', 'point'); activeEl = null; }
+  if (n) showNote(n); else { hl.classList.remove('on'); rv.classList.remove('say', 'point'); rv.style.opacity = '0'; activeEl = null; }
   timer = setTimeout(step, n ? 5800 : 1500);
 }
 function reposition() {
   if (!tourOn || !activeEl) return;
-  if (!inView(activeEl)) { hl.classList.remove('on'); return; }
+  if (!inView(activeEl)) { hl.classList.remove('on'); rv.style.opacity = '0'; return; }
+  rv.style.opacity = '1';
   place(activeEl);
 }
 function updateToggle() { tg.innerHTML = tourOn ? `<span class="live"></span> Sims reviewing — pause` : `👀 Let the Sims review this page`; }
