@@ -211,7 +211,8 @@ function playSegment(i){
   var events = (seg.events||[]).slice()
   if (events.length < 2){ $("replayNote").textContent = "Chapter "+(i+1)+": too few frames to scrub (page changed too fast)."; return }
   try {
-    replayState.player = new rrwebPlayer({
+    var RRWebPlayer = (window.rrwebPlayer && (window.rrwebPlayer.default || window.rrwebPlayer.Player)) || window.rrwebPlayer
+    replayState.player = new RRWebPlayer({
       target: $("playerHost"),
       props: { events: events, width: 920, autoPlay: true, showController: true },
     })

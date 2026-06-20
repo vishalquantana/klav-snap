@@ -10,6 +10,15 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.28.1] — 2026-06-20
+
+### Fixed
+- **Trails Walk replay now plays.** The `/trails` rrweb-player modal showed "Could not start the
+  player for this chapter" because the vendored `rrweb-player` UMD exposes its constructor as
+  `window.rrwebPlayer.default` (the global is `{Player, default}`), but the code called
+  `new rrwebPlayer(...)` on the namespace object. Now resolves the real constructor
+  (`.default`/`.Player`). Verdict timeline + chapters were already correct.
+
 ## [0.28.0] — 2026-06-20
 
 ### Added
