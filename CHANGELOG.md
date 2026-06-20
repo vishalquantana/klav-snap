@@ -10,6 +10,11 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.34.0] — 2026-06-21
+
+### Added
+- **Klavity-native blog engine (GEO-optimized, Claude-authored).** New `/blog` index + `/blog/:slug` routes serving static articles from `site/blog/`. A deterministic publisher (`prototype/scripts/blog-publish.ts`) takes a Claude-authored `{ meta, bodyHtml }` and assembles a full on-brand page (kit.css + Article / FAQPage / BreadcrumbList / Speakable JSON-LD, TL;DR box, FAQ, key-takeaways, CTA), registers it in `site/blog/index.json`, and regenerates the index. The sitemap is now dynamic (auto-includes blog posts); `robots.txt` explicitly welcomes AI answer-engine crawlers (GPTBot/ClaudeBot/PerplexityBot/Google-Extended/Bingbot — the GEO opt-in). Content is authored by a scheduled Claude routine (not OpenRouter), held to a "genuinely helpful, specific, sourced — nothing salesy or thin" bar. First post shipped.
+
 ## 0.33.0 — 2026-06-21
 ### Added
 - **Lead-gen widget — the report widget as a PLG funnel.** The right-click widget now has a per-project **mode** (`support` default · `leadgen` · `off`): on submit it shows a mode-aware **success screen** rendered through the themed/Genie modal — support nudges "we'll tell you when it's fixed", leadgen pitches "get it for your product" with email capture + CTA, off is a simple thanks. The captured email + the filed report become a **lead**: `POST /api/widget/lead` attaches `contact_email` and fires an instant email alert; leads land in a dedicated Plane project. Mode/CTA/notify-email are set in the same dashboard "Report widget" card and served via the unified `GET /api/projects/:id/config` (now returns `{ modalConfig, widget: { mode, ctaUrl } }`; the notify email stays server-side). "Powered by Klavity" footer on the composer.
