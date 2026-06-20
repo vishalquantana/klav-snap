@@ -10,6 +10,27 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.27.0] — 2026-06-20
+
+### Added
+- **Klavity OS — Trails (Slice 1).** Record→crystallize→self-healing replay engine: a Trail
+  (authored flow) crystallizes to exportable Playwright + a SQLite locator cache and re-walks
+  deterministically with **zero LLM on green**; on drift the heal ladder steps in — Tier-0 cache,
+  Tier-1 multi-candidate (role+accessible-name → text → testid → structural), Tier-2 vision-LLM
+  re-resolution (Qwen3-VL/model-mix, logged in `ai_calls` as `reheal`). A heal is **AMBER, never a
+  silent green**; a genuine regression is **RED + a grounded, deduped finding**. Proven on a
+  multi-page journey that heals mid-walk and **resumes to completion**. New tables: `trails`,
+  `trail_steps`, `locator_cache`, `trail_runs`, `run_steps`, `findings`, `walk_replays`.
+- **Findings gate + `/trails` dashboard.** Authed, project-scoped routes (`/api/trails/dashboard`,
+  finding file/dismiss) and a dashboard with Walk verdicts, the review queue, heal-diffs, and a
+  precision metric. Auto-file (regression + confidence ≥0.9) is built but **intentionally inert**
+  until a per-project opt-in toggle; the live path is the human review queue.
+- **Walk replay (opt-in).** rrweb session capture per Walk (gzipped per-page segments) with an
+  in-dashboard `rrweb-player` scrubber that auto-highlights the failing/heal step. Capture is
+  **default-off** and unreachable until a walk-trigger ships.
+
+Engine is library-only plus the `/trails` page; no existing behavior changes. 77 new tests.
+
 ## [0.26.2] — 2026-06-20
 
 ### Fixed
