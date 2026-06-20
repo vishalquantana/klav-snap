@@ -10,6 +10,18 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.26.2] — 2026-06-20
+
+### Fixed
+- **Right-click bug reporter now works without the browser extension.** The first-party
+  report widget (`/widget.js`, mounted on klavity.quantana.top/dashboard) registered only
+  the floating "Report a bug" launcher — the right-click gesture lived solely in the
+  extension/`index.ts` path, so right-click did nothing when the extension was absent. The
+  widget's `mount()` now owns `contextmenu`: right-click anywhere opens the bug composer
+  (shift+right-click falls through to the native menu; right-clicks on the launcher or inside
+  an open composer/overlay are ignored so the modal can't stack and right-click-paste still
+  works). Extension continues to yield to the widget (`widgetPresent()` handshake).
+
 ## [0.26.1] — 2026-06-20
 
 ### Fixed

@@ -45,9 +45,9 @@ async function mount() {
   const reportBtn = document.createElement("button")
   reportBtn.textContent = "🐞 Report a bug"
   reportBtn.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#E94F37;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(233,79,55,.35)"
-  reportBtn.onclick = () => {
+  function openReport(type: "bug" | "feature" = "bug") {
     if (!firstParty && !getToken()) { openConnect(); return }
-    buildModal("bug", {
+    buildModal(type, {
       onCaptureFull: async () => toPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }),
       onRegionCapture: async (rect) => cropDataUrl(await toPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
       onSubmit: async (p) => submitFeedback(
@@ -56,7 +56,24 @@ async function mount() {
       ),
     })
   }
+  reportBtn.onclick = () => openReport("bug")
   reportDock.appendChild(reportBtn)
+
+  // Right-click anywhere → open the bug reporter (the "right-click bug reporter"), with NO browser
+  // extension required — the widget owns the gesture. Shift+right-click falls through to the native
+  // menu; right-clicks on the widget launcher or inside an already-open composer/overlay are ignored
+  // (so the modal can't stack and right-click-paste still works in the description box).
+  let reportArmed = true
+  document.addEventListener("contextmenu", (e) => {
+    if (e.shiftKey) return
+    const path = (e.composedPath?.() || []) as HTMLElement[]
+    if (path.some((n) => n?.id === HOST_ID || (typeof n?.className === "string" && /klavity-(overlay|modal)/.test(n.className)))) return
+    e.preventDefault()
+    if (!reportArmed) return
+    reportArmed = false
+    setTimeout(() => { reportArmed = true }, 400)
+    openReport("bug")
+  })
 
   const banner = (text: string) => {
     let el = root.getElementById("kw-banner") as HTMLDivElement | null
