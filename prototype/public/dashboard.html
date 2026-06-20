@@ -458,6 +458,38 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <div id="connUser" class="hide muted">Only admins can configure external tracker connections.<span id="connStatus"></span></div>
     </div>
   </details>
+
+  <!-- Report widget appearance settings -->
+  <details class="drawer" id="appearanceDrawer">
+    <summary>🎨 Report widget appearance <span class="caret">›</span></summary>
+    <div class="drawer-in">
+      <div class="card" id="kl-appearance">
+        <h3>Report widget appearance</h3>
+        <label>Theme
+          <select id="kl-theme">
+            <option value="light">Light (default)</option>
+            <option value="dark">Dark</option>
+            <option value="glass">Glass</option>
+            <option value="neon">Neon</option>
+            <option value="custom">Custom (Pro)</option>
+            <option value="liquid">Liquid (experimental)</option>
+          </select>
+        </label>
+        <div id="kl-custom" style="display:none">
+          <label>Primary <input type="color" id="kl-primary" value="#5b5bf0"></label>
+          <label>Secondary <input type="color" id="kl-secondary" value="#f59e0b"></label>
+          <label>Background <input type="color" id="kl-bg" value="#ffffff"></label>
+          <label>Font <input type="text" id="kl-font" placeholder="system-ui, sans-serif" maxlength="120"></label>
+          <p id="kl-pro-note" style="display:none;font-size:12px;opacity:.7">Custom colors require a Pro plan.</p>
+        </div>
+        <label>Thank-you message
+          <input type="text" id="kl-thankyou" maxlength="140" placeholder="✓ Filed as KLAV-123 (default)">
+        </label>
+        <button id="kl-save-appearance">Save appearance</button>
+        <span id="kl-appearance-msg"></span>
+      </div>
+    </div>
+  </details>
 </div>
 
 <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
@@ -544,6 +576,7 @@ function render() {
   $("connAdmin").classList.toggle("hide", !admin)
   $("connUser").classList.toggle("hide", admin)
   loadConnectors(admin)
+  loadAppearance()
 
   // P3b admin-only: live-Sims config (monitored URLs + pause) and named observability.
   $("liveDrawer").classList.toggle("hide", !admin)
@@ -1359,6 +1392,55 @@ $("connSaveNew") && ($("connSaveNew").onclick = async () => {
     msg.style.color = "var(--rose)"; msg.textContent = d.error || (connEditId ? "Couldn't update connector." : "Couldn't add connector.")
   }
 })
+
+// ── Widget appearance settings ──
+let _appearanceWired = false
+async function loadAppearance() {
+  if (!curProjId()) return
+  const sel = $("kl-theme"), cust = $("kl-custom"), proNote = $("kl-pro-note"), msg = $("kl-appearance-msg")
+  if (!sel) return
+  // Wire theme select sync once
+  function sync() { cust.style.display = sel.value === "custom" ? "block" : "none" }
+  if (!_appearanceWired) {
+    _appearanceWired = true
+    sel.addEventListener("change", sync)
+    $("kl-save-appearance").addEventListener("click", async function () {
+      const isPro = !!($("kl-pro-note") && $("kl-pro-note").dataset.pro === "1")
+      const body = { theme: sel.value, thankYou: $("kl-thankyou").value }
+      if (sel.value === "custom" && isPro) {
+        body.primary = $("kl-primary").value
+        body.secondary = $("kl-secondary").value
+        body.background = $("kl-bg").value
+        body.font = $("kl-font").value
+      }
+      msg.textContent = "Saving…"
+      try {
+        const r = await fetch(projPath("/config"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+        const d = await r.json().catch(() => ({}))
+        msg.textContent = d.ok ? "Saved ✓" : ("Error: " + (d.error || "failed"))
+      } catch { msg.textContent = "Network error" }
+    })
+  }
+  // Load current config (admin variant: ?admin=1 routes past the public handler to the authed branch
+  // that returns { modalConfig, pro }, so the Pro gating logic receives the correct flag)
+  try {
+    const r = await fetch(projPath("/config") + "?admin=1")
+    if (!r.ok) return
+    const d = await r.json()
+    const c = d.modalConfig || {}
+    const isPro = !!d.pro
+    sel.value = c.theme || "light"
+    if (c.primary) $("kl-primary").value = c.primary
+    if (c.secondary) $("kl-secondary").value = c.secondary
+    if (c.background) $("kl-bg").value = c.background
+    if (c.font) $("kl-font").value = c.font
+    if (c.thankYou) $("kl-thankyou").value = c.thankYou
+    // Store isPro on the note element for the save handler to read
+    proNote.dataset.pro = isPro ? "1" : "0"
+    proNote.style.display = isPro ? "none" : "block"
+    sync()
+  } catch {}
+}
 
 $("inviteBtn") && ($("inviteBtn").onclick = async () => {
   const email = $("inviteEmail").value.trim()

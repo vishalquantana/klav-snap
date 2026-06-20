@@ -1,6 +1,6 @@
 # Klavity — Product Requirements (PRD)
 
-> **Version:** `0.31.0` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-20
+> **Version:** `0.32.0` &nbsp;·&nbsp; **Status:** Phase 1 (Klavity Snap) shipping &nbsp;·&nbsp; **Updated:** 2026-06-21
 >
 > This is the single source of truth for the product version. It moves in lockstep
 > with [`CHANGELOG.md`](../CHANGELOG.md) and every `package.json` + the extension
@@ -44,6 +44,7 @@ breakdown):
 - Embeddable SDK `@klavity/snap` (script tag + npm).
 - Embeddable report widget: dogfooded on klavity.quantana.top for logged-in users; Bearer-token support for cross-origin submission.
 - Account login + per-user/admin Plane connection, AES-GCM secret encryption.
+- **Widget appearance settings (v0.31.0):** per-project theme (light [default], dark, glass, neon, liquid [experimental]) with custom colors/font (Pro-gated), custom post-submit thank-you message, and Genie open/close animation. Theme config served via `GET /api/projects/:id/config`; `custom` theme requires Pro account.
 
 **Architecture:** `packages/core` (shared types, integrations, annotator, modal),
 `packages/extension` (MV3), `packages/sdk` (embeddable). The Bun `prototype/` is

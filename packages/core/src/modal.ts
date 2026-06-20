@@ -1,5 +1,6 @@
 import type { ReportType } from './types'
 import { Annotator } from './annotator'
+import { themeCss, resolveModalConfig, type ModalConfig } from './modal-theme'
 
 export interface ModalCallbacks {
   onCaptureFull: () => Promise<string>
@@ -20,7 +21,9 @@ export interface ModalController {
 export function buildModal(
   initialType: ReportType,
   callbacks: ModalCallbacks,
+  config: ModalConfig = {},
 ): ModalController {
+  const cfg = resolveModalConfig(config)
   // Create shadow host
   const host = document.createElement('div')
   host.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;'
@@ -32,26 +35,31 @@ export function buildModal(
 
   const style = document.createElement('style')
   style.textContent = `
-    .klavity-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;pointer-events:all;}
-    .klavity-modal{background:#1e1e2e;color:#cdd6f4;border-radius:12px;padding:24px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.5);font-family:system-ui,sans-serif;}
+    ${themeCss(cfg)}
+    @keyframes kl-genie-in{from{opacity:0;transform:translateY(180px) scaleX(.04) scaleY(.06)}to{opacity:1;transform:translateY(0) scaleX(1) scaleY(1)}}
+    @keyframes kl-genie-out{from{opacity:1;transform:translateY(0) scaleX(1) scaleY(1)}to{opacity:0;transform:translateY(180px) scaleX(.04) scaleY(.06)}}
+    @keyframes kl-ov{from{opacity:0}to{opacity:1}}
+    .klavity-overlay{position:fixed;inset:0;background:var(--kl-overlay);display:flex;align-items:center;justify-content:center;pointer-events:all;animation:kl-ov .3s ease both;}
+    .klavity-modal{background:var(--kl-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
+    .klavity-modal.kl-closing{animation:kl-genie-out .5s cubic-bezier(.55,0,.85,.25) both;}
     .klavity-toggle{display:flex;gap:8px;margin-bottom:16px;}
-    .klavity-toggle button{flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-weight:600;}
-    .klavity-toggle .bug.active{background:#f38ba8;color:#1e1e2e;}
-    .klavity-toggle .feat.active{background:#fab387;color:#1e1e2e;}
-    .klavity-toggle button:not(.active){background:#313244;color:#cdd6f4;}
-    .klavity-page{font-size:12px;color:#a6adc8;margin-bottom:12px;}
+    .klavity-toggle button{flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-weight:600;background:var(--kl-chip);color:var(--kl-fg);}
+    .klavity-toggle .bug.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
+    .klavity-toggle .feat.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
+    .klavity-page{font-size:12px;color:var(--kl-muted);margin-bottom:12px;}
     .klavity-strip{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;min-height:64px;}
     .klavity-thumb{position:relative;flex-shrink:0;}
-    .klavity-thumb img{height:60px;border-radius:4px;border:1px solid #45475a;}
-    .klavity-rm{position:absolute;top:-4px;right:-4px;background:#f38ba8;color:#1e1e2e;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
-    .klavity-mk{position:absolute;bottom:-4px;right:-4px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
+    .klavity-thumb img{height:60px;border-radius:4px;border:1px solid var(--kl-border);}
+    .klavity-rm{position:absolute;top:-4px;right:-4px;background:var(--kl-accent2);color:var(--kl-on-accent);border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
+    .klavity-mk{position:absolute;bottom:-4px;right:-4px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
     .klavity-actions{display:flex;gap:8px;margin-bottom:12px;}
-    .klavity-actions button{flex:1;padding:8px;background:#313244;color:#cdd6f4;border:none;border-radius:6px;cursor:pointer;font-size:12px;}
-    .klavity-counter{font-size:11px;color:#a6adc8;margin-bottom:8px;}
-    textarea.klavity-desc{width:100%;min-height:100px;resize:vertical;background:#181825;color:#cdd6f4;border:1px solid #45475a;border-radius:6px;padding:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
-    .klavity-submit{width:100%;padding:12px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
+    .klavity-actions button{flex:1;padding:8px;background:var(--kl-chip);color:var(--kl-fg);border:none;border-radius:6px;cursor:pointer;font-size:12px;}
+    .klavity-counter{font-size:11px;color:var(--kl-muted);margin-bottom:8px;}
+    textarea.klavity-desc{width:100%;min-height:100px;resize:vertical;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:6px;padding:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
+    .klavity-submit{width:100%;padding:12px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
     .klavity-submit:disabled{opacity:.5;cursor:not-allowed;}
     .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
+    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing{animation-duration:.01ms;}}
   `
   shadowRoot.appendChild(style)
 
@@ -118,7 +126,12 @@ export function buildModal(
 
   function close() {
     document.removeEventListener('keydown', escHandler, { capture: true })
-    host.remove()
+    const m = shadowRoot.querySelector('.klavity-modal') as HTMLElement | null
+    if (!m) { host.remove(); return }
+    m.classList.add('kl-closing')
+    const done = () => host.remove()
+    m.addEventListener('animationend', done, { once: true })
+    setTimeout(done, 700) // safety if animationend doesn't fire
   }
 
   function escHandler(e: KeyboardEvent) {
@@ -154,11 +167,16 @@ export function buildModal(
     errEl.style.display = 'none'
     try {
       const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots] })
-      shadowRoot.innerHTML = `
-        <style>.s{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:all;}</style>
-        <div class="s"><div style="background:#1e1e2e;color:#a6e3a1;border-radius:12px;padding:32px;font-family:system-ui;font-size:16px;text-align:center;">✓ Filed as <strong>${result.issueKey}</strong></div></div>
-      `
-      setTimeout(close, 1500)
+      const wrap = document.createElement('div')
+      wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:all;'
+      const card = document.createElement('div')
+      card.style.cssText = 'background:var(--kl-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:var(--kl-radius);padding:32px;font-family:var(--kl-font,system-ui),sans-serif;font-size:16px;text-align:center;box-shadow:var(--kl-shadow);'
+      card.textContent = cfg.thankYou ? cfg.thankYou : `✓ Filed as ${result.issueKey}`
+      wrap.appendChild(card)
+      // keep the themed style element; swap only the body
+      overlay.remove()
+      shadowRoot.appendChild(wrap)
+      setTimeout(close, cfg.thankYou ? 2600 : 1500)
     } catch (err) {
       errEl.textContent = (err as Error).message
       errEl.style.display = 'block'

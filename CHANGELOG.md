@@ -10,12 +10,49 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
-## [0.31.0] — 2026-06-20
+## [0.32.0] — 2026-06-21
 
 ### Added
 - **Expectations spine + graduation (discover→enforce).** A new `expectations` table unifies Snap reports, Sim findings, and AutoSim findings into one issue identity (dedup-collapsed via exact issue-key then lexical similarity). Lifecycle: `candidate` → `validated` (auto, on cross-source corroboration — a real Snap report AND a Sim finding agreeing, or recurrence ≥ 3) → `enforced` → `retired`.
 - **Graduation to a deterministic check.** A validated issue can be graduated into a Trail `assert` step (target must be visible): an LLM drafts the assertion once (`ASSERT_SYS`, logged to `ai_calls` as `assert-gen`), a human confirms/edits it, and it then enforces on every zero-LLM replay. Endpoints: `GET /api/expectations`, `POST /api/expectations/:id/enforce`, `…/enforce/confirm`, `…/retire` (all project-scoped, IDOR-safe; re-confirm returns 409).
 - **Expectations dashboard** on `/trails`: Candidate · Validated · Enforced board with source badges and the Enforce→confirm flow.
+
+## 0.31.0 — 2026-06-21
+### Added
+- Per-project report widget appearance settings: theme (light default, dark, glass, neon, custom [Pro], liquid [experimental]), optional custom colors/font, and a custom post-submit thank-you message. Genie open/close animation. Configured in the dashboard; served to the widget via `GET /api/projects/:id/config`.
+
+## [0.30.5] — 2026-06-20
+
+### Changed
+- **Cross-page consistency pass on the marketing site.** The home and the three feature pages now share one navbar (open `( )` logo mark everywhere — replacing the square "K" tile on subpages; `How it works · Snap · Sims · AutoSim · GitHub` + `Log in`/`Get started` on all four). Sims & AutoSim regained the GitHub link and the Snap→Sims→AutoSim footer arc + Home/GitHub footer links. Added the BreadcrumbList JSON-LD (previously home-only) to all subpages.
+- **Established tone:** "Phase 0X · live today" → "Phase 0X · Live" on Snap and Sims (drops the just-launched implication; phase narrative + live dot retained).
+
+## [0.30.4] — 2026-06-20
+
+### Changed
+- **Plain-language pass over the feature pages — removed developer jargon.** Deleted the 13 monospace
+  `.hood` technical captions under the storyboard cards on `/snap`, `/sims`, `/autosim` (e.g. "widget
+  owns `contextmenu`", "POST `/api/feedback`", "connectors: Plane · Jira · GitHub · Linear"), and
+  rewrote the surrounding body copy, chips, FAQ, alt-text and SEO meta/JSON-LD to drop internal terms
+  (crystallize, locator cache, heal ladder, zero-LLM, role+accessible-name, vision-LLM, provenance,
+  hallucinate, selector, and "Playwright") in favour of plain English that keeps the meaning. Also
+  removed the now-dead `.hood` CSS from `kit.css`. The home page had none of these.
+
+## [0.30.3] — 2026-06-20
+
+### Fixed
+- **Home brand mark is now the open `( )` logo, not the full twisted helix.** The home nav + footer
+  brand SVG drew two crossing strands (a full DNA double helix); the canonical Klavity mark is the
+  **open `( )` shape** — two non-crossing parens with faint rungs and a gap at top/bottom (consistent
+  with `favicon.svg` and the locked DNA-logo rest state). Swapped both instances in `site/index.html`.
+
+## [0.30.2] — 2026-06-20
+
+### Changed
+- **Removed the redundant `local.html` home-page mirror.** The `/` route now serves
+  `site/index.html` directly (where all other marketing pages already live), instead of a
+  byte-identical `local.html` copy in the repo root that had to be kept in sync by hand. The `/local`
+  alias now redirects to `/`. Eliminates the dual-file maintenance trap behind the 0.30.1 follow-up.
 
 ## [0.30.1] — 2026-06-20
 

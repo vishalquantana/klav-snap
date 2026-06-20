@@ -1,7 +1,7 @@
 /* ============================================================================
    KLAVITY MARKETING KIT  ·  kit.css
    Shared design tokens, page shell, and components for every marketing page.
-   Source of truth for the brand: site/_walkthroughs-reference.html + local.html.
+   Source of truth for the brand: site/_walkthroughs-reference.html + site/index.html.
    Mobile-first · prefers-reduced-motion respected · :focus-visible styled.
    Each PAGE sets its phase colour via  <body style="--accent:var(--rose)">  etc.
    ========================================================================== */
@@ -137,7 +137,7 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em}
 .brand .mark{
   width:28px;height:28px;border-radius:8px;flex:none;
-  background:var(--paper);color:var(--ink);display:grid;place-items:center;
+  background:#161310;color:#fff;display:grid;place-items:center;
   box-shadow:0 4px 10px rgba(0,0,0,.15);
   transition:transform .45s var(--ease);
 }
@@ -270,8 +270,6 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 .cap h3,.cap h4{margin:0;font-family:var(--body);font-size:15px;font-weight:600;letter-spacing:-.01em}
 .cap p{margin:4px 0 0;font-size:13.5px;color:var(--paper-dim);line-height:1.5}
 /* under-the-hood mono note */
-.hood{margin:10px 2px 0;font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--paper-faint);padding-left:11px;border-left:2px solid var(--line)}
-.hood b{color:var(--accent-text);font-weight:600}
 
 /* ── 10. BROWSER MINI-SCREEN (.screen + chrome/body) ──────────────────── */
 .screen{

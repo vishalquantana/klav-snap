@@ -15,7 +15,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Klavity">
 <meta property="og:title" content="Klavity AutoSim — self-healing AI tests">
-<meta property="og:description" content="Tests that run themselves — and heal when your UI changes. Zero-LLM deterministic replay, persona-driven, never a silent false-green.">
+<meta property="og:description" content="Tests that run themselves — and heal when your UI changes. Replays with no AI, persona-driven, never a silent false-green.">
 <meta property="og:url" content="https://klavity.quantana.top/autosim">
 <meta property="og:image" content="https://klavity.quantana.top/favicon.svg">
 <!-- Twitter -->
@@ -24,7 +24,7 @@
 <meta name="twitter:description" content="Tests that run themselves — and heal when your UI changes. Never a silent false-green.">
 <meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg">
 
-<!-- Fonts (exact link from local.html) -->
+<!-- Fonts (exact link from site/index.html) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional">
@@ -40,10 +40,16 @@
 {"@context":"https://schema.org","@graph":[
 {"@type":"SoftwareApplication","name":"Klavity AutoSim","applicationCategory":"DeveloperApplication","operatingSystem":"Web","url":"https://klavity.quantana.top/autosim","description":"Self-healing AI end-to-end tests that replay with zero AI on every build, heal when the UI changes, and file a grounded bug instead of passing a silent false-green.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},
 {"@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"How does AutoSim self-heal a broken test?","acceptedAnswer":{"@type":"Answer","text":"When a selector breaks, AutoSim re-finds the element by meaning using a heal ladder — locator cache, then role plus accessible name, then vision — and keeps going, flagging the change as an amber heal-diff (e.g. #checkout → #pay-now-btn) instead of failing."}},
+{"@type":"Question","name":"How does AutoSim self-heal a broken test?","acceptedAnswer":{"@type":"Answer","text":"When something on the page moves, AutoSim re-finds it by what it means — first from memory, then by its on-screen label, then by looking at the page — and keeps going, flagging the change (e.g. the checkout button moved) instead of failing."}},
 {"@type":"Question","name":"Will self-healing hide a real bug?","acceptedAnswer":{"@type":"Answer","text":"No. Healing is intent-verified and diagnosis-first. If the goal genuinely cannot complete, AutoSim files a grounded finding rather than quietly passing green — so it never produces a silent false-green."}},
-{"@type":"Question","name":"How much does it cost to run on every build?","acceptedAnswer":{"@type":"Answer","text":"Unchanged UI replays deterministically with zero LLM calls, making it cheap and fast enough to gate every release. AI is only used to author, heal, or diagnose."}},
-{"@type":"Question","name":"Is Klavity AutoSim open and exportable?","acceptedAnswer":{"@type":"Answer","text":"Yes. AutoSim is open-core and crystallizes each flow into a real, ownable Playwright test plus a locator cache — so there is no lock-in."}}
+{"@type":"Question","name":"How much does it cost to run on every build?","acceptedAnswer":{"@type":"Answer","text":"Unchanged screens replay with no AI and the same result every time, making it cheap and fast enough to run on every release. AI is only used to set up, adapt, or diagnose."}},
+{"@type":"Question","name":"Is Klavity AutoSim open and exportable?","acceptedAnswer":{"@type":"Answer","text":"Yes. AutoSim is open-core and turns each flow into a real, standard test you own — keep it, export it, run it anywhere, with no lock-in."}}
+]},
+{"@type":"BreadcrumbList","itemListElement":[
+{"@type":"ListItem","position":1,"name":"Home","item":"https://klavity.quantana.top/"},
+{"@type":"ListItem","position":2,"name":"Snap","item":"https://klavity.quantana.top/snap"},
+{"@type":"ListItem","position":3,"name":"Sims","item":"https://klavity.quantana.top/sims"},
+{"@type":"ListItem","position":4,"name":"AutoSim","item":"https://klavity.quantana.top/autosim"}
 ]}
 ]}
 </script>
@@ -54,15 +60,17 @@
 
 <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
 <nav class="nav" aria-label="Primary"><div class="wrap nav-in">
-  <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
+  <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span> Klavity</a>
   <div class="nav-links">
+    <a href="/#how">How it works</a>
     <a class="s-snap" href="/snap">Snap</a>
     <a class="s-sims" href="/sims">Sims</a>
     <a class="s-autosim" href="/autosim" aria-current="page">AutoSim</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
   </div>
   <div class="nav-cta">
-    <a class="btn btn-ghost" href="/snap">Explore Snap</a>
-    <a class="btn btn-primary" href="https://klavity.quantana.top/trails">Open Trails</a>
+    <a class="btn btn-ghost" href="/login">Log in</a>
+    <a class="btn btn-primary" href="/onboarding">Get started</a>
   </div>
 </div></nav>
 
@@ -84,7 +92,7 @@
       <a class="btn btn-ghost" href="/sims">See where the Sims come from</a>
     </div>
     <div class="reveal" style="--d:.24s;margin:26px 0 0;display:flex;gap:8px;flex-wrap:wrap">
-      <span class="chip ok">⚡ zero-LLM deterministic replay</span>
+      <span class="chip ok">⚡ replays with no AI</span>
       <span class="chip amber">🩹 self-heals by meaning</span>
       <span class="chip">🚫 never a silent false-green</span>
     </div>
@@ -97,55 +105,52 @@
     <div class="sec-head reveal">
       <p class="tag">The AutoSim critical path</p>
       <h2 id="flow-h">Author once, then it <em>runs forever</em>.</h2>
-      <p>Describe a flow in plain English, and Klavity crystallizes it into a real Playwright test. From then on it replays with zero AI on every build, heals when your UI shifts, and files a grounded bug only when the goal genuinely can't complete.</p>
+      <p>Describe a flow in plain English, and Klavity turns it into a real, reusable test. From then on it replays with no AI on every build, adapts when your UI shifts, and files a grounded bug only when the goal genuinely can't complete.</p>
     </div>
 
     <div class="path">
       <!-- 1 · author -->
       <div class="step reveal" style="--d:0s">
         <div class="n"><b>1</b><span>Author a run</span></div>
-        <div class="screen" role="img" aria-label="Authoring a trail: a plain-English instruction is crystallized into a real Playwright test plus locator cache.">
+        <div class="screen" role="img" aria-label="Authoring a trail: a plain-English instruction becomes a real, reusable test.">
           <div class="chrome"><i></i><i></i><i></i><span class="url">klavity · new trail</span></div>
           <div class="body">
             <div class="chip rose" style="border-color:var(--line);color:var(--paper-dim)">🗣 "log in, add the $20 plan, check out"</div>
-            <div class="mono" style="font-size:8.5px;color:var(--paper-faint);margin-top:11px;line-height:1.6">await page.goto(base)<br>await byRole('button','Sign in')…<br>await byRole('button','Checkout')…</div>
-            <div class="chip ok" style="margin-top:9px">⤓ crystallized to a real test</div>
+            <div class="mono" style="font-size:8.5px;color:var(--paper-faint);margin-top:11px;line-height:1.6">1 · sign in<br>2 · add the $20 plan<br>3 · check out</div>
+            <div class="chip ok" style="margin-top:9px">⤓ saved as a real test</div>
           </div>
         </div>
-        <div class="cap"><h3>Describe it once, in English</h3><p>Say the flow (or record it). A Sim drives the browser and Klavity freezes it into an ownable test.</p></div>
-        <div class="hood"><b>crystallize</b> → Playwright + locator cache</div>
+        <div class="cap"><h3>Describe it once, in English</h3><p>Say the flow (or record it). A Sim drives the browser and Klavity saves it as a test you own.</p></div>
       </div>
 
       <!-- 2 · replays free -->
       <div class="step reveal" style="--d:.08s">
         <div class="n"><b>2</b><span>Replays free</span></div>
-        <div class="screen" role="img" aria-label="Replay on an unchanged build: every step passes green with zero LLM calls, fully deterministic.">
+        <div class="screen" role="img" aria-label="Replay on an unchanged build: every step passes green, with no AI and the same result every time.">
           <div class="chrome"><i></i><i></i><i></i><span class="url">walk · checkout</span></div>
           <div class="body" style="padding-top:9px">
             <div class="walkrow"><span class="ix">1</span><span class="nm">sign in</span><span class="pill g">green</span></div>
             <div class="walkrow"><span class="ix">2</span><span class="nm">add plan</span><span class="pill g">green</span></div>
             <div class="walkrow"><span class="ix">3</span><span class="nm">checkout</span><span class="pill g">green</span></div>
             <div class="walkrow"><span class="ix">4</span><span class="nm">confirmation</span><span class="pill g">green</span></div>
-            <div class="chip ok" style="margin-top:8px">⚡ 0 LLM calls · deterministic</div>
+            <div class="chip ok" style="margin-top:8px">⚡ no AI · same result every time</div>
           </div>
         </div>
         <div class="cap"><h3>Runs on every release — for free</h3><p>Unchanged UI replays with zero AI: fast, cheap, and repeatable enough to gate every build.</p></div>
-        <div class="hood">cache hit → <b>zero-LLM</b> replay</div>
       </div>
 
       <!-- 3 · heals -->
       <div class="step reveal" style="--d:.16s">
         <div class="n"><b>3</b><span>UI changed → heals</span></div>
-        <div class="screen" role="img" aria-label="The checkout selector moved from #checkout to #pay-now-btn; AutoSim re-finds it by role and accessible name and marks the step amber, healed, with zero LLM calls.">
+        <div class="screen" role="img" aria-label="The checkout button moved; AutoSim re-finds it by its on-screen label and marks the step amber, healed, with no AI.">
           <div class="chrome"><i></i><i></i><i></i><span class="url">walk · checkout</span></div>
           <div class="body" style="display:flex;flex-direction:column;justify-content:center">
             <div class="row" style="justify-content:space-between"><span class="mono" style="font-size:9.5px">checkout step</span><span class="pill a">amber · healed</span></div>
-            <div class="diff"><span class="from">#checkout</span><span class="to">→ #pay-now-btn</span></div>
-            <div class="chip amber" style="margin-top:9px">🩹 re-found by role + name · 0 LLM</div>
+            <div class="diff"><span class="from">"Checkout"</span><span class="to">→ moved, re-found</span></div>
+            <div class="chip amber" style="margin-top:9px">🩹 re-found by its label · no AI</div>
           </div>
         </div>
-        <div class="cap"><h3>Your button moved? It adapts</h3><p>When a selector breaks, the Sim re-finds the element by what it <em>means</em> and keeps going — flagging the change, not failing.</p></div>
-        <div class="hood">heal ladder · cache → <b>role+name</b> → vision</div>
+        <div class="cap"><h3>Your button moved? It adapts</h3><p>When your button moves, the Sim re-finds it by what it <em>means</em> and keeps going — flagging the change, not failing.</p></div>
       </div>
 
       <!-- 4 · real break → bug -->
@@ -154,28 +159,26 @@
         <div class="screen" role="img" aria-label="Checkout is genuinely gone, so the goal can't complete; AutoSim marks it red, a regression, and files a grounded finding instead of passing green.">
           <div class="chrome"><i></i><i></i><i></i><span class="url">walk · checkout</span></div>
           <div class="body" style="display:flex;flex-direction:column;justify-content:center">
-            <div class="row" style="justify-content:space-between"><span class="mono" style="font-size:9.5px">checkout step</span><span class="pill r">red · regression</span></div>
+            <div class="row" style="justify-content:space-between"><span class="mono" style="font-size:9.5px">checkout step</span><span class="pill r">red · broken</span></div>
             <div class="chip red" style="margin-top:9px">🚫 checkout is gone — goal can't complete</div>
             <div class="chip" style="margin-top:7px;color:var(--red-text);border-color:rgba(214,70,58,.3)">→ grounded finding filed</div>
           </div>
         </div>
         <div class="cap"><h3>But it never hides a real bug</h3><p>If the goal genuinely can't complete, it files a grounded finding instead of quietly passing green.</p></div>
-        <div class="hood">diagnose-first · never a <b>silent false-green</b></div>
       </div>
 
       <!-- 5 · watch it all -->
       <div class="step reveal" style="--d:.32s">
         <div class="n"><b>5</b><span>Watch it all</span></div>
-        <div class="screen dash" role="img" aria-label="The Trails dashboard: each trail shows its verdict, a healed before-and-after selector diff, and a scrubbable replay you can run on demand.">
+        <div class="screen dash" role="img" aria-label="The Trails dashboard: each trail shows its verdict, what moved and healed, and a scrubbable replay you can run on demand.">
           <div class="chrome"><i></i><i></i><i></i><span class="url">klavity.app/trails</span></div>
           <div class="body">
             <div class="hd"><span>TRAILS</span><span>precision 100%</span></div>
-            <div class="tr"><span class="nm">Checkout</span><span class="sel">#checkout→#pay-now-btn</span><span class="pill a">amber</span><span class="chip" style="font-size:8px;padding:2px 6px">▶</span></div>
+            <div class="tr"><span class="nm">Checkout</span><span class="sel">button moved · healed</span><span class="pill a">amber</span><span class="chip" style="font-size:8px;padding:2px 6px">▶</span></div>
             <div class="tr"><span class="nm">Onboarding</span><span class="pill g">green</span><span class="chip" style="font-size:8px;padding:2px 6px">▶</span></div>
           </div>
         </div>
         <div class="cap"><h3>Verdicts, diffs &amp; replays</h3><p>One dashboard: what passed, what healed (with the before→after), what broke — each with a scrubbable replay.</p></div>
-        <div class="hood">on-demand run · <b>rrweb replay</b> · review queue</div>
       </div>
     </div>
   </div>
@@ -193,14 +196,14 @@
     <div class="auto-stagger" style="display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
       <article class="card reveal">
         <span class="chip amber" style="margin-bottom:12px">heal, don't hide</span>
-        <h3 style="font-size:21px;margin:0 0 8px">Intent-verified healing</h3>
-        <p style="color:var(--paper-dim);font-size:15px;margin:0">When a selector breaks, the heal ladder re-finds the element by meaning — cache → role + accessible name → vision. It's <em>diagnosis-first</em>: it heals only when the goal still completes, so a real regression is filed, never papered over.</p>
+        <h3 style="font-size:21px;margin:0 0 8px">Healing that checks the goal first</h3>
+        <p style="color:var(--paper-dim);font-size:15px;margin:0">When something moves, Klavity re-finds it by what it means — first from memory, then by its on-screen label, then by looking at the page. It's <em>diagnosis-first</em>: it adapts only when the goal still completes, so a real break is filed, never papered over.</p>
       </article>
 
       <article class="card reveal">
         <span class="chip ok" style="margin-bottom:12px">free on every build</span>
-        <h3 style="font-size:21px;margin:0 0 8px">Zero-LLM deterministic replay</h3>
-        <p style="color:var(--paper-dim);font-size:15px;margin:0">Unchanged UI replays from the locator cache with no model calls at all — repeatable and cheap enough to gate every release. AI is spent only to author, heal, or diagnose, not on the happy path.</p>
+        <h3 style="font-size:21px;margin:0 0 8px">Replays with no AI, every time</h3>
+        <p style="color:var(--paper-dim);font-size:15px;margin:0">Unchanged screens replay from memory with no AI at all — repeatable and cheap enough to run on every release. AI is spent only to set up, adapt, or diagnose — never on a passing run.</p>
       </article>
 
       <article class="card reveal">
@@ -211,8 +214,8 @@
 
       <article class="card reveal">
         <span class="chip" style="margin-bottom:12px;color:var(--green-text);border-color:rgba(15,157,107,.4)">no lock-in</span>
-        <h3 style="font-size:21px;margin:0 0 8px">Open-core &amp; Playwright-exportable</h3>
-        <p style="color:var(--paper-dim);font-size:15px;margin:0">Every flow crystallizes into a real, ownable Playwright test plus its locator cache. AutoSim is open-core — keep the tests, export them, run them anywhere. The engine earns its keep; it doesn't trap you.</p>
+        <h3 style="font-size:21px;margin:0 0 8px">Open, and yours to keep</h3>
+        <p style="color:var(--paper-dim);font-size:15px;margin:0">Every flow becomes a real, standard test you own — keep it, export it, run it anywhere. AutoSim is open-core: the engine earns its keep instead of trapping you.</p>
       </article>
     </div>
   </div>
@@ -261,7 +264,7 @@
     <div class="auto-stagger" style="display:grid;gap:14px;max-width:780px">
       <details class="card reveal">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">How does AutoSim self-heal a broken test?</summary>
-        <p style="color:var(--paper-dim);font-size:15px;margin:10px 0 0">When a selector breaks, AutoSim re-finds the element by meaning using a heal ladder — locator cache, then role + accessible name, then vision — and keeps going, flagging the change as an amber heal-diff (e.g. <span class="mono">#checkout → #pay-now-btn</span>) instead of failing.</p>
+        <p style="color:var(--paper-dim);font-size:15px;margin:10px 0 0">When something on the page moves, AutoSim re-finds it by what it means — first from memory, then by its on-screen label, then by looking at the page — and keeps going, flagging the change (e.g. the checkout button moved) instead of failing.</p>
       </details>
       <details class="card reveal">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Will self-healing hide a real bug?</summary>
@@ -269,11 +272,11 @@
       </details>
       <details class="card reveal">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">How much does it cost to run on every build?</summary>
-        <p style="color:var(--paper-dim);font-size:15px;margin:10px 0 0">Unchanged UI replays deterministically with zero LLM calls, making it cheap and fast enough to gate every release. AI is only spent to author, heal, or diagnose.</p>
+        <p style="color:var(--paper-dim);font-size:15px;margin:10px 0 0">Unchanged screens replay with no AI and the same result every time, making it cheap and fast enough to run on every release. AI is only spent to set up, adapt, or diagnose.</p>
       </details>
       <details class="card reveal">
         <summary style="font-family:var(--display);font-weight:540;font-size:18px;cursor:pointer">Is Klavity AutoSim open and exportable?</summary>
-        <p style="color:var(--paper-dim);font-size:15px;margin:10px 0 0">Yes. AutoSim is open-core and crystallizes each flow into a real, ownable Playwright test plus a locator cache — so there's no lock-in.</p>
+        <p style="color:var(--paper-dim);font-size:15px;margin:10px 0 0">Yes. AutoSim is open-core and turns each flow into a real, standard test you own — keep it, export it, run it anywhere, with no lock-in.</p>
       </details>
     </div>
   </div>
@@ -297,15 +300,29 @@
 </main>
 
 <!-- ── FOOTER ──────────────────────────────────────────────────────────── -->
-<footer class="footer"><div class="wrap foot-in">
-  <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
-  <a href="/snap">Snap</a>
-  <a href="/sims">Sims</a>
-  <a href="/autosim" aria-current="page">AutoSim</a>
-  <a href="/privacy">Privacy</a>
-  <a href="/terms">Terms</a>
-  <span class="sp">© <span data-year>2026</span> Klavity · the user becomes the tester</span>
-</div></footer>
+<footer class="footer">
+  <div class="wrap">
+    <!-- the Klavity arc strip -->
+    <nav class="foot-in" aria-label="The Klavity arc" style="justify-content:center;gap:10px;margin-bottom:28px;font-family:var(--mono);font-size:13px;flex-wrap:wrap">
+      <a href="/snap" style="color:var(--indigo-text);font-weight:600">Snap</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/sims" style="color:var(--rose-text);font-weight:600">Sims</a>
+      <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
+      <a href="/autosim" style="color:var(--green-text);font-weight:600">AutoSim</a>
+    </nav>
+  </div>
+  <div class="wrap foot-in">
+    <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span> Klavity</a>
+    <a href="/">Home</a>
+    <a href="/snap">Snap</a>
+    <a href="/sims">Sims</a>
+    <a href="/autosim" aria-current="page">AutoSim</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <span class="sp">© <span data-year>2026</span> Klavity · the user becomes the tester</span>
+  </div>
+</footer>
 
 </body>
 </html>

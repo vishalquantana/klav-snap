@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klavity · Popup Theme & Animation Lab</title>
+<style>
+  /* ---------- page / wallpaper ---------- */
+  :root{
+    --dock-bg: rgba(20,17,13,.72);
+    --dock-fg: #f5f3ee;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    color:#fff;
+    overflow:hidden;
+    background:#0b0b12;
+  }
+  /* ---------- background layers (dashboard / gradient / plain) ---------- */
+  #bg{ position:fixed; inset:0; z-index:0; overflow:hidden; background:#0a0d12; }
+  #bg .layer{ position:absolute; inset:0; opacity:0; transition:opacity .45s ease; }
+  body.bg-dash #bg .dash{ opacity:1; }
+  body.bg-grad #bg .grad{ opacity:1; }
+  /* Vivid mesh gradient (alternate backdrop) */
+  #bg .grad{
+    background:
+      radial-gradient(40rem 40rem at 12% 18%, #ff6b6b 0%, transparent 55%),
+      radial-gradient(38rem 38rem at 85% 22%, #4d6bff 0%, transparent 55%),
+      radial-gradient(46rem 46rem at 70% 88%, #16d6a4 0%, transparent 55%),
+      radial-gradient(40rem 40rem at 22% 82%, #b14dff 0%, transparent 55%),
+      linear-gradient(135deg,#1c1430,#0b0b12);
+    filter:saturate(1.05);
+  }
+
+  /* ====================================================================
+     DASHBOARD MOCKUP  (dark analytics app behind the glass)
+     ==================================================================== */
+  .dash{ display:flex; color:#e7ecf3; font-size:13px; background:#0b0e14; }
+  .dash *{ box-sizing:border-box; }
+  .d-side{ width:212px; flex-shrink:0; background:#10141d; border-right:1px solid #1c2230; padding:18px 14px; display:flex; flex-direction:column; gap:6px; }
+  .d-logo{ font-size:16px; font-weight:700; letter-spacing:.02em; margin:4px 6px 18px; color:#fff; }
+  .d-logo b{ color:#8b8bf5; }
+  .d-side nav{ display:flex; flex-direction:column; gap:3px; }
+  .d-side nav a{ padding:9px 11px; border-radius:9px; color:#9aa6b8; font-weight:500; }
+  .d-side nav a.on{ background:#1b2333; color:#fff; box-shadow:inset 0 0 0 1px #2a3650; }
+  .d-up{ margin-top:auto; padding:13px; border-radius:12px; font-weight:600; text-align:center;
+    background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; }
+  .d-main{ flex:1; padding:20px 26px; overflow:hidden; }
+  .d-top{ display:flex; align-items:center; gap:14px; margin-bottom:22px; }
+  .d-search{ flex:1; max-width:340px; background:#141a25; border:1px solid #232c3d; color:#6b7689; padding:9px 13px; border-radius:10px; }
+  .d-actions{ margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .d-pill{ background:#141a25; border:1px solid #232c3d; color:#aab4c6; padding:8px 13px; border-radius:10px; }
+  .d-ava{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; color:#fff; background:linear-gradient(135deg,#f59e0b,#ef4444); }
+  .d-h1{ font-size:24px; font-weight:700; color:#fff; }
+  .d-sub{ color:#7d8799; margin:3px 0 20px; }
+  .d-kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+  .d-kpi{ background:#111722; border:1px solid #1d2533; border-radius:14px; padding:15px 16px; }
+  .d-kpi .lbl{ color:#7d8799; font-size:11.5px; }
+  .d-kpi .val{ font-size:23px; font-weight:700; color:#fff; margin:6px 0 2px; }
+  .d-kpi .dl{ font-size:11.5px; font-weight:600; }
+  .d-kpi .up{ color:#34d399; } .d-kpi .dn{ color:#f87171; }
+  .d-kpi svg{ display:block; margin-top:8px; width:100%; height:30px; }
+  .d-grid{ display:grid; grid-template-columns:1.7fr 1fr; gap:14px; margin-bottom:14px; }
+  .d-card{ background:#111722; border:1px solid #1d2533; border-radius:16px; padding:16px 18px; }
+  .d-card-h{ display:flex; align-items:center; gap:10px; font-weight:600; color:#dde4ee; margin-bottom:12px; }
+  .d-card-h span{ font-size:12px; font-weight:600; color:#34d399; }
+  .d-card-h .mut{ margin-left:auto; color:#6b7689; font-size:11.5px; font-weight:500; }
+  .d-chart svg{ width:100%; height:182px; display:block; }
+  .d-legend{ display:flex; flex-direction:column; gap:11px; margin-top:6px; }
+  .d-legend div{ display:flex; align-items:center; gap:9px; font-size:12.5px; color:#aab4c6; }
+  .d-legend .sw{ width:11px; height:11px; border-radius:3px; }
+  .d-legend b{ margin-left:auto; color:#fff; }
+  .d-donut{ display:flex; gap:18px; align-items:center; }
+  .d-table table{ width:100%; border-collapse:collapse; }
+  .d-table td,.d-table th{ text-align:left; padding:10px 8px; border-bottom:1px solid #1a2230; font-size:12.5px; }
+  .d-table th{ color:#6b7689; font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .d-table td{ color:#c4cdda; }
+  .d-row-ava{ width:26px; height:26px; border-radius:50%; display:inline-grid; place-items:center; font-size:10px; font-weight:700; color:#fff; margin-right:9px; vertical-align:middle; }
+  .d-tag{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; }
+  .d-tag.ok{ background:rgba(52,211,153,.14); color:#34d399; }
+  .d-tag.pend{ background:rgba(245,158,11,.16); color:#f59e0b; }
+  .d-tag.fail{ background:rgba(248,113,113,.16); color:#f87171; }
+  #hint{
+    position:fixed; top:24px; left:0; right:0; z-index:1;
+    text-align:center; font-size:13px; letter-spacing:.02em;
+    color:rgba(255,255,255,.7); pointer-events:none;
+  }
+  #hint b{ color:#fff; }
+
+  /* ====================================================================
+     THE POPUP  (faithful static replica of modal.ts, theme-driven by vars)
+     ==================================================================== */
+  .kl-overlay{
+    position:fixed; inset:0; z-index:50;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--ov, rgba(0,0,0,.5));
+    /* NOTE: no backdrop-filter here on purpose — a backdrop-filter on the overlay would
+       consume the backdrop and leave the modal's Liquid Glass displacement nothing to warp
+       (nested backdrop-filters don't compose in Chrome). The modal owns the only one. */
+  }
+  .kl-modal{
+    position:relative;
+    width:100%; max-width:460px; margin:20px;
+    background:var(--bg);
+    color:var(--fg);
+    border:1px solid var(--border);
+    border-radius:var(--radius,16px);
+    box-shadow:var(--shadow);
+    padding:22px;
+    font-family:var(--font, inherit);
+    -webkit-backdrop-filter:var(--mb,none);
+    backdrop-filter:var(--mb,none);
+    will-change:transform,opacity,filter;
+    cursor:grab;
+  }
+  .kl-modal:active{ cursor:grabbing; }
+  /* drag wrapper carries the move offset so it never collides with entry/exit animations */
+  .kl-drag{ will-change:transform; touch-action:none; }
+  /* refraction layer: a clone of the page background, displaced with a REAL filter
+     (backdrop-filter can't run feImage in this Chrome, so we refract a copy instead). */
+  .kl-refract{ position:absolute; inset:0; border-radius:inherit; overflow:hidden; z-index:0; pointer-events:none; }
+  .kl-refract > *{ filter:none; }
+  /* Glass-only specular layers (Apple Liquid Glass: edge highlight + sheen) */
+  .kl-modal.glass::before{
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background:linear-gradient(135deg, rgba(255,255,255,.45), rgba(255,255,255,0) 40%);
+    -webkit-mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    padding:1px; opacity:.7;
+  }
+  .kl-modal.glass::after{
+    content:""; position:absolute; left:8%; right:8%; top:0; height:40%;
+    border-radius:inherit; pointer-events:none;
+    background:radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,.30), rgba(255,255,255,0) 70%);
+  }
+  /* Liquid Glass: SVG displacement warp on the backdrop + brighter refractive rim. */
+  .kl-modal.liquid{
+    --bg:rgba(255,255,255,.06);                 /* clearer than frosted Glass so refraction reads */
+    --mb:blur(1px) saturate(150%) brightness(1.04);  /* fallback; JS swaps in the displacement filter */
+    border-color:rgba(255,255,255,.42);
+    box-shadow:0 30px 90px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 26px rgba(255,255,255,.08);
+  }
+  .kl-modal.liquid::before{ opacity:1; background:linear-gradient(135deg, rgba(255,255,255,.6), rgba(255,255,255,0) 38%, rgba(255,255,255,0) 62%, rgba(255,255,255,.35)); }
+
+  .kl-toggle{ display:flex; gap:8px; margin-bottom:16px; position:relative; z-index:1; }
+  .kl-toggle button{
+    flex:1; padding:9px; border-radius:10px; border:1px solid transparent;
+    cursor:pointer; font-size:14px; font-weight:600; font-family:inherit;
+    background:var(--chip); color:var(--fg); transition:.18s;
+  }
+  .kl-toggle .bug.active{ background:var(--accent); color:var(--on-accent,#fff); }
+  .kl-toggle .feat.active{ background:var(--accent2); color:var(--on-accent,#fff); }
+  .kl-page{ font-size:12px; color:var(--muted); margin-bottom:12px; position:relative; z-index:1; }
+  .kl-strip{ display:flex; gap:8px; margin-bottom:12px; min-height:64px; position:relative; z-index:1; }
+  .kl-thumb{ position:relative; flex-shrink:0; }
+  .kl-thumb .ph{
+    height:60px; width:90px; border-radius:8px; border:1px solid var(--border);
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); opacity:.85;
+    display:flex; align-items:center; justify-content:center; font-size:18px;
+  }
+  .kl-thumb .rm{
+    position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%;
+    border:none; cursor:pointer; font-size:11px; background:var(--accent); color:var(--on-accent,#fff);
+  }
+  .kl-actions{ display:flex; gap:8px; margin-bottom:12px; position:relative; z-index:1; }
+  .kl-actions button{
+    flex:1; padding:9px; border-radius:10px; border:1px solid var(--border);
+    background:var(--chip); color:var(--fg); cursor:pointer; font-size:12.5px; font-family:inherit;
+  }
+  .kl-counter{ font-size:11px; color:var(--muted); margin-bottom:10px; position:relative; z-index:1; }
+  .kl-desc{
+    width:100%; min-height:96px; resize:vertical; border-radius:10px; padding:11px;
+    font-size:14px; margin-bottom:16px; font-family:inherit; position:relative; z-index:1;
+    background:var(--input-bg); color:var(--fg); border:1px solid var(--border);
+  }
+  .kl-desc::placeholder{ color:var(--muted); }
+  .kl-submit{
+    width:100%; padding:12px; border:none; border-radius:12px; cursor:pointer;
+    font-size:15px; font-weight:700; font-family:inherit;
+    background:var(--accent); color:var(--on-accent,#fff);
+    box-shadow:var(--submit-glow,none); position:relative; z-index:1;
+  }
+  .kl-close{
+    position:absolute; top:12px; right:14px; z-index:2;
+    width:26px; height:26px; border-radius:50%; cursor:pointer;
+    border:1px solid var(--border); background:var(--chip); color:var(--fg); font-size:14px;
+  }
+  .kl-pro{
+    display:inline-block; margin-left:8px; font-size:10px; font-weight:700; letter-spacing:.04em;
+    padding:2px 7px; border-radius:999px; vertical-align:middle;
+    background:linear-gradient(135deg,#f0b429,#e8590c); color:#1a1206;
+  }
+
+  /* ====================================================================
+     THEMES  (each just sets CSS variables on .kl-modal)
+     ==================================================================== */
+  /* Glass (Apple Liquid Glass) */
+  .t-glass{
+    --bg:rgba(255,255,255,.14); --fg:#fff; --muted:rgba(255,255,255,.7);
+    --border:rgba(255,255,255,.28); --chip:rgba(255,255,255,.16);
+    --input-bg:rgba(255,255,255,.10); --accent:rgba(255,255,255,.92); --on-accent:#15121d;
+    --accent2:rgba(255,255,255,.55); --radius:22px;
+    --shadow:0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25);
+    --mb:blur(22px) saturate(180%); --ov:rgba(10,10,18,.25); --ov-blur:2px;
+  }
+  /* Current Dark (Catppuccin baseline from modal.ts) */
+  .t-dark{
+    --bg:#1e1e2e; --fg:#cdd6f4; --muted:#a6adc8; --border:#45475a; --chip:#313244;
+    --input-bg:#181825; --accent:#89b4fa; --on-accent:#1e1e2e; --accent2:#fab387;
+    --radius:12px; --shadow:0 20px 60px rgba(0,0,0,.5); --ov:rgba(0,0,0,.5);
+  }
+  /* Light / Minimal (Linear/Notion) */
+  .t-light{
+    --bg:#ffffff; --fg:#1d1d24; --muted:#8a8a96; --border:#e6e6ec; --chip:#f4f4f7;
+    --input-bg:#fafafb; --accent:#5b5bf0; --on-accent:#fff; --accent2:#f59e0b;
+    --radius:16px; --shadow:0 24px 60px rgba(20,20,40,.18); --ov:rgba(20,20,40,.28);
+  }
+  /* Neon / Vibrant */
+  .t-neon{
+    --bg:#0e0b1e; --fg:#f4f0ff; --muted:#a99fd6; --border:#3a2d6b; --chip:#1c1640;
+    --input-bg:#140f2c; --accent:#ff2d95; --on-accent:#fff; --accent2:#15e0ff;
+    --radius:14px; --ov:rgba(8,4,20,.55);
+    --shadow:0 0 0 1px rgba(255,45,149,.4), 0 24px 70px rgba(255,45,149,.25), 0 0 60px rgba(21,224,255,.18);
+    --submit-glow:0 0 22px rgba(255,45,149,.65);
+  }
+  /* Custom (Pro) starts from light, then overridden live by pickers */
+  .t-custom{
+    --bg:#ffffff; --fg:#1d1d24; --muted:#8a8a96; --border:#e6e6ec; --chip:#f4f4f7;
+    --input-bg:#fafafb; --accent:#5b5bf0; --on-accent:#fff; --accent2:#f59e0b;
+    --radius:16px; --shadow:0 24px 60px rgba(20,20,40,.18); --ov:rgba(20,20,40,.28);
+  }
+
+  /* ====================================================================
+     ANIMATIONS  (entry + exit pairs; applied inline via animation-name)
+     ==================================================================== */
+  /* 1 · macOS scale + fade */
+  @keyframes in-scale{ from{opacity:0; transform:scale(.92)} to{opacity:1; transform:scale(1)} }
+  @keyframes out-scale{ from{opacity:1; transform:scale(1)} to{opacity:0; transform:scale(.92)} }
+  /* 2 · slide from bottom (iOS sheet) */
+  @keyframes in-slide{ from{opacity:0; transform:translateY(48px)} to{opacity:1; transform:translateY(0)} }
+  @keyframes out-slide{ from{opacity:1; transform:translateY(0)} to{opacity:0; transform:translateY(48px)} }
+  /* 3 · spring bounce (overshoot) */
+  @keyframes in-spring{
+    0%{opacity:0; transform:scale(.8)}
+    55%{opacity:1; transform:scale(1.04)}
+    72%{transform:scale(.985)}
+    100%{opacity:1; transform:scale(1)}
+  }
+  @keyframes out-spring{
+    0%{opacity:1; transform:scale(1)}
+    25%{transform:scale(1.03)}
+    100%{opacity:0; transform:scale(.78)}
+  }
+  /* 4 · blur dissolve */
+  @keyframes in-blur{ from{opacity:0; filter:blur(18px); transform:scale(1.03)} to{opacity:1; filter:blur(0); transform:scale(1)} }
+  @keyframes out-blur{ from{opacity:1; filter:blur(0); transform:scale(1)} to{opacity:0; filter:blur(18px); transform:scale(1.03)} }
+  /* 5 · genie — expand from bottom (macOS dock). origin: bottom center */
+  @keyframes in-genie{
+    from{opacity:0; transform:translateY(180px) scaleX(.04) scaleY(.06)}
+    to{opacity:1; transform:translateY(0) scaleX(1) scaleY(1)}
+  }
+  @keyframes out-genie{
+    from{opacity:1; transform:translateY(0) scaleX(1) scaleY(1)}
+    to{opacity:0; transform:translateY(180px) scaleX(.04) scaleY(.06)}
+  }
+  /* 6 · 3D flip up (perspective rotateX). origin: bottom center */
+  @keyframes in-flip{
+    0%{opacity:0; transform:perspective(1300px) rotateX(-72deg)}
+    100%{opacity:1; transform:perspective(1300px) rotateX(0)}
+  }
+  @keyframes out-flip{
+    0%{opacity:1; transform:perspective(1300px) rotateX(0)}
+    100%{opacity:0; transform:perspective(1300px) rotateX(72deg)}
+  }
+  /* 7 · iris reveal — clip-path circle from the dock (bottom center) */
+  @keyframes in-iris{
+    0%{opacity:.5; clip-path:circle(0% at 50% 130%)}
+    100%{opacity:1; clip-path:circle(160% at 50% 130%)}
+  }
+  @keyframes out-iris{
+    0%{opacity:1; clip-path:circle(160% at 50% 130%)}
+    100%{opacity:.4; clip-path:circle(0% at 50% 130%)}
+  }
+  /* 8 · elastic rubber (squash & stretch) */
+  @keyframes in-elastic{
+    0%{opacity:0; transform:translateY(80px) scale(.55)}
+    45%{opacity:1; transform:translateY(-8px) scaleX(1.08) scaleY(.94)}
+    65%{transform:translateY(0) scaleX(.96) scaleY(1.05)}
+    80%{transform:scaleX(1.02) scaleY(.99)}
+    100%{opacity:1; transform:translateY(0) scale(1)}
+  }
+  @keyframes out-elastic{
+    0%{opacity:1; transform:scale(1)}
+    30%{transform:scaleX(1.06) scaleY(.92)}
+    100%{opacity:0; transform:translateY(70px) scale(.55)}
+  }
+  /* 9 · cinematic zoom (rush in from large + defocus) */
+  @keyframes in-zoom{ from{opacity:0; filter:blur(10px); transform:scale(1.45)} to{opacity:1; filter:blur(0); transform:scale(1)} }
+  @keyframes out-zoom{ from{opacity:1; filter:blur(0); transform:scale(1)} to{opacity:0; filter:blur(10px); transform:scale(1.45)} }
+  /* 10 · unfold (accordion scaleY). origin: top center */
+  @keyframes in-unfold{
+    0%{opacity:0; transform:scaleY(.02)}
+    60%{opacity:1}
+    100%{opacity:1; transform:scaleY(1)}
+  }
+  @keyframes out-unfold{
+    0%{opacity:1; transform:scaleY(1)}
+    100%{opacity:0; transform:scaleY(.02)}
+  }
+  /* overlay backdrop */
+  @keyframes ov-in{ from{opacity:0} to{opacity:1} }
+  @keyframes ov-out{ from{opacity:1} to{opacity:0} }
+
+  @media (prefers-reduced-motion: reduce){
+    .kl-modal, .kl-overlay{ animation-duration:.01ms !important; }
+  }
+
+  /* ====================================================================
+     DOCK  (controls, fixed bottom-center)
+     ==================================================================== */
+  #dock{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    z-index:60; display:flex; flex-direction:column; align-items:center; gap:12px;
+    padding:14px 16px; border-radius:22px;
+    background:var(--dock-bg); color:var(--dock-fg);
+    backdrop-filter:blur(18px) saturate(160%); -webkit-backdrop-filter:blur(18px) saturate(160%);
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+    font-size:13px; max-width:min(94vw,720px);
+  }
+  #dock .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .pill{
+    border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#fff;
+    padding:8px 14px; border-radius:999px; cursor:pointer; font-weight:600; font-size:12.5px;
+    transition:.16s; white-space:nowrap;
+  }
+  .pill:hover{ background:rgba(255,255,255,.14); }
+  .pill.active{ background:#fff; color:#15121d; border-color:#fff; }
+  .ctrl{ display:flex; align-items:center; gap:6px; color:rgba(255,255,255,.85); }
+  .ctrl label{ font-size:11.5px; letter-spacing:.02em; opacity:.8; }
+  .ctrl select{
+    appearance:none; background:rgba(255,255,255,.08); color:#fff; cursor:pointer;
+    border:1px solid rgba(255,255,255,.2); border-radius:10px; padding:6px 26px 6px 10px;
+    font-size:12.5px; font-family:inherit;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='white'><path d='M0 2l5 6 5-6z'/></svg>");
+    background-repeat:no-repeat; background-position:right 9px center;
+  }
+  .ctrl select option{ color:#000; }
+  .div{ width:1px; align-self:stretch; background:rgba(255,255,255,.16); margin:0 2px; }
+  .toolbtn{
+    border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); color:#fff;
+    padding:6px 11px; border-radius:10px; cursor:pointer; font-size:12px;
+  }
+
+  /* custom panel */
+  #custom{ display:none; }
+  #dock.show-custom #custom{ display:flex; }
+  #custom .field{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+  #custom .field span{ font-size:10.5px; opacity:.75; letter-spacing:.02em; }
+  #custom input[type=color]{
+    width:34px; height:28px; padding:0; border:1px solid rgba(255,255,255,.25);
+    border-radius:8px; background:none; cursor:pointer;
+  }
+  /* liquid finetuning panel */
+  #liquid{ display:none; }
+  #dock.show-liquid #liquid{ display:flex; }
+  #liquid .field span i{ font-style:normal; color:#fff; opacity:.95; margin-left:3px; }
+  #liquid input[type=range]{
+    width:104px; accent-color:#9bd2ff; cursor:pointer;
+  }
+</style>
+</head>
+<body class="bg-dash">
+  <!-- In-document SVG <filter> (built in JS) referenced by backdrop-filter: url(#kl-displace).
+       Chrome supports fragment-referenced filters in backdrop-filter, but NOT data-URI ones. -->
+  <div id="kl-glass-defs" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"></div>
+
+  <div id="bg">
+    <!-- gradient mesh backdrop -->
+    <div class="layer grad"></div>
+
+    <!-- detailed software-dashboard backdrop -->
+    <div class="layer dash">
+      <aside class="d-side">
+        <div class="d-logo">◈ <b>Quantana</b></div>
+        <nav>
+          <a class="on">▦ Overview</a>
+          <a>📈 Analytics</a>
+          <a>🧾 Reports</a>
+          <a>👥 Customers</a>
+          <a>💳 Billing</a>
+          <a>⚙️ Settings</a>
+        </nav>
+        <div class="d-up">↑ Upgrade to Pro</div>
+      </aside>
+      <main class="d-main">
+        <div class="d-top">
+          <div class="d-search">🔍 Search anything…</div>
+          <div class="d-actions"><span class="d-pill">Last 30 days ▾</span><span class="d-pill">＋ New</span><span class="d-ava">VK</span></div>
+        </div>
+        <div class="d-h1">Overview</div>
+        <div class="d-sub">Welcome back — here's how your product is performing today.</div>
+
+        <div class="d-kpis">
+          <div class="d-kpi"><div class="lbl">Revenue</div><div class="val">$48,250</div><div class="dl up">▲ 12.4% vs last mo</div>
+            <svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="0,24 14,20 28,22 42,13 56,16 70,8 84,10 100,3" fill="none" stroke="#34d399" stroke-width="2.5"/></svg></div>
+          <div class="d-kpi"><div class="lbl">Active users</div><div class="val">3,914</div><div class="dl up">▲ 4.1%</div>
+            <svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="0,18 14,16 28,19 42,12 56,15 70,11 84,13 100,7" fill="none" stroke="#6366f1" stroke-width="2.5"/></svg></div>
+          <div class="d-kpi"><div class="lbl">Sessions</div><div class="val">18,302</div><div class="dl up">▲ 8.7%</div>
+            <svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="0,20 14,14 28,17 42,15 56,9 70,12 84,6 100,8" fill="none" stroke="#f59e0b" stroke-width="2.5"/></svg></div>
+          <div class="d-kpi"><div class="lbl">Churn</div><div class="val">1.8%</div><div class="dl dn">▼ 0.3%</div>
+            <svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline points="0,8 14,11 28,9 42,13 56,12 70,17 84,15 100,21" fill="none" stroke="#f87171" stroke-width="2.5"/></svg></div>
+        </div>
+
+        <div class="d-grid">
+          <section class="d-card d-chart">
+            <div class="d-card-h">Revenue &amp; signups <span>+12.4%</span><span class="mut">monthly</span></div>
+            <svg viewBox="0 0 600 182" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity=".5"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></linearGradient>
+              </defs>
+              <line x1="0" y1="46" x2="600" y2="46" stroke="#1c2433"/><line x1="0" y1="92" x2="600" y2="92" stroke="#1c2433"/><line x1="0" y1="138" x2="600" y2="138" stroke="#1c2433"/>
+              <path d="M0,150 C60,150 70,110 130,108 C190,106 200,70 270,82 C330,92 350,55 420,52 C480,49 500,30 600,24 L600,182 L0,182 Z" fill="url(#ag)"/>
+              <path d="M0,150 C60,150 70,110 130,108 C190,106 200,70 270,82 C330,92 350,55 420,52 C480,49 500,30 600,24" fill="none" stroke="#8b8bf5" stroke-width="3"/>
+              <path d="M0,168 C70,168 90,150 150,150 C220,150 240,130 310,128 C380,126 400,118 470,110 C520,104 540,98 600,92" fill="none" stroke="#34d399" stroke-width="2.5" stroke-dasharray="2 5" opacity=".8"/>
+            </svg>
+          </section>
+          <section class="d-card d-donut">
+            <svg viewBox="0 0 120 120" width="120" height="120">
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#1c2433" stroke-width="16"/>
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#6366f1" stroke-width="16" stroke-dasharray="130 159" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#34d399" stroke-width="16" stroke-dasharray="87 202" stroke-dashoffset="-130" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#f59e0b" stroke-width="16" stroke-dasharray="43 246" stroke-dashoffset="-217" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="d-legend">
+              <div><span class="sw" style="background:#6366f1"></span> Direct <b>45%</b></div>
+              <div><span class="sw" style="background:#34d399"></span> Referral <b>30%</b></div>
+              <div><span class="sw" style="background:#f59e0b"></span> Social <b>15%</b></div>
+              <div><span class="sw" style="background:#1c2433;outline:1px solid #2a3650"></span> Other <b>10%</b></div>
+            </div>
+          </section>
+        </div>
+
+        <section class="d-card d-table">
+          <div class="d-card-h">Recent activity <span class="mut">updated just now</span></div>
+          <table>
+            <thead><tr><th>Customer</th><th>Plan</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td><span class="d-row-ava" style="background:#6366f1">AC</span> Acme Corp</td><td>Enterprise</td><td>$1,200</td><td><span class="d-tag ok">Paid</span></td></tr>
+              <tr><td><span class="d-row-ava" style="background:#34d399">NM</span> Nimbus Ltd</td><td>Growth</td><td>$320</td><td><span class="d-tag pend">Pending</span></td></tr>
+              <tr><td><span class="d-row-ava" style="background:#f59e0b">QX</span> Quanta X</td><td>Pro</td><td>$89</td><td><span class="d-tag ok">Paid</span></td></tr>
+              <tr><td><span class="d-row-ava" style="background:#ef4444">VR</span> Vertex Robotics</td><td>Growth</td><td>$320</td><td><span class="d-tag fail">Failed</span></td></tr>
+              <tr><td><span class="d-row-ava" style="background:#06b6d4">LB</span> Lighthouse</td><td>Pro</td><td>$89</td><td><span class="d-tag ok">Paid</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="hint">Pick a <b>theme</b> below to preview the report popup · choose <b>entry</b> &amp; <b>exit</b> animations · close with ✕, Esc, or click outside</div>
+
+  <!-- ---------------- DOCK ---------------- -->
+  <div id="dock">
+    <div class="row" id="themes">
+      <button class="pill" data-theme="liquid">💧 Liquid</button>
+      <button class="pill" data-theme="glass">🫧 Glass</button>
+      <button class="pill" data-theme="dark">🌙 Dark</button>
+      <button class="pill" data-theme="light">☀️ Light</button>
+      <button class="pill" data-theme="neon">⚡ Neon</button>
+      <button class="pill" data-theme="custom">🎨 Custom <span style="font-size:9px;opacity:.7">PRO</span></button>
+    </div>
+
+    <div class="row">
+      <div class="ctrl">
+        <label>Entry</label>
+        <select id="entry">
+          <option value="genie">🧞 Genie — expand from bottom</option>
+          <option value="scale">macOS Scale + Fade</option>
+          <option value="slide">Slide from bottom</option>
+          <option value="spring">Spring bounce</option>
+          <option value="blur">Blur dissolve</option>
+          <option value="flip">3D Flip up</option>
+          <option value="iris">Iris reveal (from dock)</option>
+          <option value="elastic">Elastic rubber</option>
+          <option value="zoom">Cinematic zoom</option>
+          <option value="unfold">Unfold</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>Exit</label>
+        <select id="exit">
+          <option value="genie">🧞 Genie — collapse to bottom</option>
+          <option value="scale">macOS Scale + Fade</option>
+          <option value="slide">Slide from bottom</option>
+          <option value="spring">Spring bounce</option>
+          <option value="blur">Blur dissolve</option>
+          <option value="flip">3D Flip down</option>
+          <option value="iris">Iris collapse (to dock)</option>
+          <option value="elastic">Elastic rubber</option>
+          <option value="zoom">Cinematic zoom</option>
+          <option value="unfold">Unfold</option>
+        </select>
+      </div>
+      <div class="div"></div>
+      <button class="toolbtn" id="replay">↻ Replay</button>
+      <button class="toolbtn" id="bgtoggle">BG: Dashboard</button>
+    </div>
+
+    <div class="row" id="custom">
+      <div class="field"><span>Primary</span><input type="color" id="c-primary" value="#5b5bf0"></div>
+      <div class="field"><span>Secondary</span><input type="color" id="c-secondary" value="#f59e0b"></div>
+      <div class="field"><span>Background</span><input type="color" id="c-bg" value="#ffffff"></div>
+      <div class="ctrl"><label>Font</label>
+        <select id="c-font">
+          <option value="-apple-system,BlinkMacSystemFont,system-ui,sans-serif">System (SF)</option>
+          <option value="Georgia,'Times New Roman',serif">Serif</option>
+          <option value="'Courier New',ui-monospace,monospace">Mono</option>
+          <option value="'Trebuchet MS',Verdana,sans-serif">Geometric</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row" id="liquid">
+      <div class="field"><span>Refraction <i id="lv-strength">90</i></span><input type="range" id="lq-strength" min="0" max="220" value="90"></div>
+      <div class="field"><span>Chromatic <i id="lv-chroma">6</i></span><input type="range" id="lq-chroma" min="0" max="30" value="6"></div>
+      <div class="field"><span>Edge depth <i id="lv-depth">18</i></span><input type="range" id="lq-depth" min="2" max="60" value="18"></div>
+      <div class="field"><span>Blur <i id="lv-blur">0</i></span><input type="range" id="lq-blur" min="0" max="20" value="0"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const ANIM = {
+    genie:   { in:'in-genie',   out:'out-genie',   inD:'.6s',  outD:'.52s', inE:'cubic-bezier(.16,1,.3,1)',     outE:'cubic-bezier(.55,0,.85,.25)', origin:'bottom center' },
+    scale:   { in:'in-scale',   out:'out-scale',   inD:'.42s', outD:'.28s', inE:'cubic-bezier(.32,.72,0,1)',    outE:'cubic-bezier(.4,0,1,1)' },
+    slide:   { in:'in-slide',   out:'out-slide',   inD:'.46s', outD:'.30s', inE:'cubic-bezier(.32,.72,0,1)',    outE:'cubic-bezier(.4,0,1,1)' },
+    spring:  { in:'in-spring',  out:'out-spring',  inD:'.62s', outD:'.34s', inE:'cubic-bezier(.34,1.56,.64,1)', outE:'cubic-bezier(.5,0,.75,0)' },
+    blur:    { in:'in-blur',    out:'out-blur',    inD:'.50s', outD:'.34s', inE:'cubic-bezier(.32,.72,0,1)',    outE:'ease-in' },
+    flip:    { in:'in-flip',    out:'out-flip',    inD:'.58s', outD:'.42s', inE:'cubic-bezier(.2,.8,.2,1)',     outE:'cubic-bezier(.6,0,.8,.2)', origin:'bottom center' },
+    iris:    { in:'in-iris',    out:'out-iris',    inD:'.56s', outD:'.40s', inE:'cubic-bezier(.4,0,.2,1)',      outE:'cubic-bezier(.4,0,1,1)' },
+    elastic: { in:'in-elastic', out:'out-elastic', inD:'.78s', outD:'.42s', inE:'cubic-bezier(.16,1,.3,1)',     outE:'cubic-bezier(.5,0,.75,0)', origin:'bottom center' },
+    zoom:    { in:'in-zoom',    out:'out-zoom',    inD:'.52s', outD:'.36s', inE:'cubic-bezier(.16,1,.3,1)',     outE:'ease-in' },
+    unfold:  { in:'in-unfold',  out:'out-unfold',  inD:'.48s', outD:'.34s', inE:'cubic-bezier(.32,.72,0,1)',    outE:'cubic-bezier(.5,0,.75,0)', origin:'top center' },
+  };
+  const originFor = k => (ANIM[k] && ANIM[k].origin) || 'center';
+
+  let activeTheme = null;
+  let overlay = null;
+  // Live-tunable Liquid Glass params (driven by the dock sliders).
+  const LP = { strength: 90, chroma: 6, depth: 18, blur: 0 };
+  let liquidModal = null;
+
+  const dock = document.getElementById('dock');
+  const $entry = document.getElementById('entry');
+  const $exit  = document.getElementById('exit');
+
+  function modalHTML(theme){
+    const proBadge = theme === 'custom' ? '<span class="kl-pro">🔒 PRO</span>' : '';
+    return `
+      <button class="kl-close" title="Close">✕</button>
+      <div class="kl-toggle">
+        <button class="bug active">🐛 Bug</button>
+        <button class="feat">💡 Feature</button>
+      </div>
+      <div class="kl-page">📍 /checkout/payment ${proBadge}</div>
+      <div class="kl-strip">
+        <div class="kl-thumb"><div class="ph">🖼</div><button class="rm">×</button></div>
+        <div class="kl-thumb"><div class="ph">🖼</div><button class="rm">×</button></div>
+      </div>
+      <div class="kl-actions">
+        <button>📷 Full Page</button>
+        <button>🖼 Upload</button>
+      </div>
+      <div class="kl-counter">2/5 images</div>
+      <textarea class="kl-desc" placeholder="Describe the bug…">The “Pay now” button does nothing on the first click.</textarea>
+      <button class="kl-submit">Submit report</button>
+    `;
+  }
+
+  function openPopup(theme){
+    if (overlay) { closePopup(true); }
+    activeTheme = theme;
+    if (theme !== 'liquid') liquidModal = null;
+
+    const isGlass = (theme === 'glass' || theme === 'liquid');
+    overlay = document.createElement('div');
+    overlay.className = 'kl-overlay t-' + (theme === 'liquid' ? 'glass' : theme);
+    const wrap = document.createElement('div');
+    wrap.className = 'kl-drag';
+    const modal = document.createElement('div');
+    modal.className = 'kl-modal' + (isGlass ? ' glass' : '');
+    modal.innerHTML = modalHTML(theme);
+    if (theme === 'liquid') modal.insertAdjacentHTML('afterbegin', '<div class="kl-refract"></div>');
+    wrap.appendChild(modal);
+    overlay.appendChild(wrap);
+    document.body.appendChild(overlay);
+
+    if (theme === 'custom') applyCustom(overlay);
+
+    playEntry(overlay, modal);
+
+    // Liquid Glass warp is GPU-heavy — apply it only once the entry animation
+    // settles, so the genie stays buttery. (Removed again before exit, see closePopup.)
+    if (theme === 'liquid') {
+      modal.addEventListener('animationend', () => { modal.classList.add('liquid'); applyLiquidFilter(modal); }, { once: true });
+    }
+
+    enableDrag(wrap, modal);
+
+    // inert demo wiring: toggle bug/feature + close handlers
+    const bug = modal.querySelector('.bug'), feat = modal.querySelector('.feat');
+    bug.onclick  = () => { bug.classList.add('active'); feat.classList.remove('active'); };
+    feat.onclick = () => { feat.classList.add('active'); bug.classList.remove('active'); };
+    modal.querySelector('.kl-close').onclick = () => closePopup();
+    overlay.addEventListener('click', e => { if (e.target === overlay) closePopup(); });
+  }
+
+  // Drag the popup around (great for watching the glass refract over different
+  // dashboard regions). Offset lives on the wrapper, so entry/exit animations on
+  // the modal are unaffected. Ignores drags that start on inputs/buttons.
+  function enableDrag(wrap, modal){
+    let dx = 0, dy = 0, sx = 0, sy = 0, dragging = false;
+    wrap.addEventListener('pointerdown', e => {
+      if (e.target.closest('button, textarea, input, select, .kl-thumb')) return;
+      dragging = true; sx = e.clientX; sy = e.clientY;
+      try { wrap.setPointerCapture(e.pointerId); } catch {}
+      e.preventDefault();
+    });
+    wrap.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      wrap.style.transform = `translate(${dx + e.clientX - sx}px, ${dy + e.clientY - sy}px)`;
+      if (modal.classList.contains('liquid')) positionRefract(modal);
+    });
+    const end = e => { if (!dragging) return; dragging = false; dx += e.clientX - sx; dy += e.clientY - sy; };
+    wrap.addEventListener('pointerup', end);
+    wrap.addEventListener('pointercancel', end);
+  }
+
+  function playEntry(ov, modal){
+    const a = ANIM[$entry.value];
+    modal.style.transformOrigin = originFor($entry.value);
+    ov.style.animation = `ov-in .3s ease forwards`;
+    modal.style.animation = `${a.in} ${a.inD} ${a.inE} forwards`;
+  }
+
+  function closePopup(instant){
+    if (!overlay) return;
+    const ov = overlay; overlay = null;
+    if (instant){ ov.remove(); return; }
+    const modal = ov.querySelector('.kl-modal');
+    modal.classList.remove('liquid'); // drop the heavy warp so the exit stays smooth
+    const a = ANIM[$exit.value];
+    modal.style.transformOrigin = originFor($exit.value);
+    ov.style.animation = `ov-out .3s ease forwards`;
+    modal.style.animation = `${a.out} ${a.outD} ${a.outE} forwards`;
+    modal.addEventListener('animationend', () => ov.remove(), { once:true });
+    setTimeout(() => { if (ov.parentNode) ov.remove(); }, 700); // safety
+  }
+
+  // ---- custom (pro) live theming ----
+  function applyCustom(ov){
+    const modal = ov.querySelector('.kl-modal');
+    const set = () => {
+      modal.style.setProperty('--accent',  document.getElementById('c-primary').value);
+      modal.style.setProperty('--accent2', document.getElementById('c-secondary').value);
+      modal.style.setProperty('--bg',      document.getElementById('c-bg').value);
+      modal.style.setProperty('--font',    document.getElementById('c-font').value);
+      // derive readable text + chips from chosen bg
+      const dark = isDark(document.getElementById('c-bg').value);
+      modal.style.setProperty('--fg', dark ? '#f4f4f7' : '#1d1d24');
+      modal.style.setProperty('--muted', dark ? 'rgba(255,255,255,.6)' : '#8a8a96');
+      modal.style.setProperty('--border', dark ? 'rgba(255,255,255,.16)' : '#e6e6ec');
+      modal.style.setProperty('--chip', dark ? 'rgba(255,255,255,.08)' : '#f4f4f7');
+      modal.style.setProperty('--input-bg', dark ? 'rgba(255,255,255,.05)' : '#fafafb');
+    };
+    set();
+    ['c-primary','c-secondary','c-bg','c-font'].forEach(id =>
+      document.getElementById(id).oninput = set);
+  }
+  function isDark(hex){
+    const n = parseInt(hex.slice(1),16);
+    const r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+    return (0.299*r + 0.587*g + 0.114*b) < 140;
+  }
+
+  // ---- dock wiring ----
+  document.querySelectorAll('#themes .pill').forEach(p => {
+    p.onclick = () => {
+      document.querySelectorAll('#themes .pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      const t = p.dataset.theme;
+      dock.classList.toggle('show-custom', t === 'custom');
+      dock.classList.toggle('show-liquid', t === 'liquid');
+      openPopup(t);
+    };
+  });
+  document.getElementById('replay').onclick = () => { if (activeTheme) openPopup(activeTheme); };
+  $entry.onchange = () => { if (activeTheme) openPopup(activeTheme); };
+
+  // ---- background switcher (dashboard / gradient / plain) ----
+  const BG = ['dash', 'grad', 'plain'];
+  const BGLABEL = { dash: 'Dashboard', grad: 'Gradient', plain: 'Plain' };
+  let bgi = 0;
+  const bgBtn = document.getElementById('bgtoggle');
+  function applyBg(){
+    document.body.classList.remove('bg-dash', 'bg-grad', 'bg-plain');
+    document.body.classList.add('bg-' + BG[bgi]);
+    bgBtn.textContent = 'BG: ' + BGLABEL[BG[bgi]];
+  }
+  bgBtn.onclick = () => { bgi = (bgi + 1) % BG.length; applyBg(); };
+  applyBg();
+
+  // ---- Liquid Glass displacement map + filter (ported verbatim from
+  //      nikdelvin/liquid-glass — src/utils/liquidGlass.ts). Full-field R/G gradients
+  //      blended with screen, then a blurred rounded-rect neutral patch over the center
+  //      so refraction is confined to a soft band around the rounded corners. ----
+  function lgMap({ height, width, radius, depth }){
+    return "data:image/svg+xml;utf8," + encodeURIComponent(
+      `<svg height="${height}" width="${width}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">` +
+      `<style>.mix{mix-blend-mode:screen;}</style><defs>` +
+      `<linearGradient id="Y" x1="0" x2="0" y1="${Math.ceil((radius/height)*15)}%" y2="${Math.floor(100-(radius/height)*15)}%">` +
+      `<stop offset="0%" stop-color="#0F0"/><stop offset="100%" stop-color="#000"/></linearGradient>` +
+      `<linearGradient id="X" x1="${Math.ceil((radius/width)*15)}%" x2="${Math.floor(100-(radius/width)*15)}%" y1="0" y2="0">` +
+      `<stop offset="0%" stop-color="#F00"/><stop offset="100%" stop-color="#000"/></linearGradient>` +
+      `</defs>` +
+      `<rect x="0" y="0" height="${height}" width="${width}" fill="#808080"/>` +
+      `<g style="filter:blur(2px)">` +
+      `<rect x="0" y="0" height="${height}" width="${width}" fill="#000080"/>` +
+      `<rect x="0" y="0" height="${height}" width="${width}" fill="url(#Y)" class="mix"/>` +
+      `<rect x="0" y="0" height="${height}" width="${width}" fill="url(#X)" class="mix"/>` +
+      `<rect x="${depth}" y="${depth}" height="${height-2*depth}" width="${width-2*depth}" fill="#808080" rx="${radius}" ry="${radius}" style="filter:blur(${depth}px)"/>` +
+      `</g></svg>`);
+  }
+  // Inject the displacement filter as a real in-document <filter id="kl-displace"> and
+  // reference it via url(#kl-displace) — the only backdrop-filter form Chrome honours.
+  // 3-channel chromatic aberration (R/G/B displaced at decreasing scale), per nikdelvin.
+  function applyLiquidFilter(modal){
+    liquidModal = modal;
+    const refract = modal.querySelector('.kl-refract');
+    if (!refract) return;
+    const rect = modal.getBoundingClientRect();
+    const width = Math.max(80, Math.round(rect.width));
+    const height = Math.max(80, Math.round(rect.height));
+    const radius = parseFloat(getComputedStyle(modal).borderRadius) || 22;
+    const map = lgMap({ height, width, radius, depth: LP.depth });
+    const s = LP.strength, c = LP.chroma;
+    // Regular <filter> (not backdrop-filter) — feImage + feDisplacementMap work here.
+    // 3-channel chromatic aberration, per nikdelvin.
+    document.getElementById('kl-glass-defs').innerHTML =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute">` +
+        `<filter id="kl-displace" filterUnits="userSpaceOnUse" x="0" y="0" width="${width}" height="${height}" color-interpolation-filters="sRGB">` +
+          `<feImage x="0" y="0" width="${width}" height="${height}" href="${map}" preserveAspectRatio="none" result="dm"/>` +
+          `<feDisplacementMap in="SourceGraphic" in2="dm" scale="${s + c * 2}" xChannelSelector="R" yChannelSelector="G"/>` +
+          `<feColorMatrix type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="dR"/>` +
+          `<feDisplacementMap in="SourceGraphic" in2="dm" scale="${s + c}" xChannelSelector="R" yChannelSelector="G"/>` +
+          `<feColorMatrix type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="dG"/>` +
+          `<feDisplacementMap in="SourceGraphic" in2="dm" scale="${s}" xChannelSelector="R" yChannelSelector="G"/>` +
+          `<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="dB"/>` +
+          `<feBlend in="dR" in2="dG" mode="screen" result="rg"/>` +
+          `<feBlend in="rg" in2="dB" mode="screen"/>` +
+        `</filter>` +
+      `</svg>`;
+    // Build / refresh a clone of the page background inside the glass. The clone is a
+    // MODAL-SIZED window (so the filter region — anchored at the clone's own origin — always
+    // covers it, regardless of where the popup sits). The dashboard inside is offset to show
+    // the slice that's actually behind the popup.
+    let clone = refract.firstElementChild;
+    if (!clone) {
+      clone = document.getElementById('bg').cloneNode(true);
+      clone.removeAttribute('id');
+      refract.appendChild(clone);
+    }
+    clone.style.cssText = 'position:absolute;inset:0;overflow:hidden;';
+    const dash = clone.querySelector('.dash'), grad = clone.querySelector('.grad');
+    if (dash) dash.style.opacity = document.body.classList.contains('bg-dash') ? '1' : '0';
+    if (grad) grad.style.opacity = document.body.classList.contains('bg-grad') ? '1' : '0';
+    positionRefract(modal);
+    clone.style.filter = `url(#kl-displace) saturate(1.5) brightness(1.06) blur(${LP.blur}px)`;
+    modal.style.setProperty('--mb', 'none'); // refraction is via the clone, not backdrop-filter
+  }
+  // Offset the dashboard inside the modal-sized window so its slice lines up with the real page.
+  function positionRefract(modal){
+    const refract = modal.querySelector('.kl-refract'); if (!refract) return;
+    const clone = refract.firstElementChild; if (!clone) return;
+    const r = refract.getBoundingClientRect();
+    for (const layer of clone.children) {
+      layer.style.position = 'absolute';
+      layer.style.width = '100vw';
+      layer.style.height = '100vh';
+      layer.style.left = (-r.left) + 'px';
+      layer.style.top = (-r.top) + 'px';
+    }
+  }
+
+  // Heads-up if SVG-as-backdrop-filter isn't supported (only Chrome/Edge today) — the warp
+  // silently no-ops elsewhere, making Liquid look like plain Glass.
+  const chromey = /Chrome|Edg/.test(navigator.userAgent) && !/OPR|Firefox/.test(navigator.userAgent);
+  if (!chromey) {
+    const h = document.getElementById('hint');
+    if (h) h.innerHTML = '⚠️ For the <b>Liquid</b> warp you need <b>Chrome or Edge</b> — this browser ignores SVG backdrop-filters, so Liquid will look like Glass. · ' + h.innerHTML;
+  }
+
+  // ---- liquid finetuning sliders (live) ----
+  function bindSlider(id, key, labelId){
+    const el = document.getElementById(id), lab = document.getElementById(labelId);
+    el.oninput = () => { LP[key] = parseFloat(el.value); lab.textContent = el.value; if (liquidModal) applyLiquidFilter(liquidModal); };
+  }
+  bindSlider('lq-strength', 'strength', 'lv-strength');
+  bindSlider('lq-chroma', 'chroma', 'lv-chroma');
+  bindSlider('lq-depth', 'depth', 'lv-depth');
+  bindSlider('lq-blur', 'blur', 'lv-blur');
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopup(); });
+
+  // open Liquid Glass by default so first paint shows the hero theme over the dashboard
+  dock.classList.add('show-liquid');
+  const first = document.querySelector('#themes .pill[data-theme="liquid"]');
+  first.classList.add('active');
+  openPopup('liquid');
+})();
+</script>
+</body>
+</html>
