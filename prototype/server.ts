@@ -16,6 +16,8 @@ import { wrapUntrusted, UNTRUSTED_GUARD } from "./lib/prompt-safety"
 import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
+import { getReplay, runsWithReplay } from "./lib/trails-replay"
+import { listRunSteps } from "./lib/trails"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -780,6 +782,17 @@ Bun.serve({
     if (req.method === "GET" && path === "/privacy") return file(SITE + "/privacy.html")
     if (req.method === "GET" && path === "/terms") return file(SITE + "/terms.html")
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
+    // ── vendored rrweb-player assets (Trails Walk replay scrubber) ──
+    if (req.method === "GET" && path === "/vendor/rrweb-player.umd.min.js") {
+      return new Response(Bun.file(PUB + "/vendor/rrweb-player.umd.min.js"), {
+        headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=86400" },
+      })
+    }
+    if (req.method === "GET" && path === "/vendor/rrweb-player.css") {
+      return new Response(Bun.file(PUB + "/vendor/rrweb-player.css"), {
+        headers: { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=86400" },
+      })
+    }
 
     // ── embeddable widget bundle ──
     if (req.method === "GET" && path === "/widget.js") {
@@ -1769,7 +1782,7 @@ Bun.serve({
 
     // ── Klavity OS Trails (Layer E) — project-scoped, authed. Placed before the generic /api/ gate so
     // unauthenticated API calls return a JSON 401 (not a /login redirect), mirroring resolveProject usage.
-    if (path === "/api/trails/dashboard" || path.startsWith("/api/trails/findings/")) {
+    if (path === "/api/trails/dashboard" || path.startsWith("/api/trails/findings/") || path.startsWith("/api/trails/walks/")) {
       const meT = (await sessionEmail(req)) || (await bearerEmail(req))
       if (!meT) return json({ error: "Unauthorized" }, 401)
       const resolved = await resolveProject(meT, url.searchParams.get("project"))
@@ -1780,9 +1793,29 @@ Bun.serve({
       if (req.method === "GET" && path === "/api/trails/dashboard") {
         try {
           const data = await trailsDashboardData(projectId)
-          return json({ email: meT, project: { id: projectId, role: resolved.access }, ...data })
+          // Annotate each recent Walk with whether it has a saved rrweb replay (one project-scoped
+          // query) so the dashboard shows the "▶ Replay" affordance only where there's a recording.
+          const haveReplay = await runsWithReplay(projectId, data.recentWalks.map((w) => w.id))
+          const recentWalks = data.recentWalks.map((w) => ({ ...w, hasReplay: haveReplay.has(w.id) }))
+          return json({ email: meT, project: { id: projectId, role: resolved.access }, ...data, recentWalks })
         } catch (e) {
           return json(oops(e, "trails-dashboard"), 500)
+        }
+      }
+
+      // GET /api/trails/walks/:runId/replay — the saved rrweb session-replay segments for a Walk +
+      // its run_steps (so the player can mark verdicts / seek to the failing step). Project-scoped;
+      // 404 when the Walk has no replay (capture was off, or this runId is foreign/nonexistent).
+      const replayMatch = path.match(/^\/api\/trails\/walks\/([^/]+)\/replay$/)
+      if (req.method === "GET" && replayMatch) {
+        try {
+          const runId = replayMatch[1]
+          const segments = await getReplay(projectId, runId)
+          if (!segments) return json({ error: "No replay for this walk." }, 404)
+          const steps = await listRunSteps(projectId, runId)
+          return json({ runId, segments, steps })
+        } catch (e) {
+          return json(oops(e, "trails-replay"), 500)
         }
       }
 

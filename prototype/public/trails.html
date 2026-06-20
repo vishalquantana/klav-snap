@@ -8,6 +8,7 @@
 <title>Trails · Klavity</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/vendor/rrweb-player.css" />
 <style>
 :root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
 --display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
@@ -80,6 +81,30 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .empty p{font-size:13.5px;line-height:1.5}
 .muted{color:var(--paper-faint);font-size:13px}
 .msg{font-size:12.5px;color:var(--green);margin-top:8px;min-height:16px}
+
+/* replay button on a walk row */
+.walk .replay-btn{flex-shrink:0;font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:5px 10px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--paper-dim);cursor:pointer}
+.walk .replay-btn:hover{border-color:var(--indigo);color:var(--paper)}
+
+/* replay modal */
+.modal-bg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px}
+.modal-bg.open{display:flex}
+.modal{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;max-width:1000px;width:100%;max-height:92vh;overflow:auto;padding:20px 22px}
+.modal .mhead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.modal .mhead h3{font-family:var(--display);font-weight:500;font-size:20px}
+.modal .mclose{margin-left:auto;background:none;border:1px solid var(--line);border-radius:9px;color:var(--paper-dim);font-size:18px;line-height:1;padding:4px 10px;cursor:pointer}
+.modal .mclose:hover{color:var(--paper)}
+/* step timeline above the player */
+.steptl{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.steptl .sp{font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:4px 9px;border-radius:8px;border:1px solid var(--line);background:var(--ink-3);color:var(--paper-faint);cursor:pointer}
+.steptl .sp.green{color:var(--green)} .steptl .sp.amber{color:var(--amber);border-color:rgba(217,131,36,.4)} .steptl .sp.red{color:var(--rose);border-color:rgba(219,39,119,.4)}
+.steptl .sp.focus{outline:2px solid var(--indigo);outline-offset:1px}
+/* chapter tabs (per-page segments) */
+.chapters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chapters .ch{font-family:var(--mono);font-size:10px;padding:4px 9px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--paper-faint);cursor:pointer}
+.chapters .ch.on{color:var(--paper);border-color:var(--indigo);background:var(--ink-3)}
+#playerHost{min-height:200px;border-radius:12px;overflow:hidden}
+.modal .mnote{font-size:12.5px;color:var(--paper-faint);margin-top:10px;font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -130,10 +155,111 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
   </div>
 </div>
 
+<!-- Walk replay modal (rrweb-player) -->
+<div class="modal-bg" id="replayBg">
+  <div class="modal">
+    <div class="mhead">
+      <h3>Walk replay</h3>
+      <button class="mclose" id="replayClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="steptl" id="replaySteps"></div>
+    <div class="chapters" id="replayChapters"></div>
+    <div id="playerHost"></div>
+    <div class="mnote" id="replayNote"></div>
+  </div>
+</div>
+
+<script src="/vendor/rrweb-player.umd.min.js"></script>
 <script>
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function projParam(){try{return new URLSearchParams(location.search).get("project")}catch(e){return null}}
+
+// ── Walk replay (rrweb-player) ───────────────────────────────────────────────────
+var replayState = { segments: [], steps: [], player: null, focusStep: null }
+
+function destroyPlayer(){
+  try { if (replayState.player && replayState.player.$destroy) replayState.player.$destroy() } catch(e){}
+  replayState.player = null
+  var host = $("playerHost"); if (host) host.innerHTML = ""
+}
+
+// Play one per-page segment as a chapter. rrweb-player needs ≥2 events; pad if a segment is thin.
+function playSegment(i){
+  var seg = replayState.segments[i]; if (!seg) return
+  destroyPlayer()
+  // highlight the active chapter tab
+  var tabs = $("replayChapters").querySelectorAll(".ch")
+  tabs.forEach(function(t,idx){ t.classList.toggle("on", idx===i) })
+  var events = (seg.events||[]).slice()
+  if (events.length < 2){ $("replayNote").textContent = "Chapter "+(i+1)+": too few frames to scrub (page changed too fast)."; return }
+  try {
+    replayState.player = new rrwebPlayer({
+      target: $("playerHost"),
+      props: { events: events, width: 920, autoPlay: true, showController: true },
+    })
+    $("replayNote").textContent = "Chapter "+(i+1)+" of "+replayState.segments.length+" · "+(seg.url||"")
+  } catch(e){
+    $("replayNote").textContent = "Could not start the player for this chapter."
+  }
+}
+
+// Which segment (chapter) covers a given step idx: the last segment whose boundary idx <= step idx.
+function chapterForStep(stepIdx){
+  var best = 0
+  for (var i=0;i<replayState.segments.length;i++){ if (replayState.segments[i].idx <= stepIdx) best = i }
+  return best
+}
+
+function renderReplaySteps(){
+  var el = $("replaySteps"); el.innerHTML = ""
+  replayState.steps.forEach(function(s){
+    var v = String(s.verdict||"skip")
+    var sp = document.createElement("button")
+    sp.className = "sp "+v + (replayState.focusStep!=null && s.idx===replayState.focusStep ? " focus" : "")
+    sp.textContent = "#"+s.idx+" "+v
+    sp.onclick = function(){ playSegment(chapterForStep(s.idx)) }
+    el.appendChild(sp)
+  })
+}
+
+function renderChapters(){
+  var el = $("replayChapters"); el.innerHTML = ""
+  replayState.segments.forEach(function(seg,i){
+    var ch = document.createElement("button")
+    ch.className = "ch"
+    var name = String(seg.url||"").split("/").pop() || ("page "+(i+1))
+    ch.textContent = (i+1)+". "+name
+    ch.onclick = function(){ playSegment(i) }
+    el.appendChild(ch)
+  })
+}
+
+async function openReplay(runId){
+  var pid = projParam()
+  var qs = pid ? "?project=" + encodeURIComponent(pid) : ""
+  $("replayNote").textContent = "Loading replay…"
+  $("replaySteps").innerHTML = ""; $("replayChapters").innerHTML = ""
+  destroyPlayer()
+  $("replayBg").classList.add("open")
+  var r
+  try { r = await fetch("/api/trails/walks/" + encodeURIComponent(runId) + "/replay" + qs) }
+  catch(e){ $("replayNote").textContent = "Network error loading replay."; return }
+  if (r.status === 404){ $("replayNote").textContent = "No replay was recorded for this Walk."; return }
+  if (!r.ok){ $("replayNote").textContent = "Couldn't load the replay."; return }
+  var d = await r.json()
+  replayState.segments = d.segments || []
+  replayState.steps = d.steps || []
+  // Auto-highlight the FIRST amber/red step — "where it went wrong" focus — and open its chapter.
+  var firstBad = replayState.steps.find(function(s){ var v=String(s.verdict); return v==="amber"||v==="red" })
+  replayState.focusStep = firstBad ? firstBad.idx : null
+  renderReplaySteps()
+  renderChapters()
+  playSegment(replayState.focusStep!=null ? chapterForStep(replayState.focusStep) : 0)
+}
+
+$("replayClose").onclick = function(){ $("replayBg").classList.remove("open"); destroyPlayer() }
+$("replayBg").onclick = function(e){ if (e.target === $("replayBg")){ $("replayBg").classList.remove("open"); destroyPlayer() } }
 
 async function load(){
   const pid = projParam()
@@ -167,9 +293,13 @@ async function load(){
     const row = document.createElement("div")
     row.className = "walk"
     row.innerHTML = '<div class="body"><div class="t">'+esc(w.trailId)+'</div><div class="d">'+esc(w.id)+' · '+esc(when)+' · '+esc(w.llmCalls||0)+' LLM</div></div>'
+      + (w.hasReplay ? '<button class="replay-btn" data-replay="'+esc(w.id)+'">&#9654; Replay</button>' : '')
       + '<span class="pill '+esc(v)+'">'+esc(v)+'</span>'
     wEl.appendChild(row)
   }
+  wEl.querySelectorAll("button[data-replay]").forEach(function(btn){
+    btn.onclick = function(){ openReplay(btn.getAttribute("data-replay")) }
+  })
 
   // review queue
   const queue = d.queue || []

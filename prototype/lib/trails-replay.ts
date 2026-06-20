@@ -44,6 +44,22 @@ export async function getReplay(projectId: string, runId: string): Promise<Repla
   return JSON.parse(Buffer.from(Bun.gunzipSync(gz)).toString()) as ReplaySegment[]
 }
 
+/**
+ * Which of the given runIds have a saved replay — project-scoped, one query. Lets the dashboard show
+ * a "▶ Replay" affordance only on Walks that actually have a recording (no per-row 404 probing).
+ */
+export async function runsWithReplay(projectId: string, runIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (!runIds.length) return out
+  const placeholders = runIds.map(() => "?").join(",")
+  const r = await db!.execute({
+    sql: `SELECT DISTINCT run_id FROM walk_replays WHERE project_id=? AND run_id IN (${placeholders})`,
+    args: [projectId, ...runIds],
+  })
+  for (const row of r.rows) out.add(String((row as any).run_id))
+  return out
+}
+
 // ── capture ───────────────────────────────────────────────────────────────────────
 // The rrweb recorder bundle, resolved from node_modules and inlined into an init script so it
 // runs in EVERY document (including the file:// fixtures, no network). Loaded lazily + cached.

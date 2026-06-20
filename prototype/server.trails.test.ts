@@ -27,6 +27,9 @@ await rawExec(`CREATE TABLE IF NOT EXISTS project_members (id TEXT PRIMARY KEY, 
 await rawExec(`CREATE TABLE IF NOT EXISTS trails (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, intent TEXT NOT NULL DEFAULT '', base_url TEXT NOT NULL, baseline_ref TEXT, author_kind TEXT NOT NULL DEFAULT 'human', status TEXT NOT NULL DEFAULT 'draft', created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS trail_runs (id TEXT PRIMARY KEY, trail_id TEXT NOT NULL, project_id TEXT NOT NULL, trigger TEXT NOT NULL DEFAULT 'manual', status TEXT NOT NULL DEFAULT 'running', llm_calls INTEGER NOT NULL DEFAULT 0, summary_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER)`)
 await rawExec(`CREATE TABLE IF NOT EXISTS findings (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, run_id TEXT NOT NULL, step_id TEXT, trail_id TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, evidence_json TEXT, ground_quote TEXT, confidence REAL NOT NULL DEFAULT 0, dedup_key TEXT NOT NULL, recurrence INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'queued', connector_ref TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`)
+// run_steps (player timeline) + walk_replays (gzipped rrweb segments) — mirrors applySchema DDL.
+await rawExec(`CREATE TABLE IF NOT EXISTS run_steps (id TEXT PRIMARY KEY, run_id TEXT NOT NULL, trail_id TEXT NOT NULL, step_id TEXT NOT NULL, project_id TEXT NOT NULL, idx INTEGER NOT NULL, tier TEXT NOT NULL DEFAULT 'none', verdict TEXT NOT NULL DEFAULT 'skip', confidence REAL NOT NULL DEFAULT 0, diagnosis TEXT, healed INTEGER NOT NULL DEFAULT 0, evidence_json TEXT, created_at INTEGER NOT NULL)`)
+await rawExec(`CREATE TABLE IF NOT EXISTS walk_replays (id TEXT PRIMARY KEY, run_id TEXT NOT NULL, project_id TEXT NOT NULL, segments_gz TEXT NOT NULL, n_segments INTEGER, n_events INTEGER, created_at INTEGER NOT NULL)`)
 // connectors table, seeded but left EMPTY on purpose: the file→400 'no connector' assertion below must
 // prove the realFiler no-auto-copy-connector branch (returns null), not a swallowed error on a missing table.
 await rawExec(`CREATE TABLE IF NOT EXISTS connectors (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, type TEXT NOT NULL, name TEXT NOT NULL, config TEXT NOT NULL DEFAULT '{}', auto_copy INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, created_by TEXT)`)
@@ -59,6 +62,20 @@ await rawExec(`INSERT INTO trails (id, project_id, name, intent, base_url, autho
 await rawExec(`INSERT INTO trail_runs (id, trail_id, project_id, trigger, status, llm_calls, started_at, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [WALK_ID, TRAIL_ID, PROJECT_ID, "manual", "amber", 2, NOW, NOW + 1000])
 await rawExec(`INSERT INTO findings (id, project_id, run_id, step_id, trail_id, kind, title, evidence_json, ground_quote, confidence, dedup_key, recurrence, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [QUEUED_FINDING_ID, PROJECT_ID, WALK_ID, null, TRAIL_ID, "amber_heal", "Healed Checkout but unconfirmed", JSON.stringify({ rationale: "label moved", fromSelector: "#checkout", toSelector: ".pay" }), "label moved", 0.7, "k_amber", 1, "queued", NOW, NOW])
 await rawExec(`INSERT INTO findings (id, project_id, run_id, step_id, trail_id, kind, title, evidence_json, ground_quote, confidence, dedup_key, recurrence, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [REG_FINDING_ID, PROJECT_ID, WALK_ID, null, TRAIL_ID, "regression", "Checkout gone", JSON.stringify({ rationale: "element absent" }), "element absent", 0.95, "k_reg", 1, "queued", NOW, NOW])
+
+// A saved rrweb replay for WALK_ID: two per-page segments + matching run_steps (one AMBER heal). The
+// gzip encoding must match getReplay (base64(gzip(JSON.stringify(segments)))).
+const REPLAY_SEGMENTS = [
+  { idx: 0, url: "file:///cart.html", events: [{ type: 2, t: 1 }, { type: 3, t: 2 }] },
+  { idx: 6, url: "file:///confirm.html", events: [{ type: 2, t: 3 }, { type: 3, t: 4 }] },
+]
+const REPLAY_GZ = Buffer.from(Bun.gzipSync(Buffer.from(JSON.stringify(REPLAY_SEGMENTS)))).toString("base64")
+await rawExec(`INSERT INTO walk_replays (id, run_id, project_id, segments_gz, n_segments, n_events, created_at) VALUES (?,?,?,?,?,?,?)`,
+  [`rep_${ts}`, WALK_ID, PROJECT_ID, REPLAY_GZ, 2, 4, NOW])
+await rawExec(`INSERT INTO run_steps (id, run_id, trail_id, step_id, project_id, idx, tier, verdict, confidence, healed, evidence_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+  [`rs0_${ts}`, WALK_ID, TRAIL_ID, `st0_${ts}`, PROJECT_ID, 5, "candidate", "amber", 0.95, 1, JSON.stringify({ healed: true }), NOW])
+await rawExec(`INSERT INTO run_steps (id, run_id, trail_id, step_id, project_id, idx, tier, verdict, confidence, healed, evidence_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+  [`rs1_${ts}`, WALK_ID, TRAIL_ID, `st1_${ts}`, PROJECT_ID, 6, "cache", "green", 1, 0, JSON.stringify({}), NOW])
 
 // ── Second project B (for IDOR / cross-project tests). MEMBER_EMAIL is NOT a member of project B. ──
 const ACCOUNT_B_ID = `acctB_${ts}`
@@ -186,6 +203,46 @@ test("POST .../dismiss on a non-existent finding id returns 404 (not a misleadin
   const r = await api("POST", `/api/trails/findings/find_nope_${ts}/dismiss?project=${PROJECT_ID}`, {}, MEMBER_SID)
   expect(r.status).toBe(404)
   expect((await r.json()).ok).toBe(false)
+})
+
+test("GET /api/trails/walks/:runId/replay returns segments + steps when authed (project-scoped)", async () => {
+  const r = await api("GET", `/api/trails/walks/${WALK_ID}/replay?project=${PROJECT_ID}`, null, MEMBER_SID)
+  expect(r.status).toBe(200)
+  const b = await r.json()
+  expect(b.runId).toBe(WALK_ID)
+  expect(Array.isArray(b.segments)).toBe(true)
+  expect(b.segments.length).toBe(2)
+  expect(b.segments[0].events.length).toBe(2)
+  expect(b.segments[1].url).toContain("confirm.html")
+  // steps included so the player can mark verdicts / seek to the failing step.
+  expect(Array.isArray(b.steps)).toBe(true)
+  expect(b.steps.some((s: any) => s.verdict === "amber")).toBe(true)
+})
+
+test("GET /api/trails/walks/:runId/replay is 401 without a session", async () => {
+  const r = await fetch(`${BASE}/api/trails/walks/${WALK_ID}/replay?project=${PROJECT_ID}`)
+  expect(r.status).toBe(401)
+})
+
+test("GET /api/trails/walks/:runId/replay is 404 when the walk has no replay", async () => {
+  const r = await api("GET", `/api/trails/walks/walk_noreplay_${ts}/replay?project=${PROJECT_ID}`, null, MEMBER_SID)
+  expect(r.status).toBe(404)
+})
+
+test("GET /api/trails/dashboard flags walks that have a replay (hasReplay)", async () => {
+  const r = await api("GET", `/api/trails/dashboard?project=${PROJECT_ID}`, null, MEMBER_SID)
+  expect(r.status).toBe(200)
+  const b = await r.json()
+  const w = b.recentWalks.find((x: any) => x.id === WALK_ID)
+  expect(w).toBeDefined()
+  expect(w.hasReplay).toBe(true)
+})
+
+test("the trails page references the rrweb-player replay assets", async () => {
+  const r = await fetch(`${BASE}/trails`, { headers: { Cookie: `klav_session=${MEMBER_SID}` } })
+  const html = await r.text()
+  expect(html).toContain("rrweb-player")
+  expect(html).toContain("/api/trails/walks/")
 })
 
 test("GET /trails serves the dashboard page when authed", async () => {
