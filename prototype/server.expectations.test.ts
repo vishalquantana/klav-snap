@@ -208,6 +208,21 @@ test("POST /api/expectations/:id/enforce/confirm with invalid draft returns 400"
   expect(r.status).toBe(400)
 })
 
+test("POST /api/expectations/:id/enforce/confirm a second time returns 409", async () => {
+  // The EXP_VALIDATED_ID was already confirmed in an earlier test, so it is now status='enforced'.
+  // Try to confirm it again with a valid draft — should reject with 409.
+  const draft = {
+    trailId: TRAIL_ID,
+    afterStepIdx: 0,
+    action: "assert",
+    target: { role: "button", name: "Retry" },
+    checkpoint: { kind: "visible", description: "Retry button is visible" },
+  }
+  const r = await api("POST", `/api/expectations/${EXP_VALIDATED_ID}/enforce/confirm?project=${PROJECT_ID}`, { draft }, ADMIN_SID)
+  expect(r.status).toBe(409)
+  expect((await r.json()).error).toBe("not validated")
+})
+
 test("POST /api/expectations/:id/retire flips status to retired", async () => {
   const r = await api("POST", `/api/expectations/${EXP_RETIRE_ID}/retire?project=${PROJECT_ID}`, {}, ADMIN_SID)
   expect(r.status).toBe(200)

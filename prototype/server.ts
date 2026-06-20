@@ -1926,8 +1926,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
       // GET /api/expectations?project=&status= — list expectations for the project, optionally filtered.
       if (req.method === "GET" && path === "/api/expectations") {
-        const status = url.searchParams.get("status") as any
-        return json({ expectations: await listExpectations(db!, projE.id, status || undefined) })
+        const rawStatus = url.searchParams.get("status")
+        const status = (["candidate", "validated", "enforced", "retired"] as const).includes(rawStatus as any) ? (rawStatus as "candidate" | "validated" | "enforced" | "retired") : undefined
+        return json({ expectations: await listExpectations(db!, projE.id, status) })
       }
 
       // POST /api/expectations/:id/enforce — draft an assertion (calls LLM). Persists nothing.
@@ -1954,6 +1955,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const id = confirmMatch[1]
         const exp = await getExpectation(db!, id)
         if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        if (exp.status !== "validated") return json({ error: "not validated" }, 409)
         const reqBody = await req.json().catch(() => ({}))
         const draft = validateAssertionDraft(reqBody.draft)
         if (!draft) return json({ error: "invalid draft" }, 400)
