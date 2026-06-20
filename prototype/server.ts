@@ -23,7 +23,7 @@ import { ingestSnapOrSim } from "./lib/expectations-ingest"
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
-import { listRunSteps, listTrails, getTrail, listTrailSteps, insertAssertStep } from "./lib/trails"
+import { listRunSteps, listTrails, getTrail, listTrailSteps, insertAssertStep, deleteTrailStep } from "./lib/trails"
 import { runWalkNow } from "./lib/trails-trigger"
 import { WalkBusyError } from "./lib/trails-browser"
 import { seedDemoTrails } from "./lib/trails-demo-seed"
@@ -1959,6 +1959,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const reqBody = await req.json().catch(() => ({}))
         const draft = validateAssertionDraft(reqBody.draft)
         if (!draft) return json({ error: "invalid draft" }, 400)
+        const trail = await getTrail(projE.id, draft.trailId)
+        if (!trail) return json({ error: "trail not found" }, 422)
         const stepId = await insertAssertStep(projE.id, draft.trailId, draft.afterStepIdx, draft.target, draft.checkpoint.description)
         await setExpectationEnforced(db!, id, stepId)
         return json({ stepId })
@@ -1970,6 +1972,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const id = retireMatch[1]
         const exp = await getExpectation(db!, id)
         if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        if (exp.enforcedStepId) { try { await deleteTrailStep(projE.id, exp.enforcedStepId) } catch (e) { console.warn("[expectations] retire step delete skipped:", String(e)) } }
         await setExpectationStatus(db!, id, "retired")
         return json({ ok: true })
       }

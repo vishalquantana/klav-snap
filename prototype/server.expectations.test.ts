@@ -53,8 +53,11 @@ const ACCOUNT_ID = `acct_${ts}`
 const PROJECT_ID = `proj_${ACCOUNT_ID}`
 const TRAIL_ID = `trl_${ts}`
 const STEP_ID = `ts_seed_${ts}`
+const STEP_ID_1 = `ts_seed1_${ts}`
 const EXP_VALIDATED_ID = `exp_val_${ts}`
 const EXP_RETIRE_ID = `exp_ret_${ts}`
+const EXP_ENFORCED_ID = `exp_enf_${ts}`
+const ENFORCED_STEP_ID = `ts_enforced_seed_${ts}`
 const NOW = Date.now()
 
 // Users, account, project, session
@@ -65,9 +68,13 @@ await rawExec(`INSERT INTO projects (id, account_id, name, status, review_mode, 
 await rawExec(`INSERT INTO project_members (id, project_id, email, project_role, invited_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [`pm_admin_${ts}`, PROJECT_ID, ADMIN_EMAIL, "admin", null, NOW])
 await rawExec(`INSERT INTO sessions (id, email, created_at, expires_at) VALUES (?, ?, ?, ?)`, [ADMIN_SID, ADMIN_EMAIL, NOW, NOW + 86400_000])
 
-// A trail with one step
+// A trail with two steps (idx 0 and 1) for idx-ordering tests
 await rawExec(`INSERT INTO trails (id, project_id, name, intent, base_url, author_kind, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [TRAIL_ID, PROJECT_ID, "Checkout", "log in and check out", "https://shop.test", "human", "active", ADMIN_EMAIL, NOW, NOW])
 await rawExec(`INSERT INTO trail_steps (id, trail_id, project_id, idx, action, action_value, target_json, checkpoint_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [STEP_ID, TRAIL_ID, PROJECT_ID, 0, "click", null, JSON.stringify({ role: "button", name: "Checkout" }), null, NOW])
+await rawExec(`INSERT INTO trail_steps (id, trail_id, project_id, idx, action, action_value, target_json, checkpoint_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [STEP_ID_1, TRAIL_ID, PROJECT_ID, 1, "navigate", "https://shop.test/confirm", null, null, NOW])
+
+// A pre-enforced step for the retire-removes-step test
+await rawExec(`INSERT INTO trail_steps (id, trail_id, project_id, idx, action, action_value, target_json, checkpoint_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [ENFORCED_STEP_ID, TRAIL_ID, PROJECT_ID, 99, "assert", null, JSON.stringify({ role: "button", name: "Cart" }), JSON.stringify({ kind: "visible", description: "Cart count visible" }), NOW])
 
 // A validated expectation (to test enforce/confirm)
 await rawExec(
@@ -78,13 +85,22 @@ await rawExec(
    `dedup_val_${ts}`, null, NOW, NOW]
 )
 
-// A second validated expectation (to test retire)
+// A second validated expectation (to test retire — no enforced step)
 await rawExec(
   `INSERT INTO expectations (id, project_id, title, area, url_path, status, source_refs_json, corroboration_json, dedup_key, enforced_step_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   [EXP_RETIRE_ID, PROJECT_ID, "Cart count must be visible in header", "cart", "/cart", "validated",
    JSON.stringify([{ kind: "snap", id: "snap2" }, { kind: "sim", id: "sim2" }]),
    JSON.stringify({ snap: true, sim: true, recurrence: 0 }),
    `dedup_ret_${ts}`, null, NOW, NOW]
+)
+
+// A pre-enforced expectation (to test retire removes the trail step)
+await rawExec(
+  `INSERT INTO expectations (id, project_id, title, area, url_path, status, source_refs_json, corroboration_json, dedup_key, enforced_step_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [EXP_ENFORCED_ID, PROJECT_ID, "Cart badge must be visible in header", "cart", "/cart", "enforced",
+   JSON.stringify([{ kind: "snap", id: "snap3" }, { kind: "sim", id: "sim3" }]),
+   JSON.stringify({ snap: true, sim: true, recurrence: 0 }),
+   `dedup_enf_${ts}`, ENFORCED_STEP_ID, NOW, NOW]
 )
 
 // ── Spawn the server ──────────────────────────────────────────────────────────────
@@ -257,4 +273,87 @@ test("POST /api/expectations/:id/enforce/confirm is 404 for a non-existent expec
 test("POST /api/expectations/:id/retire is 401 without a session", async () => {
   const r = await fetch(`${BASE}/api/expectations/${EXP_RETIRE_ID}/retire?project=${PROJECT_ID}`, { method: "POST" })
   expect(r.status).toBe(401)
+})
+
+test("idx ordering on graduation: afterStepIdx:0 shifts existing idx-1 step to idx-2, new step at idx-1, no duplicate idx", async () => {
+  // EXP_VALIDATED_ID was already confirmed in earlier tests — use a fresh validated expectation
+  const EXP_IDX_ID = `exp_idx_${ts}`
+  await rawClient.execute({
+    sql: `INSERT INTO expectations (id, project_id, title, area, url_path, status, source_refs_json, corroboration_json, dedup_key, enforced_step_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [EXP_IDX_ID, PROJECT_ID, "Idx ordering test expectation", "test", "/test", "validated",
+      JSON.stringify([{ kind: "snap", id: "snap_idx" }]),
+      JSON.stringify({ snap: true, sim: false, recurrence: 0 }),
+      `dedup_idx_${ts}`, null, NOW, NOW],
+  })
+  const draft = {
+    trailId: TRAIL_ID,
+    afterStepIdx: 0,
+    action: "assert",
+    target: { role: "button", name: "Order Summary" },
+    checkpoint: { kind: "visible", description: "Order Summary visible after click" },
+  }
+  const r = await api("POST", `/api/expectations/${EXP_IDX_ID}/enforce/confirm?project=${PROJECT_ID}`, { draft }, ADMIN_SID)
+  expect(r.status).toBe(200)
+  const b = await r.json()
+  expect(typeof b.stepId).toBe("string")
+
+  // Query all steps for this trail ordered by idx
+  const stepsRes = await rawClient.execute({ sql: "SELECT id, idx FROM trail_steps WHERE trail_id=? AND project_id=? ORDER BY idx ASC", args: [TRAIL_ID, PROJECT_ID] })
+  const steps = stepsRes.rows as any[]
+
+  // The new assert step should be at idx 1
+  const newStep = steps.find((s: any) => s.id === b.stepId)
+  expect(newStep).toBeDefined()
+  expect(Number(newStep.idx)).toBe(1)
+
+  // The originally-idx-1 step (STEP_ID_1) must have shifted to idx 2
+  const shiftedStep = steps.find((s: any) => s.id === STEP_ID_1)
+  expect(shiftedStep).toBeDefined()
+  expect(Number(shiftedStep.idx)).toBeGreaterThanOrEqual(2)
+
+  // No two steps share an idx
+  const idxValues = steps.map((s: any) => Number(s.idx))
+  const uniqueIdxValues = new Set(idxValues)
+  expect(uniqueIdxValues.size).toBe(idxValues.length)
+})
+
+test("foreign trailId in enforce/confirm returns 422", async () => {
+  // Seed a fresh validated expectation to avoid 409 from a prior confirm
+  const EXP_FOREIGN_ID = `exp_foreign_${ts}`
+  await rawClient.execute({
+    sql: `INSERT INTO expectations (id, project_id, title, area, url_path, status, source_refs_json, corroboration_json, dedup_key, enforced_step_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [EXP_FOREIGN_ID, PROJECT_ID, "Foreign trail test expectation", "test", "/test", "validated",
+      JSON.stringify([{ kind: "snap", id: "snap_foreign" }]),
+      JSON.stringify({ snap: true, sim: false, recurrence: 0 }),
+      `dedup_foreign_${ts}`, null, NOW, NOW],
+  })
+  const draft = {
+    trailId: "trl_nonexistent_foreign_garbage",
+    afterStepIdx: 0,
+    action: "assert",
+    target: { role: "button", name: "Pay" },
+    checkpoint: { kind: "visible", description: "Pay button visible" },
+  }
+  const r = await api("POST", `/api/expectations/${EXP_FOREIGN_ID}/enforce/confirm?project=${PROJECT_ID}`, { draft }, ADMIN_SID)
+  expect(r.status).toBe(422)
+  const b = await r.json()
+  expect(b.error).toBe("trail not found")
+})
+
+test("retire removes the enforced trail step from trail_steps", async () => {
+  // Verify the enforced step exists before retire
+  const beforeRes = await rawClient.execute({ sql: "SELECT id FROM trail_steps WHERE id=? AND project_id=?", args: [ENFORCED_STEP_ID, PROJECT_ID] })
+  expect(beforeRes.rows.length).toBe(1)
+
+  const r = await api("POST", `/api/expectations/${EXP_ENFORCED_ID}/retire?project=${PROJECT_ID}`, {}, ADMIN_SID)
+  expect(r.status).toBe(200)
+  expect((await r.json()).ok).toBe(true)
+
+  // The enforced step should be gone
+  const afterRes = await rawClient.execute({ sql: "SELECT id FROM trail_steps WHERE id=? AND project_id=?", args: [ENFORCED_STEP_ID, PROJECT_ID] })
+  expect(afterRes.rows.length).toBe(0)
+
+  // The expectation should be retired
+  const expRes = await rawClient.execute({ sql: "SELECT status FROM expectations WHERE id=?", args: [EXP_ENFORCED_ID] })
+  expect(String((expRes.rows[0] as any).status)).toBe("retired")
 })

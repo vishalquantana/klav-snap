@@ -253,10 +253,18 @@ export async function insertAssertStep(
 ): Promise<string> {
   const id = "ts_" + crypto.randomUUID()
   await db!.execute({
+    sql: `UPDATE trail_steps SET idx = idx + 1 WHERE project_id=? AND trail_id=? AND idx >= ?`,
+    args: [projectId, trailId, afterStepIdx + 1],
+  })
+  await db!.execute({
     sql: `INSERT INTO trail_steps (id, trail_id, project_id, idx, action, action_value, target_json, checkpoint_json, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [id, trailId, projectId, afterStepIdx + 1, "assert", null,
            JSON.stringify(target), JSON.stringify({ kind: "visible", description }), Date.now()],
   })
   return id
+}
+
+export async function deleteTrailStep(projectId: string, stepId: string): Promise<void> {
+  await db!.execute({ sql: `DELETE FROM trail_steps WHERE id=? AND project_id=?`, args: [stepId, projectId] })
 }

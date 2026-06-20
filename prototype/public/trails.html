@@ -554,7 +554,7 @@ async function enforceExpectation(expId, card) {
   if (msgEl) msgEl.textContent = ""
   var confirmEl = document.createElement("div")
   confirmEl.className = "ec-confirm"
-  var target = (draft.target || "")
+  var target = draft.target ? Object.keys(draft.target).map(function(k){ return k + ":" + draft.target[k] }).join(" · ") : ""
   var desc   = (draft.checkpoint && draft.checkpoint.description) ? draft.checkpoint.description : (draft.description || "")
   confirmEl.innerHTML = (target ? '<div class="cc-target">Target: ' + esc(target) + '</div>' : "")
     + '<textarea rows="3" placeholder="Assertion description…">' + esc(desc) + '</textarea>'
