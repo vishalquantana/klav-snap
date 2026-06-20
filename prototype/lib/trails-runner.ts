@@ -16,7 +16,11 @@ import {
   startWalk, addRunStep, finishWalk, recordFinding,
 } from "./trails"
 import { stepCacheKey } from "./trails-crystallize"
-import { decideFromVision, type VisionResolver, type VisionInput } from "./trails-vision"
+import { decideFromVision, type VisionResolver, type VisionInput, type VisionResult, type VisionDecision } from "./trails-vision"
+
+// Cap the DOM sent to the vision MODEL (robustness #5) — separate from the evidence domExcerpt cap.
+// Keeps the model input bounded so an oversized page can't blow the token budget / 4xx context limit.
+const VISION_DOM_MODEL_CAP = 16_000
 
 export interface WalkOptions {
   /** Concrete URL to walk against (overrides the trail's baseUrl). file:// or http(s)://. */
@@ -30,6 +34,11 @@ export interface WalkOptions {
   vision?: VisionResolver
   /** Confidence gate for a vision heal (spec §6.3). Default 0.9. */
   confidenceGate?: number
+  /**
+   * Optional per-project weighted model-mix override, forwarded to the resolver ctx. When absent the
+   * resolver uses DEFAULT_WEIGHTS. Wired here for a future per-project read (opsadmin model mix).
+   */
+  visionWeights?: Record<string, number>
 }
 
 export interface WalkStepSummary {
@@ -43,7 +52,12 @@ export interface WalkStepSummary {
 export interface WalkSummary {
   runId: string
   verdict: Verdict
-  /** Count of Tier-2 vision model calls (Layer D). 0 on the zero-LLM hot path / no resolver. */
+  /**
+   * Count of Tier-2 vision model calls (Layer D), a `number`. 0 on the zero-LLM hot path / no
+   * resolver. NOTE: only 2xx vision calls are ledgered in ai_calls (type 'reheal'); error-path
+   * calls (non-2xx / thrown — see runVisionTier2's per-step catch) are intentionally NOT billed
+   * or logged, and a gone-assert short-circuits to RED before any model call (llmCalls unchanged).
+   */
   llmCalls: number
   steps: WalkStepSummary[]
   healedCount: number
@@ -428,26 +442,46 @@ async function runVisionTier2(
     return { tier: "vision", verdict: "red", healed: false, llmCalls: 0 }
   }
 
-  // Capture the perceptual + structural context the resolver needs.
-  const shot = (await page.screenshot()).toString("base64")
-  const dom = await page.content()
-  const candidateSelectors: string[] = []
-  if (cachedSelector) candidateSelectors.push(cachedSelector)
-  if (fp?.testId) candidateSelectors.push(`[data-testid="${escAttr(fp.testId)}"]`)
-  if (fp?.domPath) candidateSelectors.push(fp.domPath)
+  // Per-step resilience (production hardening): a bad/timed-out/malformed vision response — at the
+  // screenshot/content capture, the resolver call, or decideFromVision — must fail only THIS step,
+  // not abort the whole remaining walk into a generic error RED. Wrap the lot; on any throw emit a
+  // single RED run_step for this step (tier:'vision', needsVision:true, evidence.error) and let the
+  // walk loop continue with the remaining steps. Never silent-greens; never queue-heals.
+  let dom: string
+  let result: VisionResult
+  let decision: VisionDecision
+  try {
+    const shot = (await page.screenshot()).toString("base64")
+    dom = await page.content()
+    const candidateSelectors: string[] = []
+    if (cachedSelector) candidateSelectors.push(cachedSelector)
+    if (fp?.testId) candidateSelectors.push(`[data-testid="${escAttr(fp.testId)}"]`)
+    if (fp?.domPath) candidateSelectors.push(fp.domPath)
 
-  const visionInput: VisionInput = {
-    screenshotB64: shot,
-    mediaType: "image/png",
-    domSnapshot: dom,
-    pageUrl: opts.fixtureUrl,
-    intent: step.checkpoint?.description ?? step.action,
-    action: step.action,
-    target: fp ?? {},
-    candidateSelectors,
+    // Robustness #5: cap the DOM sent to the MODEL (separate from evidence domExcerpt) so an oversized
+    // page can't blow the token budget / trip a 4xx context-limit. Evidence excerpt is capped below.
+    const modelDom = dom.length > VISION_DOM_MODEL_CAP ? dom.slice(0, VISION_DOM_MODEL_CAP) : dom
+
+    const visionInput: VisionInput = {
+      screenshotB64: shot,
+      mediaType: "image/png",
+      domSnapshot: modelDom,
+      pageUrl: opts.fixtureUrl,
+      intent: step.checkpoint?.description ?? step.action,
+      action: step.action,
+      target: fp ?? {},
+      candidateSelectors,
+    }
+    result = await opts.vision!(visionInput, { projectId, weights: opts.visionWeights })
+    decision = decideFromVision(result, gate)
+  } catch (e) {
+    await addRunStep(projectId, {
+      runId, trailId, stepId: step.id, idx: step.idx,
+      tier: "vision", verdict: "red", confidence: 0, diagnosis: "runtime_error", healed: false,
+      evidence: { reason: "vision_error", needsVision: true, error: String(e), target: fp, checkpoint: step.checkpoint?.description ?? null },
+    })
+    return { tier: "vision", verdict: "red", healed: false, llmCalls: 0 }
   }
-  const result = await opts.vision!(visionInput, { projectId })
-  const decision = decideFromVision(result, gate)
 
   const domExcerpt = dom.slice(0, 2000)
 
@@ -475,7 +509,8 @@ async function runVisionTier2(
     const ok =
       (await uniquelyResolves(loc)) &&
       (await roleConsistent(loc, fp?.role)) &&
-      // An assert is never vision-healed green (§6.5): only actionable steps heal.
+      // Defense-in-depth: asserts already short-circuit to RED at the top of this fn (§6.5); this is
+      // a redundant belt so an assert can never reach the heal/act path even if that guard changes.
       !isAssert
     if (ok) {
       try {
