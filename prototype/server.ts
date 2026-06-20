@@ -14,6 +14,8 @@ import { safeFetch } from "./lib/safe-fetch"
 import { allow as rlAllow, record as rlRecord, count as rlCount, clear as rlClear } from "./lib/ratelimit"
 import { wrapUntrusted, UNTRUSTED_GUARD } from "./lib/prompt-safety"
 import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
+import { trailsDashboardData } from "./lib/trails-dashboard"
+import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -1725,6 +1727,7 @@ Bun.serve({
     const needLogin = () => (req.method === "GET" ? redirect("/login") : json({ error: "Sign in to continue." }, 401))
 
     if (req.method === "GET" && path === "/dashboard") return me ? file(PUB + "/dashboard.html") : redirect("/login")
+    if (req.method === "GET" && path === "/trails") return me ? file(PUB + "/trails.html") : redirect("/login")
     if (req.method === "GET" && path === "/opsadmin") {
       if (!me || !isOpsAdmin(me)) return new Response("Not found", { status: 404 }) // hide route from non-ops
       const offset = Math.max(0, Number(url.searchParams.get("offset") || 0) || 0)
@@ -1762,6 +1765,51 @@ Bun.serve({
         }
       }
       return file(SITE + "/onboarding.html")
+    }
+
+    // ── Klavity OS Trails (Layer E) — project-scoped, authed. Placed before the generic /api/ gate so
+    // unauthenticated API calls return a JSON 401 (not a /login redirect), mirroring resolveProject usage.
+    if (path === "/api/trails/dashboard" || path.startsWith("/api/trails/findings/")) {
+      const meT = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meT) return json({ error: "Unauthorized" }, 401)
+      const resolved = await resolveProject(meT, url.searchParams.get("project"))
+      if (!resolved) return json({ error: "No access" }, 403)
+      const projectId = resolved.id
+
+      // GET /api/trails/dashboard — trails + recent walks + review queue + precision.
+      if (req.method === "GET" && path === "/api/trails/dashboard") {
+        try {
+          const data = await trailsDashboardData(projectId)
+          return json({ email: meT, project: { id: projectId, role: resolved.access }, ...data })
+        } catch (e) {
+          return json(oops(e, "trails-dashboard"), 500)
+        }
+      }
+
+      // POST /api/trails/findings/:id/file — human files a queued finding to the project connector.
+      const fileMatch = path.match(/^\/api\/trails\/findings\/([^/]+)\/file$/)
+      if (req.method === "POST" && fileMatch) {
+        try {
+          const r = await fileFindingById(projectId, fileMatch[1], { filer: realFiler })
+          if (!r.ok) return json({ ok: false, error: "Could not file (no connector or no such finding)." }, 400)
+          return json({ ok: true, connectorRef: r.connectorRef })
+        } catch (e) {
+          return json(oops(e, "trails-file"), 500)
+        }
+      }
+
+      // POST /api/trails/findings/:id/dismiss — human dismisses a queued finding.
+      const dismissMatch = path.match(/^\/api\/trails\/findings\/([^/]+)\/dismiss$/)
+      if (req.method === "POST" && dismissMatch) {
+        try {
+          await dismissFinding(projectId, dismissMatch[1])
+          return json({ ok: true })
+        } catch (e) {
+          return json(oops(e, "trails-dismiss"), 500)
+        }
+      }
+
+      return json({ error: "Not found" }, 404)
     }
 
     if (path.startsWith("/api/")) {

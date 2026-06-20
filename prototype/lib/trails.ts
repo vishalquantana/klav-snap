@@ -171,6 +171,12 @@ export async function listWalks(projectId: string, trailId: string): Promise<Wal
   return r.rows.map(rowToWalk)
 }
 
+// Recent Walks across the whole project (any trail), newest-first. Powers the Trails dashboard.
+export async function listRecentWalks(projectId: string, limit = 20): Promise<Walk[]> {
+  const r = await db!.execute({ sql: `SELECT * FROM trail_runs WHERE project_id=? ORDER BY started_at DESC LIMIT ?`, args: [projectId, limit] })
+  return r.rows.map(rowToWalk)
+}
+
 import type { Finding, FindingKind, FindingStatus } from "./trails-types"
 
 function rowToFinding(r: any): Finding {
