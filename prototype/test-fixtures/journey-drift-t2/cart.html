@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Klavity Journey — Cart</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    a.pay { display: inline-block; padding: .6rem 1.2rem; background: #36c; color: #fff; text-decoration: none; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Your Cart</h1>
+    <ul>
+      <li>The $20 Widget — $20.00</li>
+    </ul>
+    <!-- DRIFT-T2: the Checkout affordance is RELABELED — role stays button (so a real heal is role-consistent),
+         but accessible-name/text/testid/id ALL change. Tier-0 (#checkout) and every Tier-1 signal
+         (role+name "Checkout", text "Checkout", testid checkout-link) MISS. Only a vision model can
+         place it. The injected mock VisionResolver returns "#proceed-to-payment" (conf 0.95, 'moved'). -->
+    <a id="proceed-to-payment" class="pay" role="button" href="confirm.html" aria-label="Proceed to payment" data-testid="proceed-pay-link">Proceed to payment</a>
+  </main>
+</body>
+</html>
