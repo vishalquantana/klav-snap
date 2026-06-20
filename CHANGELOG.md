@@ -10,6 +10,31 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.30.0] — 2026-06-20
+
+### Added
+- **Marketing feature pages for the three-phase product — `/snap`, `/sims`, `/autosim`.** Each
+  walkthrough from the approved critical-path mockup is now its own SEO-optimized page (Snap=indigo,
+  Sims=rose, AutoSim=green), built on a shared design kit (`/kit.css` + `/kit.js`) with the
+  Sim-walking-the-trail motif, scroll-reveal microanimations (gated behind `prefers-reduced-motion`),
+  and the per-phase critical-path storyboards.
+- **Home "Klavity arc" section** — a Snap → Sims → AutoSim trail near the top of the home page with a
+  compact card + "Learn more →" into each feature page; nav/footer now link the three routes (crawlable hub).
+- **SEO infrastructure** — per-page `<title>`/meta-description/canonical/OpenGraph/Twitter cards + JSON-LD
+  (`SoftwareApplication`/`Organization`/`BreadcrumbList`/`FAQPage`), plus `/sitemap.xml` and `/robots.txt`.
+
+### Changed
+- Renamed the Phase-3 product **"Klavity OS" → "Klavity AutoSim"** across all marketing surfaces; the
+  home roadmap now reads Snap shipped · Sims live · AutoSim shipped (was self-contradictory).
+
+### Performance / Accessibility
+- **PageSpeed/Lighthouse (mobile): all four pages 100 SEO · 100 best-practices, accessibility 100,
+  performance 99–100** (home performance 76 → 99). Non-blocking Google Fonts (`display=optional` +
+  `preload`/`media=print` swap) eliminated ~2.9 s of render-blocking and the webfont-swap layout shift
+  (autosim CLS 0.62 → 0.00). Text-safe accent colors (amber/indigo/rose/green darkened for text to meet
+  WCAG 4.5:1), inline links no longer rely on color alone, `.hero-ambient` made a composited absolute
+  overlay, heading order made sequential, and brand/nav `aria-label`s fixed (label-in-name).
+
 ## [0.29.1] — 2026-06-20
 
 ### Fixed
