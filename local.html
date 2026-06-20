@@ -25,9 +25,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'" />
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" /></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional" media="print" onload="this.media='all'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional" /></noscript>
 
 <!-- Shared marketing kit (scoped to the product-arc section on this page) -->
 <link rel="stylesheet" href="/kit.css" />
@@ -58,6 +58,13 @@
   --line:rgba(25,20,15,.12); --line-2:rgba(25,20,15,.08);
   --indigo:#6366f1; --indigo-deep:#4f46e5;
   --amber:#d98324; --rose:#db2777; --green:#0f9d6b;
+  /* text-safe (WCAG 4.5:1) variants for accents used AS TEXT on light bg */
+  --indigo-text:#4338ca;  /* 7.9:1 white  · 7.13:1 cream */
+  --rose-text:#be185d;    /* 6.04:1 white · 5.44:1 cream */
+  --green-text:#047857;   /* 5.48:1 white · 4.95:1 cream */
+  --amber-text:#8a5410;   /* 5.64:1 cream */
+  --red-text:#b02418;     /* 6.3:1 on card */
+  --muted-safe:#6b6055;   /* replaces #9a8f7d (5.7:1 on card) */
   --display:'Fraunces',serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
 }
 [data-theme="dark"]{
@@ -66,6 +73,9 @@
   --line:rgba(243,236,225,.11); --line-2:rgba(243,236,225,.08);
   --indigo:#8b8bf5; --indigo-deep:#6366f1;
   --amber:#e8a24a; --rose:#e8849a; --green:#9fd6a0;
+  /* on dark bg the brighter accents already pass; keep them for text */
+  --indigo-text:#8b8bf5; --rose-text:#e8849a; --green-text:#9fd6a0;
+  --amber-text:#e8a24a; --red-text:#ff6b5e; --muted-safe:#776c5d;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -128,7 +138,7 @@ nav{position:sticky; top:0; z-index:50; backdrop-filter:blur(14px);
 .eyebrow .dot{width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(159,214,160,.6); animation:pulse 2s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(159,214,160,.5)}70%{box-shadow:0 0 0 7px rgba(159,214,160,0)}100%{box-shadow:0 0 0 0 rgba(159,214,160,0)}}
 h1{font-family:var(--display); font-weight:450; font-size:clamp(44px,6vw,76px); line-height:1.02; letter-spacing:-.025em; font-optical-sizing:auto}
-h1 em{font-style:italic; color:var(--amber); font-variation-settings:'WONK' 1, 'SOFT' 30}
+h1 em{font-style:italic; color:var(--amber-text); font-variation-settings:'WONK' 1, 'SOFT' 30}
 h1 .ind{color:var(--indigo)}
 .lede{font-size:19.5px; color:var(--paper-dim); max-width:30ch; margin:26px 0 32px; line-height:1.55}
 .hero-cta{display:flex; gap:14px; flex-wrap:wrap; align-items:center}
@@ -145,10 +155,10 @@ h1 .ind{color:var(--indigo)}
 .pc-dot{width:9px; height:9px; border-radius:50%}
 .pc-body{padding:15px}
 .pc-h{font-family:var(--display); font-weight:600; font-size:15px}
-.pc-sub{font-size:10.5px; color:#9a8f7d; margin-bottom:11px; font-family:var(--mono)}
+.pc-sub{font-size:10.5px; color:var(--muted-safe); margin-bottom:11px; font-family:var(--mono)}
 .pc-kpis{display:flex; gap:7px; margin-bottom:11px}
 .pc-kpi{flex:1; background:#fff; border:1px solid #ece6db; border-radius:9px; padding:8px}
-.pc-kl{font-size:7.5px; color:#9a8f7d; letter-spacing:.05em; text-transform:uppercase}
+.pc-kl{font-size:7.5px; color:var(--muted-safe); letter-spacing:.05em; text-transform:uppercase}
 .pc-kv{font-size:17px; font-weight:700; font-family:var(--display)}
 .pc-row{display:flex; align-items:center; gap:7px; font-size:10px; padding:5px 0; border-top:1px solid #f1ece2}
 .pc-dotc{width:6px; height:6px; border-radius:50%}
@@ -160,7 +170,7 @@ h1 .ind{color:var(--indigo)}
 /* a walking sim that points */
 .sim{position:absolute; z-index:5; display:flex; flex-direction:column; align-items:center; width:52px}
 .sim .speech{position:absolute; bottom:62px; width:178px; background:var(--ink-2); border:1px solid var(--line); border-radius:13px; padding:10px 12px; box-shadow:0 16px 40px rgba(0,0,0,.5); font-size:12px; line-height:1.4}
-.sim .speech .sp-tag{font-family:var(--mono); font-size:9px; letter-spacing:.08em; color:var(--indigo); margin-bottom:4px}
+.sim .speech .sp-tag{font-family:var(--mono); font-size:9px; letter-spacing:.08em; color:var(--indigo-text); margin-bottom:4px}
 .sim .speech::after{content:""; position:absolute; bottom:-7px; left:24px; border:6px solid transparent; border-top-color:var(--ink-2); border-bottom:none}
 .sim .head{width:42px; height:42px; border-radius:50%; display:grid; place-items:center; font-family:var(--mono); font-weight:700; font-size:12px; color:#fff; box-shadow:0 6px 18px rgba(0,0,0,.4); position:relative; z-index:2}
 .sim .legs{display:flex; gap:5px; margin-top:2px}
@@ -260,6 +270,9 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 .foot{display:flex; align-items:center; gap:20px; flex-wrap:wrap; font-size:13.5px}
 .foot a{color:var(--paper-dim)} .foot a:hover{color:var(--paper)}
 .foot .sp{margin-left:auto}
+/* the credit link is prose-in-a-sentence, so it must NOT rely on colour alone
+   (WCAG 1.4.1): give it a persistent underline affordance. */
+.foot .sp a{text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:2px}
 
 @media(max-width:880px){
   .hero-grid,.split{grid-template-columns:1fr; gap:36px}
@@ -348,7 +361,7 @@ nav{background:color-mix(in srgb, var(--ink) 78%, transparent); backdrop-filter:
 .brand .spark{background:#161310!important; color:#fff!important; box-shadow:0 4px 10px rgba(0,0,0,0.15); border-radius:8px}
 .nav-links a::after{background:var(--indigo)}
 h1{font-family:var(--display); font-weight:450; font-size:clamp(44px,6vw,76px); line-height:1.02; letter-spacing:-.025em; text-transform:none}
-h1 em{font-style:italic; color:var(--amber); font-variation-settings:'WONK' 1, 'SOFT' 30; display:inline-block}
+h1 em{font-style:italic; color:var(--amber-text); font-variation-settings:'WONK' 1, 'SOFT' 30; display:inline-block}
 h1 .ind{color:var(--paper)}
 .eyebrow{background:var(--ink-2); border-color:var(--line); border-radius:30px}
 .eyebrow .tag{color:var(--paper-dim); font-weight:700}
@@ -367,7 +380,7 @@ h1 .ind{color:var(--paper)}
 .step:hover, .persona:hover, .phase:hover{border-color:var(--paper-faint); background:var(--ink-3); box-shadow:0 20px 40px rgba(0,0,0,0.06)}
 .step::after, .persona::after, .phase::after{content:""; position:absolute; top:0; right:0; width:40px; height:40px; background-image:repeating-linear-gradient(45deg, var(--line-2), var(--line-2) 4px, transparent 4px, transparent 8px); clip-path:polygon(100% 0, 0 0, 100% 100%); opacity:0.8}
 .sim .speech{background:var(--ink-2); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 44px rgba(17,17,19,0.14)}
-.sim .speech .sp-tag{color:var(--indigo); font-weight:700}
+.sim .speech .sp-tag{color:var(--indigo-text); font-weight:700}
 .sim .speech::after{border-top-color:var(--ink-2)}
 .rv .rv-bubble{background:var(--ink-2); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid var(--line); border-radius:16px; box-shadow:0 22px 54px rgba(17,17,19,0.17), 0 0 0 1px var(--line-2)}
 .rv .rv-bubble::after{border-top-color:var(--ink-2)}
@@ -458,7 +471,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="prod-card float">
         <div class="pc-bar">
           <span class="pc-dot" style="background:#ff6058"></span><span class="pc-dot" style="background:#ffbd2e"></span><span class="pc-dot" style="background:#28c840"></span>
-          <span style="margin-left:8px; font-family:var(--mono); font-size:10px; color:#9a8f7d">acme-finance/overview</span>
+          <span style="margin-left:8px; font-family:var(--mono); font-size:10px; color:var(--muted-safe)">acme-finance/overview</span>
         </div>
         <div class="pc-body">
           <div class="pc-h">Q2 Revenue Overview</div>
@@ -468,9 +481,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
             <div class="pc-kpi pc-target"><div class="pc-kl">Pending</div><div class="pc-kv">14</div></div>
             <div class="pc-kpi"><div class="pc-kl">Rate</div><div class="pc-kv">87%</div></div>
           </div>
-          <div class="pc-row"><span class="pc-dotc" style="background:#ff3b30"></span><span class="nm">Marketing Budget</span><span style="color:#ff3b30">2d overdue</span></div>
-          <div class="pc-row"><span class="pc-dotc" style="background:#ff3b30"></span><span class="nm">Vendor Contract</span><span style="color:#ff3b30">1d overdue</span></div>
-          <div class="pc-row"><span class="pc-dotc" style="background:#ff9500"></span><span class="nm">Bonus Pool</span><span style="color:#ff9500">today</span></div>
+          <div class="pc-row"><span class="pc-dotc" style="background:#ff3b30"></span><span class="nm">Marketing Budget</span><span style="color:var(--red-text)">2d overdue</span></div>
+          <div class="pc-row"><span class="pc-dotc" style="background:#ff3b30"></span><span class="nm">Vendor Contract</span><span style="color:var(--red-text)">1d overdue</span></div>
+          <div class="pc-row"><span class="pc-dotc" style="background:#ff9500"></span><span class="nm">Bonus Pool</span><span style="color:#9a5e12">today</span></div>
         </div>
       </div>
       <!-- a sim that walks in and points -->
@@ -504,7 +517,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .parc .parc-head{max-width:680px;margin:0 auto 18px;text-align:center}
 .parc .parc-head .tag{display:block;margin-bottom:12px}
 .parc .parc-head h2{font-family:var(--display);font-weight:450;font-size:clamp(30px,4vw,44px);line-height:1.08;letter-spacing:-.02em}
-.parc .parc-head h2 em{font-style:italic;color:var(--amber)}
+.parc .parc-head h2 em{font-style:italic;color:var(--amber-text)}
 .parc .parc-head p{font-size:17px;color:var(--paper-dim);margin:14px auto 0;max-width:54ch}
 
 /* the walking trail */
@@ -516,12 +529,12 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .parc .parc-wp .parc-dot{width:14px;height:14px;border-radius:50%;background:var(--ink);
   border:3px solid var(--c);margin:14px auto 0;box-shadow:0 0 0 5px var(--ink);position:relative;z-index:2}
 .parc .parc-wp .parc-ph{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);margin-top:14px}
-.parc .parc-wp h3{font-family:var(--display);font-weight:550;font-size:21px;margin:2px 0 0;color:var(--c)}
-.parc .parc-wp.a1{--c:var(--indigo)} .parc .parc-wp.a2{--c:var(--rose)} .parc .parc-wp.a3{--c:var(--green)}
+.parc .parc-wp h3{font-family:var(--display);font-weight:550;font-size:21px;margin:2px 0 0;color:var(--c-text,var(--c))}
+.parc .parc-wp.a1{--c:var(--indigo);--c-text:var(--indigo-text)} .parc .parc-wp.a2{--c:var(--rose);--c-text:var(--rose-text)} .parc .parc-wp.a3{--c:var(--green);--c-text:var(--green-text)}
 
 /* the circle-with-legs Sim character */
 .parc .parc-sim{display:inline-block;position:relative;width:var(--sz,34px);height:var(--sz,34px)}
-.parc .parc-sim i{position:absolute;inset:0;border-radius:50%;background:var(--sc,var(--indigo));display:grid;place-items:center;color:#fff;font-family:var(--mono);font-size:calc(var(--sz,34px)*.34);font-weight:600;font-style:normal}
+.parc .parc-sim i{position:absolute;inset:0;border-radius:50%;background:color-mix(in srgb,var(--sc,var(--indigo)) 76%,#000);display:grid;place-items:center;color:#fff;font-family:var(--mono);font-size:calc(var(--sz,34px)*.34);font-weight:600;font-style:normal}
 .parc .parc-sim::before,.parc .parc-sim::after{content:"";position:absolute;bottom:calc(var(--sz,34px)*-.22);width:2px;height:calc(var(--sz,34px)*.28);background:var(--sc,var(--indigo));border-radius:2px}
 .parc .parc-sim::before{left:38%;transform:rotate(8deg)} .parc .parc-sim::after{right:38%;transform:rotate(-8deg)}
 
@@ -531,16 +544,16 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   border:1px solid var(--line);border-top:3px solid var(--c);border-radius:18px;padding:24px 22px;
   box-shadow:0 14px 40px rgba(17,17,19,.08);transition:transform .25s var(--ease,cubic-bezier(.2,.7,.2,1)),box-shadow .25s,border-color .25s}
 .parc .parc-card:hover{transform:translateY(-5px);box-shadow:0 24px 50px rgba(17,17,19,.14)}
-.parc .parc-card.a1{--c:var(--indigo)} .parc .parc-card.a2{--c:var(--rose)} .parc .parc-card.a3{--c:var(--green)}
+.parc .parc-card.a1{--c:var(--indigo);--c-text:var(--indigo-text)} .parc .parc-card.a2{--c:var(--rose);--c-text:var(--rose-text)} .parc .parc-card.a3{--c:var(--green);--c-text:var(--green-text)}
 .parc .parc-card .pc-top{display:flex;align-items:center;gap:11px}
-.parc .parc-card .pc-stat{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.parc .parc-card .pc-stat{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c-text,var(--c))}
 .parc .parc-card h3{font-family:var(--display);font-weight:600;font-size:23px;letter-spacing:-.01em}
 .parc .parc-card .pc-line{font-family:var(--display);font-style:italic;font-size:16.5px;color:var(--paper-dim);margin:10px 0 0;line-height:1.4}
 .parc .parc-teaser{list-style:none;margin:18px 0 0;padding:14px 0 0;border-top:1px solid var(--line-2);display:flex;flex-direction:column;gap:9px}
 .parc .parc-teaser li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--paper-dim);font-family:var(--mono);line-height:1.4}
 .parc .parc-teaser .ix{flex:none;width:18px;height:18px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-size:9.5px;font-weight:600;margin-top:1px}
 .parc .parc-more{margin-top:auto;padding-top:18px}
-.parc .parc-more a{display:inline-flex;align-items:center;gap:7px;font-family:var(--body);font-weight:600;font-size:14px;color:var(--c);
+.parc .parc-more a{display:inline-flex;align-items:center;gap:7px;font-family:var(--body);font-weight:600;font-size:14px;color:var(--c-text,var(--c));
   border:1px solid color-mix(in srgb,var(--c) 35%,transparent);background:color-mix(in srgb,var(--c) 7%,transparent);
   padding:9px 15px;border-radius:30px;transition:gap .2s,background .2s,border-color .2s}
 .parc .parc-more a:hover{gap:11px;background:color-mix(in srgb,var(--c) 14%,transparent);border-color:var(--c)}

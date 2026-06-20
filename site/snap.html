@@ -27,9 +27,9 @@
 <!-- Fonts (exact link from local.html) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional"></noscript>
 
 <!-- Shared kit -->
 <link rel="stylesheet" href="/kit.css">
@@ -48,14 +48,14 @@
 ]}
 </script>
 </head>
-<body style="--accent:var(--indigo)">  <!-- Snap=indigo · Sims=rose · AutoSim=green -->
+<body style="--accent:var(--indigo);--accent-text:var(--indigo-text)">  <!-- Snap=indigo · Sims=rose · AutoSim=green -->
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="topbar"></div>
 
 <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
 <nav class="nav" aria-label="Primary">
   <div class="wrap nav-in">
-    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span>Klavity</a>
+    <a class="brand" href="/"><span class="mark">K</span>Klavity</a>
     <div class="nav-links">
       <a class="s-snap" href="/snap" aria-current="page">Snap</a>
       <a class="s-sims" href="/sims">Sims</a>
@@ -100,19 +100,19 @@
       <div class="waypoint a1">
         <span class="sim walk" style="--sz:36px;--sc:var(--indigo)" aria-hidden="true"><i>K</i></span>
         <div class="ph">Phase 01 · you are here</div>
-        <h3>Snap</h3>
+        <h2>Snap</h2>
         <p>A human catches a bug in one right-click.</p>
       </div>
       <div class="waypoint a2">
         <span class="sim" style="--sz:36px;--sc:var(--rose)" aria-hidden="true"><i>SC</i></span>
         <div class="ph">Phase 02</div>
-        <h3><a href="/sims" style="color:inherit">Sims</a></h3>
+        <h2><a href="/sims" style="color:inherit">Sims</a></h2>
         <p>AI personas from real calls catch them for you.</p>
       </div>
       <div class="waypoint a3">
         <span class="sim" style="--sz:36px;--sc:var(--green)" aria-hidden="true"><i>AS</i></span>
         <div class="ph">Phase 03</div>
-        <h3><a href="/autosim" style="color:inherit">AutoSim</a></h3>
+        <h2><a href="/autosim" style="color:inherit">AutoSim</a></h2>
         <p>Those Sims test every release — and self-heal.</p>
       </div>
     </div>
@@ -140,7 +140,7 @@
             <div class="cursor" aria-hidden="true">▾</div>
           </div>
         </div>
-        <div class="cap"><h4>Right-click anything</h4><p>No tool to open, no screenshot to take. Right-click the thing that's wrong.</p></div>
+        <div class="cap"><h3>Right-click anything</h3><p>No tool to open, no screenshot to take. Right-click the thing that's wrong.</p></div>
         <div class="hood">widget owns <b>contextmenu</b> · no extension</div>
       </div>
 
@@ -157,7 +157,7 @@
             </div>
           </div>
         </div>
-        <div class="cap"><h4>The page is already attached</h4><p>A full-page screenshot is captured for you. Pick Bug or Feature, say what's wrong, hit Submit.</p></div>
+        <div class="cap"><h3>The page is already attached</h3><p>A full-page screenshot is captured for you. Pick Bug or Feature, say what's wrong, hit Submit.</p></div>
         <div class="hood"><b>html-to-image</b> capture · Bug / Feature</div>
       </div>
 
@@ -170,7 +170,7 @@
             <div class="chip ok">✓ deduped — not a repeat</div>
           </div>
         </div>
-        <div class="cap"><h4>It arrives with context</h4><p>Klavity bundles the screenshot, the page, and the surrounding errors — and won't file a duplicate.</p></div>
+        <div class="cap"><h3>It arrives with context</h3><p>Klavity bundles the screenshot, the page, and the surrounding errors — and won't file a duplicate.</p></div>
         <div class="hood">POST <b>/api/feedback</b> · groundQuote · dedup</div>
       </div>
 
@@ -180,13 +180,13 @@
           <div class="body" style="height:100%;display:flex;align-items:center">
             <div class="tkt" style="width:100%;--c:var(--indigo)">
               <div class="top">PLANE · PROJ-42 · <span class="pill r">Bug</span></div>
-              <h5>Cart total doesn't update on item removal</h5>
+              <h4>Cart total doesn't update on item removal</h4>
               <div class="q">"The total doesn't update when I remove an item."</div>
               <div class="row" style="margin-top:8px"><span class="chip">🖼 capture</span><span class="chip">/checkout</span></div>
             </div>
           </div>
         </div>
-        <div class="cap"><h4>Filed where you work</h4><p>A ready-to-fix ticket lands in Plane, Jira, GitHub or Linear — auto-copied.</p></div>
+        <div class="cap"><h3>Filed where you work</h3><p>A ready-to-fix ticket lands in Plane, Jira, GitHub or Linear — auto-copied.</p></div>
         <div class="hood">connectors: <b>Plane · Jira · GitHub · Linear</b></div>
       </div>
     </div>
@@ -204,32 +204,32 @@
 
     <div class="path auto-stagger" style="display:grid;grid-auto-flow:row;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px">
       <div class="card reveal">
-        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">No extension</p>
+        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">No extension</p>
         <h3 style="font-size:21px;margin:8px 0 6px">The widget owns the right-click</h3>
         <p style="color:var(--paper-dim);font-size:14.5px">Drop one snippet on the page and the contextmenu becomes a bug composer for everyone — teammates, QA, even customers. Nothing to install.</p>
       </div>
       <div class="card reveal">
-        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Grounded evidence</p>
+        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">Grounded evidence</p>
         <h3 style="font-size:21px;margin:8px 0 6px">Evidence, not AI-slop</h3>
         <p style="color:var(--paper-dim);font-size:14.5px">Every report carries a full-page screenshot, the URL, and the surrounding console &amp; network errors — quoted verbatim, tied to the element you clicked.</p>
       </div>
       <div class="card reveal">
-        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Dedup</p>
+        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">Dedup</p>
         <h3 style="font-size:21px;margin:8px 0 6px">No repeat tickets</h3>
         <p style="color:var(--paper-dim);font-size:14.5px">When the same issue is reported again, Klavity collapses it and bumps recurrence — instead of cluttering your tracker with duplicate bugs.</p>
       </div>
       <div class="card reveal">
-        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Open-core</p>
+        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">Open-core</p>
         <h3 style="font-size:21px;margin:8px 0 6px">Open-source &amp; self-hostable</h3>
         <p style="color:var(--paper-dim);font-size:14.5px">Run the whole bug reporter on your own infrastructure. No black box, no lock-in — read the source and host it yourself.</p>
       </div>
       <div class="card reveal">
-        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">Connectors</p>
+        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">Connectors</p>
         <h3 style="font-size:21px;margin:8px 0 6px">Files to Plane, Jira, GitHub &amp; Linear</h3>
         <p style="color:var(--paper-dim);font-size:14.5px">Pluggable connectors auto-copy each report into the tracker your team already lives in — or fan out via a plain webhook.</p>
       </div>
       <div class="card reveal">
-        <p class="mono" style="font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase">For everyone</p>
+        <p class="mono" style="font-size:11px;color:var(--accent-text);letter-spacing:.1em;text-transform:uppercase">For everyone</p>
         <h3 style="font-size:21px;margin:8px 0 6px">Anyone on the page can file</h3>
         <p style="color:var(--paper-dim);font-size:14.5px">An in-app bug reporting widget your whole team — and your customers — can use without leaving what they're doing.</p>
       </div>
@@ -290,15 +290,15 @@
   <div class="wrap">
     <!-- the Klavity arc strip -->
     <nav class="foot-in" aria-label="The Klavity arc" style="justify-content:center;gap:10px;margin-bottom:28px;font-family:var(--mono);font-size:13px;flex-wrap:wrap">
-      <a href="/snap" style="color:var(--indigo);font-weight:600">Snap</a>
+      <a href="/snap" style="color:var(--indigo-text);font-weight:600">Snap</a>
       <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
-      <a href="/sims" style="color:var(--rose);font-weight:600">Sims</a>
+      <a href="/sims" style="color:var(--rose-text);font-weight:600">Sims</a>
       <span aria-hidden="true" style="color:var(--paper-faint)">→</span>
-      <a href="/autosim" style="color:var(--green);font-weight:600">AutoSim</a>
+      <a href="/autosim" style="color:var(--green-text);font-weight:600">AutoSim</a>
     </nav>
   </div>
   <div class="wrap foot-in">
-    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span>Klavity</a>
+    <a class="brand" href="/"><span class="mark">K</span>Klavity</a>
     <a href="/">Home</a>
     <a href="/snap" aria-current="page">Snap</a>
     <a href="/sims">Sims</a>

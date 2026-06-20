@@ -27,9 +27,9 @@
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;500;700&display=optional"></noscript>
 
 <!-- Shared kit -->
 <link rel="stylesheet" href="/kit.css">
@@ -47,14 +47,14 @@
 ]}
 </script>
 </head>
-<body style="--accent:var(--rose)"> <!-- Snap=indigo · Sims=rose · AutoSim=green -->
+<body style="--accent:var(--rose);--accent-text:var(--rose-text)"> <!-- Snap=indigo · Sims=rose · AutoSim=green -->
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="topbar"></div>
 
 <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
 <nav class="nav" aria-label="Primary">
   <div class="wrap nav-in">
-    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span> Klavity</a>
+    <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
     <div class="nav-links">
       <a class="s-snap" href="/snap">Snap</a>
       <a class="s-sims" href="/sims" aria-current="page">Sims</a>
@@ -88,21 +88,21 @@
     <div class="trail reveal" style="--d:.3s;margin-top:64px" aria-label="The Klavity arc: Snap, then Sims, then AutoSim">
       <div class="trail-line reveal" aria-hidden="true"></div>
       <div class="waypoint a1">
-        <a href="/snap" aria-label="Klavity Snap"><span class="sim walk" style="--sz:34px;--sc:var(--indigo)"><i>K</i></span></a>
+        <a href="/snap" aria-label="K — Klavity Snap"><span class="sim walk" style="--sz:34px;--sc:var(--indigo)"><i>K</i></span></a>
         <div class="ph">Phase 01</div>
-        <h3>Snap</h3>
+        <h2>Snap</h2>
         <p>A human catches a bug in one right-click.</p>
       </div>
       <div class="waypoint a2">
         <span class="sim walk" style="--sz:40px;--sc:var(--rose)"><i>SC</i></span>
         <div class="ph">Phase 02 · you are here</div>
-        <h3>Sims</h3>
+        <h2>Sims</h2>
         <p>AI personas from real calls catch them for you.</p>
       </div>
       <div class="waypoint a3">
-        <a href="/autosim" aria-label="Klavity AutoSim"><span class="sim walk" style="--sz:34px;--sc:var(--green)"><i>AS</i></span></a>
+        <a href="/autosim" aria-label="AS — Klavity AutoSim"><span class="sim walk" style="--sz:34px;--sc:var(--green)"><i>AS</i></span></a>
         <div class="ph">Phase 03</div>
-        <h3>AutoSim</h3>
+        <h2>AutoSim</h2>
         <p>Those Sims test every release — and self-heal.</p>
       </div>
     </div>
@@ -132,7 +132,7 @@
             <div class="ln s" style="margin-top:7px"></div>
           </div>
         </div>
-        <div class="cap"><h4>Drop in a customer call</h4><p>Upload a real interview or support transcript — the raw voice of a customer, exactly as they said it.</p></div>
+        <div class="cap"><h3>Drop in a customer call</h3><p>Upload a real interview or support transcript — the raw voice of a customer, exactly as they said it.</p></div>
         <div class="hood">transcript → <b>extract</b> (model-mix)</div>
       </div>
 
@@ -145,7 +145,7 @@
             <div class="pc"><div class="av" style="background:var(--indigo)">RA</div><div><div class="nm">Ravi A.</div><div class="rl">PM · client</div><span class="trait want">want · bulk-approve</span></div></div>
           </div>
         </div>
-        <div class="cap"><h4>Personas, grounded in quotes</h4><p>Klavity builds Sims with real pains, wants and loves — each one traceable to a verbatim line from the call.</p></div>
+        <div class="cap"><h3>Personas, grounded in quotes</h3><p>Klavity builds Sims with real pains, wants and loves — each one traceable to a verbatim line from the call.</p></div>
         <div class="hood">traits: <b>pain · want · love</b> + src quote</div>
       </div>
 
@@ -161,7 +161,7 @@
             <span class="sim" style="position:absolute;right:14px;top:46px;--sz:24px;--sc:var(--rose)"><i>SC</i></span>
           </div>
         </div>
-        <div class="cap"><h4>They walk your real pages</h4><p>Each Sim reviews your actual product through a vision model and pins exactly what bothers them, in their own voice.</p></div>
+        <div class="cap"><h3>They walk your real pages</h3><p>Each Sim reviews your actual product through a vision model and pins exactly what bothers them, in their own voice.</p></div>
         <div class="hood">vision-LLM <b>react</b> · cites a trait</div>
       </div>
 
@@ -172,13 +172,13 @@
           <div class="body" style="height:100%;display:flex;align-items:center">
             <div class="tkt" style="width:100%;--c:var(--rose)">
               <div class="top">PLANE · PROJ-57 · <span class="pill r">UX</span></div>
-              <h5>Overview list isn't ordered by urgency</h5>
+              <h4>Overview list isn't ordered by urgency</h4>
               <div class="q">"I can't see what's overdue at a glance." — Sarah Chen, CFO</div>
               <div class="row" style="margin-top:8px"><span class="chip rose">👤 grounded in a Sim's want</span></div>
             </div>
           </div>
         </div>
-        <div class="cap"><h4>A bug with a human behind it</h4><p>The reaction becomes a filed bug — carrying the persona and the quote that justifies it — straight into your tracker.</p></div>
+        <div class="cap"><h3>A bug with a human behind it</h3><p>The reaction becomes a filed bug — carrying the persona and the quote that justifies it — straight into your tracker.</p></div>
         <div class="hood">suggested-bug → <b>connector</b> · provenance kept</div>
       </div>
     </div>
@@ -285,7 +285,7 @@
         <a class="btn btn-ghost" href="/autosim">Next: AutoSim →</a>
       </div>
       <p class="mono" style="margin-top:22px;font-size:12px;color:var(--paper-faint)">
-        Snap catches it · <span style="color:var(--rose)">Sims review it</span> · AutoSim runs it forever
+        Snap catches it · <span style="color:var(--rose-text)">Sims review it</span> · AutoSim runs it forever
       </p>
     </div>
   </div>
@@ -296,7 +296,7 @@
 <!-- ── FOOTER ───────────────────────────────────────────────────────────── -->
 <footer class="footer">
   <div class="wrap foot-in">
-    <a class="brand" href="/" aria-label="Klavity home"><span class="mark">K</span> Klavity</a>
+    <a class="brand" href="/"><span class="mark">K</span> Klavity</a>
     <a href="/snap">Snap</a>
     <a href="/sims" aria-current="page">Sims</a>
     <a href="/autosim">AutoSim</a>

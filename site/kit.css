@@ -18,16 +18,28 @@
   --line:rgba(25,20,15,.12);
   --line-2:rgba(25,20,15,.07);
 
-  /* phase accents — each ENCODES a phase */
+  /* phase accents — each ENCODES a phase. BRIGHT vars are for fills / borders /
+     backgrounds / icons. The *-text vars are DARKENED so the colour clears
+     WCAG 4.5:1 when used as TEXT/links/headings/chips on cream or tinted bg.
+     (verified ratios on cream #f5f3ee: indigo 7.13, rose 5.44, green 4.95,
+      amber 5.64, red 5.05 on #eceef2). */
   --indigo:#6366f1;       /* Snap   */
   --indigo-deep:#4f46e5;
+  --indigo-text:#4338ca;  /* indigo as text  (7.13:1 cream) */
   --rose:#db2777;         /* Sims   */
+  --rose-text:#be185d;    /* rose as text    (5.44:1 cream) */
   --green:#0f9d6b;        /* AutoSim */
+  --green-text:#047857;   /* green as text   (4.95:1 cream) */
   --amber:#d98324;        /* heal-state */
+  --amber-text:#8a5410;   /* amber as text   (5.64:1 cream) */
   --red:#d6463a;          /* fail */
+  --red-text:#b02418;     /* red as text     (5.81:1 on #eceef2) */
 
-  /* per-page accent — OVERRIDE this on <body> per phase. Defaults to Snap. */
+  /* per-page accent — OVERRIDE these on <body> per phase. Defaults to Snap.
+     --accent      = BRIGHT, for fills / borders / topbar / button bg
+     --accent-text = DARK,   for the SAME accent used as TEXT (headings/links) */
   --accent:var(--indigo);
+  --accent-text:var(--indigo-text);
 
   /* type */
   --display:'Fraunces',serif;
@@ -97,8 +109,8 @@ h1{
   font-size:clamp(38px,6vw,72px);line-height:1.02;letter-spacing:-.025em;
   font-optical-sizing:auto;
 }
-h1 em{font-style:italic;color:var(--amber);font-variation-settings:'WONK' 1,'SOFT' 30}
-h1 .accent,h1 .nm{color:var(--accent)}
+h1 em{font-style:italic;color:var(--amber-text);font-variation-settings:'WONK' 1,'SOFT' 30}
+h1 .accent,h1 .nm{color:var(--accent-text)}
 
 /* section scaffold */
 section{padding:72px 0;position:relative}
@@ -109,7 +121,7 @@ section{padding:72px 0;position:relative}
   font-size:clamp(30px,4.4vw,46px);line-height:1.08;letter-spacing:-.02em;
   margin:12px 0 14px;
 }
-.sec-head h2 em,.sec-head h2 .nm{font-style:italic;color:var(--accent)}
+.sec-head h2 em,.sec-head h2 .nm{font-style:italic;color:var(--accent-text)}
 .sec-head p{font-size:17px;color:var(--paper-dim);max-width:60ch}
 
 h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
@@ -141,7 +153,7 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 .nav-links a.s-snap:hover{color:var(--indigo)}
 .nav-links a.s-sims:hover{color:var(--rose)}
 .nav-links a.s-autosim:hover{color:var(--green)}
-.nav-links a[aria-current="page"]{color:var(--accent);border-color:var(--line)}
+.nav-links a[aria-current="page"]{color:var(--accent-text);border-color:var(--line)}
 .nav-cta{margin-left:auto;display:flex;gap:10px;align-items:center}
 
 /* ── 5. BUTTONS ───────────────────────────────────────────────────────── */
@@ -174,11 +186,11 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
   padding:3px 8px;border-radius:99px;border:1px solid var(--line);
   background:var(--ink-2);color:var(--paper-dim);white-space:nowrap;
 }
-.chip.ok{color:var(--green);border-color:rgba(15,157,107,.4);background:rgba(15,157,107,.06)}
-.chip.amber{color:var(--amber);border-color:rgba(217,131,36,.45);background:rgba(217,131,36,.07)}
-.chip.red{color:var(--red);border-color:rgba(214,70,58,.4);background:rgba(214,70,58,.06)}
-.chip.indigo{color:var(--indigo);border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.06)}
-.chip.rose{color:var(--rose);border-color:rgba(219,39,119,.4);background:rgba(219,39,119,.06)}
+.chip.ok{color:var(--green-text);border-color:rgba(15,157,107,.4);background:rgba(15,157,107,.06)}
+.chip.amber{color:var(--amber-text);border-color:rgba(217,131,36,.45);background:rgba(217,131,36,.07)}
+.chip.red{color:var(--red-text);border-color:rgba(214,70,58,.4);background:rgba(214,70,58,.06)}
+.chip.indigo{color:var(--indigo-text);border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.06)}
+.chip.rose{color:var(--rose-text);border-color:rgba(219,39,119,.4);background:rgba(219,39,119,.06)}
 
 /* uppercase status pill (for tickets/dashboards) */
 .pill{
@@ -200,7 +212,11 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 .sim{display:inline-block;position:relative;width:var(--sz,30px);height:var(--sz,30px)}
 .sim i{
   position:absolute;inset:0;border-radius:50%;
-  background:var(--sc,var(--accent));display:grid;place-items:center;color:#fff;
+  /* darken the bright accent for the fill so the small WHITE initials clear
+     WCAG 4.5:1 on every phase colour (worst case amber ≈ 4.7:1) while keeping
+     the playful, saturated trail look. The legs below stay bright. */
+  background:color-mix(in srgb,var(--sc,var(--accent)) 76%,#000);
+  display:grid;place-items:center;color:#fff;
   font-family:var(--mono);font-size:calc(var(--sz,30px)*.36);font-weight:600;font-style:normal;
   box-shadow:0 4px 12px rgba(0,0,0,.18);
 }
@@ -227,7 +243,7 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 .waypoint{position:relative;padding:0 16px;text-align:center}
 .waypoint .sim{margin:0 auto}
 .waypoint .ph{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);margin-top:14px}
-.waypoint h3{font-family:var(--display);font-weight:520;font-size:24px;margin:2px 0 0;color:var(--sc,var(--accent))}
+.waypoint h2,.waypoint h3{font-family:var(--display);font-weight:520;font-size:24px;line-height:1.1;letter-spacing:-.01em;margin:2px 0 0;color:color-mix(in srgb,var(--sc,var(--accent)) 66%,#000)}
 .waypoint p{font-size:13.5px;color:var(--paper-dim);margin:6px auto 0;max-width:24ch}
 .waypoint.a1{--sc:var(--indigo)} .waypoint.a2{--sc:var(--rose)} .waypoint.a3{--sc:var(--green)}
 
@@ -251,11 +267,11 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
   .path .step:not(:last-child)::after{content:"↓";left:11px;bottom:-16px}
 }
 .cap{margin:13px 2px 0}
-.cap h4{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.cap h3,.cap h4{margin:0;font-family:var(--body);font-size:15px;font-weight:600;letter-spacing:-.01em}
 .cap p{margin:4px 0 0;font-size:13.5px;color:var(--paper-dim);line-height:1.5}
 /* under-the-hood mono note */
 .hood{margin:10px 2px 0;font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--paper-faint);padding-left:11px;border-left:2px solid var(--line)}
-.hood b{color:var(--accent);font-weight:600}
+.hood b{color:var(--accent-text);font-weight:600}
 
 /* ── 10. BROWSER MINI-SCREEN (.screen + chrome/body) ──────────────────── */
 .screen{
@@ -320,7 +336,7 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 /* a filed ticket */
 .tkt{border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--ink-2)}
 .tkt .top{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:8.5px;color:var(--paper-faint)}
-.tkt h5{margin:6px 0 0;font-size:11.5px;font-weight:600;line-height:1.3}
+.tkt h4,.tkt h5{margin:6px 0 0;font-family:var(--body);font-size:11.5px;font-weight:600;line-height:1.3}
 .tkt .q{margin:6px 0 0;font-style:italic;font-size:10px;color:var(--paper-dim);border-left:2px solid var(--c,var(--accent));padding-left:7px}
 
 /* a persona row */
@@ -368,12 +384,21 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
   @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 50%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
 }
 
-/* ambient hero element (optional, place inside a hero) */
+/* ambient hero element (optional, place inside a hero/section).
+   MUST be fully out of layout flow so it can never cause CLS: absolutely
+   positioned overlay pinned to its (position:relative) container with a fixed
+   footprint. Its entrance/breathe animation is COMPOSITED-ONLY (opacity +
+   transform) — it never touches width/height/top/left/margin, so no reflow. */
 .hero-ambient{
-  position:absolute;inset:-20% -10% auto -10%;height:60%;pointer-events:none;z-index:0;
-  background:radial-gradient(60% 100% at 50% 0%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 70%);
+  position:absolute;inset:0;pointer-events:none;z-index:0;
+  /* gradient lives in the top band of the overlay; no size animation */
+  background:radial-gradient(60% 45% at 50% 0%, color-mix(in srgb,var(--accent) 16%,transparent), transparent 70%);
   filter:blur(8px);
+  /* start state is pure opacity so first paint never shifts layout */
+  opacity:.7;will-change:opacity,transform;
 }
+/* every hero/section that hosts a .hero-ambient is its positioning context */
+.hero,section{position:relative}
 
 /* a small "live" status dot */
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;flex:none}
