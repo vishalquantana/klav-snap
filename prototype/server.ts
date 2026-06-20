@@ -3,7 +3,7 @@ import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
-import { sendOtp } from "./lib/mail"
+import { sendOtp, sendLeadAlert } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
 import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib/s3"
 import { buildIssueHtml, escapeHtml } from "./lib/feedback"
@@ -740,6 +740,10 @@ const TRANSCRIPT_PER_PROJECT = 60      // per project / hour
 const AUTOCOPY_WINDOW = 60 * 60 * 1000
 const AUTOCOPY_PER_PROJECT = 60
 
+// Anonymous first-party feedback rate limit (per IP, per hour).
+const FEEDBACK_ANON_WINDOW = 60 * 60 * 1000
+const FEEDBACK_ANON_PER_IP = 20
+
 // Legacy AI demo endpoints (/api/persona/brief, /api/extract, /api/react) — each makes an LLM call but
 // had no per-user throttle or input cap (only the daily $ cap). Bound them per user/hour + size.
 const AI_DEMO_WINDOW = 60 * 60 * 1000
@@ -884,6 +888,37 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       })
     }
 
+    // ── widget lead capture: attach email to a filed report + fire-and-forget alert ──
+    if (req.method === "POST" && path === "/api/widget/lead") {
+      // First-party origin check (widget always sends an Origin header)
+      const reqOrigin = req.headers.get("origin") || ""
+      const baseOrigin = (() => { try { return new URL(BASE).origin } catch { return "" } })()
+      if (reqOrigin !== baseOrigin) return wjson({ error: "forbidden" }, 403)
+      if (!rlAllow(`lead:ip:${clientIp(req, server)}`, 20, 60 * 60 * 1000)) return wjson({ error: "rate limited" }, 429)
+      const body: any = await req.json().catch(() => ({}))
+      const projectId = String(body.project_id || ""), feedbackId = String(body.feedback_id || ""), email = String(body.email || "").trim()
+      if (!projectId || !feedbackId || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return wjson({ error: "invalid" }, 400)
+      const ok = await setFeedbackContactEmail(feedbackId, projectId, email)
+      if (!ok) return wjson({ error: "not found" }, 404)
+      // fire-and-forget alert (never blocks / fails the response)
+      void (async () => {
+        try {
+          const notify = await getWidgetNotifyEmail(projectId)
+          if (!notify) return
+          const fb = await feedbackById(projectId, feedbackId)
+          const proj = await projectById(projectId)
+          await sendLeadAlert(notify, {
+            email,
+            description: fb?.observation || "(no description)",
+            pageUrl: (fb?.urlHost ? `https://${fb.urlHost}` : "") + (fb?.urlPath || ""),
+            projectName: proj?.name || projectId,
+            feedbackUrl: `${BASE}/dashboard?project=${encodeURIComponent(projectId)}`,
+          })
+        } catch (e: any) { console.error("lead alert (non-fatal):", e?.message || e) }
+      })().catch(() => {})
+      return wjson({ ok: true })
+    }
+
     // ── auth: request OTP ──
     if (req.method === "POST" && path === "/api/auth/request") {
       try {
@@ -952,10 +987,28 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     // ── feedback intake (extension backend mode) ──
     if (req.method === "POST" && path === "/api/feedback") {
       try {
+        // Anonymous browser path guard: browser requests always carry an Origin header. When
+        // a request is anonymous (no bearer/session) AND has an Origin header, it must come
+        // from our own first-party origin (same base URL) and is rate-limited per IP.
+        // Requests with no Origin header are non-browser API calls (extension direct mode,
+        // curl, etc.) — leave those on the existing unauthenticated path unchanged.
+        // reqOrigin and baseOrigin are computed ONCE here so both the guard AND the anonymous
+        // persist branch below can use them without a second URL parse.
+        const reqOrigin = req.headers.get("origin") || ""
+        const baseOrigin = (() => { try { return new URL(BASE).origin } catch { return "" } })()
+        const anonActor = !(await bearerEmail(req)) && !(await sessionEmail(req))
+        if (anonActor && reqOrigin) {
+          // First-party only: Origin must equal our own base origin.
+          if (reqOrigin !== baseOrigin) return wjson({ error: "forbidden" }, 403)
+          const ip = clientIp(req, server)
+          if (!rlAllow(`fbanon:ip:${ip}`, FEEDBACK_ANON_PER_IP, FEEDBACK_ANON_WINDOW)) return wjson({ error: "rate limited" }, 429)
+        }
+
         const form = await req.formData()
         const description = String(form.get("description") || "").trim()
         const pageUrl = String(form.get("page_url") || "")
         if (!description) return wjson({ error: "Description is required." }, 400)
+        if (description.length > 5000) return wjson({ error: "Description too long." }, 400)
 
         // Resolve the Plane connection: Bearer (personal → team) else forwarded direct creds.
         let planeToken = "", planeWorkspace = "", planeProject = "", planeHost = "https://api.plane.so"
@@ -1010,7 +1063,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             // (?project= if accessible, else the caller's first project).
             const actor = email || (await sessionEmail(req))
             const reqProject = String(form.get("project_id") || "") || url.searchParams.get("project")
-            const resolved = actor ? await resolveProject(actor, reqProject) : null
+            // firstParty: the request carries our own Origin (verified browser, same base). Only
+            // such requests may use the anonymous projectById path — no-Origin and foreign-Origin
+            // anonymous requests must NOT reach projectById (deferred surface stays closed).
+            const firstParty = reqOrigin !== "" && reqOrigin === baseOrigin
+            let resolved = actor ? await resolveProject(actor, reqProject) : null
+            // First-party anonymous widget intake: no actor, but a known project_id from our own site.
+            // Gate on firstParty so no-Origin (curl/script) and foreign-Origin anonymous calls can
+            // never persist a feedback row via this path.
+            if (!resolved && !actor && reqProject && firstParty) resolved = await projectById(reqProject)
             if (resolved) {
               const projectId = resolved.id
               // Path-only URL: strip query + fragment (privacy by structure).

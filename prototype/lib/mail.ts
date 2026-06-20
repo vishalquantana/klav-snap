@@ -18,3 +18,27 @@ export async function sendOtp(to: string, code: string) {
   })
   if (!res.ok) throw new Error(`SendGrid ${res.status}: ${(await res.text()).slice(0, 200)}`)
 }
+
+export async function sendLeadAlert(to: string, lead: { email: string; description: string; pageUrl: string; projectName: string; feedbackUrl: string }) {
+  const key = process.env.SENDGRID_API_KEY
+  const from = process.env.KLAV_MAIL_FROM || "klav@quantana.com.au"
+  if (!key) throw new Error("SENDGRID_API_KEY not set")
+  const esc = (s: string) => s.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string))
+  const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: from, name: "Klavity Leads" },
+      subject: `🌱 New Klavity lead: ${lead.email}`,
+      content: [{ type: "text/html", value:
+        `<div style="font-family:system-ui,sans-serif;color:#1d1d1f">
+         <p><b>New lead</b> from the ${esc(lead.projectName)} widget.</p>
+         <p>Email: <b>${esc(lead.email)}</b></p>
+         <p>They reported: ${esc(lead.description)}</p>
+         <p>Page: ${esc(lead.pageUrl)}</p>
+         <p><a href="${esc(lead.feedbackUrl)}">Open in Klavity →</a></p></div>` }],
+    }),
+  })
+  if (!res.ok) throw new Error(`SendGrid ${res.status}: ${(await res.text()).slice(0, 200)}`)
+}
