@@ -3039,6 +3039,41 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           return json({ persona: data.persona, usage })
         } catch (e: any) { return json(oops(e, "create"), 500) }
       }
+      // site URL → up to 3 personas inferred from the public home page (no transcript needed)
+      if (req.method === "POST" && path === "/api/persona/site") {
+        try {
+          let { url: siteUrl } = await req.json()
+          siteUrl = String(siteUrl || "").trim()
+          if (!siteUrl) return json({ error: "Enter your product's URL." }, 400)
+          if (!/^https?:\/\//i.test(siteUrl)) siteUrl = "https://" + siteUrl
+          const meS = (await sessionEmail(req)) || (await bearerEmail(req))
+          if (aiDemoLimited(meS, req, server)) return json({ error: "Too many requests. Please wait and try again." }, 429, { "Retry-After": "3600" })
+          // SSRF-guarded fetch of the public page (private/loopback hosts rejected by the guard).
+          let html = ""
+          try {
+            const res = await safeFetch(siteUrl, { headers: { "user-agent": "KlavitySimBot/1.0 (+https://klavity.quantana.top)" }, signal: AbortSignal.timeout(8000) })
+            if (!res.ok) return json({ error: `Couldn't read that page (HTTP ${res.status}).` }, 400)
+            html = (await res.text()).slice(0, 300_000)
+          } catch {
+            return json({ error: "Couldn't reach that URL. Make sure it's a public https page." }, 400)
+          }
+          // Strip scripts/styles/tags/entities to plain readable text, then cap for the model.
+          const text = html
+            .replace(/<script[\s\S]*?<\/script>/gi, " ")
+            .replace(/<style[\s\S]*?<\/style>/gi, " ")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/&[a-z#0-9]+;/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, AI_DEMO_MAX_CHARS)
+          if (text.length < 40) return json({ error: "That page didn't have enough text to read." }, 400)
+          const sys = "From the text of a product's public web page, infer 2-3 DISTINCT believable user personas (\"Sims\") who would use or evaluate it, grounded in what the page actually says (audience, pricing, features). Invent plausible first+last names and roles. " +
+            "Respond with ONLY a JSON object, no prose: {\"personas\":[{\"name\":string,\"role\":string,\"type\":\"client\"|\"internal\",\"initials\":string(2 uppercase letters),\"accent\":string(hex colour like #6366f1),\"summary\":string,\"insights\":[{\"kind\":\"pain\"|\"want\"|\"love\",\"text\":string,\"quote\":string}]}]} with 2-3 personas, each with exactly 3 insights; each quote is a short first-person line that persona might say."
+          const { content, usage } = await chat([{ role: "system", content: sys }, { role: "user", content: "Page URL: " + siteUrl + "\n\nPage text:\n" + text }], 1600, true, { type: "persona", email: meS })
+          const data = parseJSON(content)
+          return json({ personas: (data.personas || []).slice(0, 3), usage })
+        } catch (e: any) { return json(oops(e, "create"), 500) }
+      }
       // gated AI
       if (req.method === "POST" && path === "/api/extract") {
         try {

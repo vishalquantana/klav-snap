@@ -238,6 +238,14 @@ async function renderSignedIn() {
     analyzeBtn.onclick = async () => {
       const projectId = activeProjectId || projects[0]?.id || null
       if (!projectId || !activeTab?.id) return
+      // No Sims in this project yet → walk them through creating one instead of a no-op review.
+      const { klavSims } = await chrome.storage.local.get('klavSims')
+      if (!Array.isArray(klavSims) || klavSims.length === 0) {
+        const base = (s.backendUrl || 'https://klavity.quantana.top').replace(/\/+$/, '')
+        chrome.tabs.create({ url: `${base}/dashboard?project=${encodeURIComponent(projectId)}&create-sim=1` })
+        window.close()
+        return
+      }
       const tabId = activeTab.id
       const send = () => chrome.tabs.sendMessage(tabId, { kind: 'KLAV_ADHOC_REVIEW', projectId }).catch(() => {})
       chrome.tabs.sendMessage(tabId, { kind: 'KLAV_ADHOC_REVIEW', projectId }).catch(() => {

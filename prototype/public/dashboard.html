@@ -287,6 +287,62 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   .tkt-shot{margin-top:2px}
   .tkt-shot img{max-width:100%;border:1px solid var(--line);border-radius:10px;cursor:zoom-in;display:block}
   .chip.sev-high{background:#3a1416;color:#ffb4ac}.chip.sev-medium{background:#3a2c10;color:#ffd79a}.chip.sev-low{background:#10261a;color:#9ae6b4}
+
+/* ===== Add-a-Sim modal (first-run + "New Sim") ===== */
+.sm-ov{position:fixed;inset:0;background:rgba(25,20,15,.5);backdrop-filter:blur(4px);display:none;align-items:flex-start;justify-content:center;z-index:2147483646;overflow:auto;padding:40px 18px}
+.sm-ov.show{display:flex}
+.sm-modal{background:var(--ink-2);border:1px solid var(--line);border-radius:20px;width:100%;max-width:640px;padding:30px 30px 26px;box-shadow:0 40px 90px -40px rgba(25,20,15,.6);animation:smrise .32s cubic-bezier(.2,.7,.2,1)}
+@keyframes smrise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.sm-x{position:absolute;top:0;right:0}
+.sm-hd{text-align:center;max-width:46ch;margin:0 auto 18px}
+.sm-hd .gl{font-size:28px;line-height:1;display:inline-block;margin-bottom:10px}
+.sm-hd h2{font-family:var(--display);font-weight:540;font-size:25px;letter-spacing:-.018em;line-height:1.08;margin:0 0 6px}
+.sm-hd p{margin:0;font-size:14px;color:var(--paper-dim)}
+.sm-hd p b{color:var(--paper)}
+.sm-top{display:flex;justify-content:flex-end;margin:-12px -10px 0 0}
+.sm-close{background:none;border:0;color:var(--paper-faint);font-size:19px;line-height:1;cursor:pointer;padding:6px}
+.sm-close:hover{color:var(--paper-dim)}
+.sm-seg{display:flex;gap:4px;background:var(--ink);border:1px solid var(--line);border-radius:13px;padding:4px;max-width:430px;margin:0 auto 16px}
+.sm-seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 6px;font-family:var(--body);font-size:12.5px;font-weight:600;color:var(--paper-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .16s,color .16s,box-shadow .16s}
+.sm-seg button .e{font-size:14px}
+.sm-seg button:hover{color:var(--paper)}
+.sm-seg button.on{background:var(--ink-2);color:var(--paper);box-shadow:0 2px 8px -3px rgba(25,20,15,.3)}
+.sm-pane{display:none}.sm-pane.on{display:block;animation:smfade .28s ease}
+@keyframes smfade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.sm-field{display:flex;gap:9px;margin:0 auto 11px;max-width:540px}
+.sm-field input,.sm-ta{background:var(--ink);border:1.5px solid var(--line);border-radius:12px;padding:13px 15px;font-family:var(--body);font-size:14.5px;color:var(--paper);outline:none;transition:border-color .16s,box-shadow .16s}
+.sm-field input{flex:1}
+.sm-field input:focus,.sm-ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,241,.13)}
+.sm-field.url input{font-family:var(--mono);font-size:13px}
+.sm-ta{display:block;width:100%;max-width:540px;margin:0 auto 11px;min-height:120px;resize:vertical;font-family:var(--mono);font-size:12px;line-height:1.55}
+.sm-exlead{font-size:11.5px;color:var(--paper-faint);text-align:center;margin:0 0 8px}
+.sm-chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+.sm-chip{border:1px dashed var(--line);background:transparent;border-radius:999px;padding:6px 12px;font-family:var(--body);font-size:12px;color:var(--paper-dim);cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.sm-chip:hover{border-color:var(--indigo);color:var(--indigo);background:rgba(99,102,241,.06)}
+.sm-note{font-size:11.5px;color:var(--paper-faint);text-align:center;max-width:52ch;margin:8px auto 0}
+.sm-note.lft{text-align:left;max-width:540px}
+.sm-out{margin-top:16px;display:grid;gap:10px}.sm-out:empty{margin-top:0}
+.sm-think{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--paper-dim);font-size:13px;padding:20px 0}
+.sm-spin{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--indigo);animation:smsp .8s linear infinite}
+@keyframes smsp{to{transform:rotate(360deg)}}
+.sm-err{color:var(--rose);font-size:12.5px;text-align:center;padding:6px 0}
+.sm-sim{background:var(--ink);border:1px solid var(--line);border-radius:15px;padding:16px 17px;animation:smrise .42s cubic-bezier(.2,.7,.2,1)}
+.sm-sim.added{opacity:.6}
+.sm-sim-top{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+.sm-av{width:44px;height:44px;border-radius:13px;flex:none;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:15px;color:#fff}
+.sm-nm{font-family:var(--display);font-weight:580;font-size:16.5px;letter-spacing:-.01em;line-height:1.1}
+.sm-rl{font-size:12px;color:var(--paper-faint);margin-top:1px}
+.sm-kind{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--paper-faint)}
+.sm-sum{font-size:12.5px;color:var(--paper-dim);line-height:1.5;margin-bottom:11px}
+.sm-ins{display:flex;flex-direction:column;gap:7px;margin-bottom:13px}
+.sm-in{display:flex;gap:9px;font-size:12px;align-items:flex-start}
+.sm-in .ic{flex:none;width:18px;height:18px;border-radius:6px;display:grid;place-items:center;font-size:9px;margin-top:1px}
+.sm-in.pain .ic{background:rgba(219,39,119,.13);color:var(--rose)}
+.sm-in.want .ic{background:rgba(217,131,36,.15);color:var(--amber)}
+.sm-in.love .ic{background:rgba(15,157,107,.14);color:var(--green)}
+.sm-in .qt{color:var(--paper-dim)}.sm-in .qt em{color:var(--paper);font-style:italic}
+.sm-foot{display:flex;align-items:center;gap:9px}.sm-foot .grow{flex:1}
+@media(max-width:540px){.sm-field{flex-direction:column}.sm-seg button .e{display:none}.sm-modal{padding:24px 18px}}
 </style>
 </head>
 <body data-view="overview">
@@ -386,7 +442,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <div class="grid">
     <!-- Sims overview -->
     <div class="card" data-view="overview sims">
-      <h2>🧬 Your Sims <span class="count" id="simsCount"></span></h2>
+      <h2 style="display:flex;align-items:center;gap:10px">🧬 Your Sims <span class="count" id="simsCount"></span>
+        <button class="btn btn-indigo btn-sm hide" id="newSimBtn" style="margin-left:auto" onclick="openSimModal()">＋ New Sim</button></h2>
       <div class="muted" style="margin:-8px 0 14px;font-size:12.5px">AI personas, built from real customer calls, that react to your pages.</div>
       <div id="sims"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
@@ -640,6 +697,7 @@ function render() {
   linkProjects()
 
   // role-gated controls
+  $("newSimBtn").classList.toggle("hide", !admin)
   $("inviteWrap").classList.toggle("hide", !admin)
   $("userNote").classList.toggle("hide", admin)
   $("settingsDrawer").classList.toggle("hide", false)
@@ -652,6 +710,9 @@ function render() {
   $("liveDrawer").classList.toggle("hide", !admin)
   $("obsDrawer").classList.toggle("hide", !admin)
   if (admin) { loadLive(); loadObs() }
+
+  // Deep link: extension's "Analyze this page" with 0 Sims (and any ?create-sim=1) lands here.
+  if (window.maybeOpenCreateSim) window.maybeOpenCreateSim()
 }
 
 // ── First-run checklist — shows ONLY when this project has zero Sims, dismissible per-session ──
@@ -914,7 +975,7 @@ function renderSims(admin) {
   const sims = state.sims || []
   $("simsCount").textContent = sims.length ? sims.length : ""
   if (!sims.length) {
-    $("sims").innerHTML = emptyState("🧬", "No Sims yet. Extract personas from a customer call to bring your Sims to life.", `<a class="btn btn-indigo btn-sm" href="/app#add-transcript">Add a transcript →</a>`)
+    $("sims").innerHTML = emptyState("🧬", "No Sims yet — bring your first one to life in a sentence.", `<button class="btn btn-indigo btn-sm" onclick="openSimModal()">＋ Create your first Sim</button>`)
     return
   }
   const pid = curProjId()
@@ -1649,6 +1710,160 @@ load()
   mirror('memCount','navTeamCount');
   var init=(location.hash||'').replace('#','');
   setView(VIEWS.indexOf(init)>=0?init:'overview');
+})();
+</script>
+
+<!-- ===== Add-a-Sim modal: describe · from your site · from a call ===== -->
+<div class="sm-ov" id="simOv" role="dialog" aria-modal="true" aria-label="Add a Sim">
+  <div class="sm-modal">
+    <div class="sm-top"><button class="sm-close" id="simClose" aria-label="Close">✕</button></div>
+    <div class="sm-hd">
+      <span class="gl">🧬</span>
+      <h2 id="simHd">Bring your first Sim to life</h2>
+      <p>A Sim is an AI user that reacts to your pages and files what bugs them. Start any way you like — <b>you can edit them later.</b></p>
+    </div>
+    <div class="sm-seg" role="tablist">
+      <button class="on" data-pane="describe"><span class="e">✍️</span>Describe</button>
+      <button data-pane="site"><span class="e">🔮</span>From your site</button>
+      <button data-pane="call"><span class="e">🎙️</span>From a call</button>
+    </div>
+    <div class="sm-pane on" data-pane="describe">
+      <div class="sm-field">
+        <input id="smBrief" type="text" placeholder="e.g. A busy ops manager who lives in spreadsheets" autocomplete="off" />
+        <button class="btn btn-indigo" id="smBriefGo">Create Sim →</button>
+      </div>
+      <p class="sm-exlead">or start from an example</p>
+      <div class="sm-chips" id="smChips"></div>
+    </div>
+    <div class="sm-pane" data-pane="site">
+      <div class="sm-field url">
+        <input id="smUrl" type="text" placeholder="yourproduct.com" autocomplete="off" />
+        <button class="btn btn-indigo" id="smUrlGo">Suggest Sims</button>
+      </div>
+      <p class="sm-note">We read your public home page and propose a starting cast — keep the ones that ring true. Nothing’s saved until you add a Sim.</p>
+    </div>
+    <div class="sm-pane" data-pane="call">
+      <textarea class="sm-ta" id="smTx" placeholder="Paste a sales or support call — 2–3 minutes of dialogue works best."></textarea>
+      <div style="text-align:center"><button class="btn btn-indigo" id="smTxGo">Extract Sims →</button></div>
+      <p class="sm-note lft">Most realistic — Sims quote the call. Names &amp; quotes stay private to this project.</p>
+    </div>
+    <div class="sm-out" id="smOut"></div>
+  </div>
+</div>
+
+<script>
+// ===== Add-a-Sim modal logic — wired to /api/persona/brief, /api/persona/site, /api/extract; saves via /api/personas =====
+(function(){
+  const ov=$("simOv"), out=$("smOut");
+  let simAdded=false;
+  const EXAMPLES=[
+    "A busy ops manager who lives in spreadsheets",
+    "A first-time visitor evaluating us in 2 minutes",
+    "A mobile-only user on a flaky connection",
+    "A skeptical IT admin worried about security",
+  ];
+  const accentFor=(s)=>safeAccent(s,col(s||"x"));
+  function inits(n){return String(n||"").replace(/\(.*?\)/g,"").trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase()||"S"}
+  function simCardHtml(s,idx){
+    const ins=(s.insights||[]).slice(0,3).map(i=>{
+      const k=(i.kind==="pain"||i.kind==="want"||i.kind==="love")?i.kind:"want";
+      const g=k==="pain"?"▾":k==="want"?"★":"♥";
+      return `<div class="sm-in ${k}"><span class="ic">${g}</span><span class="qt">${esc(i.text||"")} ${i.quote?`<em>“${esc(i.quote)}”</em>`:""}</span></div>`;
+    }).join("");
+    const acc=safeAccent(s.accent,col(s.name||"x"));
+    const first=esc(String(s.name||"Sim").split(" ")[0]);
+    return `<div class="sm-sim" data-idx="${idx}">
+      <div class="sm-sim-top"><div class="sm-av" style="background:${acc}">${esc(s.initials||inits(s.name))}</div>
+        <div><div class="sm-nm">${esc(s.name||"Sim")}</div><div class="sm-rl">${esc(s.role||"")}</div></div>
+        <span class="sm-kind">${esc(s.type==="internal"?"internal":"client")}</span></div>
+      ${s.summary?`<div class="sm-sum">${esc(s.summary)}</div>`:""}
+      <div class="sm-ins">${ins}</div>
+      <div class="sm-foot"><button class="btn btn-indigo btn-sm" data-add="${idx}">＋ Add ${first}</button>
+        <button class="btn btn-ghost btn-sm" data-skip="${idx}">Skip</button><span class="grow"></span></div></div>`;
+  }
+  let lastSims=[];
+  function showSims(arr){
+    lastSims=arr||[];
+    if(!lastSims.length){ out.innerHTML=`<div class="sm-err">No Sims came back — try rephrasing.</div>`; return; }
+    out.innerHTML=lastSims.map((s,i)=>simCardHtml(s,i)).join("")
+      + (lastSims.length>1?`<div style="text-align:center;margin-top:2px"><button class="btn btn-ghost btn-sm" id="smAddAll">Add all ${lastSims.length} Sims</button></div>`:"");
+  }
+  function think(msg){ out.innerHTML=`<div class="sm-think"><span class="sm-spin"></span>${esc(msg)}</div>`; }
+  function fail(msg){ out.innerHTML=`<div class="sm-err">${esc(msg||"Something went wrong. Try again.")}</div>`; }
+  function projQ(){ const p=curProjId(); return p?("?project="+encodeURIComponent(p)):""; }
+
+  async function postJSON(url,body){
+    const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d;
+  }
+  async function genBrief(){
+    const v=$("smBrief").value.trim(); if(v.length<4){ fail("Describe your user in a sentence."); return; }
+    think("Imagining your Sim…");
+    try{ const d=await postJSON("/api/persona/brief",{brief:v}); showSims(d.persona?[d.persona]:[]); }catch(e){ fail(e.message); }
+  }
+  async function genSite(){
+    const v=$("smUrl").value.trim(); if(!v){ fail("Enter your product's URL."); return; }
+    think("Reading "+v+"…");
+    try{ const d=await postJSON("/api/persona/site",{url:v}); showSims(d.personas||[]); }catch(e){ fail(e.message); }
+  }
+  async function genCall(){
+    const v=$("smTx").value.trim(); if(v.length<20){ fail("Paste a bit more of the call (a few lines)."); return; }
+    think("Reading the call, pulling out who’s who…");
+    try{ const d=await postJSON("/api/extract",{transcript:v}); showSims(d.personas||[]); }catch(e){ fail(e.message); }
+  }
+  async function saveSim(s,cardEl,btn){
+    const orig=btn?btn.textContent:""; if(btn){ btn.disabled=true; btn.textContent="Adding…"; }
+    try{
+      await postJSON("/api/personas"+projQ(),{ name:s.name, role:s.role, type:s.type, initials:s.initials||inits(s.name), accent:safeAccent(s.accent,col(s.name||"x")), summary:s.summary||"", insights:Array.isArray(s.insights)?s.insights:[] });
+      simAdded=true;
+      if(cardEl){ cardEl.classList.add("added"); cardEl.querySelectorAll("button").forEach(b=>b.disabled=true); if(btn) btn.textContent="✓ Added"; }
+    }catch(e){ if(btn){ btn.disabled=false; btn.textContent=orig; } fail(e.message); }
+  }
+
+  // delegate clicks inside the result list (Add / Skip / Add all)
+  out.addEventListener("click",(e)=>{
+    const add=e.target.closest("[data-add]"), skip=e.target.closest("[data-skip]"), all=e.target.closest("#smAddAll");
+    if(add){ const i=+add.dataset.add; const card=add.closest(".sm-sim"); saveSim(lastSims[i],card,add); }
+    else if(skip){ const card=skip.closest(".sm-sim"); card.classList.add("added"); card.querySelectorAll("button").forEach(b=>b.disabled=true); }
+    else if(all){ out.querySelectorAll("[data-add]").forEach(b=>{ if(!b.disabled) b.click(); }); }
+  });
+
+  // segmented switcher
+  ov.querySelectorAll(".sm-seg button").forEach(b=>b.addEventListener("click",()=>{
+    ov.querySelectorAll(".sm-seg button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    ov.querySelectorAll(".sm-pane").forEach(p=>p.classList.toggle("on",p.dataset.pane===b.dataset.pane));
+    out.innerHTML="";
+  }));
+  // example chips
+  $("smChips").innerHTML=EXAMPLES.map(x=>`<button class="sm-chip">${esc(x)}</button>`).join("");
+  $("smChips").addEventListener("click",(e)=>{ const c=e.target.closest(".sm-chip"); if(!c)return; $("smBrief").value=c.textContent; genBrief(); });
+  // primary actions
+  $("smBriefGo").onclick=genBrief; $("smUrlGo").onclick=genSite; $("smTxGo").onclick=genCall;
+  $("smBrief").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); genBrief(); } });
+  $("smUrl").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); genSite(); } });
+
+  function close(){ ov.classList.remove("show"); document.body.style.overflow=""; if(simAdded){ simAdded=false; load(); } }
+  $("simClose").onclick=close;
+  ov.addEventListener("mousedown",(e)=>{ if(e.target===ov) close(); });
+  document.addEventListener("keydown",(e)=>{ if(e.key==="Escape"&&ov.classList.contains("show")) close(); });
+
+  // exposed openers
+  window.openSimModal=function(){
+    const first=!(state&&state.sims&&state.sims.length);
+    $("simHd").textContent=first?"Bring your first Sim to life":"Add a Sim";
+    out.innerHTML=""; $("smBrief").value=""; $("smUrl").value=""; $("smTx").value="";
+    ov.querySelector('.sm-seg button[data-pane="describe"]').click();
+    ov.classList.add("show"); document.body.style.overflow="hidden"; setTimeout(()=>$("smBrief").focus(),60);
+  };
+  let autoOpened=false;
+  window.maybeOpenCreateSim=function(){
+    if(autoOpened) return;
+    let want=false; try{ want=new URLSearchParams(location.search).get("create-sim")==="1"||location.hash==="#create-sim"; }catch(e){}
+    if(!want) return;
+    autoOpened=true;
+    try{ const u=new URL(location.href); u.searchParams.delete("create-sim"); if(u.hash==="#create-sim")u.hash=""; history.replaceState(null,"",u.pathname+u.search); }catch(e){}
+    window.openSimModal();
+  };
 })();
 </script>
 </body>

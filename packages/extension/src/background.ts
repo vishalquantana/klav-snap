@@ -192,6 +192,7 @@ function setupContextMenus() {
     chrome.contextMenus.create({ id: 'klavity-root', title: 'Klavity', ...common })
     chrome.contextMenus.create({ id: 'klavity-bug', parentId: 'klavity-root', title: '🐞 Report a Bug', ...common })
     chrome.contextMenus.create({ id: 'klavity-feature', parentId: 'klavity-root', title: '💡 Request a Feature', ...common })
+    chrome.contextMenus.create({ id: 'klavity-analyze', parentId: 'klavity-root', title: '🧬 Analyze this page', ...common })
     chrome.contextMenus.create({ id: 'klavity-sep', parentId: 'klavity-root', type: 'separator', ...common })
     chrome.contextMenus.create({ id: 'klavity-tracker', parentId: 'klavity-root', title: '📋 View submissions', ...common })
   })
@@ -200,10 +201,62 @@ function setupContextMenus() {
 chrome.contextMenus?.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'klavity-bug' && tab?.id) void openModal(tab.id, 'bug')
   else if (info.menuItemId === 'klavity-feature' && tab?.id) void openModal(tab.id, 'feature')
+  else if (info.menuItemId === 'klavity-analyze') void runAnalyze(tab)
   else if (info.menuItemId === 'klavity-tracker') {
     getSettings().then((settings) => { const url = getTrackerUrl(settings); if (url) chrome.tabs.create({ url }) })
   }
 })
+
+// The active project for context-menu actions: the popup's saved selection, else the first project.
+async function activeProjectIdFor(config: KlavConfig | null): Promise<string | null> {
+  const r = await chrome.storage.local.get('klavSelectedProjectId')
+  const saved = r.klavSelectedProjectId as string | undefined
+  const ids = (config?.projects ?? []).map((p) => p.id)
+  if (saved && ids.includes(saved)) return saved
+  return config?.projects?.[0]?.id ?? null
+}
+
+// How many Sims this project has. -1 = couldn't tell (offline/error) → don't block the review.
+async function projectSimCount(config: KlavConfig, pid: string): Promise<number> {
+  try {
+    const res = await fetch(`${config.backendUrl}/api/personas?project=${encodeURIComponent(pid)}`, {
+      headers: { Authorization: `Bearer ${config.token}` },
+    })
+    if (!res.ok) return -1
+    const d = (await res.json()) as { personas?: unknown[] }
+    return Array.isArray(d.personas) ? d.personas.length : 0
+  } catch {
+    return -1
+  }
+}
+
+// "Analyze this page" (context menu): with 0 Sims, send the user to create one; otherwise run the
+// on-demand review in the tab — injecting the content module first if it isn't loaded there yet.
+async function runAnalyze(tab?: chrome.tabs.Tab): Promise<void> {
+  if (!tab?.id) return
+  const config = await getConfig()
+  const pid = await activeProjectIdFor(config)
+  if (!config || !pid) {
+    const settings = await getSettings()
+    chrome.tabs.create({ url: `${backendBase(settings)}/dashboard` })
+    return
+  }
+  if ((await projectSimCount(config, pid)) === 0) {
+    chrome.tabs.create({ url: `${config.backendUrl}/dashboard?project=${encodeURIComponent(pid)}&create-sim=1` })
+    return
+  }
+  const tabId = tab.id
+  const msg = { kind: 'KLAV_ADHOC_REVIEW', projectId: pid }
+  chrome.tabs.sendMessage(tabId, msg).catch(() => {
+    const cs = chrome.runtime.getManifest().content_scripts?.[0]
+    if (cs?.js?.length) {
+      chrome.scripting
+        .executeScript({ target: { tabId }, files: cs.js })
+        .then(() => setTimeout(() => { void chrome.tabs.sendMessage(tabId, msg).catch(() => {}) }, 300))
+        .catch(() => {})
+    }
+  })
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   setupContextMenus()

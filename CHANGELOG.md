@@ -10,6 +10,13 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.39.0] — 2026-06-21
+
+### Added
+- **First-Sim onboarding flow** — a reusable "Add a Sim" modal in the dashboard with three low-friction paths that all produce the same Sim card: **Describe** a user in one sentence (`/api/persona/brief`, with example chips), **From your site** — infer 2–3 Sims from your public home page (new SSRF-guarded `POST /api/persona/site`), and **From a call** — extract Sims that quote a transcript (`/api/extract`). Each generated Sim has a one-click Add (`POST /api/personas`); the dashboard refreshes on close.
+- **"Create Sim" entry points** — a New-Sim button on the Sims card (admin), the no-Sims empty-state CTA, and a `?create-sim=1` / `#create-sim` deep link that auto-opens the modal.
+- **Extension: "Analyze this page" in the right-click menu** — added alongside Report a Bug / Request a Feature. When the active project has **0 Sims**, both the right-click item and the popup's Analyze button now route the user to the dashboard's Create-Sim flow (`?create-sim=1`) instead of running a no-op review.
+
 ## [0.38.5] — 2026-06-21
 
 ### Changed
