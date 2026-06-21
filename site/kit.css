@@ -401,7 +401,14 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 /* a small "live" status dot */
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;flex:none}
 
-/* ── 14. ACCESSIBILITY ────────────────────────────────────────────────── */
+/* ── 14. ICON HELPER ──────────────────────────────────────────────────── */
+/* Inline SVG icons produced by KlavityKit.icon() / icons.generated.js.
+   display:inline-block + vertical-align match the Lucide CSS convention so
+   icons sit on the text baseline without extra markup. */
+.icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex: none; stroke: currentColor; }
+.icon[width] { width: auto; height: auto; } /* honor explicit px size from icon() */
+
+/* ── 15. ACCESSIBILITY ────────────────────────────────────────────────── */
 a:focus-visible,button:focus-visible,input:focus-visible,
 select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{
   outline:2px solid var(--accent);outline-offset:3px;border-radius:5px;
