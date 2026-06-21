@@ -160,7 +160,11 @@ test("GET /widget-connect serves HTML", async () => {
   const r = await fetch(base + "/widget-connect?project=" + projectId + "&origin=https://app.acme.com")
   expect(r.status).toBe(200)
   expect((r.headers.get("content-type") || "")).toContain("text/html")
-  expect(await r.text()).toContain("klavity-widget-token")
+  const html = await r.text()
+  expect(html).toContain("klavity-widget-token")
+  // Code step offers an escape hatch: resend the code or change the email.
+  expect(html).toContain('id="resendBtn"')
+  expect(html).toContain('id="changeBtn"')
 })
 
 test("GET /widget.js serves javascript", async () => {
