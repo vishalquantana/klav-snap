@@ -385,6 +385,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /* Report-widget embed + live preview + extension card (Settings → Report widget appearance) */
 .wp-embed{margin:4px 0 14px}
 .wp-embed-label{font-size:12px;font-weight:600;opacity:.7;margin-bottom:6px}
+.wp-embed .cl-embed{display:flex;align-items:stretch;gap:8px}
+.wp-embed .cl-embed code{flex:1;min-width:0;background:var(--ink-1,#0c0a08);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--paper);overflow:auto;white-space:pre-wrap;word-break:break-all}
+.wp-embed .cl-embed button{flex-shrink:0;align-self:flex-start}
 .wp-config-preview{display:block}
 .wp-config{min-width:0}
 .wp-preview{flex:1;min-width:280px}
@@ -1977,7 +1980,8 @@ function renderWidgetPreview() {
     const showCta = mode === "leadgen"
     cta.style.display = showCta ? "inline-block" : "none"
     const url = ($("kl-cta") && $("kl-cta").value.trim()) || ""
-    if (url) cta.setAttribute("href", url); else cta.removeAttribute("href")
+    // Only honour http(s) URLs — never let a javascript:/data: value land in the preview href.
+    if (/^https?:\/\//i.test(url)) cta.setAttribute("href", url); else cta.removeAttribute("href")
   }
   const showThanks = $("wp-thanks-toggle") && $("wp-thanks-toggle").checked
   if ($("wp-body")) $("wp-body").style.display = showThanks ? "none" : "block"
