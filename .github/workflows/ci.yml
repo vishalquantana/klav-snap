@@ -33,8 +33,8 @@ jobs:
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Emoji guard (report-only until conversion completes)
-        run: node scripts/check-no-emoji.mjs --report
+      - name: Emoji guard
+        run: node scripts/check-no-emoji.mjs
 
       - name: Build
         run: pnpm -r build

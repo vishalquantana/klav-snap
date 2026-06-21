@@ -27,6 +27,34 @@ section for the bump rules.
 
 ### Added
 - **Settings now shows the widget embed code, a live preview, and how to install the extension.** The Report-widget-appearance card gained three things: (1) the copy-paste **embed snippet** for the active project with a Copy button (previously only in the zero-state onboarding checklist); (2) a **live preview** — a themed report-modal mock that re-renders instantly as you change theme / custom colours / thank-you message / widget mode, with a "Show thank-you" toggle and lead-gen CTA reflected. Its palette is ported verbatim from `packages/core/src/modal-theme.ts` so it matches the production modal exactly; (3) a compact **"install the browser extension"** card linking to `/onboarding`. Dashboard-only — `prototype/public/dashboard.html`.
+### Changed
+- **Design standard: icons, not emojis.** Every emoji in user-facing UI has been
+  replaced with inline [Lucide](https://lucide.dev) outline SVG icons (`stroke="currentColor"`,
+  themeable, crisp at any size) across the marketing site, dashboard/app pages
+  (`prototype/public`), the embeddable widget/SDK, the shared report modal, and the
+  browser extension. Semantic emoji were converted too: mood reactions
+  (love/neutral/frustrated/confused) and status (✓/✗) now use accessible icons
+  (`role="img"` + `<title>`); decorative icons are `aria-hidden`. Native context-menu
+  titles, console output, and other plain-text-only sinks had their emoji stripped to
+  clean text (SVG can't render there).
+
+### Added
+- **Centralized icon system.** A single source of truth in `@klavity/core`
+  (`icons.ts` + a generated map built from `lucide-static`, a dev-only dependency, so
+  the shipped widget bundle stays dependency-free). Consumers: `icon()` (core/extension),
+  `KlavityKit.icon()` (marketing site), and a self-contained `kicon()` for
+  `prototype/public` pages. Adding an icon is a one-line edit to `scripts/icon-names.mjs`
+  + `pnpm gen:icons`.
+- **Emoji CI guard.** `scripts/check-no-emoji.mjs` (run in CI via the `build-test` job
+  and locally with `pnpm check:emoji`) fails on any emoji in user-facing source, keeping
+  the standard enforced going forward. Binary assets, generated maps, tests, and keycap
+  glyphs (⌘⇧) are excluded; an inline `emoji-ok` comment allows rare deliberate cases.
+
+### Fixed
+- **Security:** escaped `window.location.pathname` before it is written to the report
+  modal's `innerHTML` (`packages/core/src/modal.ts`), and escaped server/user-derived
+  values (`r.msg`, `issueKey`, `issueUrl`, error messages) in the extension options
+  page's result rendering — both reflected-XSS surfaces surfaced during the icon sweep.
 
 ## [0.39.4] — 2026-06-21
 
