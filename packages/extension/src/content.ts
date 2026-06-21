@@ -3,7 +3,7 @@ import { buildModal, type ModalController } from '@klavity/core/modal'
 import { resolveModalConfig } from '@klavity/core/modal-theme'
 import { installCapture, buildReportContext, type CaptureBuffers } from '@klavity/core/capture'
 import { cropDataUrl } from '@klavity/core/crop'
-import { klavContentSig, shouldCapture, DEBOUNCE_MS, ROUTE_COOLDOWN_MS, MAX_REVIEWS_PER_ROUTE } from './feedback-trigger'
+import { klavContentSig, shouldCapture, createTrailingDebounce, DEBOUNCE_MS, ROUTE_COOLDOWN_MS, MAX_REVIEWS_PER_ROUTE } from './feedback-trigger'
 import { widgetPresent } from './coexist'
 import { makeCaptureAwaiter } from './capture-bridge'
 
@@ -441,9 +441,10 @@ let klavPendingLatest: null | true | string = null
 // ── Observer handles (disconnect on route change) ─────────────────────────────
 let klavMutObs: MutationObserver | null = null
 let klavIntObs: IntersectionObserver | null = null
-let klavDebounceTimer: ReturnType<typeof setTimeout> | null = null
-// Throttle: earliest next time the mutation callback may schedule the debounce.
-let klavMutThrottleUntil = 0
+// Single trailing-edge debounce shared by both change sources (mutation + scroll):
+// every signal resets it, so a settling stream collapses into ONE review ~DEBOUNCE_MS
+// after the last change (fixes the old throttle+debounce combo that fired mid-stream).
+const klavCaptureDebounce = createTrailingDebounce(() => { void maybeActivate('detector') }, DEBOUNCE_MS)
 // Boot-guard: suppress the first IntersectionObserver fire when it matches the
 // initial viewport (boot's maybeActivate already covers that review).
 let klavBootGuard = true
@@ -909,20 +910,11 @@ async function maybeActivate(reason: string) {
   }
 }
 
-// ── Shared trailing-edge debounce used by all three change sources ────────────
-function klavScheduleCapture() {
-  if (klavDebounceTimer !== null) clearTimeout(klavDebounceTimer)
-  klavDebounceTimer = setTimeout(() => {
-    klavDebounceTimer = null
-    void maybeActivate('detector')
-  }, DEBOUNCE_MS)
-}
-
 // ── Tear down both observers (call before re-arming on route change or pause). ─
 function klavDisarmObservers() {
   if (klavMutObs) { klavMutObs.disconnect(); klavMutObs = null }
   if (klavIntObs) { klavIntObs.disconnect(); klavIntObs = null }
-  if (klavDebounceTimer !== null) { clearTimeout(klavDebounceTimer); klavDebounceTimer = null }
+  klavCaptureDebounce.cancel()
 }
 
 // ── Arm MutationObserver + IntersectionObserver on the content region. ────────
@@ -932,11 +924,9 @@ function klavArmObservers() {
   // --- MutationObserver: watch main content subtree for dynamic updates. ---
   const target = document.querySelector('main,[role="main"],article,body') ?? document.body
   klavMutObs = new MutationObserver((_mutations) => {
-    const now = Date.now()
-    // Throttle: at most one schedule per DEBOUNCE_MS window inside the callback.
-    if (now < klavMutThrottleUntil) return
-    klavMutThrottleUntil = now + DEBOUNCE_MS
-    klavScheduleCapture()
+    // Each mutation batch resets the shared trailing-edge debounce — so a stream
+    // of updates fires ONE review ~DEBOUNCE_MS after it settles, not mid-stream.
+    klavCaptureDebounce.schedule()
   })
   klavMutObs.observe(target, { childList: true, subtree: true, characterData: false, attributes: false })
 
@@ -954,7 +944,7 @@ function klavArmObservers() {
       if (!anyVisible) return
       // Suppress the very first fire (boot's maybeActivate already handles it).
       if (klavBootGuard) { klavBootGuard = false; return }
-      klavScheduleCapture()
+      klavCaptureDebounce.schedule()
     }, { threshold: 0.5 })
     for (const el of observeTargets) klavIntObs.observe(el)
   }
@@ -974,7 +964,6 @@ function klavOnRouteChange() {
   klavRouteCount = 0
   klavPendingLatest = null
   klavBootGuard = false  // boot guard is per-page-load only; new routes fire freely
-  klavMutThrottleUntil = 0
 
   // Tear down observers, re-arm on the new route's DOM (after a tick so the SPA
   // has finished rendering enough of the new route to find the content region).

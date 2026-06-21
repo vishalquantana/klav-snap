@@ -95,3 +95,41 @@ export function shouldCapture(s: CaptureState): CaptureDecision {
   }
   return { capture: true, reason: "ok" };
 }
+
+// ---------------------------------------------------------------------------
+// createTrailingDebounce
+// ---------------------------------------------------------------------------
+
+export interface TrailingDebounce {
+  /** (Re)arm the timer — fires `fn` once, `delayMs` after the LAST call. */
+  schedule(): void;
+  /** Cancel any pending fire (e.g. on observer teardown / route change). */
+  cancel(): void;
+}
+
+/**
+ * Pure trailing-edge debounce. Every `schedule()` resets the timer, so a stream
+ * of calls collapses into ONE `fn()` `delayMs` after the last one — "fire once
+ * when it settles". Replaces the old leading-throttle + debounce combo, whose
+ * throttle swallowed mid-window calls and inflated the effective delay to ~2×.
+ * Uses only setTimeout/clearTimeout (no DOM/chrome) so it's fake-timer testable.
+ */
+export function createTrailingDebounce(fn: () => void, delayMs: number): TrailingDebounce {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+  return {
+    cancel,
+    schedule() {
+      cancel();
+      timer = setTimeout(() => {
+        timer = null;
+        fn();
+      }, delayMs);
+    },
+  };
+}

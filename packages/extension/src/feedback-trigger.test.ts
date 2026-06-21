@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   klavContentSig,
   shouldCapture,
+  createTrailingDebounce,
   DEBOUNCE_MS,
   ROUTE_COOLDOWN_MS,
   MAX_REVIEWS_PER_ROUTE,
@@ -245,5 +246,66 @@ describe("exported consts", () => {
 
   it("MAX_REVIEWS_PER_ROUTE is 6", () => {
     expect(MAX_REVIEWS_PER_ROUTE).toBe(6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createTrailingDebounce — trailing-edge debounce (fixes the throttle ~2s bug)
+// ---------------------------------------------------------------------------
+
+describe("createTrailingDebounce", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("fires once, delayMs after the LAST schedule() — not on a fixed grid", () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const d = createTrailingDebounce(fn, 1000);
+
+    // A burst of "mutations" 300ms apart over 1.2s (a settling stream).
+    d.schedule();
+    vi.advanceTimersByTime(300);
+    d.schedule();
+    vi.advanceTimersByTime(300);
+    d.schedule();
+    vi.advanceTimersByTime(300);
+    d.schedule(); // last schedule at t=900
+
+    // The throttle bug would have fired around t=1000 mid-stream; trailing
+    // debounce must NOT have fired yet (last schedule was at t=900).
+    vi.advanceTimersByTime(999);
+    expect(fn).not.toHaveBeenCalled();
+
+    // Exactly delayMs after the last schedule → one fire.
+    vi.advanceTimersByTime(1);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    // No further fires once settled.
+    vi.advanceTimersByTime(5000);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancel() prevents a pending fire", () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const d = createTrailingDebounce(fn, 1000);
+    d.schedule();
+    vi.advanceTimersByTime(500);
+    d.cancel();
+    vi.advanceTimersByTime(5000);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("can be re-armed after firing", () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const d = createTrailingDebounce(fn, 1000);
+    d.schedule();
+    vi.advanceTimersByTime(1000);
+    expect(fn).toHaveBeenCalledTimes(1);
+    d.schedule();
+    vi.advanceTimersByTime(1000);
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 });
