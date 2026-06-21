@@ -1536,7 +1536,7 @@ function buildTktDetail(t, admin, onChange) {
       </div>
       <div class="tkt-actions">
         <div class="tkt-badges">${badgesHtml}</div>
-        ${t.hasReplay ? `<button class="btn btn-ghost btn-sm replay-btn" type="button">▶ Session replay</button>` : ""}
+        ${t.hasReplay ? `<button class="btn btn-ghost btn-sm replay-btn" type="button">${kicon('play')} Session replay</button>` : ""}
         <button class="btn btn-ghost btn-sm copy-claude-btn" type="button" title="Copy a detailed prompt to paste into Claude / ChatGPT / any AI coding agent">${kicon('sparkles')} Copy to AI</button>
         <button class="btn btn-ghost btn-sm save-meta-btn">Save</button>
       </div>

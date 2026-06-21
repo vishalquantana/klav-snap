@@ -96,7 +96,7 @@
     opts = opts || {};
     var body = (window.KLAV_ICONS || {})[name];
     if (!body) throw new Error('Unknown icon: ' + name);
-    var size = opts.size || 18;
+    var size = opts.size ?? 18;
     var cls = opts['class'] ? 'icon ' + opts['class'] : 'icon';
     var a11y = opts.label ? 'role="img"' : 'aria-hidden="true"';
     var title = opts.label ? '<title>' + esc(opts.label) + '</title>' : '';

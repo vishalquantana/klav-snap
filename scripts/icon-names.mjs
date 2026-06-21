@@ -18,4 +18,6 @@ export const ICON_NAMES = [
   'triangle-alert',
   // Added for prototype/public app pages (Task 7 proto)
   'hand', 'footprints', 'satellite',
+  // Added for intro-reel media controls (fix: convert ▶/⏸/↻ glyphs)
+  'play', 'pause', 'rotate-cw',
 ];

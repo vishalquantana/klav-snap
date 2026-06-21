@@ -340,9 +340,9 @@ async function runTrail(trailId, btn, row){
   btn.disabled = true; btn.textContent = "running…"; if (msg) msg.textContent = ""
   var r
   try { r = await fetch("/api/trails/" + encodeURIComponent(trailId) + "/walk" + qs, { method:"POST", headers:{ "content-type":"application/json" }, body:"{}" }) }
-  catch(e){ btn.disabled=false; btn.textContent="▶ Run"; if(msg) msg.textContent="network error"; return }
-  if (r.status === 409){ btn.disabled=false; btn.textContent="▶ Run"; if(msg){ msg.style.color="var(--amber)"; msg.textContent="a walk is already running" } return }
-  if (!r.ok){ btn.disabled=false; btn.textContent="▶ Run"; if(msg){ msg.style.color="var(--rose)"; msg.textContent="couldn't start" } return }
+  catch(e){ btn.disabled=false; btn.innerHTML=kicon('play',{size:12})+' Run'; if(msg) msg.textContent="network error"; return }
+  if (r.status === 409){ btn.disabled=false; btn.innerHTML=kicon('play',{size:12})+' Run'; if(msg){ msg.style.color="var(--amber)"; msg.textContent="a walk is already running" } return }
+  if (!r.ok){ btn.disabled=false; btn.innerHTML=kicon('play',{size:12})+' Run'; if(msg){ msg.style.color="var(--rose)"; msg.textContent="couldn't start" } return }
   var b = await r.json().catch(function(){return{}})
   var runId = b.runId
   // Poll the dashboard until this run leaves 'running' (~1.5s cadence, bounded).
@@ -384,8 +384,8 @@ function renderTrails(d){
     html += '<span class="run-msg"></span>'
     html += '<span class="heal-diff" data-heal="'+esc(t.id)+'" style="display:none"></span>'
     if (v) html += '<span class="pill '+esc(v)+'">'+esc(v)+'</span>'
-    if (w && w.hasReplay) html += '<button class="replay-btn" data-replay="'+esc(w.id)+'">&#9654; Replay</button>'
-    html += '<button class="run-btn" data-run="'+esc(t.id)+'">&#9654; Run</button>'
+    if (w && w.hasReplay) html += '<button class="replay-btn" data-replay="'+esc(w.id)+'">'+kicon('play',{size:12})+' Replay</button>'
+    html += '<button class="run-btn" data-run="'+esc(t.id)+'">'+kicon('play',{size:12})+' Run</button>'
     row.innerHTML = html
     tEl.appendChild(row)
     // For an AMBER latest walk, surface the heal-diff (#checkout → …) asynchronously.

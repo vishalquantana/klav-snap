@@ -129,11 +129,8 @@ function buildContext(): SubmitReportPayload['context'] {
 // ── Modal ────────────────────────────────────────────────────────────────────
 // Only the three context-menu icons remain; the report composer (and all of its
 // camera/crop/image/send/pencil/trash/close iconography) now lives in buildModal.
-const ICONS = {
-  bug: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3.003 3.003 0 1 1 6 0v1M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6Zm0 0v-9M6.53 9C4.6 8.8 3 7.1 3 5m3 8H2m1 8c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4m-.8 4c2.1.1 3.8 1.9 3.8 4"/></svg>`,
-  bulb: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z"/></svg>`,
-  clipboard: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/></svg>`,
-}
+// Icons are sourced from the central @klavity/core icon() helper to stay in sync
+// with the generated icon map (avoids path drift from hand-pasted SVGs).
 
 // ── Report composer (now the shared buildModal) ──────────────────────────────
 // The bespoke ~1000-line composer (its CSS/HTML, updateStrip, captureFullPage,
@@ -331,9 +328,9 @@ function showCtxMenu(x: number, y: number) {
   }
 
   const actions: Array<{ icon: string; color: string; label: string; run: () => void }> = [
-    { icon: ICONS.bug, color: '#E94F37', label: 'Report a Bug', run: () => openModal('bug') },
-    { icon: ICONS.bulb, color: '#F4A93C', label: 'Request a Feature', run: () => openModal('feature') },
-    { icon: ICONS.clipboard, color: '#8A837A', label: 'View submissions', run: () => { chrome.runtime.sendMessage({ kind: 'OPEN_TRACKER_URL' } satisfies BackgroundMessage).catch(() => {}) } },
+    { icon: icon('bug', { size: 16 }), color: '#E94F37', label: 'Report a Bug', run: () => openModal('bug') },
+    { icon: icon('lightbulb', { size: 16 }), color: '#F4A93C', label: 'Request a Feature', run: () => openModal('feature') },
+    { icon: icon('clipboard-list', { size: 16 }), color: '#8A837A', label: 'View submissions', run: () => { chrome.runtime.sendMessage({ kind: 'OPEN_TRACKER_URL' } satisfies BackgroundMessage).catch(() => {}) } },
   ]
   actions.forEach((a) => {
     const btn = makeRow(a.icon, a.color, a.label)
