@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity — O → spin → helix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:radial-gradient(130% 90% at 50% 6%, #15151e 0%, #0b0b0f 58%, #070709 100%);
+    color:#f4f4f6; font-family:'Hanken Grotesk',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; padding:48px 24px 80px; gap:16px;
+  }
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:#8a8a96}
+  h1{font-family:'Fraunces',serif;font-weight:560;font-size:30px;letter-spacing:-.02em}
+  .sub{color:#9a9aa6;font-size:14px;max-width:56ch;text-align:center;line-height:1.55}
+  canvas{display:block}
+  .seq{display:flex;gap:8px;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6d6d7a}
+  .seq b{color:#c9c9d4;font-weight:500}
+  .bar{display:flex;gap:10px;align-items:center;margin-top:12px}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;color:#9a9aa6;
+    background:rgba(255,255,255,.04);border:1px solid #1e1e29;border-radius:999px;padding:9px 18px;cursor:pointer;transition:.18s}
+  button:hover{color:#fff;border-color:#34343f;background:rgba(255,255,255,.07)}
+  button:focus-visible{outline:2px solid #6b6bff;outline-offset:2px}
+</style>
+</head>
+<body>
+  <div class="eyebrow">Klavity · logo motion</div>
+  <h1>( ) → spin → helix → ( )</h1>
+  <p class="sub">The ( ) mark is the rest state. It holds, the spin ramps in, it winds up into the full double helix (which zooms out so the height never exceeds the logo), then unwinds back to the ( ) shape. Seamless loop — no flat ladder.</p>
+
+  <canvas id="hero"></canvas>
+  <div class="seq"><span><b>1</b> ( ) logo</span>·<span><b>2</b> spin</span>·<span><b>3</b> helix (zoomed out)</span>·<span><b>4</b> back to ( )</span></div>
+
+  <div class="bar"><button id="restart">↻ restart</button></div>
+
+<script>
+(() => {
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const TAU = Math.PI * 2;
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp01 = t => t < 0 ? 0 : t > 1 ? 1 : t;
+
+  function bead(ctx, x, y, z, R, tint) {
+    const depth = (z + 1) / 2;
+    const r = R * (0.74 + depth*0.42);
+    const a = 0.55 + depth*0.45;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r*2.7);
+    g.addColorStop(0, `rgba(${tint},${a*0.55})`); g.addColorStop(1, `rgba(${tint},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r*2.7, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(${tint},${Math.min(1, a+0.3)})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+
+  function curve(ctx, pts, tint, alpha) {
+    if (alpha <= 0.01) return;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i], p1 = pts[i+1];
+      const depth = ((p0.z + p1.z)/2 + 1) / 2;
+      ctx.strokeStyle = `rgba(${tint},${(0.1 + depth*0.5) * alpha})`;
+      ctx.lineWidth = 0.8 + depth*1.9;
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    }
+  }
+
+  // The logo, the O and the helix are ONE model at different coil amounts:
+  //   coils 0 = flat beaded ladder (the icon) · 0.5 = curved O · 1.4 = double helix
+  function draw(ctx, t, cfg) {
+    const { cx, cy, beadR, N } = cfg;
+    const cyc = 6500, lp = (((t % cyc) + cyc) % cyc) / cyc;  // 0..1 loop position
+
+    // OC = the O's coil amount. Kept below 0.5 so the strands stay OPEN (a gap /
+    //   cut) at top & bottom instead of pinching to touching points.
+    const OC = 0.40;
+
+    // ── coils: the ( ) logo IS the rest state — no flat ladder. ──
+    //   ( ) holds, spins, winds into the helix, then unwinds back to ( ).
+    let coils;
+    if      (lp < 0.46) coils = OC;                                       // the ( ) logo — holds, then spins
+    else if (lp < 0.62) coils = lerp(OC, 1.4, ease((lp - 0.46) / 0.16)); // wind up into the helix
+    else if (lp < 0.74) coils = 1.4;                                      // full helix (hold)
+    else if (lp < 0.90) coils = lerp(1.4, OC, ease((lp - 0.74) / 0.16)); // unwind back to ( )
+    else                coils = OC;                                       // back to the ( ) logo
+
+    // ── spin: zero while it's the flat logo (must stay edge-aligned), a real
+    //    spin beat once it's an O, landing on whole turns so the loop is seamless. ──
+    const a = 0.30, b = 0.78, TURNS = 3;
+    let sp;
+    if      (lp <= a) sp = 0;
+    else if (lp >= b) sp = TURNS;
+    else { const u = (lp - a) / (b - a); sp = TURNS * (u - Math.sin(TAU*u)/TAU); }
+    const phase = Math.PI/2 + TAU * sp;
+
+    // The helix is naturally TALLER than the logo. Instead of letting it grow past
+    //   the logo's height, we keep the on-screen height fixed and ZOOM OUT (scale the
+    //   whole shape down) so the full helix fits — then zoom back in for the O / logo.
+    const restHalf = 64;                                              // fixed on-screen half-height
+    const natHalf  = lerp(restHalf, 122, clamp01((coils - 0.55) / 0.85)); // helix's natural height
+    const zoom     = restHalf / natHalf;                             // 1 at logo/O · ~0.52 at full helix
+    const R    = (30 + 15 * Math.exp(-Math.pow((coils - OC) / 0.42, 2))) * zoom;
+    const half = restHalf;                                           // height never exceeds the logo
+    const bz   = beadR * (0.6 + 0.4 * zoom);                         // beads shrink a touch when zoomed out
+
+    const nodeAt = (f, off) => {
+      const yN = (f - 0.5) * 2;
+      const ang = yN * coils * Math.PI + phase + off;
+      return { x: cx + R*Math.sin(ang), z: Math.cos(ang), y: cy + yN*half };
+    };
+
+    // primary beads = the 6 logo base-pairs
+    const A = [], B = [];
+    for (let i = 0; i < N; i++) { A.push(nodeAt(i/(N-1), 0)); B.push(nodeAt(i/(N-1), Math.PI)); }
+
+    const intro = ease(clamp01(t / 850));   // one-time fade/scale-in on first play
+
+    // curved backbone shows only mid-morph (the O); logo & helix stay beads-only
+    const cba = 0.6 * Math.exp(-Math.pow((coils - OC) / 0.25, 2));
+    ctx.globalAlpha = intro;
+    curve(ctx, A, '244,246,253', cba);
+    curve(ctx, B, '214,218,240', cba);
+
+    // base-pair rungs — the logo's horizontal links
+    for (let i = 0; i < N; i++) {
+      const depth = ((A[i].z + B[i].z)/2 + 1) / 2;
+      ctx.strokeStyle = `rgba(214,216,230,${0.34 * (0.5 + depth*0.5)})`;
+      ctx.lineWidth = bz * (0.3 + depth*0.16); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(A[i].x, A[i].y); ctx.lineTo(B[i].x, B[i].y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // collect beads: 6 primary (always) + 5 in-between per strand that fade in
+    //   ONLY as it becomes a helix — so the logo stays clean, the helix gets dense
+    const extra = clamp01((coils - 0.55) / 0.5);
+    const all = [];
+    for (const q of A) all.push({ ...q, tint: '244,246,253', a: 1 });
+    for (const q of B) all.push({ ...q, tint: '226,229,245', a: 1 });
+    if (extra > 0.01) {
+      for (let i = 0; i < N - 1; i++) {
+        const f = (i + 0.5) / (N - 1);
+        all.push({ ...nodeAt(f, 0),        tint: '244,246,253', a: extra });
+        all.push({ ...nodeAt(f, Math.PI),  tint: '226,229,245', a: extra });
+      }
+    }
+    all.sort((u, v) => u.z - v.z);
+    for (const d of all) {
+      ctx.globalAlpha = intro * d.a;
+      bead(ctx, d.x, d.y, d.z, bz * (0.6 + 0.4*intro), d.tint);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  const cv = document.getElementById('hero');
+  const W = 320, H = 380;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  cv.width = W*DPR; cv.height = H*DPR;
+  const ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
+
+  const CFG = { cx: 160, cy: 190, beadR: 3.6, N: 6 };
+
+  let t0 = 0;
+  function frame(now) {
+    if (!t0) t0 = now;
+    const freeze = parseFloat(location.hash.slice(1));
+    const frozen = !isNaN(freeze);
+    const t = frozen ? freeze : now - t0;
+    ctx.clearRect(0, 0, W, H);
+    draw(ctx, t, CFG);
+    if (!REDUCED && !frozen) requestAnimationFrame(frame);
+  }
+  window.addEventListener('hashchange', () => { t0 = 0; frame(0); });
+  document.getElementById('restart').addEventListener('click', () => { t0 = 0; frame(0); });
+  if (REDUCED) frame(0); else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

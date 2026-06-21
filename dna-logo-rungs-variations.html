@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity — ( ) + rung-join · 5 variations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:radial-gradient(130% 90% at 50% 0%, #15151e 0%, #0b0b0f 58%, #070709 100%);
+    color:#f4f4f6;font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+    min-height:100vh;padding:52px 26px 90px}
+  .head{max-width:1120px;margin:0 auto 32px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:#8a8a96}
+  h1{font-family:'Fraunces',serif;font-weight:560;font-size:38px;letter-spacing:-.02em;margin:14px 0 6px}
+  .sub{color:#a0a0ac;font-size:15px;max-width:64ch;line-height:1.55}
+  .grid{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(204px,1fr));gap:18px}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));
+    border:1px solid #1e1e29;border-radius:16px;padding:14px 12px 16px;display:flex;flex-direction:column;align-items:center;gap:9px;
+    transition:border-color .2s,transform .2s}
+  .card:hover{border-color:#34343f;transform:translateY(-3px)}
+  canvas{display:block;border-radius:10px}
+  .meta{text-align:center;width:100%}
+  .nm{font-weight:700;font-size:13px;color:#ececf0}
+  .nm .idx{font-family:'JetBrains Mono',monospace;color:#6d6d7a;font-weight:500;margin-right:6px}
+  .cc{font-size:11.5px;color:#85858f;line-height:1.4;margin-top:3px}
+  .bar{max-width:1120px;margin:26px auto 0;display:flex;gap:10px}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;color:#9a9aa6;
+    background:rgba(255,255,255,.04);border:1px solid #1e1e29;border-radius:999px;padding:9px 18px;cursor:pointer;transition:.18s}
+  button:hover{color:#fff;border-color:#34343f;background:rgba(255,255,255,.07)}
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="eyebrow">Klavity · logo motion</div>
+    <h1>( ) + rung-join · 5 variations</h1>
+    <p class="sub">The ( ) mark sits open (rungs split). As it winds up into the helix the rungs join — growing from the two dots to meet in the middle — and as it flattens back to ( ) they split apart again, all in parallel with the morph (no stop-and-split). Five takes on how they join.</p>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="bar"><button id="restart">↻ restart all</button></div>
+
+<script>
+(() => {
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const TAU = Math.PI*2, N = 6, OC = 0.40;
+  const easeIO = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  const backOut = t => { const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); };
+  const lerp = (a,b,t) => a+(b-a)*t;
+  const lp2 = (a,b,t) => ({ x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t });
+  const cl = t => t<0?0:t>1?1:t;
+
+  function bead(ctx,x,y,z,R,tint,mul){
+    const d=(z+1)/2, r=R*(0.74+d*0.42), a=(0.55+d*0.45)*(mul??1);
+    if(a<=0.02) return;
+    const g=ctx.createRadialGradient(x,y,0,x,y,r*2.7);
+    g.addColorStop(0,`rgba(${tint},${a*0.55})`); g.addColorStop(1,`rgba(${tint},0)`);
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r*2.7,0,TAU); ctx.fill();
+    ctx.fillStyle=`rgba(${tint},${Math.min(1,a+0.3)})`; ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.fill();
+  }
+
+  function rungProg(rc,i,style){
+    if(style==='middleStagger') return cl(rc*1.7 - i*0.13);
+    if(style==='zip')           return cl(rc*2.4 - i*0.34);
+    if(style==='snap')          return backOut(cl(rc));
+    return cl(rc); // middle, sweep
+  }
+
+  function draw(ctx,t,c){
+    const { cx, cy, beadR } = c;
+    const cyc = 6000, lp = (((t%cyc)+cyc)%cyc)/cyc;
+
+    // shorter ( ) dwell: ( ) → wind → helix → unwind → ( )
+    let coils;
+    if      (lp < 0.10) coils = OC;
+    else if (lp < 0.34) coils = lerp(OC, 1.4, easeIO((lp-0.10)/0.24));
+    else if (lp < 0.56) coils = 1.4;
+    else if (lp < 0.82) coils = lerp(1.4, OC, easeIO((lp-0.56)/0.26));
+    else                coils = OC;
+
+    // spin: still during the ( ) hold, lands on whole turns (seamless)
+    const a=0.10, b=0.84, TURNS=2;
+    let sp; if(lp<=a) sp=0; else if(lp>=b) sp=TURNS;
+    else { const u=(lp-a)/(b-a); sp=TURNS*(u-Math.sin(TAU*u)/TAU); }
+    const phase = Math.PI/2 + TAU*sp;
+
+    // zoom so on-screen height never exceeds the ( ) — helix zooms out to fit
+    const restHalf = c.restHalf, natHalf = lerp(restHalf, c.natHelix, cl((coils-0.55)/0.85));
+    const zoom = restHalf/natHalf;
+    const R = (c.Rbase + c.Rbump*Math.exp(-Math.pow((coils-OC)/0.42,2)))*zoom;
+    const half = restHalf, bz = beadR*(0.6+0.4*zoom);
+
+    const node = (f,off) => { const yN=(f-0.5)*2, ang=yN*coils*Math.PI+phase+off;
+      return { x:cx+R*Math.sin(ang), z:Math.cos(ang), y:cy+yN*half, f }; };
+    const A=[],B=[];
+    for(let i=0;i<N;i++){ A.push(node(i/(N-1),0)); B.push(node(i/(N-1),Math.PI)); }
+
+    const intro = easeIO(cl(t/850));
+    ctx.globalAlpha = intro; ctx.lineCap='round';
+
+    // curved backbone (the ( ) emphasis), fades out toward the helix
+    const cba = 0.55*Math.exp(-Math.pow((coils-OC)/0.25,2));
+    for(const [pts,tint] of [[A,'244,246,253'],[B,'214,218,240']]) if(cba>0.02)
+      for(let i=0;i<pts.length-1;i++){ const p0=pts[i],p1=pts[i+1],d=((p0.z+p1.z)/2+1)/2;
+        ctx.strokeStyle=`rgba(${tint},${(0.1+d*0.5)*cba})`; ctx.lineWidth=(0.7+d*1.5)*zoom;
+        ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); }
+
+    // rungs connect/split IN PARALLEL with the morph (no separate stop-and-split beat):
+    //   split open at the ( ), join (dots → middle) as it winds into the helix. Paced
+    //   by the wind/unwind, so it's slower and continuous with the flattening.
+    const rc = cl((coils - OC) / 0.62);
+    for(let i=0;i<N;i++){
+      const d=((A[i].z+B[i].z)/2+1)/2, p=rungProg(rc,i,c.style);
+      if(p<=0.01) continue;
+      ctx.strokeStyle=`rgba(214,216,230,${0.34*(0.5+d*0.5)})`; ctx.lineWidth=bz*(0.3+d*0.16);
+      if(c.style==='sweep'){
+        const e=lp2(A[i],B[i],Math.min(1,p));
+        ctx.beginPath(); ctx.moveTo(A[i].x,A[i].y); ctx.lineTo(e.x,e.y); ctx.stroke();
+      } else {
+        const mid=lp2(A[i],B[i],0.5), pa=lp2(A[i],mid,p), pb=lp2(B[i],mid,p);
+        ctx.beginPath(); ctx.moveTo(A[i].x,A[i].y); ctx.lineTo(pa.x,pa.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(B[i].x,B[i].y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // beads: 6 primary + in-between that fade in for the helix
+    const extra = cl((coils-(OC+0.18))/0.5), all=[];
+    A.forEach(q=>all.push({...q,tint:'244,246,253',a:1}));
+    B.forEach(q=>all.push({...q,tint:'226,229,245',a:1}));
+    if(extra>0.01) for(let i=0;i<N-1;i++){ const f=(i+0.5)/(N-1);
+      all.push({...node(f,0),tint:'244,246,253',a:extra}); all.push({...node(f,Math.PI),tint:'226,229,245',a:extra}); }
+    all.sort((u,v)=>u.z-v.z);
+    for(const dd of all){ ctx.globalAlpha=intro*dd.a; bead(ctx,dd.x,dd.y,dd.z,bz*(0.6+0.4*intro),dd.tint); }
+    ctx.globalAlpha=1;
+  }
+
+  const VARS = [
+    { name:'Meet in Middle', style:'middle',        note:'rungs grow from both dots, join at center' },
+    { name:'Stagger Down',   style:'middleStagger', note:'joins top-to-bottom in sequence' },
+    { name:'Sweep Across',   style:'sweep',         note:'each rung draws from one dot to the other' },
+    { name:'Snap',           style:'snap',          note:'rungs snap to center with a slight bounce' },
+    { name:'Zipper',         style:'zip',           note:'rungs zip closed top-down, fast' },
+  ];
+
+  const grid = document.getElementById('grid');
+  const W = 200, H = 232;
+  const cards = VARS.map((v,idx)=>{
+    const card=document.createElement('div'); card.className='card';
+    const cv=document.createElement('canvas'); cv.style.width=W+'px'; cv.style.height=H+'px';
+    cv.width=W*DPR; cv.height=H*DPR; const ctx=cv.getContext('2d'); ctx.scale(DPR,DPR);
+    card.appendChild(cv);
+    const meta=document.createElement('div'); meta.className='meta';
+    meta.innerHTML=`<div class="nm"><span class="idx">${String(idx+1).padStart(2,'0')}</span>${v.name}</div><div class="cc">${v.note}</div>`;
+    card.appendChild(meta); grid.appendChild(card);
+    return { ctx, c:{ ...v, cx:W/2, cy:H/2, restHalf:72, natHelix:138, Rbase:20, Rbump:13, beadR:3.0 } };
+  });
+
+  let t0=0;
+  function frame(now){ if(!t0) t0=now;
+    const fz=parseFloat(location.hash.slice(1)), frozen=!isNaN(fz);
+    const t=frozen?fz:now-t0;
+    for(const c of cards){ c.ctx.clearRect(0,0,W,H); draw(c.ctx,t,c.c); }
+    if(!REDUCED && !frozen) requestAnimationFrame(frame); }
+  window.addEventListener('hashchange',()=>{ t0=0; frame(0); });
+  document.getElementById('restart').addEventListener('click',()=>{ t0=0; if(REDUCED) frame(1800); });
+  if(REDUCED) frame(1800); else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

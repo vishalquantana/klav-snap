@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity — DNA logo animation · 10 variations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:radial-gradient(130% 90% at 50% 0%, #15151e 0%, #0b0b0f 58%, #070709 100%);
+    color:#f4f4f6; font-family:'Hanken Grotesk',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; min-height:100vh; padding:54px 28px 90px;
+  }
+  .head{max-width:1180px;margin:0 auto 36px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:#8a8a96}
+  h1{font-family:'Fraunces',serif;font-weight:560;font-size:40px;letter-spacing:-.02em;margin:14px 0 6px}
+  .sub{color:#a0a0ac;font-size:15px;max-width:62ch;line-height:1.55}
+  .grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+  .card{
+    position:relative;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));
+    border:1px solid #1e1e29;border-radius:18px;padding:14px 14px 16px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden;
+    transition:border-color .2s, transform .2s;
+  }
+  .card:hover{border-color:#34343f;transform:translateY(-3px)}
+  canvas{display:block;border-radius:12px}
+  .meta{text-align:center;width:100%}
+  .nm{font-weight:700;font-size:14px;color:#ececf0}
+  .nm .idx{font-family:'JetBrains Mono',monospace;color:#6d6d7a;font-weight:500;margin-right:7px}
+  .cc{font-size:12px;color:#85858f;line-height:1.45;margin-top:3px}
+  .bar{max-width:1180px;margin:30px auto 0;display:flex;gap:10px;align-items:center}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;color:#9a9aa6;
+    background:rgba(255,255,255,.04);border:1px solid #1e1e29;border-radius:999px;padding:9px 18px;cursor:pointer;transition:.18s}
+  button:hover{color:#fff;border-color:#34343f;background:rgba(255,255,255,.07)}
+  button:focus-visible{outline:2px solid #6b6bff;outline-offset:2px}
+  .hint{color:#6d6d7a;font-size:12px;font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="eyebrow">Klavity · logo motion</div>
+    <h1>DNA helix — 10 animation variations</h1>
+    <p class="sub">Each renders the double helix with real depth (strands pass in front of and behind each other). Same monochrome brand palette, ten different motion ideas. Tell me which numbers you like and I'll polish the winner into a production loop + GIF/MP4.</p>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="bar">
+    <button id="restart">↻ restart all</button>
+    <span class="hint" id="fps"></span>
+  </div>
+
+<script>
+(() => {
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const W = 182, H = 196;
+
+  // ── math helpers ───────────────────────────────────────────
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp01 = t => t < 0 ? 0 : t > 1 ? 1 : t;
+  const TAU = Math.PI * 2;
+
+  const CX = W/2, CY = H/2, HALF = 58, RAD = 32, N = 16;
+  const WHITE = '238,240,255', PERI = '150,156,255';
+
+  // build both strands' nodes
+  function strands(o) {
+    const N_ = o.N || N, R = o.R, half = o.half ?? HALF, coils = o.coils ?? 2.0,
+          phase = o.phase || 0, cx = o.cx ?? CX, cy = o.cy ?? CY, sepX = o.sepX || 0;
+    const A = [], B = [];
+    for (let i = 0; i < N_; i++) {
+      const f = i / (N_ - 1), yN = (f - 0.5) * 2;
+      const ang = yN * coils * Math.PI + phase;
+      const Ri = typeof R === 'function' ? R(i, yN) : (R ?? RAD);
+      A.push({ x: cx + Ri*Math.sin(ang) - sepX, z: Math.cos(ang),          y: cy + yN*half, f, i });
+      B.push({ x: cx + Ri*Math.sin(ang+Math.PI) + sepX, z: Math.cos(ang+Math.PI), y: cy + yN*half, f, i });
+    }
+    return { A, B };
+  }
+
+  function dot(ctx, x, y, z, scale, alpha, tint) {
+    const depth = (z + 1) / 2;                  // 0 back .. 1 front
+    const r = (1.3 + depth*2.6) * (scale ?? 1);
+    const a = (0.24 + depth*0.76) * (alpha ?? 1);
+    if (a <= 0.01) return;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r*3.2);
+    g.addColorStop(0, `rgba(${tint},${a})`);
+    g.addColorStop(1, `rgba(${tint},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r*3.2, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(${tint},${Math.min(1, a+0.15)})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+
+  function backbone(ctx, pts, tint, reveal = 1) {
+    const rev = reveal * (pts.length - 1);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (i > rev) break;
+      const seg = Math.min(1, rev - i);
+      const p0 = pts[i], p1 = pts[i+1];
+      const depth = ((p0.z + p1.z)/2 + 1) / 2;
+      ctx.strokeStyle = `rgba(${tint},${0.09 + depth*0.5})`;
+      ctx.lineWidth = 0.8 + depth*2.1;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p0.x + (p1.x-p0.x)*seg, p0.y + (p1.y-p0.y)*seg);
+      ctx.stroke();
+    }
+  }
+
+  function rungs(ctx, A, B, alphaFn) {
+    for (let i = 0; i < A.length; i++) {
+      const a = alphaFn ? alphaFn(i) : 1;
+      if (a <= 0.01) continue;
+      const depth = ((A[i].z + B[i].z)/2 + 1) / 2;
+      ctx.strokeStyle = `rgba(${PERI},${(0.1 + depth*0.42) * a})`;
+      ctx.lineWidth = 0.6 + depth*1.2;
+      ctx.beginPath(); ctx.moveTo(A[i].x, A[i].y); ctx.lineTo(B[i].x, B[i].y); ctx.stroke();
+    }
+  }
+
+  function dots(ctx, A, B, opt = {}) {
+    const all = [];
+    for (const p of A) all.push({ ...p, tint: WHITE });
+    for (const p of B) all.push({ ...p, tint: PERI });
+    all.sort((a, b) => a.z - b.z);
+    for (const d of all) {
+      const sc = opt.scale ? opt.scale(d) : 1;
+      const al = opt.alpha ? opt.alpha(d) : 1;
+      dot(ctx, d.x, d.y, d.z, sc, al, d.tint);
+    }
+  }
+
+  // ── 10 variations ──────────────────────────────────────────
+  const VARS = [
+  {
+    name: 'Spin', note: 'Continuous 3D rotation — the hero loop.',
+    render(ctx, t) {
+      const s = strands({ phase: t/650 });
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI);
+      rungs(ctx, s.A, s.B); dots(ctx, s.A, s.B);
+    }
+  },
+  {
+    name: 'Assemble', note: 'Nucleotides scatter in and snap to the helix.',
+    render(ctx, t) {
+      const cyc = 4400, p = (t % cyc) / cyc;
+      let a = p < 0.45 ? ease(p/0.45) : p < 0.82 ? 1 : 1 - ease((p-0.82)/0.18);
+      const s = strands({ phase: t/650 });
+      const scat = (i) => ({ x: CX + Math.sin(i*1.3+1)*74, y: CY + Math.cos(i*2.1)*88, z: Math.sin(i*0.7) });
+      [s.A, s.B].forEach((arr, si) => arr.forEach((pt, i) => {
+        const sc = scat(i + si*7);
+        pt.x = lerp(sc.x, pt.x, a); pt.y = lerp(sc.y, pt.y, a); pt.z = lerp(sc.z, pt.z, a);
+      }));
+      const r = clamp01((a - 0.5) / 0.5);
+      if (r > 0) { backbone(ctx, s.A, WHITE, r); backbone(ctx, s.B, PERI, r); rungs(ctx, s.A, s.B, () => r); }
+      dots(ctx, s.A, s.B, { alpha: () => 0.35 + 0.65*a, scale: () => 0.7 + 0.3*a });
+    }
+  },
+  {
+    name: 'Unzip', note: 'Strands split apart and re-pair — replication.',
+    render(ctx, t) {
+      const cyc = 3600, p = (t % cyc) / cyc;
+      const sep = (1 - Math.cos(p*TAU)) / 2;
+      const s = strands({ phase: t/1500, sepX: sep*24 });
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI);
+      rungs(ctx, s.A, s.B, () => 1 - sep);
+      dots(ctx, s.A, s.B);
+    }
+  },
+  {
+    name: 'Signal', note: 'A pulse of light travels down the strand.',
+    render(ctx, t) {
+      const s = strands({ phase: t/1200 });
+      const pp = (t % 2000) / 2000;
+      const boost = (d) => Math.exp(-Math.pow((d.f - pp)*4, 2) * 3);
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI);
+      rungs(ctx, s.A, s.B, (i) => 0.4 + 0.6*Math.exp(-Math.pow((s.A[i].f - pp)*4,2)*3));
+      dots(ctx, s.A, s.B, { scale: d => 1 + boost(d)*1.7, alpha: d => 0.5 + boost(d)*0.5 });
+    }
+  },
+  {
+    name: 'Draw-On', note: 'Backbone draws itself, rungs link, then fades & repeats.',
+    render(ctx, t) {
+      const cyc = 4000, p = (t % cyc) / cyc;
+      const s = strands({ phase: t/900 });
+      let bb = 0, rg = 0, dA = 0, fade = 1;
+      if (p < 0.35) { bb = ease(p/0.35); dA = bb; }
+      else if (p < 0.6) { bb = 1; dA = 1; rg = ease((p-0.35)/0.25); }
+      else if (p < 0.85) { bb = 1; dA = 1; rg = 1; }
+      else { bb = 1; dA = 1; rg = 1; fade = 1 - ease((p-0.85)/0.15); }
+      ctx.globalAlpha = fade;
+      backbone(ctx, s.A, WHITE, bb); backbone(ctx, s.B, PERI, bb);
+      rungs(ctx, s.A, s.B, () => rg);
+      dots(ctx, s.A, s.B, { alpha: d => dA * easeOut(clamp01(bb*N - d.i*0.5)) });
+      ctx.globalAlpha = 1;
+    }
+  },
+  {
+    name: 'Untwist', note: 'Flat ladder coils up into a helix and back.',
+    render(ctx, t) {
+      const cyc = 4400, p = (t % cyc) / cyc;
+      const tw = ease(Math.abs(((p*2) % 2) - 1));
+      const s = strands({ coils: tw*2.4, phase: Math.PI/2 + (t/1600)*tw });
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI);
+      rungs(ctx, s.A, s.B); dots(ctx, s.A, s.B);
+    }
+  },
+  {
+    name: 'Decode', note: 'A scan line reads each base pair top to bottom.',
+    render(ctx, t) {
+      const s = strands({ phase: t/1500 });
+      const sf = (t % 2200) / 2200;
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI);
+      rungs(ctx, s.A, s.B, (i) => Math.abs(s.A[i].f - sf) < 0.075 ? 1 : 0.16);
+      dots(ctx, s.A, s.B, {
+        scale: d => Math.abs(d.f - sf) < 0.075 ? 1.9 : 0.95,
+        alpha: d => Math.abs(d.f - sf) < 0.075 ? 1 : 0.45
+      });
+      const y = CY + (sf - 0.5)*2 * HALF;
+      ctx.strokeStyle = 'rgba(150,156,255,0.55)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(CX - 50, y); ctx.lineTo(CX + 50, y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  },
+  {
+    name: 'Breathe', note: 'Calm idle — slow spin with a soft scale pulse.',
+    render(ctx, t) {
+      const sc = 1 + 0.08*Math.sin(t/700);
+      const s = strands({ phase: t/1700, R: RAD*sc, half: HALF*sc });
+      const ga = 0.82 + 0.18*Math.sin(t/700);
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI);
+      rungs(ctx, s.A, s.B, () => ga); dots(ctx, s.A, s.B, { alpha: () => ga });
+    }
+  },
+  {
+    name: 'Elastic', note: 'Radius writhes along its length — a living strand.',
+    render(ctx, t) {
+      const Rfn = (i, yN) => 16 + 18*(0.5 + 0.5*Math.sin(yN*Math.PI*1.6 + t/400));
+      const s = strands({ phase: t/700, R: Rfn });
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI);
+      rungs(ctx, s.A, s.B); dots(ctx, s.A, s.B);
+    }
+  },
+  {
+    name: 'Orbit', note: 'A comet nucleotide circles a faint background helix.',
+    render(ctx, t) {
+      const s = strands({ phase: t/1500, R: 24 });
+      ctx.globalAlpha = 0.5;
+      backbone(ctx, s.A, WHITE); backbone(ctx, s.B, PERI); rungs(ctx, s.A, s.B);
+      ctx.globalAlpha = 1;
+      dots(ctx, s.A, s.B, { alpha: () => 0.45, scale: () => 0.8 });
+      const trail = 9;
+      for (let k = trail; k >= 0; k--) {
+        const tt = t - k*52;
+        const ang = tt/360;
+        const x = CX + 40*Math.sin(ang), z = Math.cos(ang);
+        const y = CY + Math.sin(tt/520) * HALF * 0.92;
+        dot(ctx, x, y, z, 1 + (k === 0 ? 0.9 : 0), (1 - k/trail) * 0.9, '184,202,255');
+      }
+    }
+  },
+  ];
+
+  // ── wire up cards ──────────────────────────────────────────
+  const grid = document.getElementById('grid');
+  const cards = VARS.map((v, idx) => {
+    const card = document.createElement('div'); card.className = 'card';
+    const cv = document.createElement('canvas');
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    cv.width = W*DPR; cv.height = H*DPR;
+    const ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
+    card.appendChild(cv);
+    const meta = document.createElement('div'); meta.className = 'meta';
+    meta.innerHTML = `<div class="nm"><span class="idx">${String(idx+1).padStart(2,'0')}</span>${v.name}</div><div class="cc">${v.note}</div>`;
+    card.appendChild(meta);
+    grid.appendChild(card);
+    return { ctx, v };
+  });
+
+  let t0 = 0;
+  function frame(now) {
+    if (!t0) t0 = now;
+    const t = now - t0;
+    for (const c of cards) { c.ctx.clearRect(0, 0, W, H); c.v.render(c.ctx, t); }
+    if (!REDUCED) requestAnimationFrame(frame);
+  }
+
+  document.getElementById('restart').addEventListener('click', () => { t0 = 0; if (REDUCED) frame(1800); });
+
+  if (REDUCED) { document.getElementById('fps').textContent = 'reduced-motion: static frame'; frame(1800); }
+  else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

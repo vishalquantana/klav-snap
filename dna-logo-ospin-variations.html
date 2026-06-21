@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity — logo→O→spin→helix · 20 variations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:radial-gradient(130% 90% at 50% 0%, #15151e 0%, #0b0b0f 58%, #070709 100%);
+    color:#f4f4f6; font-family:'Hanken Grotesk',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; min-height:100vh; padding:50px 26px 90px;
+  }
+  .head{max-width:1180px;margin:0 auto 34px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:#8a8a96}
+  h1{font-family:'Fraunces',serif;font-weight:560;font-size:38px;letter-spacing:-.02em;margin:14px 0 6px}
+  .sub{color:#a0a0ac;font-size:15px;max-width:64ch;line-height:1.55}
+  .grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:16px}
+  .card{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));
+    border:1px solid #1e1e29;border-radius:16px;padding:12px 12px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;
+    transition:border-color .2s, transform .2s}
+  .card:hover{border-color:#34343f;transform:translateY(-3px)}
+  canvas{display:block;border-radius:10px}
+  .meta{text-align:center;width:100%}
+  .nm{font-weight:700;font-size:13px;color:#ececf0}
+  .nm .idx{font-family:'JetBrains Mono',monospace;color:#6d6d7a;font-weight:500;margin-right:6px}
+  .cc{font-size:11px;color:#85858f;line-height:1.4;margin-top:2px}
+  .bar{max-width:1180px;margin:28px auto 0;display:flex;gap:10px;align-items:center}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;color:#9a9aa6;
+    background:rgba(255,255,255,.04);border:1px solid #1e1e29;border-radius:999px;padding:9px 18px;cursor:pointer;transition:.18s}
+  button:hover{color:#fff;border-color:#34343f;background:rgba(255,255,255,.07)}
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="eyebrow">Klavity · logo motion</div>
+    <h1>logo → O → spin → helix · 20 variations</h1>
+    <p class="sub">Every card runs the same skeleton you approved — starts & ends on the icon, opens into a cut-open O, spins, winds into the helix, unwinds home. They differ in spin, O openness, helix tightness, path order, pacing, and a few flavor effects. Tell me the number you want and I’ll lock it in + export.</p>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="bar"><button id="restart">↻ restart all</button></div>
+
+<script>
+(() => {
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const TAU = Math.PI * 2, N = 6;
+  const easeIO = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  const lerp = (a,b,t) => a + (b-a)*t;
+  const cl = t => t < 0 ? 0 : t > 1 ? 1 : t;
+
+  const DEF = { OC:0.40, HC:1.4, turns:3, dir:1, spinMode:'beat', order:'normal',
+    baseHalf:30, maxHalf:72, Rbase:18, Rbump:10, beadR:2.6, cyc:6500,
+    tintA:'244,246,253', tintB:'226,229,245', rung:'214,216,230', flavor:null };
+
+  function coilsAt(lp, c) {
+    const E = easeIO, { OC, HC, order } = c;
+    if (order === 'reverse') {           // logo → helix → O → logo
+      if (lp < 0.10) return 0;
+      if (lp < 0.30) return lerp(0, HC, E((lp-0.10)/0.20));
+      if (lp < 0.46) return HC;
+      if (lp < 0.60) return lerp(HC, OC, E((lp-0.46)/0.14));
+      if (lp < 0.78) return OC;
+      if (lp < 0.90) return lerp(OC, 0, E((lp-0.78)/0.12));
+      return 0;
+    }
+    if (order === 'skipO') {             // logo → helix → logo
+      if (lp < 0.12) return 0;
+      if (lp < 0.40) return lerp(0, HC, E((lp-0.12)/0.28));
+      if (lp < 0.62) return HC;
+      if (lp < 0.88) return lerp(HC, 0, E((lp-0.62)/0.26));
+      return 0;
+    }
+    if (order === 'oOnly') {             // logo → O → logo (never full helix)
+      if (lp < 0.14) return 0;
+      if (lp < 0.36) return lerp(0, OC, E((lp-0.14)/0.22));
+      if (lp < 0.64) return OC;
+      if (lp < 0.86) return lerp(OC, 0, E((lp-0.64)/0.22));
+      return 0;
+    }
+    // normal: logo → O → helix → logo
+    if (lp < 0.10) return 0;
+    if (lp < 0.24) return OC * E((lp-0.10)/0.14);
+    if (lp < 0.48) return OC;
+    if (lp < 0.64) return lerp(OC, HC, E((lp-0.48)/0.16));
+    if (lp < 0.76) return HC;
+    if (lp < 0.90) return HC * (1 - E((lp-0.76)/0.14));
+    return 0;
+  }
+
+  function phaseAt(lp, c) {
+    let a = 0.22, b = 0.80;
+    if (c.spinMode === 'throughout') { a = 0.10; b = 0.90; }
+    else if (c.spinMode === 'helixOnly') { a = 0.45; b = 0.78; }
+    else if (c.spinMode === 'oOnly') { a = 0.22; b = 0.46; }
+    const T = c.turns;
+    let sp;
+    if (lp <= a) sp = 0; else if (lp >= b) sp = T;
+    else { const u = (lp-a)/(b-a); sp = T*(u - Math.sin(TAU*u)/TAU); }
+    return Math.PI/2 + c.dir * TAU * sp;
+  }
+
+  function bead(ctx, x, y, z, R, tint, mul) {
+    const depth = (z+1)/2, r = R*(0.74+depth*0.42), a = (0.55+depth*0.45)*(mul ?? 1);
+    if (a <= 0.02) return;
+    const g = ctx.createRadialGradient(x,y,0,x,y,r*2.7);
+    g.addColorStop(0,`rgba(${tint},${a*0.55})`); g.addColorStop(1,`rgba(${tint},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r*2.7,0,TAU); ctx.fill();
+    ctx.fillStyle = `rgba(${tint},${Math.min(1,a+0.3)})`;
+    ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.fill();
+  }
+
+  function draw(ctx, t, c) {
+    const { cx, cy, beadR } = c;
+    const lp = (((t % c.cyc) + c.cyc) % c.cyc) / c.cyc;
+    const coils = coilsAt(lp, c);
+    const phase = phaseAt(lp, c);
+    const R    = c.Rbase + c.Rbump * Math.exp(-Math.pow((coils - c.OC)/0.42, 2));
+    const half = lerp(c.baseHalf, c.maxHalf, cl((coils - (c.OC + 0.12)) / 0.75));
+    const intro = easeIO(cl(t/850));
+
+    const node = (f, off) => {
+      const yN = (f-0.5)*2, ang = yN*coils*Math.PI + phase + off;
+      return { x: cx + R*Math.sin(ang), z: Math.cos(ang), y: cy + yN*half, f };
+    };
+
+    const A = [], B = [];
+    for (let i = 0; i < N; i++) { A.push(node(i/(N-1), 0)); B.push(node(i/(N-1), Math.PI)); }
+
+    // backbone (O only) + rungs
+    const cba = 0.55 * Math.exp(-Math.pow((coils - c.OC)/0.25, 2));
+    ctx.globalAlpha = intro; ctx.lineCap = 'round';
+    for (const [pts, tint] of [[A, c.tintA], [B, c.tintB]]) {
+      if (cba > 0.02) for (let i = 0; i < pts.length-1; i++) {
+        const p0 = pts[i], p1 = pts[i+1], d = ((p0.z+p1.z)/2+1)/2;
+        ctx.strokeStyle = `rgba(${tint},${(0.1+d*0.5)*cba})`; ctx.lineWidth = 0.7+d*1.5;
+        ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      const d = ((A[i].z+B[i].z)/2+1)/2;
+      ctx.strokeStyle = `rgba(${c.rung},${0.32*(0.5+d*0.5)})`; ctx.lineWidth = beadR*(0.3+d*0.16);
+      ctx.beginPath(); ctx.moveTo(A[i].x,A[i].y); ctx.lineTo(B[i].x,B[i].y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // beads: 6 primary + in-between that fade in for the helix
+    const extra = cl((coils - (c.OC + 0.18)) / 0.5);
+    const all = [];
+    A.forEach((q,i) => all.push({ ...q, tint:c.tintA, a:1, idx:i*2 }));
+    B.forEach((q,i) => all.push({ ...q, tint:c.tintB, a:1, idx:i*2+1 }));
+    if (extra > 0.01) for (let i = 0; i < N-1; i++) {
+      const f = (i+0.5)/(N-1);
+      all.push({ ...node(f,0), tint:c.tintA, a:extra, idx:100+i });
+      all.push({ ...node(f,Math.PI), tint:c.tintB, a:extra, idx:200+i });
+    }
+    all.sort((u,v) => u.z - v.z);
+
+    // flavor pre-compute
+    const pp = (t % 1400) / 1400;                 // pulse / scan sweep
+    for (const dd of all) {
+      let mul = intro * dd.a, sc = 1;
+      if (c.flavor === 'pulse') { const g = Math.exp(-Math.pow((dd.f-pp)*4,2)*2); sc = 1+g*1.5; mul *= 0.55+g*0.45; }
+      else if (c.flavor === 'sparkle') { mul *= 0.6 + 0.4*Math.sin(t/170 + dd.idx*1.7); }
+      else if (c.flavor === 'scan' && coils > 0.7) { const near = Math.abs(dd.f-pp) < 0.1; sc = near?1.7:0.9; mul *= near?1:0.5; }
+      bead(ctx, dd.x, dd.y, dd.z, beadR*sc*(0.6+0.4*intro), dd.tint, mul);
+    }
+
+    if (c.flavor === 'scan' && coils > 0.7) {
+      const y = cy + (pp-0.5)*2*half;
+      ctx.strokeStyle = `rgba(${c.rung},0.5)`; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(cx-R-6,y); ctx.lineTo(cx+R+6,y); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (c.flavor === 'comet') {
+      const trail = 8;
+      for (let k = trail; k >= 0; k--) {
+        const tt = t - k*46, ang = c.dir*tt/300;
+        const x = cx + (R+4)*Math.sin(ang), z = Math.cos(ang), yy = cy + Math.sin(tt/520)*half*0.85;
+        bead(ctx, x, yy, z, beadR*(1 + (k===0?0.7:0)), '184,202,255', (1-k/trail)*0.9*intro);
+      }
+    }
+  }
+
+  // ── 20 configs ─────────────────────────────────────────────
+  const VARS = [
+    { name:'Classic', note:'the baseline you approved' },
+    { name:'Fast Triple', note:'5 quick turns', turns:5, cyc:5200 },
+    { name:'Gentle', note:'one slow turn', turns:1, cyc:8200 },
+    { name:'Reverse Spin', note:'spins the other way', dir:-1 },
+    { name:'Wide-Open O', note:'bigger cut-open O', OC:0.28, Rbump:14 },
+    { name:'Cracked O', note:'barely-open O', OC:0.46 },
+    { name:'Tight Helix', note:'denser double helix', HC:2.1, maxHalf:80 },
+    { name:'Loose Helix', note:'single soft twist', HC:1.0 },
+    { name:'Tall Helix', note:'extends further up/down', maxHalf:88 },
+    { name:'Compact', note:'stays badge-sized', maxHalf:46 },
+    { name:'Helix-First', note:'logo→helix→O→logo', order:'reverse' },
+    { name:'Skip the O', note:'logo→helix→logo', order:'skipO' },
+    { name:'O Only', note:'never reaches helix', order:'oOnly' },
+    { name:'Spin Throughout', note:'rotates the whole time', spinMode:'throughout', turns:4 },
+    { name:'Spin-as-O', note:'spins only while an O', spinMode:'oOnly', turns:2 },
+    { name:'Signal Pulse', note:'glow travels the strand', flavor:'pulse' },
+    { name:'Comet', note:'a nucleotide orbits', flavor:'comet' },
+    { name:'Decode Scan', note:'scan line reads pairs', flavor:'scan' },
+    { name:'Twinkle', note:'beads shimmer', flavor:'sparkle' },
+    { name:'Periwinkle', note:'brand-accent tint', tintA:'205,210,255', tintB:'150,156,255', rung:'150,156,255' },
+  ];
+
+  const grid = document.getElementById('grid');
+  const W = 152, H = 184;
+  const cards = VARS.map((v, idx) => {
+    const card = document.createElement('div'); card.className = 'card';
+    const cv = document.createElement('canvas');
+    cv.style.width = W+'px'; cv.style.height = H+'px'; cv.width = W*DPR; cv.height = H*DPR;
+    const ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
+    card.appendChild(cv);
+    const meta = document.createElement('div'); meta.className = 'meta';
+    meta.innerHTML = `<div class="nm"><span class="idx">${String(idx+1).padStart(2,'0')}</span>${v.name}</div><div class="cc">${v.note}</div>`;
+    card.appendChild(meta); grid.appendChild(card);
+    return { ctx, c: { ...DEF, ...v, cx: W/2, cy: H/2 } };
+  });
+
+  let t0 = 0;
+  function frame(now) {
+    if (!t0) t0 = now;
+    const t = now - t0;
+    for (const c of cards) { c.ctx.clearRect(0,0,W,H); draw(c.ctx, t, c.c); }
+    if (!REDUCED) requestAnimationFrame(frame);
+  }
+  document.getElementById('restart').addEventListener('click', () => { t0 = 0; if (REDUCED) frame(1800); });
+  if (REDUCED) frame(1800); else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

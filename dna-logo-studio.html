@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity — DNA logo studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--line:#22222c;--dim:#85858f;--ink:#f4f4f6}
+  body{background:#0a0a0e;color:var(--ink);font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:flex;gap:0;min-height:100vh}
+  .stage{flex:0 0 520px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;border-right:1px solid var(--line);background:radial-gradient(120% 80% at 50% 20%,#15151e,#0a0a0e 70%)}
+  .stage h1{font-family:'Fraunces',serif;font-weight:560;font-size:24px;letter-spacing:-.01em}
+  .stage .eye{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--dim)}
+  canvas{display:block;border-radius:14px}
+  .play{display:flex;align-items:center;gap:12px;width:440px}
+  .play button{font-family:'JetBrains Mono',monospace;font-size:12px;color:#cfcfd8;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer}
+  .play button:hover{background:rgba(255,255,255,.09)}
+  .play input[type=range]{flex:1}
+  .scrubval{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);width:42px;text-align:right}
+  .panel{flex:1;padding:30px 34px 80px;overflow-y:auto;max-height:100vh}
+  .panel h2{font-family:'Fraunces',serif;font-size:26px;font-weight:560;margin-bottom:4px}
+  .panel .lead{color:var(--dim);font-size:13.5px;margin-bottom:22px;max-width:60ch;line-height:1.5}
+  .grp{margin-bottom:22px}
+  .grp .gt{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#9a9aa6;margin-bottom:10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .ctl{display:grid;grid-template-columns:148px 1fr 56px;align-items:center;gap:10px;margin:7px 0}
+  .ctl label{font-size:12.5px;color:#c9c9d2}
+  .ctl input[type=range]{width:100%}
+  .ctl .v{font-family:'JetBrains Mono',monospace;font-size:11px;color:#8fb3ff;text-align:right}
+  .row{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+  .row label{font-size:12.5px;color:#c9c9d2;display:flex;align-items:center;gap:7px;cursor:pointer}
+  .row select{background:#13131a;color:#ececf0;border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-family:inherit;font-size:12.5px}
+  .row input[type=color]{width:30px;height:24px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer;padding:0}
+  .colors{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px}
+  .colors label{font-size:12.5px;color:#c9c9d2;display:flex;align-items:center;gap:9px}
+  input[type=range]{accent-color:#6b6bff;height:4px}
+  .json{margin-top:26px}
+  .json .bar{display:flex;gap:9px;margin-bottom:8px}
+  textarea{width:100%;height:300px;background:#0e0e14;color:#bfd0ff;border:1px solid var(--line);border-radius:10px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.5;resize:vertical}
+  .json button{font-family:'JetBrains Mono',monospace;font-size:12px;color:#cfcfd8;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:8px 16px;cursor:pointer}
+  .json button:hover{background:rgba(255,255,255,.09)}
+  .json button.primary{color:#fff;border-color:#3a3aff;background:#26268f}
+  .hint{color:#6d6d7a;font-size:11.5px;margin-top:6px;font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div class="eye">Klavity · live preview</div>
+    <canvas id="c"></canvas>
+    <h1>( ) → helix studio</h1>
+    <div class="play">
+      <button id="pp">⏸ pause</button>
+      <input type="range" id="scrub" min="0" max="1" step="0.001" value="0" />
+      <span class="scrubval" id="sv">0.00</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>DNA logo — parameter studio</h2>
+    <p class="lead">Every aspect of the one animation is a slider/keyframe below. Default rest state is the ( ) mark with its lines showing. Tune it, scrub any frame on the left, then copy the JSON to save & lock it in (or paste a saved JSON and hit Apply).</p>
+    <div id="controls"></div>
+
+    <div class="grp">
+      <div class="gt">Presets — paste-in starting points</div>
+      <div class="row" id="presets"></div>
+    </div>
+
+    <div class="grp">
+      <div class="gt">Export — once locked</div>
+      <div class="row" id="exportbar">
+        <button id="recWebm">⏺ record loop (WebM)</button>
+        <button id="pngFrame">⤓ PNG — current frame</button>
+        <label style="cursor:pointer"><input type="checkbox" id="squircle"> Preview on dark squircle (app icon)</label>
+        <span class="scrubval" id="recstat" style="width:auto;color:#8fb3ff"></span>
+      </div>
+      <div class="hint">WebM records exactly one cycle (cycleMs) from the live canvas — convert to GIF/MP4 with ffmpeg if needed.</div>
+    </div>
+
+    <div class="json">
+      <div class="bar">
+        <button class="primary" id="copy">⧉ copy JSON</button>
+        <button id="apply">↥ apply pasted JSON</button>
+        <button id="reset">↻ reset defaults</button>
+      </div>
+      <textarea id="cfg" spellcheck="false"></textarea>
+      <div class="hint">this JSON is the lock-in artifact — save it; paste it back + Apply to restore the exact config.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const TAU = Math.PI*2;
+  const ease = t => t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+  const backOut = t => { const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); };
+  const lerp=(a,b,t)=>a+(b-a)*t, lp2=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  const cl=t=>t<0?0:t>1?1:t;
+  const hx=h=>{h=(h||'#fff').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16)||0;return `${(n>>16)&255},${(n>>8)&255},${n&255}`;};
+
+  const DEFAULTS = {
+    N:6, restHeight:120, helixHeight:226, oBow:78, helixBow:52, beadRadius:6.2, beadGlow:1,
+    rungWidth:1, backboneOpacity:0.5, oCoil:0.40, helixCoil:1.40,
+    restEnd:0.12, windEnd:0.34, helixEnd:0.56, unwindEnd:0.82, cycleMs:6000,
+    spinTurns:2, spinStart:0.12, spinEnd:0.84, spinDir:1,
+    linesFollowHelix:false, lineJoinPoint:0.6, lineStagger:0.13,
+    lineInStart:0.0, lineInEnd:0.0, lineOutStart:1.0, lineOutEnd:1.0, lineStyle:'middle',
+    zoomFit:true, densify:true,
+    colA:'#f4f6fd', colB:'#e2e5f5', colRung:'#d6d8e6', bg:'#0c0c12'
+  };
+  let C = structuredClone(DEFAULTS);
+
+  // ── presets (partial overrides merged onto DEFAULTS) ──
+  const PRESETS = {
+    'Classic': {},
+    'Lines follow helix': { linesFollowHelix:true, lineJoinPoint:0.55 },
+    'Tight helix': { helixCoil:2.05, helixHeight:268, helixBow:44, densify:true },
+    'Calm & slow': { cycleMs:9000, spinTurns:1, beadGlow:1.2 },
+    'Zipper rungs': { lineStyle:'zip', lineStagger:0.16, linesFollowHelix:false, lineInStart:0.10, lineInEnd:0.30, lineOutStart:0.62, lineOutEnd:0.84 },
+    'Open & airy': { oCoil:0.34, oBow:92, N:5, beadRadius:7 },
+  };
+
+  // ── schema for the UI ──
+  const SLIDERS = [
+    ['Geometry', [
+      ['N','Bead pairs',4,12,1], ['restHeight','Rest height (½)',40,180,1],
+      ['helixHeight','Helix nat. height (½)',60,320,1], ['oBow','( ) bow radius',10,110,1],
+      ['helixBow','Helix bow radius',5,90,1], ['oCoil','( ) openness (coil)',0.15,0.5,0.01],
+      ['helixCoil','Helix tightness (coil)',0.8,2.6,0.05], ['beadRadius','Bead radius',1,9,0.1],
+      ['beadGlow','Bead glow',0,1.5,0.05], ['rungWidth','Rung width',0.2,3,0.05],
+      ['backboneOpacity','( ) curve opacity',0,1,0.02],
+    ]],
+    ['Timeline (loop fraction)', [
+      ['restEnd','Rest hold end',0,0.45,0.005], ['windEnd','Wind→helix end',0.1,0.7,0.005],
+      ['helixEnd','Helix hold end',0.3,0.92,0.005], ['unwindEnd','Unwind end',0.5,1,0.005],
+      ['cycleMs','Cycle (ms)',2000,12000,100],
+    ]],
+    ['Spin', [
+      ['spinTurns','Spin turns',0,6,0.25], ['spinStart','Spin start',0,1,0.005], ['spinEnd','Spin end',0,1,0.005],
+    ]],
+    ['Lines / rungs', [
+      ['lineInStart','Lines come — start',0,1,0.005], ['lineInEnd','Lines come — end',0,1,0.005],
+      ['lineOutStart','Lines split — start',0,1,0.005], ['lineOutEnd','Lines split — end',0,1,0.005],
+      ['lineJoinPoint','Follow-helix join pt',0.2,1,0.02], ['lineStagger','Stagger amount',0,0.4,0.01],
+    ]],
+  ];
+  const TOGGLES=[['spinDir','Reverse spin'],['linesFollowHelix','Lines follow helix (split as it flattens)'],['zoomFit','Zoom-fit height'],['densify','Densify helix beads']];
+  const SELECTS=[['lineStyle','Line join style',['middle','middleStagger','sweep','snap','zip']]];
+  const COLORS=[['colA','Strand A'],['colB','Strand B'],['colRung','Rungs'],['bg','Background']];
+
+  // ── build controls ──
+  const host = document.getElementById('controls');
+  const refs = {};
+  for(const [g,items] of SLIDERS){
+    const d=document.createElement('div'); d.className='grp';
+    d.innerHTML=`<div class="gt">${g}</div>`;
+    for(const [k,l,min,max,step] of items){
+      const row=document.createElement('div'); row.className='ctl';
+      row.innerHTML=`<label>${l}</label><input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}"><span class="v" id="v_${k}"></span>`;
+      d.appendChild(row);
+    }
+    host.appendChild(d);
+  }
+  // toggles + selects
+  const misc=document.createElement('div'); misc.className='grp';
+  misc.innerHTML=`<div class="gt">Modes</div>`;
+  const r1=document.createElement('div'); r1.className='row';
+  for(const [k,l] of TOGGLES){ r1.innerHTML+=`<label><input type="checkbox" data-tk="${k}">${l}</label>`; }
+  for(const [k,l,opts] of SELECTS){ r1.innerHTML+=`<label>${l} <select data-sk="${k}">${opts.map(o=>`<option>${o}</option>`).join('')}</select></label>`; }
+  misc.appendChild(r1); host.appendChild(misc);
+  // colors
+  const cg=document.createElement('div'); cg.className='grp';
+  cg.innerHTML=`<div class="gt">Colors</div>`;
+  const cr=document.createElement('div'); cr.className='colors';
+  for(const [k,l] of COLORS){ cr.innerHTML+=`<label><input type="color" data-ck="${k}">${l}</label>`; }
+  cg.appendChild(cr); host.appendChild(cg);
+
+  const cfgBox=document.getElementById('cfg');
+  function syncUI(){
+    host.querySelectorAll('input[data-k]').forEach(el=>{ const k=el.dataset.k; el.value=C[k]; document.getElementById('v_'+k).textContent=(typeof C[k]==='number'&&!Number.isInteger(C[k]))?(+C[k]).toFixed(C[k]<2?3:0):C[k]; });
+    host.querySelectorAll('input[data-tk]').forEach(el=>{ const k=el.dataset.tk; el.checked = k==='spinDir' ? C[k]===-1 : !!C[k]; });
+    host.querySelectorAll('select[data-sk]').forEach(el=>{ el.value=C[el.dataset.sk]; });
+    host.querySelectorAll('input[data-ck]').forEach(el=>{ el.value=C[el.dataset.ck]; });
+    cfgBox.value=JSON.stringify(C,null,2);
+  }
+  host.addEventListener('input', e=>{
+    const t=e.target;
+    if(t.dataset.k){ C[t.dataset.k]=parseFloat(t.value); document.getElementById('v_'+t.dataset.k).textContent=(t.step<1&&t.step!=='1')?(+t.value).toFixed(t.step<0.01?3:(t.step<1?3:0)):t.value; }
+    else if(t.dataset.tk){ C[t.dataset.tk]= t.dataset.tk==='spinDir' ? (t.checked?-1:1) : t.checked; }
+    else if(t.dataset.sk){ C[t.dataset.sk]=t.value; }
+    else if(t.dataset.ck){ C[t.dataset.ck]=t.value; }
+    cfgBox.value=JSON.stringify(C,null,2);
+  });
+
+  document.getElementById('copy').addEventListener('click',()=>{ cfgBox.select(); navigator.clipboard?.writeText(cfgBox.value); const b=document.getElementById('copy'); b.textContent='✓ copied'; setTimeout(()=>b.textContent='⧉ copy JSON',1200); });
+  document.getElementById('apply').addEventListener('click',()=>{ try{ const o=JSON.parse(cfgBox.value); C=Object.assign(structuredClone(DEFAULTS),o); syncUI(); }catch(err){ alert('Invalid JSON: '+err.message); } });
+  document.getElementById('reset').addEventListener('click',()=>{ C=structuredClone(DEFAULTS); syncUI(); });
+
+  // ── presets ──
+  const presetHost=document.getElementById('presets');
+  for(const name of Object.keys(PRESETS)){
+    const b=document.createElement('button'); b.textContent=name;
+    b.style.cssText='font-family:JetBrains Mono,monospace;font-size:11.5px;color:#cfcfd8;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer';
+    b.addEventListener('click',()=>{ C=Object.assign(structuredClone(DEFAULTS),PRESETS[name]); syncUI(); });
+    presetHost.appendChild(b);
+  }
+
+  // ── export ──
+  const recStat=document.getElementById('recstat');
+  document.getElementById('squircle').addEventListener('change',e=>{ squircle=e.target.checked; });
+  document.getElementById('pngFrame').addEventListener('click',()=>{
+    const a=document.createElement('a'); a.download=`klavity-dna-${squircle?'icon':'frame'}-${lp.toFixed(2)}.png`;
+    a.href=cv.toDataURL('image/png'); a.click();
+  });
+  document.getElementById('recWebm').addEventListener('click',()=>{
+    if(!cv.captureStream||!window.MediaRecorder){ alert('WebM capture not supported in this browser.'); return; }
+    const types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    const mime=types.find(t=>MediaRecorder.isTypeSupported(t))||'video/webm';
+    const stream=cv.captureStream(60), rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8_000_000});
+    const chunks=[]; rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+    rec.onstop=()=>{ const blob=new Blob(chunks,{type:mime}); const a=document.createElement('a');
+      a.download='klavity-dna-loop.webm'; a.href=URL.createObjectURL(blob); a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),2000); recStat.textContent='✓ saved'; setTimeout(()=>recStat.textContent='',1800); };
+    // restart from frame 0, play exactly one cycle, then stop
+    playing=true; pp.textContent='⏸ pause'; lp=0; last=null;
+    rec.start(); recStat.textContent='● recording…';
+    setTimeout(()=>rec.stop(), C.cycleMs+90);
+  });
+
+  // ── engine ──
+  const DPR=Math.min(window.devicePixelRatio||1,2), W=440, H=470;
+  const cv=document.getElementById('c'); cv.style.width=W+'px'; cv.style.height=H+'px'; cv.width=W*DPR; cv.height=H*DPR;
+  const ctx=cv.getContext('2d'); ctx.scale(DPR,DPR);
+  const CX=W/2, CY=H/2;
+
+  function coilsAt(lp){
+    const k1=C.restEnd,k2=Math.max(k1+0.005,C.windEnd),k3=Math.max(k2+0.005,C.helixEnd),k4=Math.max(k3+0.005,C.unwindEnd);
+    if(lp<k1) return C.oCoil;
+    if(lp<k2) return lerp(C.oCoil,C.helixCoil,ease((lp-k1)/(k2-k1)));
+    if(lp<k3) return C.helixCoil;
+    if(lp<k4) return lerp(C.helixCoil,C.oCoil,ease((lp-k3)/(k4-k3)));
+    return C.oCoil;
+  }
+  function phaseAt(lp){
+    const a=C.spinStart,b=C.spinEnd,T=C.spinTurns;
+    let sp; if(b<=a||lp<=a) sp=0; else if(lp>=b) sp=T; else { const u=(lp-a)/(b-a); sp=T*(u-Math.sin(TAU*u)/TAU); }
+    return Math.PI/2 + C.spinDir*TAU*sp;
+  }
+  function rcAt(lp,coils){
+    if(C.linesFollowHelix) return cl((coils-C.oCoil)/Math.max(0.05,(C.helixCoil-C.oCoil)*C.lineJoinPoint));
+    const s1=C.lineInStart,e1=C.lineInEnd,s2=C.lineOutStart,e2=C.lineOutEnd;
+    if(lp<s1) return 0;
+    if(lp<e1) return e1>s1?ease((lp-s1)/(e1-s1)):1;
+    if(lp<s2) return 1;
+    if(lp<e2) return e2>s2?1-ease((lp-s2)/(e2-s2)):0;
+    return 0;
+  }
+  function rungProg(rc,i){
+    const s=C.lineStagger;
+    if(C.lineStyle==='middleStagger') return cl(rc*(1+s*5) - i*s);
+    if(C.lineStyle==='zip')           return cl(rc*(1+s*9) - i*s*2.6);
+    if(C.lineStyle==='snap')          return backOut(cl(rc));
+    return cl(rc);
+  }
+  function bead(x,y,z,R,tint,mul){
+    const d=(z+1)/2, r=R*(0.74+d*0.42), a=(0.55+d*0.45)*(mul??1);
+    if(a<=0.02) return;
+    if(C.beadGlow>0){ const g=ctx.createRadialGradient(x,y,0,x,y,r*2.7*C.beadGlow);
+      g.addColorStop(0,`rgba(${tint},${a*0.55})`); g.addColorStop(1,`rgba(${tint},0)`);
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r*2.7*C.beadGlow,0,TAU); ctx.fill(); }
+    ctx.fillStyle=`rgba(${tint},${Math.min(1,a+0.3)})`; ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.fill();
+  }
+
+  let squircle=false;
+  function render(lp){
+    ctx.save();
+    if(squircle){
+      ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+      const m=46, rad=92, x0=m,y0=m,w=W-2*m,h=H-2*m;
+      ctx.beginPath(); ctx.roundRect(x0,y0,w,h,rad); ctx.clip();
+      const g=ctx.createLinearGradient(0,y0,0,y0+h); g.addColorStop(0,'#16161f'); g.addColorStop(1,'#0a0a10');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    } else { ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H); }
+    const N=Math.round(C.N);
+    const coils=coilsAt(lp), phase=phaseAt(lp);
+    const natHalf = C.zoomFit ? lerp(C.restHeight,C.helixHeight,cl((coils-(C.oCoil+0.12))/Math.max(0.1,(C.helixCoil-(C.oCoil+0.12))))) : lerp(C.restHeight,C.helixHeight,cl((coils-(C.oCoil+0.12))/Math.max(0.1,(C.helixCoil-(C.oCoil+0.12)))));
+    const zoom = C.zoomFit ? C.restHeight/natHalf : 1;
+    const half = C.zoomFit ? C.restHeight : natHalf;
+    const bowT = cl((coils-C.oCoil)/Math.max(0.05,(C.helixCoil-C.oCoil)));
+    const R = lerp(C.oBow,C.helixBow,bowT)*zoom;
+    const bz = C.beadRadius*(C.zoomFit?(0.6+0.4*zoom):1);
+    const tA=hx(C.colA), tB=hx(C.colB), tR=hx(C.colRung);
+
+    const node=(f,off)=>{ const yN=(f-0.5)*2, ang=yN*coils*Math.PI+phase+off;
+      return {x:CX+R*Math.sin(ang), z:Math.cos(ang), y:CY+yN*half, f}; };
+    const A=[],B=[];
+    for(let i=0;i<N;i++){ A.push(node(i/(N-1),0)); B.push(node(i/(N-1),Math.PI)); }
+
+    ctx.lineCap='round';
+    // ( ) backbone curve, fades toward helix
+    const cba=C.backboneOpacity*Math.exp(-Math.pow((coils-C.oCoil)/0.25,2));
+    for(const [pts,tint] of [[A,tA],[B,tB]]) if(cba>0.02)
+      for(let i=0;i<pts.length-1;i++){ const p0=pts[i],p1=pts[i+1],d=((p0.z+p1.z)/2+1)/2;
+        ctx.strokeStyle=`rgba(${tint},${(0.1+d*0.5)*cba})`; ctx.lineWidth=(0.7+d*1.5)*zoom;
+        ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke(); }
+
+    // rungs
+    const rc=rcAt(lp,coils);
+    for(let i=0;i<N;i++){
+      const d=((A[i].z+B[i].z)/2+1)/2, p=rungProg(rc,i);
+      if(p<=0.01) continue;
+      ctx.strokeStyle=`rgba(${tR},${0.34*(0.5+d*0.5)})`; ctx.lineWidth=bz*(0.3+d*0.16)*C.rungWidth;
+      if(C.lineStyle==='sweep'){ const e=lp2(A[i],B[i],Math.min(1,p));
+        ctx.beginPath(); ctx.moveTo(A[i].x,A[i].y); ctx.lineTo(e.x,e.y); ctx.stroke(); }
+      else { const mid=lp2(A[i],B[i],0.5), pa=lp2(A[i],mid,p), pb=lp2(B[i],mid,p);
+        ctx.beginPath(); ctx.moveTo(A[i].x,A[i].y); ctx.lineTo(pa.x,pa.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(B[i].x,B[i].y); ctx.lineTo(pb.x,pb.y); ctx.stroke(); }
+    }
+
+    // beads (+ densify)
+    const extra = C.densify ? cl((coils-(C.oCoil+0.18))/0.5) : 0;
+    const all=[];
+    A.forEach(q=>all.push({...q,t:tA,a:1})); B.forEach(q=>all.push({...q,t:tB,a:1}));
+    if(extra>0.01) for(let i=0;i<N-1;i++){ const f=(i+0.5)/(N-1);
+      all.push({...node(f,0),t:tA,a:extra}); all.push({...node(f,Math.PI),t:tB,a:extra}); }
+    all.sort((u,v)=>u.z-v.z);
+    for(const dd of all){ bead(dd.x,dd.y,dd.z,bz,dd.t,dd.a); }
+    ctx.restore();
+  }
+
+  // ── playback ──
+  let playing=true, lp=0, last=null;
+  const scrub=document.getElementById('scrub'), sv=document.getElementById('sv'), pp=document.getElementById('pp');
+  function tick(now){
+    if(last==null) last=now; const dt=now-last; last=now;
+    if(playing){ lp=(lp+dt/Math.max(500,C.cycleMs))%1; scrub.value=lp; sv.textContent=lp.toFixed(2); }
+    render(lp);
+    requestAnimationFrame(tick);
+  }
+  scrub.addEventListener('input',()=>{ playing=false; pp.textContent='▶ play'; lp=parseFloat(scrub.value); sv.textContent=lp.toFixed(2); });
+  pp.addEventListener('click',()=>{ playing=!playing; pp.textContent=playing?'⏸ pause':'▶ play'; last=null; });
+
+  syncUI();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

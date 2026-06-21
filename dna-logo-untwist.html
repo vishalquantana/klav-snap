@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Klavity — Untwist (logo-true)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:radial-gradient(130% 90% at 50% 6%, #15151e 0%, #0b0b0f 58%, #070709 100%);
+    color:#f4f4f6; font-family:'Hanken Grotesk',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; padding:48px 24px 80px; gap:18px;
+  }
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:#8a8a96}
+  h1{font-family:'Fraunces',serif;font-weight:560;font-size:30px;letter-spacing:-.02em}
+  .sub{color:#9a9aa6;font-size:14px;max-width:54ch;text-align:center;line-height:1.55}
+  .hero{margin-top:6px}
+  .badges{display:flex;align-items:flex-end;gap:34px;margin-top:18px}
+  .badgewrap{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .blabel{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:#6d6d7a;text-transform:uppercase}
+  canvas{display:block}
+  .bar{display:flex;gap:10px;align-items:center;margin-top:14px}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;color:#9a9aa6;
+    background:rgba(255,255,255,.04);border:1px solid #1e1e29;border-radius:999px;padding:9px 18px;cursor:pointer;transition:.18s}
+  button:hover{color:#fff;border-color:#34343f;background:rgba(255,255,255,.07)}
+  button:focus-visible{outline:2px solid #6b6bff;outline-offset:2px}
+  .note{color:#6d6d7a;font-size:12px;font-family:'JetBrains Mono',monospace;margin-top:4px}
+</style>
+</head>
+<body>
+  <div class="eyebrow">Klavity · logo motion</div>
+  <h1>Untwist — logo-true</h1>
+  <p class="sub">Rests as your beaded-helix mark (two columns of dots + rungs), twists alive into a 3-D double helix, then settles back into the logo. Beads only, no spine — matches the badge.</p>
+
+  <canvas id="hero" class="hero"></canvas>
+
+  <div class="badges">
+    <div class="badgewrap"><canvas id="b64"></canvas><span class="blabel">badge · 64</span></div>
+    <div class="badgewrap"><canvas id="b40"></canvas><span class="blabel">badge · 40</span></div>
+    <div class="badgewrap"><canvas id="b28"></canvas><span class="blabel">badge · 28</span></div>
+  </div>
+  <p class="note">↑ the flat resting state IS the icon — same mark, alive</p>
+
+  <div class="bar"><button id="restart">↻ restart</button></div>
+
+<script>
+(() => {
+  const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const TAU = Math.PI * 2;
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+
+  // beaded dot — crisp white core + soft glow (no backbone spine)
+  function bead(ctx, x, y, z, R, tint) {
+    const depth = (z + 1) / 2;                 // 0 back .. 1 front
+    const r = R * (0.74 + depth*0.42);
+    const a = 0.55 + depth*0.45;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r*2.7);
+    g.addColorStop(0, `rgba(${tint},${a*0.55})`);
+    g.addColorStop(1, `rgba(${tint},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r*2.7, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(${tint},${Math.min(1, a+0.3)})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  }
+
+  // one frame of the untwist, fitted to (cx,cy) with size knobs
+  function draw(ctx, t, cfg) {
+    const { cx, cy, R, half, beadR, N, rungA } = cfg;
+
+    // ── schedule: hold logo → twist in → hold helix → twist out → hold ──
+    const cyc = 5200, p = (t % cyc) / cyc;
+    let tw;
+    if (p < 0.17)      tw = 0;
+    else if (p < 0.42) tw = ease((p - 0.17) / 0.25);
+    else if (p < 0.56) tw = 1;
+    else if (p < 0.81) tw = 1 - ease((p - 0.56) / 0.25);
+    else               tw = 0;
+
+    const coils = tw * 1.3;   // ~1.3 turns reads as a clean helix with few beads
+    // phase rests at PI/2 (flat ladder = logo) and only spins while twisted
+    const phase = Math.PI/2 + (t / 760) * tw;
+    const halfNow = half * (1 + 0.18 * tw);
+
+    const A = [], B = [];
+    for (let i = 0; i < N; i++) {
+      const f = N === 1 ? 0 : i / (N - 1), yN = (f - 0.5) * 2;
+      const ang = yN * coils * Math.PI + phase;
+      A.push({ x: cx + R*Math.sin(ang),          z: Math.cos(ang),          y: cy + yN*halfNow });
+      B.push({ x: cx + R*Math.sin(ang + Math.PI), z: Math.cos(ang + Math.PI), y: cy + yN*halfNow });
+    }
+
+    // rungs (the only connectors — like the logo's base-pair lines)
+    for (let i = 0; i < N; i++) {
+      const depth = ((A[i].z + B[i].z)/2 + 1) / 2;
+      ctx.strokeStyle = `rgba(214,216,230,${rungA * (0.55 + depth*0.45)})`;
+      ctx.lineWidth = beadR * (0.34 + depth*0.16);
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(A[i].x, A[i].y); ctx.lineTo(B[i].x, B[i].y); ctx.stroke();
+    }
+
+    // beads, depth-sorted back→front so strands cross convincingly
+    const all = [];
+    for (const q of A) all.push({ ...q, tint: '244,246,253' });
+    for (const q of B) all.push({ ...q, tint: '226,229,245' });
+    all.sort((u, v) => u.z - v.z);
+    for (const d of all) bead(ctx, d.x, d.y, d.z, beadR, d.tint);
+  }
+
+  // squircle badge: dark rounded-square + the mark inside
+  function badge(ctx, t, size) {
+    const r = size * 0.265;
+    ctx.clearRect(0, 0, size, size);
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.arcTo(size, 0, size, size, r); ctx.arcTo(size, size, 0, size, r);
+    ctx.arcTo(0, size, 0, 0, r);       ctx.arcTo(0, 0, size, 0, r);
+    ctx.closePath();
+    ctx.fillStyle = '#18181b'; ctx.fill();
+    ctx.save(); ctx.clip();
+    draw(ctx, t, {
+      cx: size/2, cy: size/2,
+      R: size*0.205, half: size*0.27,
+      beadR: Math.max(1.1, size*0.052), N: 6, rungA: 0.5
+    });
+    ctx.restore();
+  }
+
+  function setup(id, w, h) {
+    const cv = document.getElementById(id);
+    cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    cv.width = w*DPR; cv.height = h*DPR;
+    const ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
+    return { ctx, w, h };
+  }
+
+  const hero = setup('hero', 300, 360);
+  const b64  = setup('b64', 64, 64);
+  const b40  = setup('b40', 40, 40);
+  const b28  = setup('b28', 28, 28);
+
+  let t0 = 0;
+  function frame(now) {
+    if (!t0) t0 = now;
+    const freeze = parseFloat(location.hash.slice(1));
+    const frozen = !isNaN(freeze);
+    const t = frozen ? freeze : now - t0;
+    hero.ctx.clearRect(0, 0, hero.w, hero.h);
+    draw(hero.ctx, t, { cx: 150, cy: 180, R: 30, half: 116, beadR: 3.4, N: 6, rungA: 0.4 });
+    badge(b64.ctx, t, 64);
+    badge(b40.ctx, t, 40);
+    badge(b28.ctx, t, 28);
+    if (!REDUCED && !frozen) requestAnimationFrame(frame);
+  }
+  window.addEventListener('hashchange', () => { t0 = 0; frame(0); });
+
+  document.getElementById('restart').addEventListener('click', () => { t0 = 0; if (REDUCED) frame(0); });
+  if (REDUCED) frame(0); else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

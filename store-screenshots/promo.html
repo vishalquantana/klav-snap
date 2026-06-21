@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  :root{
+    --cream:#f5f3ee; --ink-3:#efeae0;
+    --paper:#19140f; --paper-dim:#574f45; --paper-faint:#8a8076;
+    --line:rgba(25,20,15,.12); --indigo:#6366f1; --indigo-deep:#4f46e5;
+    --bug:#E94F37; --green:#0f9d6b; --plum:#A98BD6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+  html,body{margin:0;overflow:hidden;background:#fff;}
+  .slide{display:none;position:absolute;top:0;left:0;overflow:hidden;
+    background:radial-gradient(900px 600px at 80% -20%,#fff 0%,var(--cream) 60%);}
+  .slide.on{display:block;}
+  .s-small{width:440px;height:280px;}
+  .s-marquee{width:1400px;height:560px;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.4px;color:var(--paper);}
+  .brand b{font-weight:inherit;} .brand span{color:var(--indigo);}
+  .indigo-pill{display:inline-flex;align-items:center;gap:7px;background:var(--indigo);color:#fff;font-weight:700;border-radius:10px;padding:9px 14px;box-shadow:0 12px 26px -10px rgba(79,70,229,.6);}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--paper-dim);font-size:14px;font-weight:600;border-radius:999px;padding:6px 13px;}
+
+  /* popup */
+  .popup{width:300px;background:var(--cream);border-radius:16px;box-shadow:0 36px 80px -28px rgba(25,20,15,.5),0 0 0 1px var(--line);overflow:hidden;}
+  .p-head{display:flex;align-items:center;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line);}
+  .p-logo{font-size:16px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:6px;} .p-logo b{font-weight:inherit;} .p-logo span{color:var(--indigo);}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .p-status{font-size:11px;color:var(--paper-faint);}
+  .p-actions{display:flex;gap:7px;padding:11px 14px 0;}
+  .ab{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border-radius:9px;font-size:12px;font-weight:600;border:none;}
+  .ab-bug{background:var(--bug);color:#fff;} .ab-feat{background:var(--ink-3);color:var(--indigo-deep);border:1px solid var(--line);}
+  .analyze{margin:9px 14px 14px;width:calc(100% - 28px);display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border-radius:9px;background:var(--indigo);color:#fff;font-size:13px;font-weight:700;border:none;}
+
+  /* bubble */
+  .bubble{width:300px;background:#FBF7F0;border-radius:15px;box-shadow:0 22px 54px -18px rgba(25,20,15,.45),0 0 0 1px rgba(169,139,214,.4);padding:13px 14px;}
+  .bb-head{display:flex;align-items:center;gap:9px;margin-bottom:7px;}
+  .bb-av{width:28px;height:28px;border-radius:50%;background:var(--plum);display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;}
+  .bb-nm{font-size:13px;font-weight:700;color:#2D2A26;}
+  .bb-sev{margin-left:auto;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px;background:#F2ECE2;color:#8A6D3B;}
+  .bb-obs{font-size:12.5px;line-height:1.4;color:#3D3833;}
+  .bb-out{margin-top:8px;padding-top:7px;border-top:1px solid #EDE6DA;font-size:11px;font-weight:600;color:#6B655C;}
+</style>
+</head>
+<body>
+
+<!-- ░ SMALL 440×280 ░ -->
+<section class="slide s-small" data-s="small">
+  <div style="padding:26px 26px 0;">
+    <div class="brand" style="font-size:21px;"><svg width="26" height="26" viewBox="0 0 48 48" style="border-radius:8px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b>Klav<span>ity</span></b></div>
+    <div style="font-size:25px;font-weight:800;letter-spacing:-.6px;line-height:1.12;color:var(--paper);margin-top:22px;">Sims review your pages —<br><span style="color:var(--indigo-deep)">you get the tickets.</span></div>
+    <div style="font-size:13px;color:var(--paper-dim);margin-top:11px;line-height:1.4;max-width:330px;">AI personas from real customer calls file your bugs &amp; feature requests.</div>
+    <div class="indigo-pill" style="font-size:13px;margin-top:18px;">⚡ Analyze this page</div>
+  </div>
+</section>
+
+<!-- ░ MARQUEE 1400×560 ░ -->
+<section class="slide s-marquee" data-s="marquee">
+  <div style="position:absolute;left:80px;top:96px;width:720px;">
+    <div class="brand" style="font-size:30px;"><svg width="36" height="36" viewBox="0 0 48 48" style="border-radius:10px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b>Klav<span>ity</span></b></div>
+    <div style="font-size:52px;font-weight:800;letter-spacing:-1.4px;line-height:1.05;color:var(--paper);margin-top:30px;">Your customers review your product —<br><span style="color:var(--indigo-deep)">and file the bugs for you.</span></div>
+    <div style="font-size:20px;color:var(--paper-dim);margin-top:18px;line-height:1.5;max-width:600px;">AI Sims, built from real customer interviews, walk your live pages, react in character, and file what they find — straight to your tracker.</div>
+    <div style="display:flex;gap:10px;margin-top:26px;">
+      <span class="chip">Jira</span><span class="chip">Linear</span><span class="chip">GitHub</span><span class="chip">Plane</span>
+    </div>
+  </div>
+  <!-- popup -->
+  <div class="popup" style="position:absolute;right:96px;top:78px;transform:rotate(2.5deg);">
+    <div class="p-head"><div class="p-logo"><svg width="18" height="18" viewBox="0 0 48 48" style="border-radius:5px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b>Klav<span>ity</span></b></div><span class="dot"></span><span class="p-status">Klavity Cloud</span></div>
+    <div class="p-actions"><button class="ab ab-bug">🐞 Report a Bug</button><button class="ab ab-feat">✦ Feature</button></div>
+    <button class="analyze">⚡ Analyze this page</button>
+  </div>
+  <!-- bubble -->
+  <div class="bubble" style="position:absolute;right:300px;top:300px;transform:rotate(-2deg);">
+    <div class="bb-head"><div class="bb-av">EL</div><div class="bb-nm">Elena</div><div class="bb-sev">high</div></div>
+    <div class="bb-obs">“The total didn’t change after my discount — I’d worry I’m being overcharged.”</div>
+    <div class="bb-out">🐛 Flagged as a bug · saved to your dashboard</div>
+  </div>
+</section>
+
+<script>
+  const s = new URLSearchParams(location.search).get('s') || 'small';
+  const el = document.querySelector('.slide[data-s="'+s+'"]');
+  if (el) el.classList.add('on');
+</script>
+</body>
+</html>

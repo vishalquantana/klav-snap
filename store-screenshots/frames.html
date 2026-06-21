@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  :root{
+    --cream:#f5f3ee; --ink-2:#fffdf8; --ink-3:#efeae0;
+    --paper:#19140f; --paper-dim:#574f45; --paper-faint:#8a8076;
+    --line:rgba(25,20,15,.12); --indigo:#6366f1; --indigo-deep:#4f46e5;
+    --bug:#E94F37; --green:#0f9d6b; --amber:#d98324; --plum:#A98BD6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+  html,body{width:1280px;height:800px;overflow:hidden;}
+  .slide{display:none;width:1280px;height:800px;position:relative;overflow:hidden;}
+  .slide.on{display:flex;}
+  /* shared marketing bg */
+  .bg-warm{background:radial-gradient(1200px 700px at 78% -10%,#fff 0%,var(--cream) 55%);}
+  .cap{position:absolute;top:64px;left:72px;right:72px;z-index:5;}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--indigo-deep);margin-bottom:14px;}
+  .kdot{width:9px;height:9px;border-radius:50%;background:var(--indigo);}
+  .head{font-size:46px;line-height:1.06;font-weight:800;letter-spacing:-1px;color:var(--paper);max-width:760px;}
+  .head em{font-style:normal;color:var(--indigo-deep);}
+  .sub{font-size:19px;color:var(--paper-dim);margin-top:14px;max-width:640px;line-height:1.5;}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:26px;letter-spacing:-.4px;color:var(--paper);}
+  .brand span{color:var(--indigo);}
+  .wmk{font-weight:inherit;}
+  .wm{position:absolute;bottom:40px;left:72px;display:flex;align-items:center;gap:9px;font-weight:800;font-size:18px;color:var(--paper);opacity:.9;}
+  .wm span{color:var(--indigo);}
+
+  /* ── Realistic popup ── */
+  .popup{width:340px;background:var(--cream);border-radius:18px;box-shadow:0 40px 90px -30px rgba(25,20,15,.45),0 0 0 1px var(--line);overflow:hidden;}
+  .p-head{display:flex;align-items:center;justify-content:space-between;padding:15px 16px 13px;border-bottom:1px solid var(--line);}
+  .p-left{display:flex;align-items:center;gap:8px;}
+  .p-logo{font-size:18px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:7px;}
+  .p-logo span{color:var(--indigo);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+  .p-status{font-size:11px;color:var(--paper-faint);}
+  .gear{width:28px;height:28px;border-radius:7px;background:var(--ink-3);display:grid;place-items:center;color:var(--paper-dim);}
+  .p-actions{display:flex;gap:8px;padding:12px 16px 0;}
+  .ab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;border:none;}
+  .ab-bug{background:var(--bug);color:#fff;}
+  .ab-feat{background:var(--ink-3);color:var(--indigo-deep);border:1px solid var(--line);}
+  .analyze{margin:10px 16px 0;width:calc(100% - 32px);display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:10px;background:var(--indigo);color:#fff;font-size:13.5px;font-weight:700;border:none;}
+  .divider{height:1px;background:var(--line);margin:14px 16px 0;}
+  .sect{padding:12px 16px 0;}
+  .sect-t{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:9px;display:flex;justify-content:space-between;}
+  .sect-t a{color:var(--indigo-deep);text-decoration:none;}
+  .sim{display:flex;align-items:center;gap:10px;padding:6px 0;}
+  .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;}
+  .sim-n{font-size:13px;font-weight:600;color:var(--paper);}
+  .sim-r{font-size:11px;color:var(--paper-faint);}
+  .tog{margin-left:auto;width:36px;height:20px;border-radius:10px;background:var(--indigo);position:relative;}
+  .tog::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;right:3px;}
+  .p-foot{display:flex;align-items:center;padding:11px 16px;border-top:1px solid var(--line);margin-top:12px;font-size:12px;color:var(--paper-faint);}
+
+  /* ── faux browser + in-page bubble ── */
+  .browser{position:absolute;border-radius:14px 14px 0 0;overflow:hidden;box-shadow:0 40px 90px -30px rgba(25,20,15,.4),0 0 0 1px var(--line);background:#fff;}
+  .b-bar{height:42px;background:#e9e4da;display:flex;align-items:center;gap:7px;padding:0 14px;}
+  .b-bar i{width:11px;height:11px;border-radius:50%;display:block;}
+  .b-url{margin-left:14px;flex:1;height:24px;background:#fff;border-radius:7px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--paper-faint);}
+  .b-body{padding:34px 40px;}
+  .ph{height:14px;border-radius:7px;background:#eceae6;}
+  .bubble{width:330px;background:#FBF7F0;border-radius:16px;box-shadow:0 24px 60px -20px rgba(25,20,15,.4),0 0 0 1px rgba(169,139,214,.4);padding:14px 15px;}
+  .bb-head{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
+  .bb-av{width:30px;height:30px;border-radius:50%;background:var(--plum);display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;}
+  .bb-nm{font-size:13px;font-weight:700;color:#2D2A26;}
+  .bb-sev{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:999px;background:#F2ECE2;color:#8A6D3B;}
+  .bb-obs{font-size:13.5px;line-height:1.45;color:#3D3833;}
+  .bb-out{margin-top:9px;padding-top:8px;border-top:1px solid #EDE6DA;font-size:11.5px;font-weight:600;color:#6B655C;}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:#1c1916;color:#fff;border-radius:999px;padding:8px 14px;font-size:12px;font-weight:600;box-shadow:0 14px 30px -12px rgba(0,0,0,.5);}
+  .pill .pdot{width:8px;height:8px;border-radius:50%;background:#7CE0B5;}
+
+  /* ── dashboard mock ── */
+  .dash{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(25,20,15,.4),0 0 0 1px var(--line);background:#fffdf8;width:900px;}
+  .d-top{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line);}
+  .d-stats{display:flex;gap:14px;padding:18px 22px 6px;}
+  .stat{flex:1;border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:#fff;}
+  .stat .n{font-size:24px;font-weight:800;color:var(--paper);}
+  .stat .l{font-size:12px;color:var(--paper-faint);margin-top:2px;}
+  .tkt{display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--line);}
+  .tkt .tav{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0;}
+  .tkt .tt{font-size:14px;font-weight:600;color:var(--paper);}
+  .tkt .td{font-size:12px;color:var(--paper-faint);margin-top:2px;}
+  .chip{margin-left:auto;font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;flex-shrink:0;}
+  .c-open{background:rgba(233,79,55,.14);color:#b23b27;}
+  .c-prog{background:rgba(217,131,36,.16);color:#9a5d12;}
+  .c-done{background:rgba(15,157,107,.15);color:#0b6f4c;}
+  .sevtag{font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:#F2ECE2;color:#8A6D3B;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<!-- ░░ SLIDE 1 — hero ░░ -->
+<section class="slide bg-warm" data-s="1" style="align-items:center;">
+  <div class="cap" style="top:96px;">
+    <div class="brand"><svg width="30" height="30" viewBox="0 0 48 48" style="border-radius:9px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b class="wmk">Klav<span>ity</span></b></div>
+    <div class="head" style="margin-top:34px;">Your customers review your product —<br><em>and file the bugs for you.</em></div>
+    <div class="sub">AI personas, built from real customer interviews, walk your live pages, react in character, and file the bugs &amp; feature requests they find straight to Jira, Linear, GitHub, or Plane.</div>
+  </div>
+  <div class="popup" style="position:absolute;right:96px;top:150px;transform:rotate(2deg);">
+    <div class="p-head"><div class="p-left"><div class="p-logo"><svg width="20" height="20" viewBox="0 0 48 48" style="border-radius:6px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b class="wmk">Klav<span>ity</span></b></div><span class="dot"></span><span class="p-status">Klavity Cloud</span></div><div class="gear">⚙</div></div>
+    <div class="p-actions"><button class="ab ab-bug">🐞 Report a Bug</button><button class="ab ab-feat">✦ Request Feature</button></div>
+    <button class="analyze">⚡ Analyze this page</button>
+    <div class="divider"></div>
+    <div class="sect"><div class="sect-t"><span>Sims</span><a>Manage →</a></div>
+      <div class="sim"><div class="av" style="background:#6366f1">PR</div><div><div class="sim-n">Priya · PM</div><div class="sim-r">Detail-oriented, mobile-first</div></div><div class="tog"></div></div>
+      <div class="sim"><div class="av" style="background:#0f9d6b">MA</div><div><div class="sim-n">Marcus · Power user</div><div class="sim-r">Keyboard-driven, impatient</div></div><div class="tog"></div></div>
+    </div>
+    <div class="p-foot">↗ Open tracker</div>
+  </div>
+  <div class="wm"><svg width="20" height="20" viewBox="0 0 48 48" style="border-radius:6px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b class="wmk">Klav<span>ity</span></b></div>
+</section>
+
+<!-- ░░ SLIDE 2 — popup / analyze ░░ -->
+<section class="slide bg-warm" data-s="2" style="align-items:center;justify-content:center;">
+  <div class="cap"><div class="kicker"><span class="kdot"></span>One click, zero setup</div><div class="head">Point your Sims at <em>any page</em>.</div><div class="sub">Open the popup, hit “Analyze this page”, and your Sims review the current tab on demand — no allowlist, no configuration.</div></div>
+  <div class="popup" style="transform:scale(1.18);margin-top:120px;">
+    <div class="p-head"><div class="p-left"><div class="p-logo"><svg width="20" height="20" viewBox="0 0 48 48" style="border-radius:6px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b class="wmk">Klav<span>ity</span></b></div><span class="dot"></span><span class="p-status">Klavity Cloud</span></div><div class="gear">⚙</div></div>
+    <div class="p-actions"><button class="ab ab-bug">🐞 Report a Bug</button><button class="ab ab-feat">✦ Request Feature</button></div>
+    <button class="analyze" style="box-shadow:0 0 0 4px rgba(99,102,241,.18)">⚡ Analyze this page</button>
+    <div class="divider"></div>
+    <div class="sect"><div class="sect-t"><span>Sims</span><a>Manage →</a></div>
+      <div class="sim"><div class="av" style="background:#6366f1">PR</div><div><div class="sim-n">Priya · PM</div><div class="sim-r">Detail-oriented, mobile-first</div></div><div class="tog"></div></div>
+      <div class="sim"><div class="av" style="background:#db2777">EL</div><div><div class="sim-n">Elena · New user</div><div class="sim-r">Cautious, reads everything</div></div><div class="tog"></div></div>
+    </div>
+    <div class="sect" style="padding-bottom:14px;"><div class="sect-t"><span>Recent</span></div><div class="sim"><div class="av" style="background:rgba(233,79,55,.18);color:#b23b27">🐞</div><div><div class="sim-n" style="font-weight:500;font-size:12px">Checkout button overlaps total on mobile</div><div class="sim-r">2m ago · BUG-214</div></div></div></div>
+  </div>
+  <div class="wm"><svg width="20" height="20" viewBox="0 0 48 48" style="border-radius:6px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b class="wmk">Klav<span>ity</span></b></div>
+</section>
+
+<!-- ░░ SLIDE 3 — in-page bubble ░░ -->
+<section class="slide bg-warm" data-s="3">
+  <div class="cap"><div class="kicker"><span class="kdot"></span>Live on the page</div><div class="head">Sims react <em>in character</em> — and log it.</div></div>
+  <div class="browser" style="left:72px;top:210px;width:760px;height:520px;">
+    <div class="b-bar"><i style="background:#ED6A5E"></i><i style="background:#F4BF50"></i><i style="background:#61C554"></i><div class="b-url">app.acme.com/checkout</div></div>
+    <div class="b-body">
+      <div class="ph" style="width:38%;height:22px;margin-bottom:26px"></div>
+      <div class="ph" style="width:100%;margin-bottom:12px"></div>
+      <div class="ph" style="width:92%;margin-bottom:12px"></div>
+      <div class="ph" style="width:96%;margin-bottom:28px"></div>
+      <div class="ph" style="width:46%;height:40px;background:#dfe9e2;border-radius:9px"></div>
+      <div style="display:flex;gap:14px;margin-top:30px"><div class="ph" style="flex:1;height:90px"></div><div class="ph" style="flex:1;height:90px"></div></div>
+    </div>
+  </div>
+  <div class="pill" style="position:absolute;left:632px;top:642px;"><span class="pdot"></span>Sims reviewing</div>
+  <div class="bubble" style="position:absolute;right:90px;top:300px;">
+    <div class="bb-head"><div class="bb-av">EL</div><div class="bb-nm">Elena</div><div class="bb-sev">high</div></div>
+    <div class="bb-obs">“I can’t tell if my discount applied — the total didn’t change and there’s no confirmation. I’d worry I’m being overcharged.”</div>
+    <div class="bb-out">🐛 Flagged as a bug · saved to your dashboard</div>
+  </div>
+  <div class="bubble" style="position:absolute;right:140px;top:486px;transform:scale(.94);opacity:.96;">
+    <div class="bb-head"><div class="bb-av" style="background:#6366f1">MA</div><div class="bb-nm">Marcus</div></div>
+    <div class="bb-obs">“No keyboard focus on the promo field — I have to grab the mouse. Small thing, but it slows me down every time.”</div>
+    <div class="bb-out">💬 Noted · saved to your dashboard</div>
+  </div>
+  <div class="wm"><svg width="20" height="20" viewBox="0 0 48 48" style="border-radius:6px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b class="wmk">Klav<span>ity</span></b></div>
+</section>
+
+<!-- ░░ SLIDE 4 — dashboard ░░ -->
+<section class="slide bg-warm" data-s="4">
+  <div class="cap"><div class="kicker"><span class="kdot"></span>Your tracker, organized</div><div class="head">Every reaction becomes a <em>ticket</em>.</div></div>
+  <div class="dash" style="left:190px;top:210px;">
+    <div class="d-top"><div class="brand" style="font-size:18px">Acme · <span style="color:var(--paper-faint);font-weight:600">Sims dashboard</span></div></div>
+    <div class="d-stats">
+      <div class="stat"><div class="n">4</div><div class="l">🧬 Sims</div></div>
+      <div class="stat"><div class="n">38</div><div class="l">💬 Feedback received</div></div>
+      <div class="stat"><div class="n">12</div><div class="l">🐛 Tickets filed</div></div>
+      <div class="stat"><div class="n">3</div><div class="l">⚡ Live URLs</div></div>
+    </div>
+    <div style="padding:14px 22px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint)">Recent tickets</div>
+    <div class="tkt"><div class="tav" style="background:#db2777">EL</div><div><div class="tt">Discount applied with no visible confirmation</div><div class="td">Elena · /checkout · 2m ago</div></div><span class="sevtag">high</span><span class="chip c-open">open</span></div>
+    <div class="tkt"><div class="tav" style="background:#6366f1">MA</div><div><div class="tt">Promo code field skips keyboard focus</div><div class="td">Marcus · /checkout · 18m ago</div></div><span class="sevtag">low</span><span class="chip c-prog">in progress</span></div>
+    <div class="tkt"><div class="tav" style="background:#0f9d6b">PR</div><div><div class="tt">Mobile nav covers the cart icon at 375px</div><div class="td">Priya · /catalog · 1h ago</div></div><span class="sevtag">med</span><span class="chip c-done">done</span></div>
+  </div>
+  <div class="wm"><svg width="20" height="20" viewBox="0 0 48 48" style="border-radius:6px"><rect width="48" height="48" rx="11" fill="#161310"/><g fill="#fff"><circle cx="15" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="10" cy="24" r="2"/><circle cx="11" cy="32" r="2"/><circle cx="15" cy="39" r="2"/><circle cx="33" cy="9" r="2"/><circle cx="37" cy="16" r="2"/><circle cx="38" cy="24" r="2"/><circle cx="37" cy="32" r="2"/><circle cx="33" cy="39" r="2"/></g></svg><b class="wmk">Klav<span>ity</span></b></div>
+</section>
+
+<script>
+  const s = new URLSearchParams(location.search).get('s') || '1';
+  const el = document.querySelector('.slide[data-s="'+s+'"]');
+  if (el) el.classList.add('on');
+</script>
+</body>
+</html>

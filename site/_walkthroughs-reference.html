@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klavity — Critical Paths · Snap → Sims → AutoSim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#19140f; --ink:#f5f3ee; --ink-2:#fffdf8; --paper-dim:#574f45; --paper-faint:#8a8076;
+    --line:rgba(25,20,15,.12); --line-2:rgba(25,20,15,.07);
+    --indigo:#6366f1; --rose:#db2777; --green:#0f9d6b; --amber:#d98324; --red:#d6463a;
+    --display:'Fraunces',serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+    --accent:var(--indigo);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+  .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--paper-faint)}
+
+  /* ── top bar ── */
+  .bar{position:sticky;top:0;z-index:50;background:rgba(245,243,238,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar-in{display:flex;align-items:center;gap:18px;height:58px}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px}
+  .logo .mark{width:24px;height:24px;border-radius:7px;background:var(--paper);color:var(--ink);display:grid;place-items:center;font-family:var(--display);font-size:14px;font-weight:600}
+  .bar nav{margin-left:auto;display:flex;gap:6px}
+  .bar nav a{font-size:12.5px;font-family:var(--mono);letter-spacing:.04em;text-decoration:none;padding:6px 11px;border-radius:99px;border:1px solid transparent;color:var(--paper-dim)}
+  .bar nav a:hover{border-color:var(--line)}
+  .bar nav a.s1:hover{color:var(--indigo)} .bar nav a.s2:hover{color:var(--rose)} .bar nav a.s3:hover{color:var(--green)}
+
+  /* ── hero ── */
+  .hero{padding:84px 0 30px;position:relative;overflow:hidden}
+  .hero h1{font-family:var(--display);font-weight:430;font-size:clamp(36px,6vw,68px);line-height:1.02;letter-spacing:-.02em;margin:14px 0 0;max-width:16ch}
+  .hero h1 em{font-style:italic;font-weight:480}
+  .hero .lede{margin:22px 0 0;max-width:52ch;font-size:18px;color:var(--paper-dim)}
+  .hero .lede b{color:var(--paper);font-weight:600}
+
+  /* the arc */
+  .arc{margin:54px 0 8px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;position:relative}
+  .arc::before{content:"";position:absolute;left:8%;right:8%;top:34px;height:2px;background:
+    linear-gradient(90deg,var(--indigo) 0 33%,var(--rose) 33% 66%,var(--green) 66% 100%);opacity:.85;border-radius:2px}
+  .wp{position:relative;padding:0 18px;text-align:center}
+  .wp .dot{width:18px;height:18px;border-radius:99px;background:var(--ink);border:3px solid var(--c);margin:26px auto 0;position:relative;z-index:2;box-shadow:0 0 0 5px var(--ink)}
+  .wp .ph{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);margin-top:16px}
+  .wp h3{font-family:var(--display);font-weight:520;font-size:25px;margin:3px 0 0;color:var(--c)}
+  .wp p{font-size:13.5px;color:var(--paper-dim);margin:6px auto 0;max-width:24ch}
+  .wp.a1{--c:var(--indigo)} .wp.a2{--c:var(--rose)} .wp.a3{--c:var(--green)}
+  .wp .legs{position:absolute;top:20px;left:50%;transform:translateX(-50%)}
+
+  /* sim character */
+  .sim{display:inline-block;position:relative;width:var(--sz,30px);height:var(--sz,30px)}
+  .sim i{position:absolute;inset:0;border-radius:50%;background:var(--sc,var(--indigo));display:grid;place-items:center;color:#fff;font-family:var(--mono);font-size:calc(var(--sz,30px)*.36);font-weight:600;font-style:normal}
+  .sim::before,.sim::after{content:"";position:absolute;bottom:calc(var(--sz,30px)*-.22);width:2px;height:calc(var(--sz,30px)*.28);background:var(--sc,var(--indigo));border-radius:2px}
+  .sim::before{left:38%;transform:rotate(8deg)} .sim::after{right:38%;transform:rotate(-8deg)}
+
+  /* ── phase section ── */
+  .phase{padding:70px 0 30px;border-top:1px solid var(--line);position:relative}
+  .phase-head{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
+  .phase-num{font-family:var(--display);font-size:62px;font-weight:300;line-height:.8;color:var(--accent);opacity:.9}
+  .phase-id{flex:1;min-width:240px}
+  .phase-id .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--paper-faint)}
+  .phase-id h2{font-family:var(--display);font-weight:500;font-size:clamp(30px,4.4vw,46px);letter-spacing:-.015em;margin:4px 0 0}
+  .phase-id h2 .nm{color:var(--accent)}
+  .phase-tag{font-family:var(--display);font-style:italic;font-weight:430;font-size:19px;color:var(--paper-dim);max-width:34ch;padding-bottom:6px}
+
+  /* path of steps */
+  .path{margin:40px 0 0;display:grid;gap:18px}
+  @media(min-width:900px){
+    .path{grid-auto-flow:column;grid-auto-columns:1fr;align-items:stretch}
+  }
+  .step{position:relative;display:flex;flex-direction:column;gap:0}
+  .step .n{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+  .step .n b{width:23px;height:23px;border-radius:99px;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:var(--mono);font-size:12px;font-weight:600;flex:none}
+  .step .n span{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--paper-faint)}
+  /* connector arrow between steps */
+  .step:not(:last-child)::after{content:"→";position:absolute;color:var(--accent);opacity:.5;font-size:18px}
+  @media(min-width:900px){ .step:not(:last-child)::after{top:6px;right:-13px} }
+  @media(max-width:899px){ .step:not(:last-child)::after{content:"↓";left:11px;bottom:-16px} .path{gap:30px} }
+
+  .cap{margin:13px 2px 0}
+  .cap h4{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .cap p{margin:4px 0 0;font-size:13.5px;color:var(--paper-dim);line-height:1.5}
+  .hood{margin:10px 2px 0;font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--paper-faint);padding-left:11px;border-left:2px solid var(--line)}
+  .hood b{color:var(--accent);font-weight:600}
+
+  /* ── mini screen ── */
+  .screen{background:var(--ink-2);border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:0 1px 0 rgba(25,20,15,.04),0 14px 30px -22px rgba(25,20,15,.5);height:188px;position:relative}
+  .screen .chrome{height:24px;background:#efeae0;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:5px;padding:0 9px}
+  .screen .chrome i{width:7px;height:7px;border-radius:99px;background:#d7cfc2}
+  .screen .chrome .url{margin-left:8px;font-family:var(--mono);font-size:9px;color:var(--paper-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .screen .body{padding:12px;position:relative;height:calc(100% - 24px)}
+  .ln{height:7px;border-radius:3px;background:#eee7da}
+  .ln.s{width:46%}.ln.m{width:70%}.ln.l{width:90%}
+  .row{display:flex;gap:6px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;padding:3px 8px;border-radius:99px;border:1px solid var(--line);background:#fff;color:var(--paper-dim);white-space:nowrap}
+  .chip.ok{color:var(--green);border-color:rgba(15,157,107,.4)}
+  .chip.amber{color:var(--amber);border-color:rgba(217,131,36,.45);background:rgba(217,131,36,.07)}
+  .chip.red{color:var(--red);border-color:rgba(214,70,58,.4);background:rgba(214,70,58,.06)}
+  .chip.indigo{color:var(--indigo);border-color:rgba(99,102,241,.4)}
+  .chip.rose{color:var(--rose);border-color:rgba(219,39,119,.4)}
+  .pill{font-family:var(--mono);font-size:8.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:5px}
+  .pill.g{background:rgba(15,157,107,.13);color:var(--green)} .pill.a{background:rgba(217,131,36,.15);color:var(--amber)} .pill.r{background:rgba(214,70,58,.13);color:var(--red)}
+
+  /* context menu (snap 1) */
+  .ctx{position:absolute;right:18px;top:42px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:5px;box-shadow:0 16px 30px -16px rgba(25,20,15,.5);width:128px}
+  .ctx div{font-size:11px;padding:6px 9px;border-radius:6px;display:flex;gap:7px;align-items:center}
+  .ctx div.hot{background:rgba(99,102,241,.1);color:var(--indigo);font-weight:600}
+  .cursor{position:absolute;right:24px;top:74px;font-size:15px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
+
+  /* composer (snap 2) */
+  .modal{position:absolute;inset:14px;background:var(--paper);color:var(--ink);border-radius:11px;padding:11px;display:flex;flex-direction:column;gap:8px}
+  .modal .tabs{display:flex;gap:5px}
+  .modal .tabs b{flex:1;text-align:center;font-size:10.5px;font-weight:600;padding:5px;border-radius:6px;background:rgba(245,243,238,.1);color:var(--paper-faint)}
+  .modal .tabs b.on{background:var(--rose);color:#fff}
+  .modal .shot{height:38px;border-radius:7px;background:linear-gradient(135deg,#3a322a,#221c16);border:1px solid rgba(245,243,238,.12);position:relative;overflow:hidden}
+  .modal .shot::after{content:"FULL-PAGE CAPTURE";position:absolute;left:7px;bottom:5px;font-family:var(--mono);font-size:7.5px;color:rgba(245,243,238,.5)}
+  .modal .ta{flex:1;border-radius:7px;background:rgba(245,243,238,.06);border:1px solid rgba(245,243,238,.1);font-family:var(--mono);font-size:9px;color:rgba(245,243,238,.6);padding:6px}
+  .modal .sub{text-align:center;font-size:10.5px;font-weight:600;padding:6px;border-radius:7px;background:var(--indigo);color:#fff}
+
+  /* ticket / card cluster */
+  .stack{display:flex;flex-direction:column;gap:8px}
+  .tkt{border:1px solid var(--line);border-radius:9px;padding:9px;background:#fff}
+  .tkt .top{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:8.5px;color:var(--paper-faint)}
+  .tkt h5{margin:6px 0 0;font-size:11.5px;font-weight:600;line-height:1.3}
+  .tkt .q{margin:6px 0 0;font-style:italic;font-size:10px;color:var(--paper-dim);border-left:2px solid var(--c,var(--rose));padding-left:7px}
+
+  /* persona card */
+  .pc{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:8px;background:#fff}
+  .pc .av{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-family:var(--mono);font-size:10px;font-weight:600}
+  .pc .nm{font-size:11px;font-weight:600;line-height:1.1}.pc .rl{font-size:9px;color:var(--paper-faint);font-family:var(--mono)}
+  .trait{font-size:9px;font-family:var(--mono);padding:2px 6px;border-radius:5px;margin-top:5px;display:inline-block}
+  .trait.pain{background:rgba(214,70,58,.1);color:var(--red)} .trait.want{background:rgba(99,102,241,.1);color:var(--indigo)} .trait.love{background:rgba(15,157,107,.12);color:var(--green)}
+
+  /* reaction bubbles on a page (sims 3) */
+  .react .bubble{position:absolute;background:var(--paper);color:var(--ink);border-radius:9px;padding:7px 8px;font-size:9px;line-height:1.35;max-width:118px;box-shadow:0 12px 26px -16px rgba(0,0,0,.6)}
+  .react .bubble .who{font-family:var(--mono);font-size:7.5px;color:rgba(245,243,238,.6);margin-bottom:2px}
+  .react .hi{position:absolute;border:2px solid var(--rose);border-radius:6px;background:rgba(219,39,119,.08)}
+
+  /* heal diff (autosim 3) */
+  .diff{font-family:var(--mono);font-size:10px;display:flex;flex-direction:column;gap:5px;margin-top:4px}
+  .diff .from{color:var(--red);text-decoration:line-through;opacity:.8}
+  .diff .to{color:var(--green)}
+  .walkrow{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9.5px;padding:5px 0;border-bottom:1px solid var(--line-2)}
+  .walkrow:last-child{border:0}
+  .walkrow .ix{width:15px;color:var(--paper-faint)}
+  .walkrow .nm{flex:1;color:var(--paper-dim)}
+
+  /* dashboard mini (autosim 5) */
+  .dash .hd{display:flex;justify-content:space-between;font-family:var(--mono);font-size:8.5px;color:var(--paper-faint);margin-bottom:7px}
+  .dash .tr{display:flex;align-items:center;gap:6px;padding:6px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#fff}
+  .dash .tr .nm{flex:1;font-size:10px;font-weight:600}
+  .dash .tr .sel{font-family:var(--mono);font-size:8px;color:var(--paper-faint)}
+
+  /* footer */
+  .foot{padding:64px 0 80px;border-top:1px solid var(--line);text-align:center}
+  .foot h2{font-family:var(--display);font-weight:460;font-size:clamp(26px,4vw,40px);letter-spacing:-.02em;margin:0 auto;max-width:20ch}
+  .foot h2 em{font-style:italic}
+  .foot .seq{margin:26px 0 0;display:inline-flex;gap:10px;align-items:center;font-family:var(--mono);font-size:13px;flex-wrap:wrap;justify-content:center}
+  .foot .seq b{padding:6px 13px;border-radius:99px;color:#fff}
+  .foot .seq .a1{background:var(--indigo)}.foot .seq .a2{background:var(--rose)}.foot .seq .a3{background:var(--green)}
+  .foot .seq span{color:var(--paper-faint)}
+  .foot .note{margin:24px 0 0;font-size:12px;color:var(--paper-faint);font-family:var(--mono)}
+
+  @media (prefers-reduced-motion:no-preference){
+    .walker{animation:walk 1.6s ease-in-out infinite alternate}
+    @keyframes walk{from{transform:translateY(0) rotate(-2deg)}to{transform:translateY(-3px) rotate(2deg)}}
+  }
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<div class="bar"><div class="wrap bar-in">
+  <div class="logo"><span class="mark">K</span> Klavity</div>
+  <span class="eyebrow" style="margin-left:6px">Critical paths</span>
+  <nav>
+    <a href="#snap" class="s1">01 · Snap</a>
+    <a href="#sims" class="s2">02 · Sims</a>
+    <a href="#autosim" class="s3">03 · AutoSim</a>
+  </nav>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <span class="eyebrow">The Klavity arc · one product, three phases</span>
+  <h1>From a <em>right-click</em> to a QA team that <em>never sleeps</em>.</h1>
+  <p class="lede">One idea, carried all the way: turn the people who use your product into the ones who catch its bugs. First a human snaps a bug, then AI <b>Sims</b> built from real customer calls catch them, then those Sims <b>run themselves</b> — testing every release and healing when your UI changes.</p>
+
+  <div class="arc">
+    <div class="wp a1"><span class="sim walker" style="--sz:34px;--sc:var(--indigo)"><i>K</i></span><div class="ph">Phase 01</div><h3>Snap</h3><p>A human catches a bug in one right-click.</p></div>
+    <div class="wp a2"><span class="sim walker" style="--sz:34px;--sc:var(--rose)"><i>SC</i></span><div class="ph">Phase 02</div><h3>Sims</h3><p>AI personas from real calls catch them for you.</p></div>
+    <div class="wp a3"><span class="sim walker" style="--sz:34px;--sc:var(--green)"><i>AS</i></span><div class="ph">Phase 03</div><h3>AutoSim</h3><p>Those Sims test every release — and self-heal.</p></div>
+  </div>
+</div></header>
+
+<!-- ───────────────── SNAP ───────────────── -->
+<section class="phase" id="snap" style="--accent:var(--indigo)"><div class="wrap">
+  <div class="phase-head">
+    <div class="phase-num">01</div>
+    <div class="phase-id"><div class="kicker">Phase 01 · live today</div><h2>Klavity <span class="nm">Snap</span></h2></div>
+    <div class="phase-tag">Catch a bug without leaving the page — right-click, describe, done.</div>
+  </div>
+
+  <div class="path">
+    <div class="step">
+      <div class="n"><b>1</b><span>Right-click</span></div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">app.yourproduct.com/checkout</span></div>
+        <div class="body">
+          <div class="row" style="justify-content:space-between"><div class="ln s"></div><div class="ln" style="width:18%"></div></div>
+          <div class="ln l" style="margin-top:12px"></div><div class="ln m" style="margin-top:8px"></div>
+          <div class="ctx"><div class="hot">🐞 Report a bug</div><div>💡 Request a feature</div></div>
+          <div class="cursor">▾</div>
+        </div>
+      </div>
+      <div class="cap"><h4>Right-click anything</h4><p>No tool to open, no screenshot to take. Right-click the thing that's wrong.</p></div>
+      <div class="hood">widget owns <b>contextmenu</b> · no extension</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>2</b><span>Describe</span></div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">app.yourproduct.com/checkout</span></div>
+        <div class="body">
+          <div class="modal">
+            <div class="tabs"><b class="on">🐞 Bug</b><b>💡 Feature</b></div>
+            <div class="shot"></div>
+            <div class="ta">The total doesn't update when I remove an item…</div>
+            <div class="sub">Submit</div>
+          </div>
+        </div>
+      </div>
+      <div class="cap"><h4>The page is already attached</h4><p>A full-page screenshot is captured for you. Just say what's wrong and hit Submit.</p></div>
+      <div class="hood"><b>html-to-image</b> capture · Bug / Feature</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>3</b><span>Grounded</span></div>
+      <div class="screen">
+        <div class="body" style="height:100%;display:flex;flex-direction:column;gap:9px;justify-content:center">
+          <div class="chip indigo">⛓ grounded to the element + URL</div>
+          <div class="chip">🖼 screenshot · console · network</div>
+          <div class="chip ok">✓ deduped — not a repeat</div>
+        </div>
+      </div>
+      <div class="cap"><h4>It arrives with context</h4><p>Klavity bundles the screenshot, the page, and the surrounding errors — and won't file a duplicate.</p></div>
+      <div class="hood">POST <b>/api/feedback</b> · groundQuote · dedup</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>4</b><span>In your tracker</span></div>
+      <div class="screen">
+        <div class="body" style="height:100%;display:flex;align-items:center">
+          <div class="tkt" style="width:100%;--c:var(--indigo)">
+            <div class="top">PLANE · PROJ‑42 · <span class="pill r">Bug</span></div>
+            <h5>Cart total doesn't update on item removal</h5>
+            <div class="q">"The total doesn't update when I remove an item."</div>
+            <div class="row" style="margin-top:8px"><span class="chip">🖼 capture</span><span class="chip">/checkout</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="cap"><h4>Filed where you work</h4><p>A ready-to-fix ticket lands in Plane, Jira, GitHub or Linear — auto-copied.</p></div>
+      <div class="hood">connectors: <b>Plane · Jira · GitHub · Linear</b></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ───────────────── SIMS ───────────────── -->
+<section class="phase" id="sims" style="--accent:var(--rose)"><div class="wrap">
+  <div class="phase-head">
+    <div class="phase-num">02</div>
+    <div class="phase-id"><div class="kicker">Phase 02 · live today</div><h2>Klavity <span class="nm">Sims</span></h2></div>
+    <div class="phase-tag">Your customers, in the room while you build — reacting to your actual product.</div>
+  </div>
+
+  <div class="path">
+    <div class="step">
+      <div class="n"><b>1</b><span>Feed a call</span></div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">acme — discovery call.txt</span></div>
+        <div class="body">
+          <div class="row"><span class="chip rose">📄 transcript</span><span class="chip">28 min</span></div>
+          <div class="ln l" style="margin-top:12px"></div><div class="ln m" style="margin-top:7px"></div><div class="ln l" style="margin-top:7px"></div><div class="ln s" style="margin-top:7px"></div>
+        </div>
+      </div>
+      <div class="cap"><h4>Drop in a customer call</h4><p>Upload a real interview or support transcript — the raw voice of a customer.</p></div>
+      <div class="hood">transcript → <b>extract</b> (model-mix)</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>2</b><span>Meet your Sims</span></div>
+      <div class="screen">
+        <div class="body" style="height:100%;display:flex;flex-direction:column;gap:7px;justify-content:center">
+          <div class="pc"><div class="av" style="background:var(--rose)">SC</div><div><div class="nm">Sarah Chen</div><div class="rl">CFO · client</div><span class="trait pain">pain · can't see what's overdue</span></div></div>
+          <div class="pc"><div class="av" style="background:var(--indigo)">RA</div><div><div class="nm">Ravi A.</div><div class="rl">PM · client</div><span class="trait want">want · bulk-approve</span></div></div>
+        </div>
+      </div>
+      <div class="cap"><h4>Personas, grounded in quotes</h4><p>Klavity builds Sims with real pains, wants and loves — each traceable to a verbatim line.</p></div>
+      <div class="hood">traits: <b>pain · want · love</b> + src quote</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>3</b><span>Sims react</span></div>
+      <div class="screen react">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">app.yourproduct.com/overview</span></div>
+        <div class="body">
+          <div class="ln m"></div><div class="ln l" style="margin-top:8px"></div>
+          <div class="hi" style="left:54px;top:58px;width:64px;height:26px"></div>
+          <div class="bubble" style="left:8px;bottom:10px"><div class="who">SC · CFO</div>These aren't sorted by urgency — I can't see what's overdue.</div>
+          <span class="sim" style="position:absolute;right:14px;top:46px;--sz:24px;--sc:var(--rose)"><i>SC</i></span>
+        </div>
+      </div>
+      <div class="cap"><h4>They walk your real pages</h4><p>Each Sim reviews your product in its own voice and points at exactly what bothers them.</p></div>
+      <div class="hood">vision‑LLM <b>react</b> · cites a trait</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>4</b><span>Files the bug</span></div>
+      <div class="screen">
+        <div class="body" style="height:100%;display:flex;align-items:center">
+          <div class="tkt" style="width:100%;--c:var(--rose)">
+            <div class="top">PLANE · PROJ‑57 · <span class="pill r">UX</span></div>
+            <h5>Overview list isn't ordered by urgency</h5>
+            <div class="q">"I can't see what's overdue at a glance." — Sarah Chen, CFO</div>
+            <div class="row" style="margin-top:8px"><span class="chip rose">👤 grounded in a Sim's want</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="cap"><h4>A bug with a human behind it</h4><p>The reaction becomes a filed bug — carrying the persona and the quote that justifies it.</p></div>
+      <div class="hood">suggested‑bug → <b>connector</b> · provenance kept</div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ───────────────── AUTOSIM ───────────────── -->
+<section class="phase" id="autosim" style="--accent:var(--green)"><div class="wrap">
+  <div class="phase-head">
+    <div class="phase-num">03</div>
+    <div class="phase-id"><div class="kicker">Phase 03 · shipped · the engine that runs itself</div><h2>Klavity <span class="nm">AutoSim</span></h2></div>
+    <div class="phase-tag">Your Sims test every release — and heal themselves when your UI changes.</div>
+  </div>
+
+  <div class="path">
+    <div class="step">
+      <div class="n"><b>1</b><span>Author a run</span></div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">klavity · new trail</span></div>
+        <div class="body">
+          <div class="chip rose" style="border-color:var(--line);color:var(--paper-dim)">🗣 "log in, add the $20 plan, check out"</div>
+          <div class="mono" style="font-size:8.5px;color:var(--paper-faint);margin-top:11px;line-height:1.6">await page.goto(base)<br>await byRole('button','Sign in')…<br>await byRole('button','Checkout')…</div>
+          <div class="chip ok" style="margin-top:9px">⤓ crystallized to a real test</div>
+        </div>
+      </div>
+      <div class="cap"><h4>Describe it once, in English</h4><p>Say the flow (or record it). A Sim drives the browser and Klavity freezes it into an ownable test.</p></div>
+      <div class="hood"><b>crystallize</b> → Playwright + locator cache</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>2</b><span>Replays free</span></div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">walk · checkout</span></div>
+        <div class="body" style="padding-top:9px">
+          <div class="walkrow"><span class="ix">1</span><span class="nm">sign in</span><span class="pill g">green</span></div>
+          <div class="walkrow"><span class="ix">2</span><span class="nm">add plan</span><span class="pill g">green</span></div>
+          <div class="walkrow"><span class="ix">3</span><span class="nm">checkout</span><span class="pill g">green</span></div>
+          <div class="walkrow"><span class="ix">4</span><span class="nm">confirmation</span><span class="pill g">green</span></div>
+          <div class="chip ok" style="margin-top:8px">⚡ 0 LLM calls · deterministic</div>
+        </div>
+      </div>
+      <div class="cap"><h4>Runs on every release — for free</h4><p>Unchanged UI replays with zero AI: fast, cheap, and repeatable enough to gate every build.</p></div>
+      <div class="hood">cache hit → <b>zero‑LLM</b> replay</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>3</b><span>UI changed → heals</span></div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">walk · checkout</span></div>
+        <div class="body" style="display:flex;flex-direction:column;justify-content:center">
+          <div class="row" style="justify-content:space-between"><span class="mono" style="font-size:9.5px">checkout step</span><span class="pill a">amber · healed</span></div>
+          <div class="diff"><span class="from">#checkout</span><span class="to">→ #pay-now-btn</span></div>
+          <div class="chip amber" style="margin-top:9px">🩹 re-found by role + name · 0 LLM</div>
+        </div>
+      </div>
+      <div class="cap"><h4>Your button moved? It adapts</h4><p>When a selector breaks, the Sim re-finds the element by what it <em>means</em> and keeps going — flagging the change, not failing.</p></div>
+      <div class="hood">heal ladder · cache → <b>role+name</b> → vision</div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>4</b><span>Real break → bug</span></div>
+      <div class="screen">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">walk · checkout</span></div>
+        <div class="body" style="display:flex;flex-direction:column;justify-content:center">
+          <div class="row" style="justify-content:space-between"><span class="mono" style="font-size:9.5px">checkout step</span><span class="pill r">red · regression</span></div>
+          <div class="chip red" style="margin-top:9px">🚫 checkout is gone — goal can't complete</div>
+          <div class="chip" style="margin-top:7px;color:var(--red);border-color:rgba(214,70,58,.3)">→ grounded finding filed</div>
+        </div>
+      </div>
+      <div class="cap"><h4>But it never hides a real bug</h4><p>If the goal genuinely can't complete, it files a grounded finding instead of quietly passing green.</p></div>
+      <div class="hood">diagnose‑first · never a <b>silent false‑green</b></div>
+    </div>
+
+    <div class="step">
+      <div class="n"><b>5</b><span>Watch it all</span></div>
+      <div class="screen dash">
+        <div class="chrome"><i></i><i></i><i></i><span class="url">klavity.app/trails</span></div>
+        <div class="body">
+          <div class="hd"><span>TRAILS</span><span>precision 100%</span></div>
+          <div class="tr"><span class="nm">Checkout</span><span class="sel">#checkout→#pay-now-btn</span><span class="pill a">amber</span><span class="chip" style="font-size:8px;padding:2px 6px">▶</span></div>
+          <div class="tr"><span class="nm">Onboarding</span><span class="pill g">green</span><span class="chip" style="font-size:8px;padding:2px 6px">▶</span></div>
+        </div>
+      </div>
+      <div class="cap"><h4>Verdicts, diffs & replays</h4><p>One dashboard: what passed, what healed (with the before→after), what broke — each with a scrubbable replay.</p></div>
+      <div class="hood">on‑demand run · <b>rrweb replay</b> · review queue</div>
+    </div>
+  </div>
+</div></section>
+
+<footer class="foot"><div class="wrap">
+  <h2>One thread, pulled all the way: <em>the user becomes the tester.</em></h2>
+  <div class="seq"><b class="a1">Snap</b><span>→</span><b class="a2">Sims</b><span>→</span><b class="a3">AutoSim</b></div>
+  <p class="note">A human snaps it · AI Sims catch it · AutoSim runs it forever.</p>
+</div></footer>
+
+</body>
+</html>
