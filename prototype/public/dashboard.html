@@ -221,6 +221,25 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .kb-card-t{font-size:13px;font-weight:600;line-height:1.3}
 .kb-card-d{font-size:11px;color:var(--paper-faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kb-card-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+/* graft: severity rail (scannable spine) + status pill + search toolbar */
+.sevrail-high{box-shadow:inset 3px 0 0 var(--rose)}
+.sevrail-medium{box-shadow:inset 3px 0 0 var(--amber)}
+.sevrail-low{box-shadow:inset 3px 0 0 var(--paper-faint)}
+.sevrail-none{box-shadow:inset 3px 0 0 var(--line)}
+.kb-card.sevrail-high,.kb-card.sevrail-medium,.kb-card.sevrail-low,.kb-card.sevrail-none{padding-left:14px}
+.row-tkt.sevrail-high,.row-tkt.sevrail-medium,.row-tkt.sevrail-low,.row-tkt.sevrail-none{padding-left:17px}
+.tkt-pill{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;vertical-align:middle}
+.tkt-pill .pdot{width:6px;height:6px;border-radius:50%}
+.tkt-pill.p-open{background:rgba(217,131,36,.16);color:var(--amber)}.tkt-pill.p-open .pdot{background:var(--amber)}
+.tkt-pill.p-in_progress{background:rgba(99,102,241,.14);color:var(--indigo)}.tkt-pill.p-in_progress .pdot{background:var(--indigo)}
+.tkt-pill.p-done{background:rgba(15,157,107,.15);color:var(--green)}.tkt-pill.p-done .pdot{background:var(--green)}
+.kb-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.kb-toolbar h2{margin:0}
+.kb-search{display:flex;align-items:center;gap:8px;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 11px;min-width:170px;margin-left:auto}
+.kb-search input{border:none;background:none;outline:none;color:var(--paper);font-family:var(--body);font-size:13px;width:100%}
+.kb-search input::placeholder{color:var(--paper-faint)}
+.kb-search .mag{color:var(--paper-faint);font-size:13px}
+.kb-noresult{text-align:center;color:var(--paper-faint);padding:26px;font-size:13.5px}
 .chip.kb-st-open{background:rgba(217,131,36,.16);color:var(--amber)}
 .chip.kb-st-in_progress{background:rgba(79,70,229,.16);color:var(--indigo)}
 .chip.kb-st-done{background:rgba(15,157,107,.16);color:var(--green)}
@@ -560,7 +579,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
     <!-- Tickets kanban board -->
     <div class="card full" data-view="tickets">
-      <h2>🐛 Tickets <span class="count" id="ticketKanbanCount"></span></h2>
+      <div class="kb-toolbar">
+        <h2>🐛 Tickets <span class="count" id="ticketKanbanCount"></span></h2>
+        <div class="kb-search"><span class="mag">⌕</span><input id="kanbanSearch" placeholder="Search tickets…" autocomplete="off" /></div>
+      </div>
       <div id="ticketsKanban"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
@@ -1355,10 +1377,10 @@ function renderTickets() {
     const sub = [t.simName ? ("by " + t.simName) : "", t.urlPath ? esc(t.urlPath) : "", ago(t.createdAt)].filter(Boolean).join(" · ")
 
     const rowEl = document.createElement("div")
-    rowEl.className = "row-tkt"
+    rowEl.className = "row-tkt " + sevRailClass(t.severity)
     rowEl.setAttribute("data-id", ticketId)
     const renderRowTitle = () => {
-      const statusPart = (t.status && t.status !== "open") ? `<span class="chip" style="margin-left:6px;font-size:9px">${STATUS_LABELS[t.status] || esc(t.status)}</span>` : ""
+      const statusPart = `<span style="margin-left:8px">${statusPillHtml(t.status)}</span>`
       const assigneePart = t.assignee ? `<span class="muted" style="font-size:11px;margin-left:6px">→ ${esc(t.assignee)}</span>` : ""
       rowEl.querySelector(".t").innerHTML = `${esc(t.title || "Untitled report")}${statusPart}${assigneePart}`
     }
@@ -1399,14 +1421,30 @@ const KANBAN_COLS = [
   { status: "in_progress", label: "In Progress" },
   { status: "done",        label: "Done" },
 ]
+// graft helpers: severity rail class + status pill
+function sevRailClass(sev) { return "sevrail-" + ((sev === "high" || sev === "medium" || sev === "low") ? sev : "none") }
+function statusPillHtml(status) { const s = status || "open"; return `<span class="tkt-pill p-${esc(s)}"><span class="pdot"></span>${STATUS_LABELS[s] || esc(s)}</span>` }
+let _kanbanSearch = "", _kbSearchBound = false
 function renderTicketsKanban() {
   const board = $("ticketsKanban")
   if (!board) return
-  const tickets = state.tickets || []
+  if (!_kbSearchBound) {
+    const si = $("kanbanSearch")
+    if (si) { si.addEventListener("input", () => { _kanbanSearch = si.value; renderTicketsKanban() }); _kbSearchBound = true }
+  }
   const admin = state.active && state.active.role === "admin"
-  $("ticketKanbanCount").textContent = tickets.length ? tickets.length : ""
-  if (!tickets.length) {
+  const allTickets = state.tickets || []
+  const q = _kanbanSearch.trim().toLowerCase()
+  const tickets = q
+    ? allTickets.filter(t => ((t.title || "") + " " + (t.simName || "") + " " + (t.urlPath || "") + " " + (t.observation || "")).toLowerCase().includes(q))
+    : allTickets
+  $("ticketKanbanCount").textContent = allTickets.length ? (q ? (tickets.length + "/" + allTickets.length) : allTickets.length) : ""
+  if (!allTickets.length) {
     board.innerHTML = emptyState("🐛", "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
+    return
+  }
+  if (!tickets.length) {
+    board.innerHTML = `<div class="kb-noresult">No tickets match “${esc(_kanbanSearch)}”.</div>`
     return
   }
   // Group: unknown statuses fall into "open".
@@ -1441,7 +1479,7 @@ function renderTicketsKanban() {
     items.forEach(t => {
       const ticketId = t.id
       const cardEl = document.createElement("div")
-      cardEl.className = "kb-card"
+      cardEl.className = "kb-card " + sevRailClass(t.severity)
       cardEl.setAttribute("data-id", ticketId)
       const sub = [t.simName ? ("by " + t.simName) : "", t.urlPath ? esc(t.urlPath) : "", ago(t.createdAt)].filter(Boolean).join(" · ")
       const renderCard = () => {

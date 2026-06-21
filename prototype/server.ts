@@ -745,6 +745,44 @@ async function feedbackToTicketPayload(fb: any, project: { id: string; name?: st
   }
 }
 
+// Aggregate "so what" insights for the Overview, computed across ALL of a project's feedback
+// (not just the recent 12 the dashboard lists). Cheap GROUP BY queries; degrades to zeros with no DB.
+// created_at is stored as a millisecond epoch integer.
+async function computeDashboardInsights(projectId: string) {
+  const empty = {
+    openBySeverity: { high: 0, medium: 0, low: 0, none: 0 },
+    recurring: 0,
+    sentiment: { neg: 0, pos: 0, total: 0 },
+    hotspots: [] as { area: string; count: number }[],
+    volume7d: [] as number[],
+    opened7d: 0, resolved7d: 0,
+  }
+  if (!db) return empty
+  try {
+    const now = Date.now()
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+    const [sevRows, sentRows, hotRows, volRows, recRow, throughputRows] = await Promise.all([
+      db.execute({ sql: `SELECT COALESCE(severity,'none') sev, COUNT(*) n FROM feedback WHERE project_id=? AND status!='done' GROUP BY sev`, args: [projectId] }),
+      db.execute({ sql: `SELECT COALESCE(sentiment,'') s, COUNT(*) n FROM feedback WHERE project_id=? GROUP BY s`, args: [projectId] }),
+      db.execute({ sql: `SELECT COALESCE(NULLIF(url_path,''),'(unknown)') area, COUNT(*) n FROM feedback WHERE project_id=? AND status!='done' GROUP BY area ORDER BY n DESC LIMIT 6`, args: [projectId] }),
+      db.execute({ sql: `SELECT CAST(created_at/86400000 AS INTEGER) d, COUNT(*) n FROM feedback WHERE project_id=? AND created_at>? GROUP BY d`, args: [projectId, weekAgo] }),
+      db.execute({ sql: `SELECT COUNT(*) n FROM feedback WHERE project_id=? AND recurrence_count>=3`, args: [projectId] }),
+      db.execute({ sql: `SELECT (CASE WHEN status='done' THEN 'resolved' ELSE 'opened' END) k, COUNT(*) n FROM feedback WHERE project_id=? AND created_at>? GROUP BY k`, args: [projectId, weekAgo] }),
+    ])
+    const out = JSON.parse(JSON.stringify(empty))
+    for (const r of sevRows.rows) { const k = String((r as any).sev); if (k in out.openBySeverity) out.openBySeverity[k] = Number((r as any).n) }
+    for (const r of sentRows.rows) { const s = String((r as any).s); const n = Number((r as any).n); out.sentiment.total += n; if (s === "frustrated" || s === "confused") out.sentiment.neg += n; else if (s) out.sentiment.pos += n }
+    out.hotspots = hotRows.rows.map((r: any) => ({ area: String(r.area), count: Number(r.n) }))
+    out.recurring = recRow.rows.length ? Number((recRow.rows[0] as any).n) : 0
+    const byDay: Record<number, number> = {}
+    for (const r of volRows.rows) byDay[Number((r as any).d)] = Number((r as any).n)
+    const todayIdx = Math.floor(now / 86400000)
+    for (let i = 6; i >= 0; i--) out.volume7d.push(byDay[todayIdx - i] || 0)
+    for (const r of throughputRows.rows) { const k = String((r as any).k); if (k === "resolved") out.resolved7d = Number((r as any).n); else out.opened7d = Number((r as any).n) }
+    return out
+  } catch { return empty }
+}
+
 // Resolve a Sim's display name from its id (best-effort; null if unknown). Used to enrich
 // both the manual export and the auto-copy payloads so external tickets show "Sim: <name>".
 async function resolveSimName(projectId: string, simId: string | null | undefined): Promise<string | null> {
@@ -2524,24 +2562,25 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             // Fetch status/assignee via feedbackById in batch (single IN query via raw DB).
             db && ticketIds.length
               ? db.execute({
-                  sql: `SELECT id, status, assignee, notes FROM feedback WHERE id IN (${ticketIds.map(() => "?").join(",")})`,
+                  sql: `SELECT id, status, assignee, notes, recurrence_count FROM feedback WHERE id IN (${ticketIds.map(() => "?").join(",")})`,
                   args: ticketIds,
                 }).then(r => {
-                  const m: Record<string, { status: string; assignee: string | null; notes: string | null }> = {}
+                  const m: Record<string, { status: string; assignee: string | null; notes: string | null; recurrence: number }> = {}
                   for (const x of r.rows) {
                     m[String((x as any).id)] = {
                       status: (x as any).status ? String((x as any).status) : "open",
                       assignee: (x as any).assignee != null ? String((x as any).assignee) : null,
                       notes: (x as any).notes != null ? String((x as any).notes) : null,
+                      recurrence: Number((x as any).recurrence_count ?? 1),
                     }
                   }
                   return m
                 })
-              : Promise.resolve({} as Record<string, { status: string; assignee: string | null; notes: string | null }>),
+              : Promise.resolve({} as Record<string, { status: string; assignee: string | null; notes: string | null; recurrence: number }>),
           ])
           const tickets = feedbackTickets.map(f => {
             const p = f.simId ? personaById.get(f.simId) : null
-            const meta = ticketMetaRows[f.id] ?? { status: "open", assignee: null, notes: null }
+            const meta = ticketMetaRows[f.id] ?? { status: "open", assignee: null, notes: null, recurrence: 1 }
             // Build exports: latest ok per connector
             const rawExports = ticketExportsMap[f.id] ?? []
             const seenConnector = new Set<string>()
@@ -2562,6 +2601,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               sentiment: f.sentiment, screenshotId: f.screenshotId,
               sourceQuote: f.sourceQuote, sourceDate: f.sourceDate,
               notes: meta.notes, hasReplay: ticketsWithReplay.has(f.id),
+              recurrence: meta.recurrence,
             }
           })
 
@@ -2574,8 +2614,11 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             }
           })
 
-          const counts = await dashboardCounts(projectId)
-          return json({ email: me, projects, active: activeOut, members, sims, saying, tickets, activity, counts })
+          const [counts, insights] = await Promise.all([
+            dashboardCounts(projectId),
+            computeDashboardInsights(projectId),
+          ])
+          return json({ email: me, projects, active: activeOut, members, sims, saying, tickets, activity, counts, insights })
         } catch (e: any) {
           return json(oops(e, "dashboard"), 500)
         }
