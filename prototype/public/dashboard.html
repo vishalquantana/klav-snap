@@ -85,6 +85,19 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .kpi-sev .sg span{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint)}
 .kpi-sev .sg.hi b{color:var(--rose)}.kpi-sev .sg.me b{color:var(--amber)}.kpi-sev .sg.lo b{color:var(--paper-faint)}
 .kspark{margin-top:10px}
+/* clickable KPI cards → Tickets filtered */
+.kpi-click{cursor:pointer;transition:border-color .15s,transform .08s,box-shadow .15s}
+.kpi-click:hover{border-color:var(--indigo);box-shadow:0 4px 16px rgba(25,20,15,.06)}
+.kpi-click:active{transform:translateY(1px)}
+.kpi-click:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+.kpi-sev .sg{cursor:pointer;border-radius:7px;padding:2px 5px;margin:-2px -5px;transition:background .12s}
+.kpi-sev .sg:hover{background:var(--ink-3)}
+/* active Tickets filter chip */
+.kb-filterbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.kb-chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;background:var(--ink-3);border:1px solid var(--line);border-radius:999px;padding:5px 7px 5px 11px;color:var(--paper)}
+.kb-chip b{font-weight:700}
+.kb-chip .kb-x{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:none;border-radius:50%;background:var(--line);color:var(--paper);cursor:pointer;font-size:13px;line-height:1}
+.kb-chip .kb-x:hover{background:var(--rose);color:#fff}
 @media(max-width:900px){.kpis{grid-template-columns:1fr 1fr}}
 /* Fix next + hotspots */
 .h-tag{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--paper-faint);background:var(--ink-3);padding:2px 8px;border-radius:20px;text-transform:none;letter-spacing:0;font-weight:400}
@@ -616,12 +629,36 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     </ol>
   </div>
 
-  <!-- Metrics row — at-a-glance counts (feedback, sims, team, tickets) -->
-  <div class="stats" id="stats" data-view="overview">
-    <div class="stat"><div class="n" id="stFeedback">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg></span>Feedback received</div></div>
-    <div class="stat"><div class="n" id="stSims">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg></span>Sims</div></div>
-    <div class="stat"><div class="n" id="stTeam">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></svg></span>Teammates</div></div>
-    <div class="stat"><div class="n" id="stTickets">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg></span>Tickets filed</div></div>
+  <!-- Insight KPI strip — each stat carries a "so what", from /api/dashboard insights. Clickable → Tickets filtered. -->
+  <div class="kpis" id="kpis" data-view="overview">
+    <div class="kpi kpi-click" id="kpiCardOpen" role="button" tabindex="0" title="View open issues">
+      <div class="kl"><span class="kdot doti"></span>Open issues</div>
+      <div class="kpi-sev" id="kpiSev"><span class="muted">—</span></div>
+    </div>
+    <div class="kpi kpi-click" id="kpiCardRecur" role="button" tabindex="0" title="View recurring issues">
+      <div class="kl"><span class="kdot dotc"></span>Recurring</div>
+      <div class="kn" id="kpiRecur">—</div>
+      <div class="kd">issues seen 3+ times</div>
+    </div>
+    <div class="kpi kpi-click" id="kpiCardSent" role="button" tabindex="0" title="View frustrated / confused tickets">
+      <div class="kl"><span class="kdot dotc"></span>Sentiment</div>
+      <div class="kn" id="kpiSent">—</div>
+      <div class="kd">frustrated / confused</div>
+    </div>
+    <div class="kpi kpi-click" id="kpiCardVol" role="button" tabindex="0" title="View all tickets">
+      <div class="kl"><span class="kdot dotg"></span>Feedback · 7 days</div>
+      <div class="kn" id="kpiVol">—</div>
+      <div id="kpiSpark" class="kspark"></div>
+    </div>
+  </div>
+
+  <!-- Fix next + Hotspots — the "what to fix" insight panel -->
+  <div class="card" data-view="overview" style="margin-bottom:18px">
+    <h2 style="display:flex;align-items:center;gap:8px"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Fix next <span class="h-tag">ranked by severity × recurrence</span></h2>
+    <div class="fixwrap">
+      <div class="fxlist" id="fixNext"><div class="sk sk-row"></div></div>
+      <div><div class="subhead2">Hotspots — where pain clusters</div><div id="hotspots"></div></div>
+    </div>
   </div>
 
   <div class="grid">
@@ -657,6 +694,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <!-- Tickets kanban board -->
     <div class="card full" data-view="tickets">
       <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg> Tickets <span class="count" id="ticketKanbanCount"></span></h2>
+      <div class="kb-filterbar" id="kbFilterBar"></div>
       <div id="ticketsKanban"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
       <div id="ticketSingle" class="hide"></div>
     </div>
@@ -1053,7 +1091,7 @@ async function klavCopy(text, btn, doneLabel) {
     const prev = btn.textContent; btn.textContent = "Copied" // emoji-ok
     setTimeout(() => { btn.textContent = prev }, 1600)
   } catch (e) { btn.textContent = "Press ⌘C"; setTimeout(() => { btn.textContent = "Copy" }, 1600) }
-})
+}
 $("checklistDismiss") && ($("checklistDismiss").onclick = () => {
   try { sessionStorage.setItem("klavChecklistDismissed", "1") } catch (e) {}
   const el = $("checklist"); if (el) el.classList.add("hide")
@@ -1074,16 +1112,38 @@ function renderStats() {
   const setT = (id, v) => { const e = $(id); if (e) e.textContent = v }
   const sevEl = $("kpiSev")
   if (sevEl) sevEl.innerHTML =
-    `<div class="sg hi"><b>${sev.high || 0}</b><span>Critical</span></div>` +
-    `<div class="sg me"><b>${sev.medium || 0}</b><span>High</span></div>` +
-    `<div class="sg lo"><b>${(sev.low || 0) + (sev.none || 0)}</b><span>Low</span></div>`
+    `<div class="sg hi" data-sev="high" role="button" tabindex="0" title="View critical issues"><b>${sev.high || 0}</b><span>Critical</span></div>` +
+    `<div class="sg me" data-sev="medium" role="button" tabindex="0" title="View high-severity issues"><b>${sev.medium || 0}</b><span>High</span></div>` +
+    `<div class="sg lo" data-sev="low" role="button" tabindex="0" title="View low-severity issues"><b>${(sev.low || 0) + (sev.none || 0)}</b><span>Low</span></div>`
   setT("kpiRecur", ins.recurring ?? 0)
   const st = ins.sentiment || { neg: 0, pos: 0, total: 0 }
   setT("kpiSent", (st.total ? Math.round((st.neg / st.total) * 100) : 0) + "%")
   const vol = Array.isArray(ins.volume7d) ? ins.volume7d : []
   setT("kpiVol", vol.length ? vol.reduce((a, b) => a + b, 0) : (c.feedback ?? 0))
   const sp = $("kpiSpark"); if (sp) sp.innerHTML = sparkline(vol)
+  wireKpiCardClicks()
   renderFixNext()
+}
+
+// Make the overview KPI cards (and the severity sub-numbers) jump to the Tickets board, filtered.
+// Uses .onclick (not addEventListener) so repeated renders never stack duplicate handlers.
+function wireKpiCardClicks() {
+  const onKey = (fn) => (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(e) } }
+  const bind = (id, filter) => {
+    const el = $(id); if (!el) return
+    const fn = () => goToTicketsFiltered(filter)
+    el.onclick = fn; el.onkeydown = onKey(fn)
+  }
+  bind("kpiCardOpen", { type: "open", label: "Open issues" })
+  bind("kpiCardRecur", { type: "recurring", label: "Recurring (3+×)" })
+  bind("kpiCardSent", { type: "sentiment-neg", label: "Frustrated / confused" })
+  bind("kpiCardVol", null) // Feedback · 7 days → all tickets, no filter
+  const sevLabels = { high: "Critical severity", medium: "High severity", low: "Low severity" }
+  document.querySelectorAll("#kpiSev .sg").forEach((sg) => {
+    const v = sg.getAttribute("data-sev")
+    const fn = (e) => { if (e && e.stopPropagation) e.stopPropagation(); goToTicketsFiltered({ type: "severity", value: v, label: sevLabels[v] || v }) }
+    sg.onclick = fn; sg.onkeydown = onKey(fn)
+  })
 }
 // Overview "Fix next": top open issues ranked by severity, then recurrence, then recency.
 function renderFixNext() {
@@ -1634,6 +1694,34 @@ function closeSingleTicket() {
 function sevRailClass(sev) { return "sevrail-" + ((sev === "high" || sev === "medium" || sev === "low") ? sev : "none") }
 function statusPillHtml(status) { const s = status || "open"; return `<span class="tkt-pill p-${esc(s)}"><span class="pdot"></span>${STATUS_LABELS[s] || esc(s)}</span>` }
 let _kanbanSearch = "", _kbSearchBound = false
+// Active card-driven filter on the Tickets board (one at a time, plus the text search). null = none.
+let _kbFilter = null // { type:'open'|'recurring'|'sentiment-neg'|'severity', value?, label }
+function kbMatchesFilter(t) {
+  if (!_kbFilter) return true
+  switch (_kbFilter.type) {
+    case "open": return (t.status || "open") !== "done"
+    case "recurring": return (t.recurrence || 1) >= 3
+    case "sentiment-neg": return t.sentiment === "frustrated" || t.sentiment === "confused"
+    case "severity": return _kbFilter.value === "low"
+      ? (t.severity === "low" || t.severity === "none" || !t.severity)
+      : t.severity === _kbFilter.value
+    default: return true
+  }
+}
+function kbMatchesSearch(t) {
+  const q = _kanbanSearch.trim().toLowerCase()
+  if (!q) return true
+  return [t.title, t.observation, t.urlPath, t.simName, t.severity, t.sentiment].some(v => String(v || "").toLowerCase().includes(q))
+}
+// Jump to the Tickets board with a card-driven filter applied (used by the overview KPI cards).
+function goToTicketsFiltered(filter) {
+  _kbFilter = filter || null
+  if (window.klavSetView) window.klavSetView("tickets")
+  else document.body.setAttribute("data-view", "tickets")
+  renderTicketsKanban()
+  const board = $("ticketsKanban")
+  if (board) board.scrollIntoView({ behavior: "smooth", block: "start" })
+}
 function renderTicketsKanban() {
   const board = $("ticketsKanban")
   if (!board) return
@@ -1642,13 +1730,23 @@ function renderTicketsKanban() {
     if (si) { si.addEventListener("input", () => { _kanbanSearch = si.value; renderTicketsKanban() }); _kbSearchBound = true }
   }
   const admin = state.active && state.active.role === "admin"
+  const all = state.tickets || []
+  const tickets = all.filter(t => kbMatchesFilter(t) && kbMatchesSearch(t))
   $("ticketKanbanCount").textContent = tickets.length ? tickets.length : ""
-  if (!tickets.length) {
+  // Active-filter chip (clearable).
+  const bar = $("kbFilterBar")
+  if (bar) {
+    if (_kbFilter) {
+      bar.innerHTML = `<span class="kb-chip">Filtered: <b>${esc(_kbFilter.label)}</b><button class="kb-x" id="kbFilterClear" title="Clear filter" aria-label="Clear filter">×</button></span>`
+      const cl = $("kbFilterClear"); if (cl) cl.onclick = () => { _kbFilter = null; renderTicketsKanban() }
+    } else { bar.innerHTML = "" }
+  }
+  if (!all.length) {
     board.innerHTML = emptyState(kicon('bug',{size:32}), "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
     return
   }
   if (!tickets.length) {
-    board.innerHTML = `<div class="kb-noresult">No tickets match “${esc(_kanbanSearch)}”.</div>`
+    board.innerHTML = `<div class="kb-noresult">No tickets match the current filter${_kanbanSearch.trim() ? ` and “${esc(_kanbanSearch)}”` : ""}.</div>`
     return
   }
   // Group: unknown statuses fall into "open".
@@ -2504,6 +2602,7 @@ load()
     window.scrollTo(0,0);
   }
   navs.forEach(function(b){b.addEventListener('click',function(){setView(b.getAttribute('data-go'));});});
+  window.klavSetView=setView; // let the overview KPI cards jump into a view
   // the checklist's "Open Live Sims settings" link lives under the Sims section
   var cl=document.getElementById('checklistUrlLink');
   if(cl){cl.addEventListener('click',function(){setView('sims');});}
