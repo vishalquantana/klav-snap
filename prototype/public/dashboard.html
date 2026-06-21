@@ -270,6 +270,20 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .conn-result.pend{color:var(--paper-faint)}
 .conn-result a{color:var(--indigo);text-decoration:underline}
 .conn-edit-hint{font-size:11.5px;color:var(--amber);margin-bottom:10px}
+/* two-way status-sync setup panel (G4) — shown for inbound-capable connectors */
+.sync-panel{grid-column:1/-1;margin-top:4px;padding:13px 14px;background:var(--ink-2);border:1px solid var(--line);border-radius:10px}
+.sync-panel .sync-h{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.sync-panel .sync-sub{font-size:11.5px;color:var(--paper-faint);line-height:1.5;margin-bottom:8px}
+.sync-url{display:flex;gap:8px;align-items:stretch;margin-bottom:8px}
+.sync-url code{flex:1;min-width:0;background:#15110d;border:1px solid rgba(243,236,225,.16);border-radius:8px;padding:7px 9px;font-family:var(--mono);font-size:11px;color:#f3ece1;overflow:auto;white-space:nowrap;word-break:break-all}
+.sync-url button{flex-shrink:0}
+.sync-panel details{margin-top:6px}
+.sync-panel summary{font-size:11.5px;color:var(--indigo);cursor:pointer;list-style:none}
+.sync-panel summary::-webkit-details-marker{display:none}
+.sync-panel ol{margin:8px 0 4px 18px;padding:0;font-size:11.5px;color:var(--paper);line-height:1.55}
+.sync-panel ol li{margin-bottom:3px}
+.sync-panel .sync-note{font-size:11px;color:var(--amber);margin-top:6px}
+.sync-panel .sync-map{font-size:11px;color:var(--paper-faint);margin-top:6px;font-family:var(--mono);line-height:1.5}
 /* first-run checklist (zero-state guidance) */
 .checklist{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.05));border:1px solid rgba(139,139,245,.3);border-radius:18px;padding:22px;margin-bottom:22px;position:relative}
 .checklist h3{font-family:var(--display);font-weight:600;font-size:20px;margin-bottom:4px}
@@ -1576,6 +1590,34 @@ function linkProjects() {
 // ── Connectors manager ──
 let connectorTypes = []  // from GET /api/projects/:id/connectors
 
+// Two-way status sync (G4): per-connector inbound-webhook setup guidance. Only these four
+// trackers support inbound status reflection (mirrors lib/connectors/inbound.ts + server.ts).
+// `webhook` is outbound-only and intentionally absent here, so its panel never renders.
+const INBOUND_GUIDE = {
+  github: { name: "GitHub",
+    steps: ["Open your repo → Settings → Webhooks → Add webhook.",
+      "Payload URL = the URL above; Content type = application/json.",
+      "Secret = your Inbound Webhook Secret (field above).",
+      'Under "Which events", pick "Let me select individual events" → enable Issues.'],
+    map: "closed → Done · reopened/opened → Open" },
+  plane: { name: "Plane",
+    steps: ["Open Plane → Workspace or Project Settings → Webhooks → Create.",
+      "URL = the URL above; Secret = your Inbound Webhook Secret (field above).",
+      "Enable Issue events. Plane sends your secret back in the X-Plane-Signature header."],
+    map: "completed/cancelled → Done · started → In Progress · backlog/unstarted → Open" },
+  linear: { name: "Linear",
+    steps: ["Open Linear → Settings → API → Webhooks → New webhook.",
+      "URL = the URL above; Secret = your Inbound Webhook Secret (field above).",
+      'Subscribe to "Issues" (Linear signs the body in Linear-Signature).'],
+    map: "completed/canceled → Done · started → In Progress · backlog/unstarted/triage → Open" },
+  jira: { name: "Jira",
+    steps: ["Open Jira → Settings → System → Webhooks → Create a WebHook.",
+      "URL = the URL above.",
+      'Add a header "X-Klavity-Token" set to your Inbound Webhook Secret (field above).',
+      'Under Events, enable "Issue → updated".'],
+    map: "status category done → Done · indeterminate → In Progress · new → Open" },
+}
+
 async function loadConnectors(admin) {
   if (!curProjId()) return
   try {
@@ -1753,7 +1795,7 @@ function renderConnectorFields(type, editConfig) {
   const cfg = editConfig || {}
   const ct = connectorTypes.find(t => t.type === type)
   if (!ct) { fieldsEl.innerHTML = ""; return }
-  fieldsEl.innerHTML = ct.fields.map(f => {
+  const fieldsHtml = ct.fields.map(f => {
     const full = f.key === "host" || f.label.toLowerCase().includes("url") ? ' class="field-full"' : ''
     const val = (!f.secret && cfg[f.key] != null) ? ` value="${esc(cfg[f.key])}"` : ""
     const ph = ` placeholder="${esc(f.placeholder || "")}"`
@@ -1764,6 +1806,30 @@ function renderConnectorFields(type, editConfig) {
         style="width:100%;background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--paper);font-family:var(--body);font-size:13px;outline:none" />
     </div>`
   }).join("")
+
+  // Two-way status sync (G4): for inbound-capable trackers, surface the webhook URL + setup
+  // steps so the user can turn on status-flows-back. Absent for `webhook` (outbound-only).
+  const g = INBOUND_GUIDE[type]
+  const webhookUrl = `${location.origin}/api/connectors/${type}/webhook`
+  const syncPanel = g ? `<div class="sync-panel">
+    <div class="sync-h">🔄 Two-way status sync <span class="muted" style="font-weight:400;font-size:11px">— optional</span></div>
+    <div class="sync-sub">When a ${esc(g.name)} issue's status changes, the linked Klavity ticket updates automatically. Paste this webhook URL into ${esc(g.name)}:</div>
+    <div class="sync-url"><code id="syncUrl">${esc(webhookUrl)}</code>
+      <button type="button" class="btn btn-ghost btn-sm" id="syncUrlCopy">Copy</button></div>
+    <details><summary>Setup steps for ${esc(g.name)} →</summary>
+      <ol>${g.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+      <div class="sync-map">Status mapping → ${esc(g.map)}</div>
+    </details>
+    <div class="sync-note">Set the secret on the ${esc(g.name)} side to match your <b>Inbound Webhook Secret</b> field above — leave it blank to stay outbound-only.</div>
+  </div>` : ""
+
+  fieldsEl.innerHTML = fieldsHtml + syncPanel
+  const cp = $("syncUrlCopy")
+  if (cp) cp.onclick = () => {
+    const u = $("syncUrl").textContent
+    try { navigator.clipboard.writeText(u) } catch (e) {}
+    cp.textContent = "Copied!"; setTimeout(() => { cp.textContent = "Copy" }, 1500)
+  }
 }
 
 $("connTypeSelect") && ($("connTypeSelect").onchange = () => {
