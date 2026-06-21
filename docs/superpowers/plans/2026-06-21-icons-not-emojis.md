@@ -350,7 +350,10 @@ import { execSync } from 'node:child_process';
 
 const GLOBS = ['site', 'prototype/public', 'packages/core/src', 'packages/sdk/src', 'packages/extension/src'];
 const EXCLUDE = /(icons\.generated\.(ts|js)|\.test\.|\.snap$)/; // generated maps + tests excluded
-const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{FE0F}]/u;
+// NOTE: deliberately excludes U+2190–21FF (basic arrows) — that range contains
+// legitimate keycap glyphs like ⇧ (U+21E7) used in keyboard shortcuts (⌘⇧K).
+// Emoji arrows (➡ U+27A1, ⬅⬆⬇ U+2B05–07) are covered by the ranges below.
+const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
 const reportOnly = process.argv.includes('--report');
 
 const files = execSync(`git ls-files ${GLOBS.join(' ')}`, { encoding: 'utf8' })
@@ -390,7 +393,7 @@ this line has an emoji 🐛 in it
 import { test, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 
-const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{FE0F}]/u;
+const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
 test('regex flags dirty fixture', () => {
   expect(EMOJI.test(readFileSync('scripts/fixtures/dirty.txt', 'utf8'))).toBe(true);
 });
@@ -448,7 +451,7 @@ git commit -m "feat(icons): add emoji guard (report-only) + CI step"
 
 - [ ] **Step 1: Inventory the site**
 
-Run: `git grep -nP '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{2190}-\x{21FF}\x{FE0F}]' -- 'site/*.html' 'site/blog/*.html'`
+Run: `git grep -nP '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{FE0F}]' -- 'site/*.html' 'site/blog/*.html'`
 Expected: the working list of every line to convert.
 
 - [ ] **Step 2: Add the generated-icons script tag**
@@ -459,7 +462,7 @@ In each page that calls `Klav.icon` at runtime, add `<script src="/icons.generat
 
 - [ ] **Step 4: Verify guard clean for site**
 
-Run: `git ls-files site | grep -v icons.generated | xargs node -e "/* quick scoped check */ const{readFileSync}=require('fs');const re=/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{FE0F}]/u;let bad=0;for(const f of process.argv.slice(1)){if(re.test(readFileSync(f,'utf8'))){console.log('EMOJI:',f);bad++}}process.exit(bad?1:0)"`
+Run: `git ls-files site | grep -v icons.generated | xargs node -e "/* quick scoped check */ const{readFileSync}=require('fs');const re=/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;let bad=0;for(const f of process.argv.slice(1)){if(re.test(readFileSync(f,'utf8'))){console.log('EMOJI:',f);bad++}}process.exit(bad?1:0)"`
 Expected: no `EMOJI:` lines, exit 0.
 
 - [ ] **Step 5: Visual spot-check**
@@ -489,7 +492,7 @@ git commit -m "feat(icons): convert marketing site emoji to Lucide icons"
 
 - [ ] **Step 1: Inventory**
 
-Run: `git grep -nP '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{2190}-\x{21FF}\x{FE0F}]' -- packages/sdk/src packages/core/src/modal.ts`
+Run: `git grep -nP '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{FE0F}]' -- packages/sdk/src packages/core/src/modal.ts`
 Expected: the lines to convert (incl. `widget-lib.ts:57`).
 
 - [ ] **Step 2: Import the helper** where needed: `import { icon } from '@klavity/core/icons';`
@@ -530,7 +533,7 @@ git commit -m "feat(icons): convert widget/SDK + shared modal emoji to icons"
 
 - [ ] **Step 1: Inventory**
 
-Run: `git grep -nP '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{2190}-\x{21FF}\x{FE0F}]' -- packages/extension/src prototype/public`
+Run: `git grep -nP '[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{FE0F}]' -- packages/extension/src prototype/public`
 
 - [ ] **Step 2: Make the icon map available to `prototype/public`**
 
