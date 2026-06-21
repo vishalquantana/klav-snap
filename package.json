@@ -6,6 +6,7 @@
   "license": "FSL-1.1-ALv2",
   "scripts": {
     "test": "pnpm -r test",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "check:emoji": "node scripts/check-no-emoji.mjs"
   }
 }
