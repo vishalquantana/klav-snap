@@ -301,16 +301,18 @@ export function buildModal(
       editor.style.cssText = 'position:fixed;inset:0;background:#000;z-index:2147483647;display:flex;flex-direction:column;pointer-events:all;'
       const toolbar = document.createElement('div')
       toolbar.style.cssText = 'display:flex;gap:8px;padding:8px;background:#1e1e2e;flex-wrap:wrap;'
+      const keyHint = (k: string) => `<span style="opacity:.45;margin-left:5px;font-size:11px;">${k}</span>`
       toolbar.innerHTML = `
-        <button data-tool="pen" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">✏️ Pen</button>
-        <button data-tool="rect" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">⬜ Rect</button>
-        <button data-tool="arrow" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">↗ Arrow</button>
-        <button data-tool="text" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">T Text</button>
+        <button data-tool="pen" title="Pen (P)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">✏️ Pen${keyHint('P')}</button>
+        <button data-tool="rect" title="Rectangle (R)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">⬜ Rect${keyHint('R')}</button>
+        <button data-tool="circle" title="Circle (C)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">⭕ Circle${keyHint('C')}</button>
+        <button data-tool="arrow" title="Arrow (A)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">↗ Arrow${keyHint('A')}</button>
+        <button data-tool="text" title="Text (T)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">T Text${keyHint('T')}</button>
         <button data-color="#ef4444" style="background:#ef4444;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;"></button>
         <button data-color="#f97316" style="background:#f97316;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;"></button>
         <button data-color="#3b82f6" style="background:#3b82f6;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;"></button>
         <button data-color="#111827" style="background:#111827;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;border:1px solid #555;"></button>
-        <button id="klavity-undo" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;margin-left:auto;">↩ Undo</button>
+        <button id="klavity-undo" title="Undo (⌘/Ctrl+Z)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;margin-left:auto;">↩ Undo</button>
         <button id="klavity-clear-ann" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">🗑 Clear</button>
         <button id="klavity-save-ann" style="padding:6px 10px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:4px;cursor:pointer;font-weight:700;">✓ Save</button>
         <button id="klavity-cancel-ann" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">✕</button>
@@ -326,16 +328,46 @@ export function buildModal(
       let startX = 0
       let startY = 0
 
-      toolbar.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => { activeTool = (b as HTMLElement).dataset.tool! }))
+      // Reflect the active tool on the toolbar so keyboard switching (and clicks) have visual feedback.
+      function selectTool(tool: string) {
+        activeTool = tool
+        toolbar.querySelectorAll<HTMLElement>('[data-tool]').forEach(el => {
+          const on = el.dataset.tool === tool
+          el.style.background = on ? '#585b70' : '#313244'
+          el.style.outline = on ? '2px solid #89b4fa' : 'none'
+        })
+      }
+      toolbar.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => selectTool((b as HTMLElement).dataset.tool!)))
       toolbar.querySelectorAll('[data-color]').forEach(b => b.addEventListener('click', () => { activeColor = (b as HTMLElement).dataset.color! }))
       toolbar.querySelector('#klavity-undo')!.addEventListener('click', () => annotator.undo())
       toolbar.querySelector('#klavity-clear-ann')!.addEventListener('click', () => annotator.clearAll())
+
+      // Single keydown handler for the editor lifetime: tool shortcuts + undo + Esc-to-cancel.
+      // Skipped while typing into the text-annotation input so letters land as text, not tool switches.
+      const TOOL_KEYS: Record<string, string> = { p: 'pen', r: 'rect', c: 'circle', a: 'arrow', t: 'text' }
+      function onKeyDown(e: KeyboardEvent) {
+        const t = e.target as HTMLElement | null
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+        if (e.key === 'Escape') { e.stopPropagation(); close(); return }
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); annotator.undo(); return }
+        if (e.metaKey || e.ctrlKey || e.altKey) return
+        const k = e.key.toLowerCase()
+        if (TOOL_KEYS[k]) { e.preventDefault(); selectTool(TOOL_KEYS[k]) }
+        else if (k === 'u') { e.preventDefault(); annotator.undo() }
+      }
+      function close() {
+        document.removeEventListener('keydown', onKeyDown, { capture: true })
+        editor.remove()
+      }
+      document.addEventListener('keydown', onKeyDown, { capture: true })
+      selectTool(activeTool)
+
       toolbar.querySelector('#klavity-save-ann')!.addEventListener('click', async () => {
         screenshots[index] = await annotator.save()
-        editor.remove()
+        close()
         updateStrip()
       })
-      toolbar.querySelector('#klavity-cancel-ann')!.addEventListener('click', () => editor.remove())
+      toolbar.querySelector('#klavity-cancel-ann')!.addEventListener('click', () => close())
 
       function toImg(e: PointerEvent) {
         const r = canvas.getBoundingClientRect()
@@ -374,14 +406,12 @@ export function buildModal(
           annotator.addShape({ type: 'pen', color: activeColor, points: penPoints })
         } else if (activeTool === 'rect') {
           annotator.addShape({ type: 'rect', color: activeColor, x: Math.min(startX, pt.x), y: Math.min(startY, pt.y), w: Math.abs(pt.x - startX), h: Math.abs(pt.y - startY) })
+        } else if (activeTool === 'circle') {
+          annotator.addShape({ type: 'circle', color: activeColor, x: (startX + pt.x) / 2, y: (startY + pt.y) / 2, rx: Math.abs(pt.x - startX) / 2, ry: Math.abs(pt.y - startY) / 2 })
         } else if (activeTool === 'arrow') {
           annotator.addShape({ type: 'arrow', color: activeColor, x1: startX, y1: startY, x2: pt.x, y2: pt.y })
         }
       })
-
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { e.stopPropagation(); editor.remove() }
-      }, { capture: true, once: true })
     }
     img.src = dataUrl
   }

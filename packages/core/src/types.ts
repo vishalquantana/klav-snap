@@ -139,3 +139,5 @@ export type Shape =
   | { type: 'rect'; color: string; x: number; y: number; w: number; h: number }
   | { type: 'arrow'; color: string; x1: number; y1: number; x2: number; y2: number }
   | { type: 'text'; color: string; x: number; y: number; text: string }
+  // circle is an axis-aligned ellipse; (x,y) is the centre, rx/ry the radii (from the drag bbox)
+  | { type: 'circle'; color: string; x: number; y: number; rx: number; ry: number }

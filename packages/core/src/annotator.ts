@@ -76,6 +76,10 @@ export class Annotator {
         shape.y2 - headLen * Math.sin(angle + Math.PI / 6),
       )
       ctx.stroke()
+    } else if (shape.type === 'circle') {
+      ctx.beginPath()
+      ctx.ellipse(shape.x, shape.y, Math.abs(shape.rx), Math.abs(shape.ry), 0, 0, Math.PI * 2)
+      ctx.stroke()
     } else if (shape.type === 'text') {
       ctx.font = `bold ${this.computeFontSize()}px sans-serif`
       ctx.fillText(shape.text, shape.x, shape.y)

@@ -15,6 +15,7 @@ function makeCanvas() {
       lineTo: vi.fn(),
       stroke: vi.fn(),
       strokeRect: vi.fn(),
+      ellipse: vi.fn(),
       fillText: vi.fn(),
       canvas: { width: 400, height: 300 },
       lineWidth: 0,
@@ -54,6 +55,14 @@ describe('Annotator', () => {
     a.addShape({ type: 'rect', color: '#ff0000', x: 0, y: 0, w: 10, h: 10 })
     a.clearAll()
     expect(a.shapes).toHaveLength(0)
+  })
+
+  it('accepts a circle shape', () => {
+    const a = new Annotator(makeCanvas(), 'data:image/png;base64,img')
+    const shape: Shape = { type: 'circle', color: '#ff0000', x: 50, y: 50, rx: 20, ry: 10 }
+    a.addShape(shape)
+    expect(a.shapes).toHaveLength(1)
+    expect(a.shapes[0].type).toBe('circle')
   })
 
   it('computeLineWidth scales with image width', () => {

@@ -10,6 +10,15 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.40.0] — 2026-06-21
+
+### Added
+- **Keyboard shortcuts in screenshot markup mode.** While annotating a captured screenshot you can now switch tools without reaching for the toolbar: **P** Pen, **R** Rectangle, **C** Circle, **A** Arrow, **T** Text, plus **U** / **⌘**(or **Ctrl**)**+Z** to undo and **Esc** to cancel. The active tool is now highlighted on the toolbar (it never was before), and each tool button shows its shortcut key as a hint and tooltip. Shortcuts are suppressed while you're typing into a text annotation so letters land as text. Lives in the shared `buildModal` annotator, so the in-page widget and the extension get it together. `packages/core/src/modal.ts`.
+- **Circle (ellipse) annotation tool.** New `circle` shape — drag a bounding box to draw an axis-aligned ellipse, same as the rectangle tool. Added to the `Shape` union and rendered via `ctx.ellipse`. `packages/core/src/types.ts`, `packages/core/src/annotator.ts`.
+
+### Fixed
+- **Esc now always cancels the markup editor.** The cancel-on-Escape handler was registered with `{ once: true }`, so it removed itself after the *first* keystroke of any kind — after that, Esc no longer closed the annotator. It's now a stable handler torn down only when the editor closes. `packages/core/src/modal.ts`.
+
 ## [0.39.5] — 2026-06-21
 
 ### Added
