@@ -2219,3 +2219,31 @@ export async function computeDashboardInsights(projectId: string) {
     return out
   } catch { return empty }
 }
+
+// All un-triaged ("new") feedback for a project, newest first — feeds the Triage inbox.
+export async function listTriageFeedback(projectId: string): Promise<any[]> {
+  const r = await db!.execute({
+    sql: `SELECT f.*, p.name AS sim_name FROM feedback f
+          LEFT JOIN personas p ON p.id = f.sim_id
+          WHERE f.project_id=? AND f.status='new' ORDER BY f.created_at DESC LIMIT 200`,
+    args: [projectId],
+  })
+  return r.rows.map((x: any) => {
+    let bug: any = null
+    try { bug = x.suggested_bug_json ? JSON.parse(x.suggested_bug_json) : null } catch { bug = null }
+    return {
+      id: String(x.id),
+      title: String(bug?.title || x.observation || "Untitled report"),
+      observation: x.observation != null ? String(x.observation) : null,
+      sentiment: x.sentiment != null ? String(x.sentiment) : null,
+      severity: x.severity != null ? String(x.severity) : null,
+      urlPath: x.url_path != null ? String(x.url_path) : null,
+      screenshotId: x.screenshot_id != null ? String(x.screenshot_id) : null,
+      suggestedBug: bug,
+      sourceQuote: x.source_quote != null ? String(x.source_quote) : null,
+      simName: x.sim_name != null ? String(x.sim_name) : null,
+      recurrence: Number(x.recurrence_count ?? 1),
+      createdAt: Number(x.created_at),
+    }
+  })
+}
