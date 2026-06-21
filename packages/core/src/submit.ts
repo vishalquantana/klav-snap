@@ -21,6 +21,7 @@ export async function dispatchSubmit(
     context: payload.context,
     screenshots: payload.screenshots,
     settings,
+    replayEvents: payload.replayEvents,
   }
 
   if (settings.backendUrl) {

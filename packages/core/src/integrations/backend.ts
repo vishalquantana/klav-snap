@@ -1,12 +1,14 @@
 import type { IntegrationConfig, SubmitResult } from '../types'
 
 export async function submitReport(config: IntegrationConfig): Promise<SubmitResult> {
-  const { settings, type, description, context, screenshots } = config
+  const { settings, type, description, context, screenshots, replayEvents } = config
   const form = new FormData()
   form.append('type', type)
   form.append('description', description)
   form.append('page_url', context.pageUrl)
   form.append('context', JSON.stringify(context))
+  // G1 session replay: attach the rolling rrweb buffer when present.
+  if (replayEvents && replayEvents.length) form.append('replay_events', JSON.stringify(replayEvents))
 
   // Klavity mode: signed-in user. The backend resolves their personal→team connection,
   // so the tracker token never leaves the server — we send only a Bearer token.
