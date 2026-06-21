@@ -396,6 +396,35 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .sm-in .qt{color:var(--paper-dim)}.sm-in .qt em{color:var(--paper);font-style:italic}
 .sm-foot{display:flex;align-items:center;gap:9px}.sm-foot .grow{flex:1}
 @media(max-width:540px){.sm-field{flex-direction:column}.sm-seg button .e{display:none}.sm-modal{padding:24px 18px}}
+/* Report-widget embed + live preview + extension card (Settings → Report widget appearance) */
+.wp-embed{margin:4px 0 14px}
+.wp-embed-label{font-size:12px;font-weight:600;opacity:.7;margin-bottom:6px}
+.wp-embed .cl-embed{display:flex;align-items:stretch;gap:8px}
+.wp-embed .cl-embed code{flex:1;min-width:0;background:var(--ink-1,#0c0a08);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--paper);overflow:auto;white-space:pre-wrap;word-break:break-all}
+.wp-embed .cl-embed button{flex-shrink:0;align-self:flex-start}
+.wp-config-preview{display:block}
+.wp-config{min-width:0}
+.wp-preview{flex:1;min-width:280px}
+.wp-preview-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}
+.wp-preview-label{font-size:12px;font-weight:600;opacity:.7}
+.wp-toggle{font-size:12px;opacity:.8;display:flex;align-items:center;gap:6px;cursor:pointer}
+.wp-stage{position:relative;border-radius:14px;padding:22px;min-height:300px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,#ececf2,#ececf2 12px,#f6f6fa 12px,#f6f6fa 24px);overflow:hidden}
+.wp-launcher{position:absolute;bottom:12px;right:12px;background:var(--kl-accent,#5b5bf0);color:var(--kl-on-accent,#fff);font-size:12px;font-weight:700;padding:7px 11px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.wp-modal{width:100%;max-width:300px;background:var(--kl-bg,#fff);color:var(--kl-fg,#1d1d24);border:1px solid var(--kl-border,#e6e6ec);border-radius:var(--kl-radius,16px);box-shadow:var(--kl-shadow,0 24px 60px rgba(20,20,40,.18));-webkit-backdrop-filter:var(--kl-backdrop,none);backdrop-filter:var(--kl-backdrop,none);font-family:var(--kl-font,system-ui,sans-serif);padding:16px}
+.wp-row{display:flex;gap:6px;margin-bottom:10px}
+.wp-tab{flex:1;border:none;border-radius:6px;padding:6px;font-size:12px;font-weight:600;background:var(--kl-chip,#f4f4f7);color:var(--kl-fg,#1d1d24);cursor:default}
+.wp-tab-on{background:var(--kl-accent2,#f59e0b);color:var(--kl-on-accent,#fff)}
+.wp-page{font-size:11px;color:var(--kl-muted,#8a8a96);margin-bottom:8px}
+.wp-strip{min-height:44px;border:1px dashed var(--kl-border,#e6e6ec);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--kl-muted,#8a8a96);margin-bottom:10px}
+.wp-desc{background:var(--kl-input-bg,#fafafb);border:1px solid var(--kl-border,#e6e6ec);border-radius:6px;padding:9px;font-size:12px;color:var(--kl-muted,#8a8a96);min-height:46px;margin-bottom:10px}
+.wp-submit{width:100%;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;background:var(--kl-accent,#5b5bf0);color:var(--kl-on-accent,#fff);cursor:default}
+.wp-thanks-screen{text-align:center;padding:18px 6px}
+.wp-thanks-msg{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--kl-fg,#1d1d24)}
+.wp-cta{display:inline-block;text-decoration:none;background:var(--kl-accent,#5b5bf0);color:var(--kl-on-accent,#fff);border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700}
+.wp-pb{text-align:center;font-size:9px;color:var(--kl-muted,#8a8a96);margin-top:10px}
+.wp-ext{margin-top:18px;padding-top:16px;border-top:1px solid var(--line,#e6e6ec)}
+.wp-ext-t{font-weight:700;font-size:14px}
+@media (min-width:760px){.wp-config-preview{display:flex;gap:20px;flex-wrap:wrap}.wp-config{flex:1;min-width:300px}}
 </style>
 </head>
 <body data-view="overview">
@@ -648,6 +677,16 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <span class="kl-wstatus-dot"></span>
           <span class="kl-wstatus-text">Checking widget…</span>
         </div>
+        <div class="wp-embed">
+          <div class="wp-embed-label">Embed code</div>
+          <div class="cl-embed">
+            <code id="appearanceSnippet">Loading…</code>
+            <button class="btn btn-ghost btn-sm" id="appearanceEmbedCopy" type="button">Copy</button>
+          </div>
+          <p style="font-size:12px;opacity:.7;margin:6px 0 0">Paste this before <code>&lt;/body&gt;</code> on any page — no extension needed.</p>
+        </div>
+        <div class="wp-config-preview">
+        <div class="wp-config">
         <label>Theme
           <select id="kl-theme">
             <option value="light">Light (default)</option>
@@ -683,8 +722,42 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <input type="email" id="kl-notify" placeholder="you@company.com">
         </label>
         <p style="font-size:12px;opacity:.7;margin-top:-4px">Leave blank to keep the existing notify address.</p>
+        </div><!-- /.wp-config -->
+        <div class="wp-preview">
+          <div class="wp-preview-head">
+            <span class="wp-preview-label">Live preview</span>
+            <label class="wp-toggle"><input type="checkbox" id="wp-thanks-toggle"> Show thank-you</label>
+          </div>
+          <div class="wp-stage">
+            <div class="wp-launcher">💬 Report a bug</div>
+            <div class="wp-modal" id="wp-root">
+              <div id="wp-body">
+                <div class="wp-row">
+                  <button class="wp-tab wp-tab-on">🐛 Bug</button>
+                  <button class="wp-tab">💡 Feature</button>
+                </div>
+                <div class="wp-page">📍 /your/page</div>
+                <div class="wp-strip"><span>📷 screenshot</span></div>
+                <div class="wp-desc">Describe the bug…</div>
+                <button class="wp-submit">Submit</button>
+              </div>
+              <div id="wp-thanks" class="wp-thanks-screen" style="display:none">
+                <div class="wp-thanks-msg" id="wp-thanks-msg">✓ Filed as KLAV-123</div>
+                <a class="wp-cta" id="wp-cta" style="display:none">Get Klavity for your product →</a>
+              </div>
+              <div class="wp-pb">Powered by Klavity</div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /.wp-config-preview -->
         <button id="kl-save-appearance">Save settings</button>
         <span id="kl-appearance-msg"></span>
+        <div class="wp-ext">
+          <div class="wp-ext-t">🧩 Install the browser extension</div>
+          <p style="font-size:13px;opacity:.8;margin:4px 0 10px">Best for internal QA — your Sims watch your real product through the Klavity browser extension and file what they find.</p>
+          <a class="btn btn-indigo" href="/onboarding">Get the extension →</a>
+          <p style="font-size:12px;opacity:.65;margin:8px 0 0">Already installed? Open a monitored URL while signed in and it connects automatically.</p>
+        </div>
       </div>
     </div>
   </details>
@@ -1917,6 +1990,70 @@ $("connSaveNew") && ($("connSaveNew").onclick = async () => {
   }
 })
 
+// ── Widget-preview theming. PREVIEW_THEMES / previewLuminance / the custom-colour derivation are a
+//    VERBATIM mirror of packages/core/src/modal-theme.ts (THEMES + luminance + themeCss). The static
+//    dashboard page has no build step to import that module, so keep this copy in sync by hand. ──
+const PREVIEW_THEMES = {
+  light: { '--kl-overlay':'rgba(20,20,40,.28)','--kl-bg':'#ffffff','--kl-fg':'#1d1d24','--kl-muted':'#8a8a96','--kl-border':'#e6e6ec','--kl-chip':'#f4f4f7','--kl-input-bg':'#fafafb','--kl-accent':'#5b5bf0','--kl-on-accent':'#fff','--kl-accent2':'#f59e0b','--kl-radius':'16px','--kl-shadow':'0 24px 60px rgba(20,20,40,.18)','--kl-backdrop':'none' },
+  dark: { '--kl-overlay':'rgba(0,0,0,.5)','--kl-bg':'#1e1e2e','--kl-fg':'#cdd6f4','--kl-muted':'#a6adc8','--kl-border':'#45475a','--kl-chip':'#313244','--kl-input-bg':'#181825','--kl-accent':'#89b4fa','--kl-on-accent':'#1e1e2e','--kl-accent2':'#fab387','--kl-radius':'12px','--kl-shadow':'0 20px 60px rgba(0,0,0,.5)','--kl-backdrop':'none' },
+  glass: { '--kl-overlay':'rgba(10,10,18,.25)','--kl-bg':'rgba(255,255,255,.14)','--kl-fg':'#fff','--kl-muted':'rgba(255,255,255,.7)','--kl-border':'rgba(255,255,255,.28)','--kl-chip':'rgba(255,255,255,.16)','--kl-input-bg':'rgba(255,255,255,.10)','--kl-accent':'rgba(255,255,255,.92)','--kl-on-accent':'#15121d','--kl-accent2':'rgba(255,255,255,.55)','--kl-radius':'22px','--kl-shadow':'0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25)','--kl-backdrop':'blur(22px) saturate(180%)' },
+  neon: { '--kl-overlay':'rgba(8,4,20,.55)','--kl-bg':'#0e0b1e','--kl-fg':'#f4f0ff','--kl-muted':'#a99fd6','--kl-border':'#3a2d6b','--kl-chip':'#1c1640','--kl-input-bg':'#140f2c','--kl-accent':'#ff2d95','--kl-on-accent':'#fff','--kl-accent2':'#15e0ff','--kl-radius':'14px','--kl-shadow':'0 0 0 1px rgba(255,45,149,.4), 0 24px 70px rgba(255,45,149,.25)','--kl-backdrop':'none' },
+  liquid: { '--kl-overlay':'rgba(10,10,18,.25)','--kl-bg':'rgba(255,255,255,.10)','--kl-fg':'#fff','--kl-muted':'rgba(255,255,255,.7)','--kl-border':'rgba(255,255,255,.4)','--kl-chip':'rgba(255,255,255,.16)','--kl-input-bg':'rgba(255,255,255,.08)','--kl-accent':'rgba(255,255,255,.92)','--kl-on-accent':'#15121d','--kl-accent2':'rgba(255,255,255,.55)','--kl-radius':'22px','--kl-shadow':'0 30px 90px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.5)','--kl-backdrop':'blur(14px) saturate(170%)' }
+}
+function previewLuminance(hexColor) {
+  let h = String(hexColor || '').replace('#', '')
+  if (h.length === 3) h = h.split('').map(c => c + c).join('')
+  const n = parseInt(h.slice(0, 6), 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  return 0.299 * r + 0.587 * g + 0.114 * b
+}
+function computePreviewVars(cfg) {
+  const theme = PREVIEW_THEMES[cfg.theme] ? cfg.theme : 'light'   // 'custom' has no palette → light base
+  const base = Object.assign({}, PREVIEW_THEMES[theme])
+  if (cfg.theme === 'custom') {
+    if (cfg.primary) base['--kl-accent'] = cfg.primary
+    if (cfg.secondary) base['--kl-accent2'] = cfg.secondary
+    if (cfg.background) {
+      base['--kl-bg'] = cfg.background
+      const dark = previewLuminance(cfg.background) < 140
+      base['--kl-fg'] = dark ? '#f4f4f7' : '#1d1d24'
+      base['--kl-muted'] = dark ? 'rgba(255,255,255,.6)' : '#8a8a96'
+      base['--kl-border'] = dark ? 'rgba(255,255,255,.16)' : '#e6e6ec'
+      base['--kl-chip'] = dark ? 'rgba(255,255,255,.08)' : '#f4f4f7'
+      base['--kl-input-bg'] = dark ? 'rgba(255,255,255,.05)' : '#fafafb'
+    }
+  }
+  if (cfg.font) base['--kl-font'] = cfg.font
+  return base
+}
+function renderWidgetPreview() {
+  const root = $("wp-root"); if (!root) return
+  const theme = $("kl-theme") ? $("kl-theme").value : "light"
+  const cfg = { theme }
+  if (theme === "custom") {
+    cfg.primary = $("kl-primary") && $("kl-primary").value
+    cfg.secondary = $("kl-secondary") && $("kl-secondary").value
+    cfg.background = $("kl-bg") && $("kl-bg").value
+    const f = $("kl-font") && $("kl-font").value.trim(); if (f) cfg.font = f
+  }
+  const vars = computePreviewVars(cfg)
+  for (const k in vars) root.style.setProperty(k, vars[k])
+  const ty = ($("kl-thankyou") && $("kl-thankyou").value.trim()) || "✓ Filed as KLAV-123"
+  const msgEl = $("wp-thanks-msg"); if (msgEl) msgEl.textContent = ty
+  const mode = $("kl-mode") ? $("kl-mode").value : "support"
+  const cta = $("wp-cta")
+  if (cta) {
+    const showCta = mode === "leadgen"
+    cta.style.display = showCta ? "inline-block" : "none"
+    const url = ($("kl-cta") && $("kl-cta").value.trim()) || ""
+    // Only honour http(s) URLs — never let a javascript:/data: value land in the preview href.
+    if (/^https?:\/\//i.test(url)) cta.setAttribute("href", url); else cta.removeAttribute("href")
+  }
+  const showThanks = $("wp-thanks-toggle") && $("wp-thanks-toggle").checked
+  if ($("wp-body")) $("wp-body").style.display = showThanks ? "none" : "block"
+  if ($("wp-thanks")) $("wp-thanks").style.display = showThanks ? "block" : "none"
+}
+
 // ── Widget appearance settings ──
 let _appearanceWired = false
 async function loadAppearance() {
@@ -1928,6 +2065,22 @@ async function loadAppearance() {
   if (!_appearanceWired) {
     _appearanceWired = true
     sel.addEventListener("change", sync)
+    // Live preview re-renders as any appearance field changes (before saving).
+    ;["kl-theme","kl-primary","kl-secondary","kl-bg","kl-font","kl-thankyou","kl-mode","kl-cta"].forEach(id => {
+      const el = $(id); if (el) { el.addEventListener("input", renderWidgetPreview); el.addEventListener("change", renderWidgetPreview) }
+    })
+    const wpT = $("wp-thanks-toggle"); if (wpT) wpT.addEventListener("change", renderWidgetPreview)
+    // Copy the embed snippet for this project (mirrors the onboarding checklist's embedCopy pattern).
+    const ecBtn = $("appearanceEmbedCopy")
+    if (ecBtn) ecBtn.onclick = async () => {
+      const pid = curProjId(); if (!pid) return
+      const text = embedSnippet(pid)
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text)
+        else { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove() }
+        const prev = ecBtn.textContent; ecBtn.textContent = "Copied ✓"; setTimeout(() => { ecBtn.textContent = prev }, 1600)
+      } catch (e) { ecBtn.textContent = "Press ⌘C"; setTimeout(() => { ecBtn.textContent = "Copy" }, 1600) }
+    }
     $("kl-save-appearance").addEventListener("click", async function () {
       const isPro = !!($("kl-pro-note") && $("kl-pro-note").dataset.pro === "1")
       const body = { theme: sel.value, thankYou: $("kl-thankyou").value, mode: $("kl-mode").value, cta_url: $("kl-cta").value.trim() }
@@ -1947,6 +2100,9 @@ async function loadAppearance() {
       } catch { msg.textContent = "Network error" }
     })
   }
+  // Populate the embed snippet + an initial preview (defaults) regardless of config-load outcome.
+  const snipEl = $("appearanceSnippet"); if (snipEl) snipEl.textContent = embedSnippet(curProjId())
+  renderWidgetPreview()
   // Load current config (admin variant: ?admin=1 routes past the public handler to the authed branch
   // that returns { modalConfig, pro }, so the Pro gating logic receives the correct flag)
   try {
@@ -1970,6 +2126,7 @@ async function loadAppearance() {
     proNote.style.display = isPro ? "none" : "block"
     renderWidgetStatus(d.widgetStatus)
     sync()
+    renderWidgetPreview()
   } catch {}
 }
 
