@@ -10,6 +10,11 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.39.5] — 2026-06-21
+
+### Added
+- **Two-way status sync is now self-serve** (KLAVITYKLA-7 / G4). The inbound webhook receiver (external tracker → linked Klavity ticket status) already existed and was deployed; this surfaces the setup. The connector editor now shows a **"🔄 Two-way status sync"** panel for inbound-capable trackers (GitHub / Plane / Jira / Linear): the copyable webhook URL, per-connector setup steps, the provider-state → Klavity-status mapping, and a reminder to match the Inbound Webhook Secret. Hidden for the outbound-only generic `webhook`. New doc `docs/connectors-two-way-sync.md`. `prototype/public/dashboard.html`.
+
 ## [0.39.4] — 2026-06-21
 
 ### Added
