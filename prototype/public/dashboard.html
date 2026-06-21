@@ -943,6 +943,7 @@ async function refreshAll() {
   try {
     const pid = activeProjectParam()
     const r = await fetch("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
+    if (r.status === 401) { location.href = "/login"; return }
     if (!r.ok) return
     data = await r.json()
   } catch (e) { return }
@@ -963,7 +964,7 @@ async function renderTriage() {
       <div class="tg-b">
         <div class="fx-t">${esc(t.title || "Untitled report")}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}</div>
         ${t.sourceQuote ? `<div class="fx-q">"${esc(t.sourceQuote)}"</div>` : (t.observation ? `<div class="fx-q">${esc(t.observation)}</div>` : "")}
-        <div class="fx-m">${t.urlPath ? `<span class="fx-area">${esc(t.urlPath)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span>🤖 ${esc(t.simName)}</span>` : ""}</div>
+        <div class="fx-m">${t.urlPath ? `<span class="fx-area">${esc(t.urlPath)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span>🤖 ${esc(t.simName)}</span>` : ""}${t.createdAt ? `<span class="muted">${esc(ago(t.createdAt))}</span>` : ""}</div>
       </div>
       <div class="tg-actions">
         <select class="tg-sev">${["high","medium","low"].map(s => `<option value="${s}"${s===(t.severity||"low")?" selected":""}>${s}</option>`).join("")}</select>
