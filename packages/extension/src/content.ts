@@ -558,6 +558,10 @@ function klavGetHost(): ShadowRoot {
       .klav-dot{width:8px;height:8px;border-radius:50%;background:#7CD08F;box-shadow:0 0 0 0 rgba(124,208,143,.6);animation:klavpulse 1.8s infinite;}
       .klav-indicator.paused .klav-dot{background:#C9A14A;animation:none;}
       @keyframes klavpulse{0%{box-shadow:0 0 0 0 rgba(124,208,143,.55)}70%{box-shadow:0 0 0 7px rgba(124,208,143,0)}100%{box-shadow:0 0 0 0 rgba(124,208,143,0)}}
+      /* "thinking" ring: while a review is in flight, a gradient arc sweeps around the whole pill. */
+      .klav-indicator.reviewing::before{content:'';position:absolute;inset:-2px;border-radius:999px;z-index:-1;background:conic-gradient(from 0deg,rgba(124,208,143,0) 0deg,rgba(124,208,143,0) 200deg,#7CD08F 320deg,#BFEBCB 360deg);animation:klavspin .9s linear infinite;}
+      @keyframes klavspin{to{transform:rotate(360deg)}}
+      @media (prefers-reduced-motion: reduce){.klav-indicator.reviewing::before{animation-duration:2.4s;}}
       .klav-pausebtn{border:none;background:rgba(251,246,238,.14);color:#FBF6EE;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer;}
       .klav-pausebtn:hover{background:rgba(251,246,238,.24);}
       .klav-consent{position:fixed;right:18px;bottom:18px;z-index:2147483647;pointer-events:auto;max-width:330px;background:#FBF6EE;color:#2D2A26;border-radius:16px;box-shadow:0 14px 44px rgba(40,30,20,.26);border:1px solid #EFE9DE;padding:16px 16px 14px;font-family:system-ui,-apple-system,sans-serif;}
@@ -648,6 +652,17 @@ function klavRenderIndicator(projectId: string, paused: boolean) {
   })
   root.appendChild(el)
   klavIndicatorEl = el
+}
+
+// Toggle the "thinking" ring + label on the live indicator while a review is in flight, so it's
+// visible that the Sims are actively reviewing (not just idling). Safe no-op if the indicator
+// isn't mounted or is paused (a paused indicator shouldn't show in-flight motion).
+function klavSetReviewing(active: boolean) {
+  const el = klavIndicatorEl
+  if (!el || el.classList.contains('paused')) return
+  el.classList.toggle('reviewing', active)
+  const label = el.querySelector('span:not(.klav-dot)')
+  if (label) label.textContent = active ? 'Sims reviewing…' : 'Sims reviewing'
 }
 
 // First-capture consent prompt (gate c). Resolves true once the user grants.
@@ -860,9 +875,15 @@ async function maybeActivate(reason: string) {
     if (!postDecision.capture) { console.log(`[Klavity] skip (post-capture): ${postDecision.reason}`); return }
 
     console.log('[Klavity] posting review → server (Sims reviewing…)')
-    const resp = await klavSend<{ ok: boolean; status: number; body: any }>({
-      kind: 'KLAV_REVIEW', projectId: project.id, url, domSig: postSig, screenshotDataUrl: dataUrl,
-    })
+    klavSetReviewing(true)
+    let resp: { ok: boolean; status: number; body: any } | null = null
+    try {
+      resp = await klavSend<{ ok: boolean; status: number; body: any }>({
+        kind: 'KLAV_REVIEW', projectId: project.id, url, domSig: postSig, screenshotDataUrl: dataUrl,
+      })
+    } finally {
+      klavSetReviewing(false)  // always clear the thinking ring, success or failure
+    }
     const body = resp?.body || {}
     if (resp?.ok && Array.isArray(body.reviews)) {
       const nReactions = body.reviews.reduce((n: number, rv: any) => n + (rv.reactions?.length || 0), 0)
