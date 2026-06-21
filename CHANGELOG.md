@@ -14,6 +14,10 @@ section for the bump rules.
 
 ### Fixed
 - **"Open tracker" now opens the Klavity dashboard in Klavity Cloud mode.** The popup footer link (and the in-page "View submissions" menu item) only ever set a URL for the *direct* integrations (Jira/Linear/GitHub/Plane); in Cloud mode the href stayed `#`, so clicking it just re-opened the extension popup in a full tab. Both code paths now deep-link to `…/dashboard` (the cloud ticket tracker) — the popup link is scoped to the active project (`?project=<id>`) and updates when the project picker changes. `popup.ts` `setTrackerLink()` + `background.ts` `getTrackerUrl()` both branch on `backendUrl` first.
+- **Extension now fully yields to an embedded widget (no more doubled-up corner).** Right-click coexistence already deferred to the widget, but the live-activation subsystem (the "Sims reviewing" indicator + auto-review) never checked, so on any page that embeds `/widget.js` (e.g. our own marketing site) the extension indicator stacked on top of the widget launcher and both competed for right-click. `maybeActivate()` now early-returns and tears down its indicator + comment bubbles when `widgetPresent()`, and the `klavity:widget-ready` listener also removes the indicator — covering the boot race where the extension renders before the deferred widget mounts. Widget always wins.
+
+### Changed
+- **Marketing copy: dropped status jargon ("Live" / "Shipped").** The hero eyebrows and phase-card badges on `/`, `/snap`, `/sims`, `/autosim` no longer tag phases with "Live"/"Shipped"; they read as plain descriptors instead (e.g. "Phase 03 · the engine that runs itself", "Phase 01 · the free foundation"). The accompanying pulsing "live" dots were removed too.
 
 ## [0.37.0] — 2026-06-21
 

@@ -392,10 +392,14 @@ function handleContextMenu(e: MouseEvent) {
 
 document.addEventListener('contextmenu', handleContextMenu)
 
-// If the widget announces itself after we initialised, tear down our report UI; widget wins.
+// If the widget announces itself after we initialised, tear down our report UI AND
+// the live-activation surface (indicator + comment bubbles); widget wins. This covers
+// the race where the extension boots and renders before the deferred widget mounts.
 document.addEventListener('klavity:widget-ready', () => {
   closeCtxMenu()
   if (modalCtrl) closeModal()
+  klavIndicatorEl?.remove(); klavIndicatorEl = null
+  klavClearBubbles()
 })
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -745,6 +749,17 @@ function klavNotice(text: string) {
 
 // ── The activation entry point (pending-latest slot, shouldCapture gating). ──
 async function maybeActivate(reason: string) {
+  // Coexistence: if the page already embeds the Klavity widget, it owns the whole
+  // Klavity experience (reporting + lead-gen). The extension yields entirely — no
+  // "Sims reviewing" indicator, no auto-review — so we don't double up in the same
+  // corner or fight the widget's right-click. Widget always wins. (See coexist.ts;
+  // the right-click handler and klavity:widget-ready listener already yield too.)
+  if (widgetPresent()) {
+    klavIndicatorEl?.remove(); klavIndicatorEl = null
+    klavClearBubbles()
+    return
+  }
+
   // If a capture is already in flight, store the latest sig for a follow-up run.
   if (klavPendingLatest !== null) {
     // Record a newer sig for the follow-up run; 'true' means in-flight, no new sig yet.
