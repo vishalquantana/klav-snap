@@ -3,9 +3,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { submitFeedback } from "../src/widget"
 
 describe("submitFeedback", () => {
-  beforeEach(() => vi.restoreAllMocks())
+  beforeEach(() => { vi.restoreAllMocks() })
   it("first-party posts with credentials:include and no Bearer, returns issue url", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "fb1", saved: true }), { status: 200 }))
+    const fetchMock = vi.fn(async (..._a: any[]) => new Response(JSON.stringify({ id: "fb1", saved: true }), { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)
     const res = await submitFeedback(
       { backendUrl: "https://klavity.quantana.top", projectId: "p1", firstParty: true, token: "" },
@@ -17,7 +17,7 @@ describe("submitFeedback", () => {
     expect(res.issueKey).toBe("fb1")
   })
   it("cross-origin posts Bearer token, no credentials", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "fb2", saved: true }), { status: 200 }))
+    const fetchMock = vi.fn(async (..._a: any[]) => new Response(JSON.stringify({ id: "fb2", saved: true }), { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)
     await submitFeedback(
       { backendUrl: "https://klavity.quantana.top", projectId: "p1", firstParty: false, token: "ext_abc" },
@@ -29,7 +29,7 @@ describe("submitFeedback", () => {
   })
 
   it("attaches the captured dev-tools context to the /api/feedback payload (G2/G5)", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "fb3", saved: true }), { status: 200 }))
+    const fetchMock = vi.fn(async (..._a: any[]) => new Response(JSON.stringify({ id: "fb3", saved: true }), { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)
     await submitFeedback(
       { backendUrl: "https://klavity.quantana.top", projectId: "p1", firstParty: true, token: "" },
