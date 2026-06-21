@@ -992,14 +992,23 @@ export type FeedbackInsert = {
   issueKey?: string | null
   clientContext?: any  // captured ReportContext (console/network/env + identity/metadata), G2/G3/G5
 }
+
+// Triage gate: new feedback is "new" (needs triage) unless it's a high-severity
+// signal, which is auto-accepted straight to an open bug. Recurrence ≥3 promotes
+// a still-"new" item later (see bumpFeedbackRecurrence).
+export function initialFeedbackStatus(severity: string | null | undefined): "new" | "open" {
+  return severity === "high" ? "open" : "new"
+}
+
 export async function insertFeedback(f: FeedbackInsert): Promise<string> {
   const id = "fb_" + crypto.randomUUID()
   const now = Date.now()
+  const status = initialFeedbackStatus(f.severity)
   await db!.execute({
     sql: `INSERT INTO feedback (id,project_id,sim_id,actor_email,url_host,url_path,observation,sentiment,severity,
           screenshot_id,suggested_bug_json,cited_trait_ids_json,source_quote,source_transcript_id,source_date,
-          plane_issue_key,plane_issue_url,issue_key,recurrence_count,recurrence_dates_json,last_seen_at,client_context_json,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          plane_issue_key,plane_issue_url,issue_key,recurrence_count,recurrence_dates_json,last_seen_at,client_context_json,created_at,status)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [id, f.projectId, f.simId ?? null, f.actorEmail ?? null, f.urlHost ?? null, f.urlPath ?? null,
            f.observation ?? null, f.sentiment ?? null, f.severity ?? null, f.screenshotId ?? null,
            f.suggestedBug != null ? JSON.stringify(f.suggestedBug) : null,
@@ -1007,7 +1016,7 @@ export async function insertFeedback(f: FeedbackInsert): Promise<string> {
            f.sourceQuote ?? null, f.sourceTranscriptId ?? null, f.sourceDate ?? null,
            f.planeIssueKey ?? null, f.planeIssueUrl ?? null,
            f.issueKey ?? null, 1, JSON.stringify([now]), now,
-           f.clientContext != null ? JSON.stringify(f.clientContext) : null, now],
+           f.clientContext != null ? JSON.stringify(f.clientContext) : null, now, status],
   })
   return id
 }

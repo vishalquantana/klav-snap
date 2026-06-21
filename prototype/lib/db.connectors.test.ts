@@ -102,8 +102,8 @@ test("feedbackById returns null for wrong project", async () => {
   const row = await feedbackById("proj_A_fbid", fid)
   expect(row).not.toBeNull()
   expect(row.id).toBe(fid)
-  // new columns have defaults
-  expect(row.status).toBe("open")
+  // new columns have defaults; low severity feedback enters triage queue as "new"
+  expect(row.status).toBe("new")
   expect(row.assignee).toBeNull()
   expect(row.notes).toBeNull()
 })
