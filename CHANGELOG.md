@@ -10,6 +10,11 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.38.2] — 2026-06-21
+
+### Fixed
+- **Widget screenshots no longer fail/flake on font-heavy pages.** The in-page widget's "Full Page" and "Region" capture called `html-to-image`'s `toPng` without `skipFonts`, so it tried to embed cross-origin web fonts (Google Fonts), hit `SecurityError: cannot access cssRules`, and the font-fetch fallback (blocked by CSP) could reject the whole capture — which `buildModal` swallows silently, producing "0/5 images". Both captures now pass `skipFonts: true` (plus `cacheBust`/`pixelRatio: 1`), matching the already-working Sim-review capture path, so screenshots succeed reliably and the noisy `cssRules` console errors disappear. The extension capture path (`chrome.tabs.captureVisibleTab`) was unaffected. `packages/sdk/src/widget.ts`.
+
 ## [0.38.1] — 2026-06-21
 
 ### Changed

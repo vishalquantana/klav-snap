@@ -130,8 +130,8 @@ async function mount() {
   function openReport(type: "bug" | "feature" = "bug") {
     if (!firstParty && !getToken()) { openConnect(); return }
     buildModal(type, {
-      onCaptureFull: async () => toPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }),
-      onRegionCapture: async (rect) => cropDataUrl(await toPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
+      onCaptureFull: async () => toPng(document.body, { skipFonts: true, cacheBust: true, pixelRatio: 1, filter: (n) => (n as HTMLElement).id !== HOST_ID }),
+      onRegionCapture: async (rect) => cropDataUrl(await toPng(document.body, { skipFonts: true, cacheBust: true, pixelRatio: 1, filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots,
