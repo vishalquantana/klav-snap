@@ -605,7 +605,7 @@ function klavRenderBubble(r: { simName: string; initials: string; accent: string
   // Make the payoff legible: every reaction is persisted server-side as a ticket in the dashboard.
   const outcome = r.suggestedBug
     ? `<div class="klav-outcome">${icon('bug', { size: 14 })} Flagged as a bug · saved to your dashboard</div>`
-    : `<div class="klav-outcome">${icon('meh', { size: 14 })} Noted · saved to your dashboard</div>`
+    : `<div class="klav-outcome">${icon('message-circle', { size: 14 })} Noted · saved to your dashboard</div>`
   b.innerHTML = `
     <button class="klav-bclose" aria-label="Dismiss">×</button>
     <div class="klav-bhead">

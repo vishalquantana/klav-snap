@@ -4,6 +4,9 @@ import type { KlavitySettings, SubmitReportPayload } from '@klavity/core'
 import { icon } from '@klavity/core/icons'
 
 const $ = (id: string) => document.getElementById(id) as HTMLInputElement | HTMLSelectElement
+function escHtml(s: unknown): string {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
 const setVal = (id: string, v: string) => { ($(id) as HTMLInputElement).value = v }
 const handlers = { backend: backendSubmit }
 
@@ -104,16 +107,16 @@ function insertTestTicket(s: KlavitySettings) {
 $('test').addEventListener('click', () => withButton('test', 'Testing…', async () => {
   showResult(true, 'Testing connection…')
   const r = await testConnection(readSettings())
-  showResult(r.ok, (r.ok ? icon('check-circle') + ' ' : icon('x-circle') + ' ') + r.msg)
+  showResult(r.ok, (r.ok ? icon('check-circle') + ' ' : icon('x-circle') + ' ') + escHtml(r.msg))
 }))
 
 $('testTicket').addEventListener('click', () => withButton('testTicket', 'Filing…', async () => {
   showResult(true, 'Filing a test ticket…')
   try {
     const res = await insertTestTicket(readSettings())
-    showResult(true, `${icon('check-circle')} Created test ticket <b>${res.issueKey}</b> — <a href="${res.issueUrl}" target="_blank" rel="noopener">open in tracker ↗</a>`)
+    showResult(true, `${icon('check-circle')} Created test ticket <b>${escHtml(res.issueKey)}</b> — <a href="${escHtml(res.issueUrl)}" target="_blank" rel="noopener">open in tracker ↗</a>`)
   } catch (e) {
-    showResult(false, icon('x-circle') + ' ' + (e as Error).message)
+    showResult(false, icon('x-circle') + ' ' + escHtml((e as Error).message))
   }
 }))
 
