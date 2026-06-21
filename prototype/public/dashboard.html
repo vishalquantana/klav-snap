@@ -1791,23 +1791,23 @@ function renderTicketsKanban() {
     const si = $("kanbanSearch")
     if (si) { si.addEventListener("input", () => { _kanbanSearch = si.value; renderTicketsKanban() }); _kbSearchBound = true }
   }
-  const admin = state.active && state.active.role === “admin”
-  const tickets = (state.tickets || []).filter(t => t.status !== “new” && t.status !== “dismissed”)
-  $(“ticketKanbanCount”).textContent = tickets.length ? tickets.length : “”
+  const admin = state.active && state.active.role === "admin"
+  const tickets = (state.tickets || []).filter(t => t.status !== "new" && t.status !== "dismissed")
+  $("ticketKanbanCount").textContent = tickets.length ? tickets.length : ""
   if (!tickets.length) {
-    board.innerHTML = emptyState(kicon('bug',{size:32}), “No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.”, “”)
+    board.innerHTML = emptyState(kicon('bug',{size:32}), "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
     return
   }
-  if (_kanbanSearch && !tickets.some(t => (t.title || “”).toLowerCase().includes(_kanbanSearch.toLowerCase()))) {
-    board.innerHTML = `<div class=”kb-noresult”>No tickets match “${esc(_kanbanSearch)}”.</div>`
+  if (_kanbanSearch && !tickets.some(t => (t.title || "").toLowerCase().includes(_kanbanSearch.toLowerCase()))) {
+    board.innerHTML = `<div class="kb-noresult">No tickets match "${esc(_kanbanSearch)}".</div>`
     return
   }
-  // Group: unknown statuses fall into “open”. Exclude new/dismissed (they go through triage first).
+  // Group: unknown statuses fall into "open". Exclude new/dismissed (they go through triage first).
   const known = new Set(KANBAN_COLS.map(c => c.status))
   const groups = {}
   KANBAN_COLS.forEach(c => { groups[c.status] = [] })
   tickets.forEach(t => {
-    const st = known.has(t.status) ? t.status : “open”
+    const st = known.has(t.status) ? t.status : "open"
     groups[st].push(t)
   })
 
