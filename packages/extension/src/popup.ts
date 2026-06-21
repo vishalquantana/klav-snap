@@ -231,13 +231,23 @@ async function renderSignedIn() {
   const analyzeBtn = $('btn-analyze') as HTMLButtonElement
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
   const unsupported = !activeTab?.url || /^(chrome|edge|about|view-source|chrome-extension|moz-extension|data|file):|chromewebstore\.google\.com|chrome\.google\.com\/webstore/.test(activeTab.url)
+  const analyzeMsg = $('analyze-msg') as HTMLDivElement
+  const showAnalyzeMsg = (text: string, tone: 'err' | 'info' = 'err') => {
+    analyzeMsg.textContent = text
+    analyzeMsg.style.color = tone === 'err' ? 'var(--rose)' : 'var(--paper-faint)'
+    analyzeMsg.style.display = 'block'
+  }
+
   if (unsupported) {
     analyzeBtn.disabled = true
-    analyzeBtn.title = "Can't analyze this page"
+    analyzeBtn.title = "Can't analyse this page"
+    showAnalyzeMsg("Can't analyse this browser page — open a website tab.", 'info')
   } else {
     analyzeBtn.onclick = async () => {
       const projectId = activeProjectId || projects[0]?.id || null
-      if (!projectId || !activeTab?.id) return
+      if (!projectId) { showAnalyzeMsg('Select a project first.'); return }
+      if (!activeTab?.id) { showAnalyzeMsg("Couldn't find the active tab."); return }
+      const tabId = activeTab.id
       // No Sims in this project yet → walk them through creating one instead of a no-op review.
       const { klavSims } = await chrome.storage.local.get('klavSims')
       if (!Array.isArray(klavSims) || klavSims.length === 0) {
@@ -246,12 +256,28 @@ async function renderSignedIn() {
         window.close()
         return
       }
-      const tabId = activeTab.id
-      const send = () => chrome.tabs.sendMessage(tabId, { kind: 'KLAV_ADHOC_REVIEW', projectId }).catch(() => {})
-      chrome.tabs.sendMessage(tabId, { kind: 'KLAV_ADHOC_REVIEW', projectId }).catch(() => {
+      analyzeBtn.disabled = true
+      analyzeMsg.style.display = 'none'
+      const review = { kind: 'KLAV_ADHOC_REVIEW', projectId }
+      // Reach the content script; if it isn't loaded on this tab yet, inject it then retry while the
+      // crxjs loader imports the module (async). Surface any failure instead of a silent no-op.
+      try {
+        await chrome.tabs.sendMessage(tabId, review)
+      } catch {
         const cs = chrome.runtime.getManifest().content_scripts?.[0]
-        if (cs?.js?.length) chrome.scripting.executeScript({ target: { tabId }, files: cs.js }).then(() => setTimeout(send, 300)).catch(() => {})
-      })
+        if (!cs?.js?.length) { showAnalyzeMsg("Can't run on this page."); analyzeBtn.disabled = false; return }
+        try {
+          await chrome.scripting.executeScript({ target: { tabId }, files: cs.js })
+        } catch {
+          showAnalyzeMsg("Can't run on this page — your browser blocks Klavity here."); analyzeBtn.disabled = false; return
+        }
+        let delivered = false
+        for (let i = 0; i < 4 && !delivered; i++) {
+          await new Promise((r) => setTimeout(r, 250))
+          try { await chrome.tabs.sendMessage(tabId, review); delivered = true } catch { /* module still waking — retry */ }
+        }
+        if (!delivered) { showAnalyzeMsg('Reload the page, then try again.'); analyzeBtn.disabled = false; return }
+      }
       window.close()
     }
   }

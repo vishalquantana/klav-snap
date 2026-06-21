@@ -698,10 +698,10 @@ function klavAdhocConfirm(domain: string): Promise<boolean> {
     const el = document.createElement('div')
     el.className = 'klav-consent'
     el.innerHTML = `
-      <h4>Analyze this page?</h4>
+      <h4>Analyse with Sims?</h4>
       <p>Your Sims will look at <b>${domain}</b>. We capture only the visible area (a viewport screenshot) and send it to Klavity to generate feedback.</p>
       <div class="klav-crow">
-        <button class="klav-cprimary">Analyze</button>
+        <button class="klav-cprimary">Analyse</button>
         <button class="klav-cghost">Cancel</button>
       </div>`
     const done = (ok: boolean) => { el.remove(); resolve(ok) }
@@ -719,7 +719,7 @@ async function klavRunAdhoc(projectId: string): Promise<void> {
     if (!(await klavAdhocConfirm(domain))) return
     await klavAdhocRemember(domain)
   }
-  klavNotice('Sims analyzing this page…')
+  klavNotice('Sims analysing this page…')
   const dataUrl = await klavCapture()
   if (!dataUrl) { klavNotice("Couldn't capture this page — try again."); return }
   const resp = await klavSend<{ ok: boolean; status: number; body: any }>({
