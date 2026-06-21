@@ -153,6 +153,17 @@ async function mount() {
   let menuEl: HTMLDivElement | null = null
   let nativePending = false
   const closeMenu = () => { menuEl?.remove(); menuEl = null }
+  // Scripts can't open the browser's native context menu programmatically — it only
+  // appears on a real right-click. So "Show browser menu" arms the next right-click to
+  // pass through, and we show a brief hint telling the user to right-click again.
+  function showNativeHint(x: number, y: number) {
+    const t = document.createElement("div")
+    t.textContent = "↗ Right-click again to open the browser menu"
+    t.style.cssText = "position:fixed;z-index:2147483647;left:" + x + "px;top:" + (y + 6) + "px;background:#1a1a1a;color:#fff;font:500 12.5px system-ui,-apple-system,sans-serif;padding:8px 13px;border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.32);pointer-events:none;opacity:0;transition:opacity .2s;max-width:260px"
+    root.appendChild(t)
+    requestAnimationFrame(() => { t.style.opacity = "1" })
+    setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 250) }, 2400)
+  }
   function showMenu(x: number, y: number) {
     closeMenu()
     const menu = document.createElement("div")
@@ -171,7 +182,7 @@ async function mount() {
     }
     menu.appendChild(row("⚡&nbsp;&nbsp;Klavity — Report a Bug", { primary: true, onClick: () => openReport("bug") }))
     menu.appendChild(row("💡&nbsp;&nbsp;Klavity — Request a Feature", { onClick: () => openReport("feature") }))
-    menu.appendChild(row("🖥️&nbsp;&nbsp;Show browser menu", { muted: true, hint: "⇧ right-click", last: true, onClick: () => { nativePending = true } }))
+    menu.appendChild(row("🖥️&nbsp;&nbsp;Show browser menu", { muted: true, hint: "⇧ right-click", last: true, onClick: () => { nativePending = true; showNativeHint(x, y) } }))
     root.appendChild(menu)
     requestAnimationFrame(() => {
       const r = menu.getBoundingClientRect()
