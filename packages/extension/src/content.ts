@@ -3,6 +3,7 @@ import { Annotator } from '@klavity/core/annotator'
 import { cropDataUrl } from '@klavity/core/crop'
 import { klavContentSig, shouldCapture, DEBOUNCE_MS, ROUTE_COOLDOWN_MS, MAX_REVIEWS_PER_ROUTE } from './feedback-trigger'
 import { widgetPresent } from './coexist'
+import { makeCaptureAwaiter } from './capture-bridge'
 
 // ── Error + network capture ring buffer ──────────────────────────────────────
 const consoleErrors: ConsoleError[] = []
@@ -333,6 +334,19 @@ function sendToBackground(msg: BackgroundMessage, attempt = 0): Promise<void> {
   })
 }
 
+// ── Capture awaiter (Task 4) ──────────────────────────────────────────────────
+// Single-slot Promise bridge between the SW captureVisibleTab result and callers.
+// onCaptureFull / onRegionCapture are the stable API consumed by Task 5's buildModal.
+const captureAwaiter = makeCaptureAwaiter({ send: (m) => sendToBackground(m) })
+
+const onCaptureFull = async (): Promise<string> => captureAwaiter.captureFull()
+
+const onRegionCapture = async (rect: { x: number; y: number; w: number; h: number }): Promise<string> => {
+  const full = await captureAwaiter.captureFull()
+  const dpr = window.devicePixelRatio || 1
+  return cropDataUrl(full, { x: rect.x * dpr, y: rect.y * dpr, w: rect.w * dpr, h: rect.h * dpr }, window.scrollX * dpr, window.scrollY * dpr)
+}
+
 function captureFullPage() {
   const host = shadowRoot?.host as HTMLElement | undefined
   if (host) host.style.display = 'none'
@@ -641,6 +655,9 @@ async function handleSubmit(description: string) {
 chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
   if (msg.kind === 'CAPTURE_TAB_RESULT') {
     const isRegion = pendingRegionCapture
+    // Task 4: settle the Promise-based awaiter so onCaptureFull/onRegionCapture resolve.
+    // Additive alongside the existing bespoke pendingFullCapture / CustomEvent logic.
+    captureAwaiter.settle(msg.dataUrl ?? '', msg.error)
     document.dispatchEvent(new CustomEvent('klavity-capture-result', { detail: { dataUrl: msg.dataUrl, error: msg.error } }))
     if (pendingFullCapture) {
       pendingFullCapture = false
