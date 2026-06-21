@@ -403,7 +403,8 @@ export function buildModal(
     wrap.className = 'klavity-success'
 
     const h = document.createElement('h2')
-    h.textContent = copy.headline
+    // copy.headline is static host-supplied copy (not user/LLM data) and may contain icon SVG HTML.
+    h.innerHTML = copy.headline
     wrap.appendChild(h)
 
     if (copy.body) {
