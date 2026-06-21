@@ -3,6 +3,11 @@ import { Annotator } from './annotator'
 import { themeCss, resolveModalConfig, type ModalConfig } from './modal-theme'
 import { icon } from './icons'
 
+/** Escape text for safe interpolation into innerHTML. */
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 export interface SuccessCopy {
   headline: string
   body: string
@@ -107,7 +112,7 @@ export function buildModal(
       <button class="bug ${initialType === 'bug' ? 'active' : ''}">${icon('bug')} Bug</button>
       <button class="feat ${initialType === 'feature' ? 'active' : ''}">${icon('lightbulb')} Feature</button>
     </div>
-    <div class="klavity-page">${icon('map-pin')} ${typeof window !== 'undefined' ? window.location.pathname : ''}</div>
+    <div class="klavity-page">${icon('map-pin')} ${typeof window !== 'undefined' ? escHtml(window.location.pathname) : ''}</div>
     <div class="klavity-strip" id="klavity-strip"></div>
     <div class="klavity-actions">
       <button id="klavity-full">${icon('camera')} Full Page</button>
