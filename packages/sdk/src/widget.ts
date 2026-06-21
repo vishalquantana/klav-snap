@@ -6,8 +6,8 @@ import { cropDataUrl } from "@klavity/core/crop"
 import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
-import { record as rrwebRecord } from "rrweb"
 import { startReplayRecording, type ReplayController } from "./replay-recorder"
+import { injectRecorderScript } from "./load-recorder"
 
 const HOST_ID = "klavity-widget-host"
 const TOKEN_KEY = "klavity_widget_token"
@@ -88,10 +88,18 @@ async function mount() {
   // bug submit, we can attach the seconds leading up to the bug (the free answer to Marker's $149
   // "Session replay"). Masked by default (maskAllInputs + masked text) for privacy. Best-effort: a
   // recorder failure must never break the widget. Disable per-page with data-replay="off".
+  //
+  // PERF: rrweb (~260 KB) is NOT bundled into the widget IIFE — it's lazy-loaded as a vendored script
+  // from the Klavity backend AFTER mount (non-blocking). Until it resolves, replay stays null and
+  // replay?.getEvents() returns []. A few hundred ms of "not recording yet" at page load is fine.
   let replay: ReplayController | null = null
   const replayEnabled = (currentScript()?.dataset?.replay || "on") !== "off"
   if (replayEnabled) {
-    try { replay = startReplayRecording(rrwebRecord as any) } catch { replay = null }
+    injectRecorderScript(cfg.backendUrl)
+      .then((rrweb) => {
+        if (rrweb?.record) { try { replay = startReplayRecording(rrweb.record as any) } catch { replay = null } }
+      })
+      .catch(() => { /* never let recorder loading break the widget */ })
   }
 
   const firstParty = isFirstParty(location.origin, cfg.backendUrl)
