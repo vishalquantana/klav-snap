@@ -78,6 +78,7 @@ export interface SubmitReportPayload {
   description: string
   context: ReportContext
   screenshots: string[] // data URLs (PNG or JPEG)
+  projectId?: string    // Klavity project ID; if set, report lands in that project
   // G1 session replay: rolling rrweb DOM-event buffer (Klavity backend integration only).
   replayEvents?: unknown[]
 }
@@ -93,6 +94,7 @@ export interface IntegrationConfig {
   context: ReportContext
   screenshots: string[]
   settings: KlavitySettings
+  projectId?: string    // threaded from SubmitReportPayload; backend appends as project_id
   // G1 session replay: rolling rrweb DOM-event buffer (only the Klavity backend integration uses it).
   replayEvents?: unknown[]
 }

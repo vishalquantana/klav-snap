@@ -10,6 +10,12 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.36.0] — 2026-06-21
+
+### Changed
+- **Harmonized the extension & widget report composers into one shared `buildModal`.** The Chrome extension's bespoke ~1000-line composer was replaced by the shared `buildModal` (used by the embeddable widget), so the extension now gains per-project **theming + custom thank-you**, **region/snippet capture** (drag-to-select), **paste-image**, **auto-capture-on-open**, and the shared **markup/annotator** — one composer, permanent feature parity (future modal features land in both). `buildModal` gained the region gesture, paste, and `autoCaptureOnOpen` additively (the widget's behavior is unchanged — inert unless opted in); the extension bridges its service-worker `captureVisibleTab` to the modal via a single-slot Promise awaiter.
+- **Extension reports now route only through Klavity** (`/api/feedback`), with the active **`project_id`** threaded so multi-project users' reports land in the right project (was always project #1). Direct Jira/Linear/GitHub/Plane config removed from Options — trackers are configured once as dashboard **connectors** (gaining the ledger + dedup + auto-copy + the dev-tools-context/replay pipeline). Existing direct-mode users connect via Klavity Cloud + a dashboard connector.
+
 ## [0.35.0] — 2026-06-21
 
 ### Added
