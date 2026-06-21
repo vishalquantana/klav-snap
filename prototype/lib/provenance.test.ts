@@ -12,11 +12,89 @@ import {
   insightsFromTraits,
   recurrenceFromEvents,
   groundQuote,
+  pickCitation,
   type Trait,
   type ReconcileOp,
   type ReconcileCtx,
   type TraitEventRow,
 } from "./provenance"
+
+// ── pickCitation fixtures ──────────────────────────────────────────────────
+function mkTrait(over: Partial<Trait> & { id: string }): Trait {
+  return {
+    simId: "sim_1", projectId: "proj_1", kind: "pain", text: "t", status: "active",
+    strength: 1, srcTranscriptId: "tr_1", srcQuote: "the quote", srcQuoteOffset: 0,
+    srcSpeaker: "Sarah", srcVerified: true, createdAt: 0, updatedAt: 0,
+    area: null, issueType: "bug", severity: null, ...over,
+  }
+}
+function mkEvent(traitId: string, op: TraitEventRow["op"], sourceDate: number): TraitEventRow {
+  return {
+    traitId, simId: "sim_1", transcriptId: "tr_1", op, beforeText: null, afterText: null,
+    quote: "q", quoteOffset: null, verified: true, speaker: "Sarah", sourceDate,
+    reason: null, createdAt: sourceDate, area: null, issueType: null, severity: null,
+  }
+}
+
+// ── pickCitation — pure match + strongest-recurrence selection ──────────────
+
+test("pickCitation: returns null for empty cited ids or no match", () => {
+  const traits = [mkTrait({ id: "trait_a" })]
+  expect(pickCitation(traits, new Map(), [])).toBeNull()
+  expect(pickCitation(traits, new Map(), ["trait_NONE"])).toBeNull()
+})
+
+test("pickCitation: primary = first matched trait; provenance fields come from it", () => {
+  const traits = [
+    mkTrait({ id: "trait_a", srcQuote: "quote A", srcSpeaker: "Sarah", srcTranscriptId: "tr_A", issueType: "bug", srcVerified: true }),
+    mkTrait({ id: "trait_b", srcQuote: "quote B" }),
+  ]
+  const pick = pickCitation(traits, new Map(), ["trait_a", "trait_b"])!
+  expect(pick.citedTraitIds).toEqual(["trait_a", "trait_b"])
+  expect(pick.sourceQuote).toBe("quote A")
+  expect(pick.speaker).toBe("Sarah")
+  expect(pick.sourceTranscriptId).toBe("tr_A")
+  expect(pick.issueType).toBe("bug")
+  expect(pick.sourceQuoteVerified).toBe(true)
+})
+
+test("pickCitation: surfaces the STRONGEST recurrence — regressed beats non-regressed", () => {
+  const traits = [mkTrait({ id: "trait_a" }), mkTrait({ id: "trait_b" })]
+  // trait_a: raised once (no regression). trait_b: raised → resolved → raised again (regressed).
+  const events = new Map<string, TraitEventRow[]>([
+    ["trait_a", [mkEvent("trait_a", "create", 100)]],
+    ["trait_b", [mkEvent("trait_b", "create", 100), mkEvent("trait_b", "contradict", 200), mkEvent("trait_b", "reopen", 300)]],
+  ])
+  const pick = pickCitation(traits, events, ["trait_a", "trait_b"])!
+  expect(pick.recurrence?.regressed).toBe(true)
+  expect(pick.recurrence?.priorResolvedAt).toBe(200)
+})
+
+test("pickCitation: among equally-regressed, higher timesRaised wins", () => {
+  const traits = [mkTrait({ id: "trait_a" }), mkTrait({ id: "trait_b" })]
+  const events = new Map<string, TraitEventRow[]>([
+    ["trait_a", [mkEvent("trait_a", "create", 100), mkEvent("trait_a", "contradict", 200), mkEvent("trait_a", "reopen", 300)]], // timesRaised 2
+    ["trait_b", [mkEvent("trait_b", "create", 100), mkEvent("trait_b", "contradict", 200), mkEvent("trait_b", "reopen", 300), mkEvent("trait_b", "reinforce", 400)]], // timesRaised 3
+  ])
+  const pick = pickCitation(traits, events, ["trait_a", "trait_b"])!
+  expect(pick.recurrence?.regressed).toBe(true)
+  expect(pick.recurrence?.timesRaised).toBe(3)
+})
+
+test("pickCitation: matched trait with no events → zero-info recurrence (non-null)", () => {
+  const traits = [mkTrait({ id: "trait_a" })]
+  const pick = pickCitation(traits, new Map(), ["trait_a"])!
+  expect(pick.recurrence).not.toBeNull()
+  expect(pick.recurrence?.regressed).toBe(false)
+  expect(pick.recurrence?.timesRaised).toBe(0)
+})
+
+test("pickCitation: null eventsByTrait (DB unavailable) → recurrence null", () => {
+  const traits = [mkTrait({ id: "trait_a" })]
+  const pick = pickCitation(traits, null, ["trait_a"])!
+  expect(pick.citedTraitIds).toEqual(["trait_a"])
+  expect(pick.recurrence).toBeNull()
+})
 
 // DB-backed tests below use the db module's OWN client (captured from TURSO_DATABASE_URL at import).
 // Set the env to a fresh local file BEFORE the first `import("./db")` so the cached module binds to it,

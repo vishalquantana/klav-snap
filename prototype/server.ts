@@ -3,7 +3,7 @@ import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload, type TicketAttachment } from "./lib/connectors/index"
 import { inboundSupported, verifyGithubSignature, verifyLinearSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
-import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
+import { applyReconcileOps, recurrenceFromEvents, pickCitation, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp, sendLeadAlert } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
 import { uploadScreenshotMeta, presignGet, deleteObject, getObjectBytes, type UploadedScreenshot } from "./lib/s3"
@@ -385,63 +385,53 @@ function matchPersonaToSim(extracted: { name: string; role?: string }, sims: { i
 // cited trait id belonging to ANOTHER tenant's Sim can never resolve to a verbatim quote/provenance.
 // Callers should ALSO verify the sim itself belongs to the project (pass simId=null otherwise); this
 // is the defense-in-depth layer that ensures even a leaked trait id can't read cross-project.
-async function resolveCitations(simId: string | null, citedTraitIds: any, projectId?: string | null): Promise<{
+// Preloaded, sim-scoped trait data a caller can hand in so resolveCitations does NOT re-query per
+// reaction. The review loops build this ONCE per Sim (they already fetch the events for recurrence
+// memory) and pass it for every reaction → collapses the old per-reaction N+1 on listTraits /
+// listTraitEvents into a single read per Sim.
+type CitationPreload = { traits: Trait[]; eventsByTrait: Map<string, TraitEventRow[]> }
+
+async function resolveCitations(simId: string | null, citedTraitIds: any, projectId?: string | null, pre?: CitationPreload): Promise<{
   citedTraitIds: string[]; sourceQuote: string | null; speaker: string | null; sourceTranscriptId: string | null; sourceDate: number | null;
   issueType: string | null; sourceQuoteVerified: boolean | null;
   recurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null
 }> {
   const empty = { citedTraitIds: [] as string[], sourceQuote: null, speaker: null, sourceTranscriptId: null, sourceDate: null, issueType: null, sourceQuoteVerified: null, recurrence: null }
   if (!simId || !Array.isArray(citedTraitIds) || !citedTraitIds.length) return empty
-  const want = new Set(citedTraitIds.map((x) => String(x)))
-  const traits = await listTraits(simId, projectId ? { projectId } : {}) // all statuses — a cited trait may have since been superseded
-  const matched = traits.filter((t) => want.has(t.id))
-  if (!matched.length) return empty
-  const primary = matched[0]
-  // source_date comes from the trait's originating transcript (drives "(Sarah, 2026-06-12)" citations).
+
+  // Traits + per-trait events: use the caller's preloaded copy when present (review loops), else
+  // fetch on demand for one-off callers. eventsByTrait stays null on a DB-read failure so the
+  // recurrence stays null (matches the original no-DB-mode behavior).
+  const traits = pre?.traits ?? await listTraits(simId, projectId ? { projectId } : {}) // all statuses — a cited trait may have since been superseded
+  let eventsByTrait: Map<string, TraitEventRow[]> | null = pre?.eventsByTrait ?? null
+  if (!pre) {
+    try {
+      const allEvents: TraitEventRow[] = await listTraitEvents(simId, projectId ? { projectId } : {})
+      eventsByTrait = new Map<string, TraitEventRow[]>()
+      for (const e of allEvents) {
+        const arr = eventsByTrait.get(e.traitId) ?? []
+        arr.push(e)
+        eventsByTrait.set(e.traitId, arr)
+      }
+    } catch {
+      // Non-fatal: if DB is absent (test/no-db mode), skip recurrence (null → no regression voice).
+      eventsByTrait = null
+    }
+  }
+
+  const pick = pickCitation(traits, eventsByTrait, citedTraitIds)
+  if (!pick) return empty
+
+  // source_date comes from the primary trait's originating transcript (drives "(Sarah, 2026-06-12)").
   let sourceDate: number | null = null
-  if (primary.srcTranscriptId) {
+  if (pick.sourceTranscriptId) {
     // Scope the transcript read to the project too (defense-in-depth) when projectId is known.
     const tr = projectId
-      ? await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=? AND project_id=?", args: [primary.srcTranscriptId, projectId] })
-      : await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=?", args: [primary.srcTranscriptId] })
+      ? await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=? AND project_id=?", args: [pick.sourceTranscriptId, projectId] })
+      : await db!.execute({ sql: "SELECT source_date FROM transcripts WHERE id=?", args: [pick.sourceTranscriptId] })
     if (tr.rows.length) sourceDate = Number((tr.rows[0] as any).source_date)
   }
-  // Compute recurrence for EACH cited trait, then surface the strongest regression.
-  // Fetch all events for this sim once, then filter per trait in memory.
-  let strongestRecurrence: { timesRaised: number; regressed: boolean; firstRaised: number | null; lastRaised: number | null; priorResolvedAt: number | null } | null = null
-  try {
-    const allEvents: TraitEventRow[] = await listTraitEvents(simId, projectId ? { projectId } : {})
-    const eventsByTrait = new Map<string, TraitEventRow[]>()
-    for (const e of allEvents) {
-      const arr = eventsByTrait.get(e.traitId) ?? []
-      arr.push(e)
-      eventsByTrait.set(e.traitId, arr)
-    }
-    for (const t of matched) {
-      const evts = eventsByTrait.get(t.id) ?? []
-      const rec = recurrenceFromEvents(evts)
-      if (!strongestRecurrence) {
-        strongestRecurrence = rec
-      } else {
-        // Prefer regressed traits; among ties prefer higher timesRaised.
-        const stronger = (rec.regressed && !strongestRecurrence.regressed) ||
-          (rec.regressed === strongestRecurrence.regressed && rec.timesRaised > strongestRecurrence.timesRaised)
-        if (stronger) strongestRecurrence = rec
-      }
-    }
-  } catch {
-    // Non-fatal: if DB is absent (test/no-db mode), skip recurrence.
-  }
-  return {
-    citedTraitIds: matched.map((t) => t.id),
-    sourceQuote: primary.srcQuote || null,
-    speaker: primary.srcSpeaker || null,
-    sourceTranscriptId: primary.srcTranscriptId || null,
-    sourceDate,
-    issueType: (primary as any).issueType ?? null,
-    sourceQuoteVerified: (primary as any).srcVerified ?? null,
-    recurrence: strongestRecurrence,
-  }
+  return { ...pick, sourceDate }
 }
 
 // Decide whether a suggested bug duplicates an existing project report. Returns the existing
@@ -1878,6 +1868,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // memory block when regressed=true — a trait reinforced many times but never resolved must
           // NOT carry disappointment voice.
           let simWithMemory: any = sim
+          // Built ONCE per Sim and reused for every reaction's resolveCitations (avoids the N+1).
+          let citePre: { traits: Trait[]; eventsByTrait: Map<string, TraitEventRow[]> } | undefined
           try {
             const allSimEvents: TraitEventRow[] = await listTraitEvents(sim.id, { projectId })
             const eventsByTrait = new Map<string, TraitEventRow[]>()
@@ -1886,6 +1878,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               arr.push(e)
               eventsByTrait.set(e.traitId, arr)
             }
+            citePre = { traits: await listTraits(sim.id, { projectId }), eventsByTrait }
             // Attach recurrenceMemory only to traits where regressed=true.
             const insights = Array.isArray(sim.insights) ? sim.insights : []
             const insightsWithMemory = insights.map((ins: any) => {
@@ -1919,7 +1912,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             continue
           }
           for (const r of reactions) {
-            const citation = await resolveCitations(sim.id, r?.citedTraitIds, projectId)
+            const citation = await resolveCitations(sim.id, r?.citedTraitIds, projectId, citePre)
             const bug = r?.suggestedBug
             let dedupedInto: string | null = null
             if (bug) {
@@ -3179,6 +3172,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // Build regression-gated recurrence memory for this Sim's traits before calling reactToPage.
           // Only attach recurrenceMemory when regressed=true; mere recurrence does not warrant disappointment.
           let personaWithMemory = persona
+          // Built ONCE per Sim and reused for every reaction's resolveCitations (avoids the N+1).
+          let citePre: { traits: Trait[]; eventsByTrait: Map<string, TraitEventRow[]> } | undefined
           if (simId) {
             try {
               const allSimEvents: TraitEventRow[] = await listTraitEvents(simId, projRx ? { projectId: projRx.id } : {})
@@ -3188,6 +3183,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                 arr.push(e)
                 eventsByTrait.set(e.traitId, arr)
               }
+              citePre = { traits: await listTraits(simId, projRx ? { projectId: projRx.id } : {}), eventsByTrait }
               const insights = Array.isArray(persona.insights) ? persona.insights : []
               const insightsWithMemory = insights.map((ins: any) => {
                 const traitId = ins.traitId
@@ -3217,7 +3213,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // Resolve each reaction's citedTraitIds → {quote, speaker, sourceDate, transcriptId, recurrence} so the
           // studio review→feedback path can carry citations forward.
           for (const r of reactions) {
-            const cited = await resolveCitations(simId, r?.citedTraitIds, projRx?.id)
+            const cited = await resolveCitations(simId, r?.citedTraitIds, projRx?.id, citePre)
             r.citation = cited.citedTraitIds.length
               ? { citedTraitIds: cited.citedTraitIds, sourceQuote: cited.sourceQuote, speaker: cited.speaker, sourceTranscriptId: cited.sourceTranscriptId, sourceDate: cited.sourceDate, recurrence: cited.recurrence }
               : null

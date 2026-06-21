@@ -406,6 +406,62 @@ export type RecurrenceInfo = {
 const RAISE_OPS = new Set<TraitEventOp>(["create", "reinforce", "refine", "reopen"])
 const RESOLVE_OPS = new Set<TraitEventOp>(["contradict", "supersede"])
 
+// ── Citation resolution (pure) ─────────────────────────────────────────────
+// Matches an LLM's cited trait ids against a Sim's trait set, picks the primary (first match)
+// for the provenance fields, and surfaces the STRONGEST recurrence across all matched traits.
+// DB-FREE: the caller passes the Sim's traits + a traitId→events map fetched ONCE per Sim, so a
+// reaction loop no longer re-queries trait events per reaction (the N+1). `sourceDate` is resolved
+// by the caller (it needs a transcript lookup). Returns null when nothing matches.
+//
+// `eventsByTrait === null` means the events read was unavailable (e.g. no-DB mode) → recurrence is
+// null; an (even empty) Map means events were read → recurrence is always a non-null object.
+export type CitationPick = {
+  citedTraitIds: string[]
+  sourceQuote: string | null
+  speaker: string | null
+  sourceTranscriptId: string | null
+  issueType: string | null
+  sourceQuoteVerified: boolean | null
+  recurrence: RecurrenceInfo | null
+}
+
+export function pickCitation(
+  traits: Trait[],
+  eventsByTrait: Map<string, TraitEventRow[]> | null,
+  citedTraitIds: unknown,
+): CitationPick | null {
+  if (!Array.isArray(citedTraitIds) || citedTraitIds.length === 0) return null
+  const want = new Set(citedTraitIds.map((x) => String(x)))
+  const matched = traits.filter((t) => want.has(t.id))
+  if (!matched.length) return null
+  const primary = matched[0]
+
+  // Strongest recurrence: prefer regressed traits; among ties prefer higher timesRaised.
+  let recurrence: RecurrenceInfo | null = null
+  if (eventsByTrait !== null) {
+    for (const t of matched) {
+      const rec = recurrenceFromEvents(eventsByTrait.get(t.id) ?? [])
+      if (!recurrence) {
+        recurrence = rec
+      } else {
+        const stronger = (rec.regressed && !recurrence.regressed) ||
+          (rec.regressed === recurrence.regressed && rec.timesRaised > recurrence.timesRaised)
+        if (stronger) recurrence = rec
+      }
+    }
+  }
+
+  return {
+    citedTraitIds: matched.map((t) => t.id),
+    sourceQuote: primary.srcQuote || null,
+    speaker: primary.srcSpeaker || null,
+    sourceTranscriptId: primary.srcTranscriptId || null,
+    issueType: primary.issueType ?? null,
+    sourceQuoteVerified: primary.srcVerified ?? null,
+    recurrence,
+  }
+}
+
 export function recurrenceFromEvents(events: TraitEventRow[]): RecurrenceInfo {
   if (events.length === 0) {
     return { firstRaised: null, lastRaised: null, timesRaised: 0, regressed: false, priorResolvedAt: null }
