@@ -6,6 +6,7 @@ import { cropDataUrl } from "@klavity/core/crop"
 import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
+import { icon } from "@klavity/core/icons"
 import { startReplayRecording, type ReplayController } from "./replay-recorder"
 import { injectRecorderScript } from "./load-recorder"
 
@@ -137,7 +138,7 @@ async function mount() {
   }
 
   const reportBtn = document.createElement("button")
-  reportBtn.textContent = "🐞 Report a bug"
+  reportBtn.innerHTML = `${icon('bug')} Report a bug`
   reportBtn.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#E94F37;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(233,79,55,.35)"
   function openReport(type: "bug" | "feature" = "bug") {
     if (!firstParty && !getToken()) { openConnect(); return }
@@ -195,9 +196,9 @@ async function mount() {
       b.addEventListener("click", () => { closeMenu(); opts.onClick() })
       return b
     }
-    menu.appendChild(row("⚡&nbsp;&nbsp;Report a Bug", { primary: true, onClick: () => openReport("bug") }))
-    menu.appendChild(row("💡&nbsp;&nbsp;Request a Feature", { onClick: () => openReport("feature") }))
-    menu.appendChild(row("🖥️&nbsp;&nbsp;Show browser menu", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
+    menu.appendChild(row(`${icon('zap')}&nbsp;&nbsp;Report a Bug`, { primary: true, onClick: () => openReport("bug") }))
+    menu.appendChild(row(`${icon('lightbulb')}&nbsp;&nbsp;Request a Feature`, { onClick: () => openReport("feature") }))
+    menu.appendChild(row(`${icon('monitor')}&nbsp;&nbsp;Show browser menu`, { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
     // "Powered by Klavity" footer — opens the marketing site in a new tab
     const footer = document.createElement("button")
     footer.innerHTML = "Powered by <strong>Klavity</strong>"
@@ -249,7 +250,7 @@ async function mount() {
   function renderConnectButton() {
     dock.innerHTML = ""
     const b = document.createElement("button")
-    b.textContent = "⚡ Connect to Klavity"
+    b.innerHTML = `${icon('zap')} Connect to Klavity`
     b.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#6366f1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(99,102,241,.35)"
     b.onclick = openConnect
     dock.appendChild(b)

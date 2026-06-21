@@ -1,4 +1,5 @@
 import type { ReportContext, ReportIdentity } from "@klavity/core"
+import { icon } from '@klavity/core/icons'
 
 export function parseScriptConfig(scriptEl: { dataset: Record<string, string | undefined>, src: string }): { projectId: string, backendUrl: string, identity?: ReportIdentity, metadata?: Record<string, string> } {
   const projectId = scriptEl.dataset.project || ""
@@ -54,7 +55,7 @@ export function successCopy(mode: string, ctaUrl: string): SuccessCopy {
     showEmail: false, showCta: false,
   }
   return { // support (default)
-    headline: "Bug filed ✓",
+    headline: `Bug filed ${icon('check-circle', { label: 'filed', size: 16 })}`,
     body: "Want to know when it's fixed? Drop your email and we'll ping you.",
     emailLabel: "Notify me", ctaText: "", ctaUrl,
     showEmail: true, showCta: false,

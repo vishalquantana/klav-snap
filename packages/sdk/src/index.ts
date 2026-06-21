@@ -1,4 +1,5 @@
 import { toPng } from 'html-to-image'
+import { icon } from '@klavity/core/icons'
 import type { KlavitySettings, ReportType, SubmitReportPayload, IntegrationConfig, ReportIdentity } from '@klavity/core'
 import { DEFAULT_SETTINGS } from '@klavity/core'
 import { installCapture, buildReportContext, type CaptureBuffers } from '@klavity/core/capture'
@@ -102,8 +103,8 @@ function addContextMenu() {
     const menu = document.createElement('div')
     menu.style.cssText = `position:fixed;left:${Math.min(e.clientX, window.innerWidth - 200)}px;top:${Math.min(e.clientY, window.innerHeight - 80)}px;background:#1e1e2e;border:1px solid #45475a;border-radius:8px;padding:4px;z-index:2147483647;box-shadow:0 8px 24px rgba(0,0,0,.4);font-family:system-ui;`
     menu.innerHTML = `
-      <div data-action="bug" style="padding:8px 16px;cursor:pointer;color:#cdd6f4;font-size:13px;border-radius:4px;">🐛 Report a Bug</div>
-      <div data-action="feature" style="padding:8px 16px;cursor:pointer;color:#cdd6f4;font-size:13px;border-radius:4px;">💡 Request a Feature</div>
+      <div data-action="bug" style="padding:8px 16px;cursor:pointer;color:#cdd6f4;font-size:13px;border-radius:4px;">${icon('bug')} Report a Bug</div>
+      <div data-action="feature" style="padding:8px 16px;cursor:pointer;color:#cdd6f4;font-size:13px;border-radius:4px;">${icon('lightbulb')} Request a Feature</div>
     `
     document.body.appendChild(menu)
 
