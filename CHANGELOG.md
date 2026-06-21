@@ -10,6 +10,37 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.40.0] — 2026-06-21
+
+### Changed
+- **Design standard: icons, not emojis.** Every emoji in user-facing UI has been
+  replaced with inline [Lucide](https://lucide.dev) outline SVG icons (`stroke="currentColor"`,
+  themeable, crisp at any size) across the marketing site, dashboard/app pages
+  (`prototype/public`), the embeddable widget/SDK, the shared report modal, and the
+  browser extension. Semantic emoji were converted too: mood reactions
+  (love/neutral/frustrated/confused) and status (✓/✗) now use accessible icons
+  (`role="img"` + `<title>`); decorative icons are `aria-hidden`. Native context-menu
+  titles, console output, and other plain-text-only sinks had their emoji stripped to
+  clean text (SVG can't render there).
+
+### Added
+- **Centralized icon system.** A single source of truth in `@klavity/core`
+  (`icons.ts` + a generated map built from `lucide-static`, a dev-only dependency, so
+  the shipped widget bundle stays dependency-free). Consumers: `icon()` (core/extension),
+  `KlavityKit.icon()` (marketing site), and a self-contained `kicon()` for
+  `prototype/public` pages. Adding an icon is a one-line edit to `scripts/icon-names.mjs`
+  + `pnpm gen:icons`.
+- **Emoji CI guard.** `scripts/check-no-emoji.mjs` (run in CI via the `build-test` job
+  and locally with `pnpm check:emoji`) fails on any emoji in user-facing source, keeping
+  the standard enforced going forward. Binary assets, generated maps, tests, and keycap
+  glyphs (⌘⇧) are excluded; an inline `emoji-ok` comment allows rare deliberate cases.
+
+### Fixed
+- **Security:** escaped `window.location.pathname` before it is written to the report
+  modal's `innerHTML` (`packages/core/src/modal.ts`), and escaped server/user-derived
+  values (`r.msg`, `issueKey`, `issueUrl`, error messages) in the extension options
+  page's result rendering — both reflected-XSS surfaces surfaced during the icon sweep.
+
 ## [0.39.4] — 2026-06-21
 
 ### Added

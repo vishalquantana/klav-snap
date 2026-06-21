@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
 const GLOBS = ['site', 'prototype/public', 'packages/core/src', 'packages/sdk/src', 'packages/extension/src'];
-const EXCLUDE = /(icons\.generated\.(ts|js)|\.test\.|\.snap$)/; // generated maps + tests excluded
+// Excluded: generated icon maps, test files, snapshots, and binary assets
+// (fonts/images/media read as utf8 produce spurious matches against the emoji ranges).
+const EXCLUDE = /(icons\.generated\.(ts|js)|\.test\.|\.snap$|\.(woff2?|ttf|otf|eot|png|jpe?g|gif|webp|avif|ico|mp4|webm|pdf|zip)$)/i;
 // NOTE: deliberately excludes U+2190–21FF (basic arrows) — that range contains
 // legitimate keycap glyphs like ⇧ (U+21E7) used in keyboard shortcuts (⌘⇧K).
 // Emoji arrows (➡ U+27A1, ⬅⬆⬇ U+2B05–07) are covered by the ranges below.
@@ -25,7 +27,7 @@ for (const f of files) {
 if (hits.length) {
   console.error(`Found ${hits.length} emoji in user-facing source:`);
   hits.forEach((h) => console.error('  ' + h));
-  console.error('\nUse @klavity/core icon() / Klav.icon() instead. Add `emoji-ok` on the line to allow.');
+  console.error('\nUse @klavity/core icon(), site KlavityKit.icon(), or prototype kicon() instead. Add `emoji-ok` on the line to allow.');
   if (!reportOnly) process.exit(1);
 } else {
   console.log('No emoji in user-facing source.');
