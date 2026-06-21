@@ -46,11 +46,17 @@ await rawExec(`INSERT INTO sessions (id, email, created_at, expires_at) VALUES (
 // Feedback rows + their external links (one per provider).
 const GH_FID = `fb_gh_${ts}`
 const PLANE_FID = `fb_plane_${ts}`
+const JIRA_FID = `fb_jira_${ts}`
+const LINEAR_FID = `fb_linear_${ts}`
 await rawExec(`INSERT INTO feedback (id, project_id, observation, severity, status, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [GH_FID, PROJECT_ID, "GH-linked bug", "high", "open", NOW])
 await rawExec(`INSERT INTO feedback (id, project_id, observation, severity, status, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [PLANE_FID, PROJECT_ID, "Plane-linked bug", "high", "open", NOW])
+await rawExec(`INSERT INTO feedback (id, project_id, observation, severity, status, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [JIRA_FID, PROJECT_ID, "Jira-linked bug", "high", "open", NOW])
+await rawExec(`INSERT INTO feedback (id, project_id, observation, severity, status, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [LINEAR_FID, PROJECT_ID, "Linear-linked bug", "high", "open", NOW])
 
 const GH_SECRET = "gh-webhook-secret-xyz"
 const PLANE_SECRET = "plane-webhook-secret-abc"
+const JIRA_SECRET = "jira-webhook-token-123"
+const LINEAR_SECRET = "linear-webhook-secret-456"
 
 let serverPort: number
 let serverProc: ReturnType<typeof Bun.spawn>
@@ -66,10 +72,17 @@ async function api(method: string, path: string, body: any, sid: string) {
 
 // Compute GitHub-style X-Hub-Signature-256 = sha256=hex(HMAC(secret, body)).
 async function ghSign(secret: string, body: string): Promise<string> {
+  return "sha256=" + (await hmacHex(secret, body))
+}
+// Linear signs the raw body as bare hex HMAC-SHA256 (no "sha256=" prefix) in Linear-Signature.
+async function linSign(secret: string, body: string): Promise<string> {
+  return await hmacHex(secret, body)
+}
+async function hmacHex(secret: string, body: string): Promise<string> {
   const enc = new TextEncoder()
   const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(body)))
-  return "sha256=" + [...sig].map((b) => b.toString(16).padStart(2, "0")).join("")
+  return [...sig].map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
 beforeAll(async () => {
@@ -113,6 +126,22 @@ beforeAll(async () => {
   const planeConn = (await planeRes.json()).connector
   await rawExec(`INSERT INTO ticket_exports (id, feedback_id, project_id, connector_id, type, external_key, external_url, status, error, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
     [`exp_plane_${ts}`, PLANE_FID, PROJECT_ID, planeConn.id, "plane", "55", "https://plane/issues/x", "ok", null, NOW, ADMIN_EMAIL])
+
+  const jiraRes = await api("POST", `/api/projects/${PROJECT_ID}/connectors`, {
+    type: "jira", name: "Jira",
+    config: { host: "https://x.atlassian.net", email: "a@b.c", token: "t", project_key: "PROJ", inbound_secret: JIRA_SECRET }, autoCopy: false,
+  }, ADMIN_SID)
+  const jiraConn = (await jiraRes.json()).connector
+  await rawExec(`INSERT INTO ticket_exports (id, feedback_id, project_id, connector_id, type, external_key, external_url, status, error, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [`exp_jira_${ts}`, JIRA_FID, PROJECT_ID, jiraConn.id, "jira", "PROJ-42", "https://x.atlassian.net/browse/PROJ-42", "ok", null, NOW, ADMIN_EMAIL])
+
+  const linearRes = await api("POST", `/api/projects/${PROJECT_ID}/connectors`, {
+    type: "linear", name: "Linear",
+    config: { api_key: "lin_x", team_id: "TEAM", inbound_secret: LINEAR_SECRET }, autoCopy: false,
+  }, ADMIN_SID)
+  const linearConn = (await linearRes.json()).connector
+  await rawExec(`INSERT INTO ticket_exports (id, feedback_id, project_id, connector_id, type, external_key, external_url, status, error, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    [`exp_linear_${ts}`, LINEAR_FID, PROJECT_ID, linearConn.id, "linear", "ENG-42", "https://linear.app/x/issue/ENG-42", "ok", null, NOW, ADMIN_EMAIL])
 })
 
 afterAll(() => { serverProc?.kill(); rawClient.close() })
@@ -230,10 +259,105 @@ test("plane webhook: wrong shared-secret rejected (401), status unchanged", asyn
   expect(await feedbackStatus(PLANE_FID)).toBe("open")
 })
 
+// ── Jira inbound (shared-secret token: ?token= or X-Klavity-Token header) ──────
+
+test("jira webhook: valid token (query param) + done category flips feedback → done", async () => {
+  const payload = JSON.stringify({ webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "done" } } } } })
+  const r = await fetch(`${BASE}/api/connectors/jira/webhook?token=${encodeURIComponent(JIRA_SECRET)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: payload,
+  })
+  expect(r.status).toBe(200)
+  expect(await feedbackStatus(JIRA_FID)).toBe("done")
+})
+
+test("jira webhook: valid token (header) + indeterminate → in_progress", async () => {
+  const payload = JSON.stringify({ webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "indeterminate" } } } } })
+  const r = await fetch(`${BASE}/api/connectors/jira/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Klavity-Token": JIRA_SECRET }, body: payload,
+  })
+  expect(r.status).toBe(200)
+  expect(await feedbackStatus(JIRA_FID)).toBe("in_progress")
+})
+
+test("jira webhook: wrong token rejected (401), status unchanged", async () => {
+  await rawClient.execute({ sql: "UPDATE feedback SET status='open' WHERE id=?", args: [JIRA_FID] })
+  const payload = JSON.stringify({ webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "done" } } } } })
+  const r = await fetch(`${BASE}/api/connectors/jira/webhook?token=WRONG`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: payload,
+  })
+  expect(r.status).toBe(401)
+  expect(await feedbackStatus(JIRA_FID)).toBe("open")
+})
+
+test("jira webhook: missing token rejected (401)", async () => {
+  const payload = JSON.stringify({ webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "done" } } } } })
+  const r = await fetch(`${BASE}/api/connectors/jira/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: payload,
+  })
+  expect(r.status).toBe(401)
+})
+
+test("jira webhook: valid token but unknown issue key → 200 no-op", async () => {
+  const payload = JSON.stringify({ webhookEvent: "jira:issue_updated", issue: { key: "PROJ-99999", fields: { status: { statusCategory: { key: "done" } } } } })
+  const r = await fetch(`${BASE}/api/connectors/jira/webhook?token=${encodeURIComponent(JIRA_SECRET)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: payload,
+  })
+  expect(r.status).toBe(200) // don't leak which ids exist
+})
+
+// ── Linear inbound (HMAC-SHA256 Linear-Signature, bare hex) ───────────────────
+
+test("linear webhook: valid signature + completed state flips feedback → done", async () => {
+  const payload = JSON.stringify({ type: "Issue", action: "update", data: { identifier: "ENG-42", state: { type: "completed" } } })
+  const sig = await linSign(LINEAR_SECRET, payload)
+  const r = await fetch(`${BASE}/api/connectors/linear/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json", "Linear-Signature": sig }, body: payload,
+  })
+  expect(r.status).toBe(200)
+  expect(await feedbackStatus(LINEAR_FID)).toBe("done")
+})
+
+test("linear webhook: started state → in_progress", async () => {
+  const payload = JSON.stringify({ type: "Issue", action: "update", data: { identifier: "ENG-42", state: { type: "started" } } })
+  const sig = await linSign(LINEAR_SECRET, payload)
+  const r = await fetch(`${BASE}/api/connectors/linear/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json", "Linear-Signature": sig }, body: payload,
+  })
+  expect(r.status).toBe(200)
+  expect(await feedbackStatus(LINEAR_FID)).toBe("in_progress")
+})
+
+test("linear webhook: BAD signature rejected (401), status unchanged", async () => {
+  await rawClient.execute({ sql: "UPDATE feedback SET status='open' WHERE id=?", args: [LINEAR_FID] })
+  const payload = JSON.stringify({ type: "Issue", action: "update", data: { identifier: "ENG-42", state: { type: "completed" } } })
+  const r = await fetch(`${BASE}/api/connectors/linear/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json", "Linear-Signature": "0".repeat(64) }, body: payload,
+  })
+  expect(r.status).toBe(401)
+  expect(await feedbackStatus(LINEAR_FID)).toBe("open")
+})
+
+test("linear webhook: missing signature rejected (401)", async () => {
+  const payload = JSON.stringify({ type: "Issue", action: "update", data: { identifier: "ENG-42", state: { type: "completed" } } })
+  const r = await fetch(`${BASE}/api/connectors/linear/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: payload,
+  })
+  expect(r.status).toBe(401)
+})
+
+test("linear webhook: valid signature but unknown identifier → 200 no-op", async () => {
+  const payload = JSON.stringify({ type: "Issue", action: "update", data: { identifier: "ENG-99999", state: { type: "completed" } } })
+  const sig = await linSign(LINEAR_SECRET, payload)
+  const r = await fetch(`${BASE}/api/connectors/linear/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json", "Linear-Signature": sig }, body: payload,
+  })
+  expect(r.status).toBe(200) // accept-and-ignore unknown ids
+})
+
 // ── Unsupported / malformed ───────────────────────────────────────────────────
 
 test("unsupported connector type → 404", async () => {
-  const r = await fetch(`${BASE}/api/connectors/jira/webhook`, {
+  const r = await fetch(`${BASE}/api/connectors/webhook/webhook`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
   })
   expect(r.status).toBe(404)

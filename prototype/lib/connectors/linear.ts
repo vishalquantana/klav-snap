@@ -9,6 +9,10 @@ export const linearConnector: Connector = {
   fields: [
     { key: "api_key", label: "API Key", required: true, secret: true },
     { key: "team_id", label: "Team ID", required: true, placeholder: "TEAM-UUID" },
+    // Two-way sync (G4): the webhook signing secret Linear shows when you create the webhook.
+    // Used ONLY to verify inbound Linear-Signature (HMAC-SHA256); never sent outbound. Optional —
+    // leave blank to keep this connector outbound-only.
+    { key: "inbound_secret", label: "Inbound Webhook Secret (optional, for two-way sync)", secret: true },
   ],
 
   validate(cfg) {

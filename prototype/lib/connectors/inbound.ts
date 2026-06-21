@@ -9,8 +9,8 @@
 // Capability matrix (kept here so the server + docs stay in sync):
 //   github  ✅ inbound (issue webhook: opened/closed/reopened, HMAC-signed)
 //   plane   ✅ inbound (issue webhook: state group, shared-secret header)
-//   jira    🚧 stubbed — Jira webhooks need per-workflow status mapping (TODO)
-//   linear  🚧 stubbed — Linear webhooks need workflow-state mapping (TODO)
+//   jira    ✅ inbound (jira:issue_updated: statusCategory, shared-secret token — query/header)
+//   linear  ✅ inbound (Issue update: state.type, HMAC-signed Linear-Signature)
 //   webhook ➖ N/A — generic outbound sink, no canonical inbound contract
 
 export type KlavityStatus = "open" | "in_progress" | "done"
@@ -18,8 +18,8 @@ export type KlavityStatus = "open" | "in_progress" | "done"
 const INBOUND: Record<string, boolean> = {
   github: true,
   plane: true,
-  jira: false,
-  linear: false,
+  jira: true,
+  linear: true,
   webhook: false,
 }
 
@@ -41,7 +41,27 @@ export async function verifyGithubSignature(
   if (!header.startsWith(prefix)) return false
   const provided = header.slice(prefix.length).toLowerCase()
   if (!/^[0-9a-f]{64}$/.test(provided)) return false
+  return timingSafeEqualHex(await hmacSha256Hex(secret, rawBody), provided)
+}
 
+// ── Linear signature (Linear-Signature) ──────────────────────────────────────
+// header = hex(HMAC_SHA256(secret, rawBody)) — same algorithm as GitHub but with NO
+// "sha256=" prefix (Linear sends the bare hex digest). Constant-time compared so a
+// wrong signature can't be discovered byte-by-byte via response timing.
+export async function verifyLinearSignature(
+  secret: string,
+  rawBody: string,
+  header: string | null | undefined,
+): Promise<boolean> {
+  if (!secret) return false
+  if (!header || typeof header !== "string") return false
+  const provided = header.toLowerCase()
+  if (!/^[0-9a-f]{64}$/.test(provided)) return false
+  return timingSafeEqualHex(await hmacSha256Hex(secret, rawBody), provided)
+}
+
+// hex(HMAC_SHA256(secret, body)) — shared by the github + linear verifiers.
+async function hmacSha256Hex(secret: string, body: string): Promise<string> {
   const enc = new TextEncoder()
   const key = await crypto.subtle.importKey(
     "raw",
@@ -50,9 +70,8 @@ export async function verifyGithubSignature(
     false,
     ["sign"],
   )
-  const sigBytes = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(rawBody)))
-  const expected = [...sigBytes].map((b) => b.toString(16).padStart(2, "0")).join("")
-  return timingSafeEqualHex(expected, provided)
+  const sigBytes = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(body)))
+  return [...sigBytes].map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
 // Constant-time hex comparison (both args are validated 64-char lowercase hex).
@@ -75,6 +94,14 @@ export function extractExternalKey(type: string, payload: any): string | null {
     if (d.id != null) return String(d.id)
     return null
   }
+  if (type === "jira") {
+    const k = payload?.issue?.key
+    return k != null ? String(k) : null // jira.ts stores externalKey = issue.key (e.g. "PROJ-42")
+  }
+  if (type === "linear") {
+    const id = payload?.data?.identifier
+    return id != null ? String(id) : null // linear.ts stores externalKey = issue.identifier (e.g. "ENG-42")
+  }
   return null
 }
 
@@ -82,7 +109,9 @@ export function extractExternalKey(type: string, payload: any): string | null {
 export function mapExternalStatus(type: string, payload: any): KlavityStatus | null {
   if (type === "github") return mapGithub(payload)
   if (type === "plane") return mapPlane(payload)
-  return null // jira / linear stubbed; webhook N/A
+  if (type === "jira") return mapJira(payload)
+  if (type === "linear") return mapLinear(payload)
+  return null // webhook N/A
 }
 
 function mapGithub(payload: any): KlavityStatus | null {
@@ -101,5 +130,24 @@ function mapPlane(payload: any): KlavityStatus | null {
   if (group === "completed" || group === "cancelled") return "done"
   if (group === "started") return "in_progress"
   if (group === "backlog" || group === "unstarted") return "open"
+  return null
+}
+
+function mapJira(payload: any): KlavityStatus | null {
+  // Map the STABLE status *category* (new/indeterminate/done) rather than per-workflow
+  // status names, so this works across any Jira project's custom workflow.
+  const key = String(payload?.issue?.fields?.status?.statusCategory?.key ?? "").toLowerCase()
+  if (key === "done") return "done"
+  if (key === "indeterminate") return "in_progress"
+  if (key === "new") return "open"
+  return null
+}
+
+function mapLinear(payload: any): KlavityStatus | null {
+  // Linear workflow-state "type": backlog | unstarted | started | completed | canceled | triage.
+  const t = String(payload?.data?.state?.type ?? "").toLowerCase()
+  if (t === "completed" || t === "canceled") return "done"
+  if (t === "started") return "in_progress"
+  if (t === "backlog" || t === "unstarted" || t === "triage") return "open"
   return null
 }

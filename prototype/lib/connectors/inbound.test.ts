@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test"
 import {
   verifyGithubSignature,
+  verifyLinearSignature,
   mapExternalStatus,
   extractExternalKey,
   inboundSupported,
@@ -86,10 +87,98 @@ test("mapExternalStatus plane ignores unknown group", () => {
   expect(mapExternalStatus("plane", { event: "issue", data: {} })).toBeNull()
 })
 
-test("mapExternalStatus returns null for stubbed connectors", () => {
-  expect(mapExternalStatus("jira", { foo: 1 })).toBeNull()
-  expect(mapExternalStatus("linear", { foo: 1 })).toBeNull()
+test("mapExternalStatus returns null for unknown / N/A connectors", () => {
   expect(mapExternalStatus("webhook", { foo: 1 })).toBeNull()
+  expect(mapExternalStatus("nope", { foo: 1 })).toBeNull()
+})
+
+// ── Jira status mapping (jira:issue_updated, statusCategory) ───────────────────
+// Jira Cloud sends statusCategory.key ∈ new | indeterminate | done. We map the
+// stable category (NOT the per-workflow status name) → Klavity.
+
+test("mapExternalStatus jira done category → done", () => {
+  expect(mapExternalStatus("jira", { webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "done" } } } } })).toBe("done")
+})
+
+test("mapExternalStatus jira indeterminate category → in_progress", () => {
+  expect(mapExternalStatus("jira", { webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "indeterminate" } } } } })).toBe("in_progress")
+})
+
+test("mapExternalStatus jira new category → open", () => {
+  expect(mapExternalStatus("jira", { webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "new" } } } } })).toBe("open")
+})
+
+test("mapExternalStatus jira ignores unknown / missing category", () => {
+  expect(mapExternalStatus("jira", { issue: { fields: { status: { statusCategory: { key: "wat" } } } } })).toBeNull()
+  expect(mapExternalStatus("jira", { issue: { fields: {} } })).toBeNull()
+  expect(mapExternalStatus("jira", {})).toBeNull()
+})
+
+// ── Linear status mapping (Issue update, state.type) ──────────────────────────
+// Linear state.type ∈ backlog | unstarted | started | completed | canceled | triage.
+
+test("mapExternalStatus linear completed → done", () => {
+  expect(mapExternalStatus("linear", { type: "Issue", action: "update", data: { identifier: "ENG-42", state: { type: "completed" } } })).toBe("done")
+})
+
+test("mapExternalStatus linear canceled → done", () => {
+  expect(mapExternalStatus("linear", { type: "Issue", action: "update", data: { identifier: "ENG-42", state: { type: "canceled" } } })).toBe("done")
+})
+
+test("mapExternalStatus linear started → in_progress", () => {
+  expect(mapExternalStatus("linear", { type: "Issue", action: "update", data: { identifier: "ENG-42", state: { type: "started" } } })).toBe("in_progress")
+})
+
+test("mapExternalStatus linear backlog/unstarted/triage → open", () => {
+  expect(mapExternalStatus("linear", { data: { state: { type: "backlog" } } })).toBe("open")
+  expect(mapExternalStatus("linear", { data: { state: { type: "unstarted" } } })).toBe("open")
+  expect(mapExternalStatus("linear", { data: { state: { type: "triage" } } })).toBe("open")
+})
+
+test("mapExternalStatus linear ignores unknown / missing state", () => {
+  expect(mapExternalStatus("linear", { data: { state: { type: "wat" } } })).toBeNull()
+  expect(mapExternalStatus("linear", { data: {} })).toBeNull()
+  expect(mapExternalStatus("linear", {})).toBeNull()
+})
+
+// ── Linear HMAC signature verification (Linear-Signature) ─────────────────────
+// Linear signs the raw body as hex(HMAC_SHA256(secret, body)) — NO "sha256=" prefix —
+// in the Linear-Signature header. Constant-time compare; reject wrong/tampered/absent.
+
+const LIN_SECRET = "lin_wh_secret"
+const LIN_BODY = JSON.stringify({ type: "Issue", action: "update", data: { identifier: "ENG-7" } })
+
+// Compute the reference signature the same way Linear does (so the test is self-checking).
+async function linSign(secret: string, body: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, enc.encode(body)))
+  return [...sig].map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
+test("verifyLinearSignature accepts a correct signature", async () => {
+  const sig = await linSign(LIN_SECRET, LIN_BODY)
+  expect(await verifyLinearSignature(LIN_SECRET, LIN_BODY, sig)).toBe(true)
+})
+
+test("verifyLinearSignature rejects a wrong signature", async () => {
+  expect(await verifyLinearSignature(LIN_SECRET, LIN_BODY, "0".repeat(64))).toBe(false)
+})
+
+test("verifyLinearSignature rejects a tampered body", async () => {
+  const sig = await linSign(LIN_SECRET, LIN_BODY)
+  expect(await verifyLinearSignature(LIN_SECRET, LIN_BODY + "x", sig)).toBe(false)
+})
+
+test("verifyLinearSignature rejects a missing / malformed header", async () => {
+  expect(await verifyLinearSignature(LIN_SECRET, LIN_BODY, "")).toBe(false)
+  expect(await verifyLinearSignature(LIN_SECRET, LIN_BODY, null)).toBe(false)
+  expect(await verifyLinearSignature(LIN_SECRET, LIN_BODY, "sha256=abc")).toBe(false)
+})
+
+test("verifyLinearSignature rejects when no secret is configured", async () => {
+  const sig = await linSign(LIN_SECRET, LIN_BODY)
+  expect(await verifyLinearSignature("", LIN_BODY, sig)).toBe(false)
 })
 
 // ── External key extraction (must match the key we stored on outbound copy) ────
@@ -111,13 +200,27 @@ test("extractExternalKey plane prefers sequence_id then id", () => {
   expect(extractExternalKey("plane", { data: {} })).toBeNull()
 })
 
+// Jira: outbound stored externalKey = issue.key e.g. "PROJ-42" (see jira.ts).
+test("extractExternalKey jira reads issue.key to match stored key", () => {
+  expect(extractExternalKey("jira", { issue: { key: "PROJ-42" } })).toBe("PROJ-42")
+  expect(extractExternalKey("jira", { issue: {} })).toBeNull()
+  expect(extractExternalKey("jira", {})).toBeNull()
+})
+
+// Linear: outbound stored externalKey = issue.identifier e.g. "ENG-42" (see linear.ts).
+test("extractExternalKey linear reads data.identifier to match stored key", () => {
+  expect(extractExternalKey("linear", { data: { identifier: "ENG-42" } })).toBe("ENG-42")
+  expect(extractExternalKey("linear", { data: {} })).toBeNull()
+  expect(extractExternalKey("linear", {})).toBeNull()
+})
+
 // ── Capability matrix ─────────────────────────────────────────────────────────
 
-test("inboundSupported reports github + plane only", () => {
+test("inboundSupported reports github + plane + jira + linear", () => {
   expect(inboundSupported("github")).toBe(true)
   expect(inboundSupported("plane")).toBe(true)
-  expect(inboundSupported("jira")).toBe(false)
-  expect(inboundSupported("linear")).toBe(false)
+  expect(inboundSupported("jira")).toBe(true)
+  expect(inboundSupported("linear")).toBe(true)
   expect(inboundSupported("webhook")).toBe(false)
   expect(inboundSupported("nope")).toBe(false)
 })

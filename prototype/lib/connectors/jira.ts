@@ -24,6 +24,10 @@ export const jiraConnector: Connector = {
     { key: "token", label: "API Token", required: true, secret: true },
     { key: "project_key", label: "Project Key", required: true, placeholder: "PROJ" },
     { key: "issue_type", label: "Issue Type", placeholder: "Task" },
+    // Two-way sync (G4): shared secret you embed in the Jira webhook URL (?token=…) or send
+    // as the X-Klavity-Token header. Jira Cloud webhooks aren't HMAC-signed by default, so this
+    // token is the auth. Verified on inbound only; never sent outbound. Optional — blank = outbound-only.
+    { key: "inbound_secret", label: "Inbound Webhook Secret (optional, for two-way sync)", secret: true },
   ],
 
   validate(cfg) {

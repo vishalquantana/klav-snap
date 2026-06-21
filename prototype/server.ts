@@ -2,7 +2,7 @@
 import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, setFeedbackContactEmail } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
-import { inboundSupported, verifyGithubSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
+import { inboundSupported, verifyGithubSignature, verifyLinearSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp, sendLeadAlert } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
@@ -978,7 +978,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     // POST /api/connectors/:type/webhook — UNAUTHENTICATED on purpose (the external provider
     // calls it). Trust is established per-request by verifying the provider's webhook signature
     // against the secret stored on the matching connector. Supported: github (HMAC X-Hub-Signature-256),
-    // plane (shared-secret X-Plane-Signature). jira/linear are stubbed (return 404 via inboundSupported).
+    // plane (shared-secret X-Plane-Signature), linear (HMAC Linear-Signature), jira (shared-secret
+    // token via ?token= or X-Klavity-Token). Unsupported types return 404 via inboundSupported.
     const inboundMatch = req.method === "POST" && path.match(/^\/api\/connectors\/([a-z]+)\/webhook$/)
     if (inboundMatch) {
       const type = inboundMatch[1]
@@ -1022,6 +1023,14 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       } else if (type === "plane") {
         // Plane sends the configured secret back in a header; constant-time compare.
         const sent = req.headers.get("x-plane-signature") || ""
+        verified = timingSafeStrEqual(sent, inboundSecret)
+      } else if (type === "linear") {
+        // Linear signs the raw body: hex(HMAC_SHA256(secret, body)) in Linear-Signature.
+        verified = await verifyLinearSignature(inboundSecret, raw, req.headers.get("linear-signature"))
+      } else if (type === "jira") {
+        // Jira Cloud webhooks aren't HMAC-signed by default. Auth via a shared secret token
+        // embedded in the webhook URL (?token=…) OR sent as X-Klavity-Token. Constant-time compare.
+        const sent = url.searchParams.get("token") || req.headers.get("x-klavity-token") || ""
         verified = timingSafeStrEqual(sent, inboundSecret)
       }
       if (!verified) return json({ error: "unauthorized" }, 401)
