@@ -106,12 +106,26 @@ test("anonymous first-party submit persists with null actor", async () => {
   expect(row.rows[0].actor_email).toBeNull()
 })
 
-// ── Test 2: anonymous from a foreign origin is rejected ──────────────────────
-test("anonymous from a foreign origin is rejected", async () => {
+// ── Test 2: cross-origin anonymous is GATED by the project's report gate ──────
+// p1's gate defaults to 'email', so a foreign-origin report WITHOUT an email is rejected (400),
+// but WITH a valid email it's accepted and persisted (end-user files without a Klavity account).
+test("cross-origin anonymous without the required email is rejected (400)", async () => {
   const fd = new FormData()
   fd.set("description", "x"); fd.set("project_id", "p1")
   const r = await fetch(`${BASE}/api/feedback`, { method: "POST", body: fd, headers: { origin: "https://evil.example" } })
-  expect(r.status).toBe(403)
+  expect(r.status).toBe(400)
+})
+
+test("cross-origin anonymous WITH a valid email is accepted + stores the contact", async () => {
+  const fd = new FormData()
+  fd.set("description", "foreign bug"); fd.set("project_id", "p1"); fd.set("reporter_email", "reporter@test.local")
+  const r = await fetch(`${BASE}/api/feedback`, { method: "POST", body: fd, headers: { origin: "https://customer.example" } })
+  expect(r.status).toBe(200)
+  const j = await r.json(); expect(j.saved).toBe(true); expect(j.id).toBeTruthy()
+  const row = await rawClient.execute({ sql: "SELECT project_id, actor_email, contact_email FROM feedback WHERE id=?", args: [j.id] })
+  expect(row.rows[0].project_id).toBe("p1")
+  expect(row.rows[0].actor_email).toBeNull()
+  expect(row.rows[0].contact_email).toBe("reporter@test.local")
 })
 
 // ── Test 3: over the per-IP cap → 429 ────────────────────────────────────────

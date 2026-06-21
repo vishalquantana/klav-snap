@@ -435,6 +435,9 @@ export async function applySchema(c: Client) {
   await c.execute("ALTER TABLE projects ADD COLUMN widget_mode TEXT NOT NULL DEFAULT 'support'").catch((e) => console.warn("projects.widget_mode ALTER skipped:", e?.message || e))
   await c.execute("ALTER TABLE projects ADD COLUMN widget_cta_url TEXT").catch((e) => console.warn("projects.widget_cta_url ALTER skipped:", e?.message || e))
   await c.execute("ALTER TABLE projects ADD COLUMN widget_notify_email TEXT").catch((e) => console.warn("projects.widget_notify_email ALTER skipped:", e?.message || e))
+  // report-identity gate: how an end-user is identified before a widget ticket is accepted.
+  // 'email' (default) = logged-in OR a valid email; 'anonymous' = open; 'login' = Klavity token required.
+  await c.execute("ALTER TABLE projects ADD COLUMN widget_report_gate TEXT NOT NULL DEFAULT 'email'").catch((e) => console.warn("projects.widget_report_gate ALTER skipped:", e?.message || e))
   await c.execute("ALTER TABLE feedback ADD COLUMN contact_email TEXT").catch((e) => console.warn("feedback.contact_email ALTER skipped:", e?.message || e))
 }
 
@@ -665,6 +668,7 @@ export type ProjectRow = {
   reviewMode: string; reviewBudgetDaily: number | null; observabilityMode: string
   createdAt: number; updatedAt: number
   widgetMode: string; widgetCtaUrl: string | null; widgetNotifyEmail: string | null
+  widgetReportGate: string
 }
 function rowToProject(x: any): ProjectRow {
   return {
@@ -676,6 +680,7 @@ function rowToProject(x: any): ProjectRow {
     widgetMode: String(x.widget_mode || "support"),
     widgetCtaUrl: x.widget_cta_url != null ? String(x.widget_cta_url) : null,
     widgetNotifyEmail: x.widget_notify_email != null ? String(x.widget_notify_email) : null,
+    widgetReportGate: ["anonymous", "email", "login"].includes(String(x.widget_report_gate)) ? String(x.widget_report_gate) : "email",
   }
 }
 
@@ -788,11 +793,12 @@ export async function isAccountPro(accountId: string): Promise<boolean> {
 // ── widget-config helpers (leadgen integration task-1) ──
 const DEFAULT_WIDGET_CTA = "https://klavity.quantana.top/onboarding"
 
-export async function getWidgetConfig(projectId: string): Promise<{ mode: string; ctaUrl: string } | null> {
+export async function getWidgetConfig(projectId: string): Promise<{ mode: string; ctaUrl: string; reportGate: string } | null> {
   const p = await projectById(projectId)
   if (!p) return null
   const mode = ["support", "leadgen", "off"].includes(p.widgetMode) ? p.widgetMode : "support"
-  return { mode, ctaUrl: p.widgetCtaUrl || DEFAULT_WIDGET_CTA }
+  const reportGate = ["anonymous", "email", "login"].includes(p.widgetReportGate) ? p.widgetReportGate : "email"
+  return { mode, ctaUrl: p.widgetCtaUrl || DEFAULT_WIDGET_CTA, reportGate }
 }
 
 export async function getWidgetNotifyEmail(projectId: string): Promise<string | null> {
@@ -800,11 +806,12 @@ export async function getWidgetNotifyEmail(projectId: string): Promise<string | 
   return p?.widgetNotifyEmail || null
 }
 
-export async function setWidgetConfig(projectId: string, cfg: { mode?: string; ctaUrl?: string | null; notifyEmail?: string | null }): Promise<void> {
+export async function setWidgetConfig(projectId: string, cfg: { mode?: string; ctaUrl?: string | null; notifyEmail?: string | null; reportGate?: string }): Promise<void> {
   const sets: string[] = [], args: any[] = []
   if (cfg.mode !== undefined) { sets.push("widget_mode=?"); args.push(["support", "leadgen", "off"].includes(cfg.mode) ? cfg.mode : "support") }
   if (cfg.ctaUrl !== undefined) { sets.push("widget_cta_url=?"); args.push(cfg.ctaUrl || null) }
   if (cfg.notifyEmail !== undefined) { sets.push("widget_notify_email=?"); args.push(cfg.notifyEmail || null) }
+  if (cfg.reportGate !== undefined) { sets.push("widget_report_gate=?"); args.push(["anonymous", "email", "login"].includes(cfg.reportGate) ? cfg.reportGate : "email") }
   if (!sets.length) return
   sets.push("updated_at=?"); args.push(Date.now()); args.push(projectId)
   await db!.execute({ sql: `UPDATE projects SET ${sets.join(", ")} WHERE id=?`, args })

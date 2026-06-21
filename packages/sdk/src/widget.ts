@@ -108,15 +108,15 @@ async function mount() {
   // ONE unified fetch: the project config endpoint returns BOTH the appearance theme (modalConfig,
   // → buildModal 3rd arg) AND the lead-gen widget settings (widget: {mode, ctaUrl}, → success copy).
   let modalConfig: any = {}
-  let widget: { mode: string; ctaUrl: string } = { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding" }
+  let widget: { mode: string; ctaUrl: string; reportGate: string } = { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding", reportGate: "email" }
   try {
     const r = await fetch(cfg.backendUrl + "/api/projects/" + encodeURIComponent(cfg.projectId) + "/config")
     if (r.ok) {
       const j = await r.json()
       modalConfig = j.modalConfig || {}
-      if (j.widget) widget = { mode: j.widget.mode || "support", ctaUrl: j.widget.ctaUrl || widget.ctaUrl }
+      if (j.widget) widget = { mode: j.widget.mode || "support", ctaUrl: j.widget.ctaUrl || widget.ctaUrl, reportGate: j.widget.reportGate || "email" }
     }
-  } catch { /* default theme + support mode */ }
+  } catch { /* default theme + support mode + email gate */ }
 
   // ── Heartbeat (TASK #5): tell the backend this widget is live on this page so the dashboard can show
   // "Widget: active — last seen … on <host>". Fire-and-forget, non-blocking, and never throws — a failed
@@ -141,19 +141,28 @@ async function mount() {
   reportBtn.innerHTML = `${icon('bug')} Report a bug`
   reportBtn.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#E94F37;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(233,79,55,.35)"
   function openReport(type: "bug" | "feature" = "bug") {
-    if (!firstParty && !getToken()) { openConnect(); return }
+    const identified = firstParty || !!getToken()  // already known to Klavity (own page session, or signed-in widget)
+    // Only the "login" gate forces the connect flow on third-party sites. "email"/"anonymous" let an
+    // end-user file WITHOUT a Klavity account; "email" requires a typed email when not already identified.
+    if (widget.reportGate === "login" && !identified) { openConnect(); return }
+    const requireEmail = widget.reportGate === "email" && !identified
+    // Don't beg for an email on the success screen when it's redundant: we already collected it via the
+    // gate (requireEmail), the user is a signed-in widget user (token), or it's our own non-leadgen page
+    // (e.g. the logged-in dashboard). Leadgen pages still capture the lead — that's the whole funnel.
+    const suppressSuccessEmail = requireEmail || !!getToken() || (firstParty && widget.mode !== "leadgen")
     buildModal(type, {
       // Auto-grab a Full Page shot the moment the modal opens — parity with the extension
       // (content.ts autoCaptureOnOpen). Captures the current page state without an extra click.
       autoCaptureOnOpen: true,
       onCaptureFull: async () => toPng(document.body, { skipFonts: true, cacheBust: true, pixelRatio: 1, filter: (n) => (n as HTMLElement).id !== HOST_ID }),
       onRegionCapture: async (rect) => cropDataUrl(await toPng(document.body, { skipFonts: true, cacheBust: true, pixelRatio: 1, filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
+      requireEmail,
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots,
-          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [] },
+          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [], reporterEmail: p.reporterEmail },
       ),
-      success: { copy: successCopy(widget.mode, widget.ctaUrl), onLead: postLead },
+      success: { copy: successCopy(widget.mode, widget.ctaUrl, suppressSuccessEmail), onLead: postLead },
     }, modalConfig)
   }
   reportBtn.onclick = () => openReport("bug")
@@ -359,7 +368,7 @@ async function mount() {
 
 export async function submitFeedback(
   cfg: { backendUrl: string; projectId: string; firstParty: boolean; token: string },
-  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[] },
+  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; reporterEmail?: string },
 ): Promise<{ issueKey: string; issueUrl: string }> {
   const fd = buildFeedbackForm({
     description: `[${payload.type}] ${payload.description}`,
@@ -369,9 +378,14 @@ export async function submitFeedback(
     context: payload.context,
     replayEvents: payload.replayEvents,
   })
+  // Reporter identity for the "email" gate: an end-user with no Klavity account types an email so the
+  // server accepts the anonymous cross-origin report and can notify them on fix.
+  if (payload.reporterEmail) fd.set("reporter_email", payload.reporterEmail)
   const init: RequestInit = { method: "POST", body: fd }
   if (cfg.firstParty) init.credentials = "include"
-  else init.headers = { authorization: "Bearer " + cfg.token }
+  else if (cfg.token) init.headers = { authorization: "Bearer " + cfg.token }
+  // else: anonymous cross-origin report (email/anonymous gate) — no auth header; the server applies
+  // the project's report gate (valid project + email when required + rate limits) and CORS.
   const r = await fetch(cfg.backendUrl + "/api/feedback", init)
   if (!r.ok) throw new Error("submit failed: " + r.status)
   const j = await r.json()

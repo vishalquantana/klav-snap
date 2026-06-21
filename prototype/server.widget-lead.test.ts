@@ -118,7 +118,9 @@ test("rejects feedback from another project", async () => {
   expect(r.status).toBe(404)
 })
 
-test("foreign origin → 403", async () => {
-  const r = await fetch(`${BASE}/api/widget/lead`, { method:"POST", headers:{ "content-type":"application/json", origin:"https://evil.example" }, body: JSON.stringify({ project_id:"p1", feedback_id:"fb1", email:"a@b.com" }) })
-  expect(r.status).toBe(403)
+test("cross-origin lead is accepted (project-scoped, not first-party only)", async () => {
+  // The widget runs on the customer's own site, so a lead must attach from any origin. Abuse is
+  // bounded by the per-IP rate limit and the (project_id, feedback_id) pair — only a real row updates.
+  const r = await fetch(`${BASE}/api/widget/lead`, { method:"POST", headers:{ "content-type":"application/json", origin:"https://customer.example" }, body: JSON.stringify({ project_id:"p1", feedback_id:"fb1", email:"a@b.com" }) })
+  expect(r.status).toBe(200)
 })

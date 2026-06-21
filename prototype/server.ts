@@ -833,9 +833,11 @@ const TRANSCRIPT_PER_PROJECT = 60      // per project / hour
 const AUTOCOPY_WINDOW = 60 * 60 * 1000
 const AUTOCOPY_PER_PROJECT = 60
 
-// Anonymous first-party feedback rate limit (per IP, per hour).
+// Anonymous feedback rate limits (per hour). Per-IP guards a single abuser; per-project caps the
+// total anonymous intake for one project so a leaked project_id can't be used to flood a tenant.
 const FEEDBACK_ANON_WINDOW = 60 * 60 * 1000
 const FEEDBACK_ANON_PER_IP = 20
+const FEEDBACK_ANON_PER_PROJECT = 200
 
 // Legacy AI demo endpoints (/api/persona/brief, /api/extract, /api/react) — each makes an LLM call but
 // had no per-user throttle or input cap (only the daily $ cap). Bound them per user/hour + size.
@@ -1032,10 +1034,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
     // ── widget lead capture: attach email to a filed report + fire-and-forget alert ──
     if (req.method === "POST" && path === "/api/widget/lead") {
-      // First-party origin check (widget always sends an Origin header)
-      const reqOrigin = req.headers.get("origin") || ""
-      const baseOrigin = (() => { try { return new URL(BASE).origin } catch { return "" } })()
-      if (reqOrigin !== baseOrigin) return wjson({ error: "forbidden" }, 403)
+      // Project-scoped, NOT first-party only: the widget runs cross-origin on the customer's site, so
+      // a lead must be attachable from any origin. Abuse is bounded by the per-IP rate limit and by the
+      // (project_id, feedback_id) pair — the email only lands if that exact row exists for that project.
       if (!rlAllow(`lead:ip:${clientIp(req, server)}`, 20, 60 * 60 * 1000)) return wjson({ error: "rate limited" }, 429)
       const body: any = await req.json().catch(() => ({}))
       const projectId = String(body.project_id || ""), feedbackId = String(body.feedback_id || ""), email = String(body.email || "").trim()
@@ -1276,28 +1277,46 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     // ── feedback intake (extension backend mode) ──
     if (req.method === "POST" && path === "/api/feedback") {
       try {
-        // Anonymous browser path guard: browser requests always carry an Origin header. When
-        // a request is anonymous (no bearer/session) AND has an Origin header, it must come
-        // from our own first-party origin (same base URL) and is rate-limited per IP.
-        // Requests with no Origin header are non-browser API calls (extension direct mode,
-        // curl, etc.) — leave those on the existing unauthenticated path unchanged.
-        // reqOrigin and baseOrigin are computed ONCE here so both the guard AND the anonymous
-        // persist branch below can use them without a second URL parse.
+        // Anonymous browser path: browser requests always carry an Origin header. The embeddable
+        // report widget runs cross-origin on customers' own sites, so an end-user must be able to
+        // file a ticket WITHOUT a Klavity account. We no longer block foreign origins outright —
+        // instead each project declares a report gate (anonymous | email | login) that decides what
+        // identity an anonymous report must carry. Requests with NO Origin header are non-browser
+        // API calls (extension direct mode, curl) and stay on the existing unauthenticated path.
+        // reqOrigin/baseOrigin are computed ONCE so the gate AND the persist branch below can reuse them.
         const reqOrigin = req.headers.get("origin") || ""
         const baseOrigin = (() => { try { return new URL(BASE).origin } catch { return "" } })()
         const anonActor = !(await bearerEmail(req)) && !(await sessionEmail(req))
-        if (anonActor && reqOrigin) {
-          // First-party only: Origin must equal our own base origin.
-          if (reqOrigin !== baseOrigin) return wjson({ error: "forbidden" }, 403)
-          const ip = clientIp(req, server)
-          if (!rlAllow(`fbanon:ip:${ip}`, FEEDBACK_ANON_PER_IP, FEEDBACK_ANON_WINDOW)) return wjson({ error: "rate limited" }, 429)
-        }
 
         const form = await req.formData()
         const description = String(form.get("description") || "").trim()
         const pageUrl = String(form.get("page_url") || "")
+        const reporterEmail = String(form.get("reporter_email") || "").trim()
+        const validReporterEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reporterEmail) && reporterEmail.length <= 200
         if (!description) return wjson({ error: "Description is required." }, 400)
         if (description.length > 5000) return wjson({ error: "Description too long." }, 400)
+
+        // Anonymous browser report → enforce the project's report gate (project-scoped, rate-limited).
+        // anonWidgetAllowed unlocks the cross-origin anonymous persist branch further below.
+        let anonWidgetAllowed = false
+        if (anonActor && reqOrigin) {
+          const ip = clientIp(req, server)
+          if (!rlAllow(`fbanon:ip:${ip}`, FEEDBACK_ANON_PER_IP, FEEDBACK_ANON_WINDOW)) return wjson({ error: "rate limited" }, 429)
+          // Cross-origin widget report (the customer's own site) → enforce the project's report gate so
+          // an end-user can file WITHOUT a Klavity account. First-party anonymous (our own pages — e.g.
+          // the leadgen marketing widget) keeps the existing low-friction path; identity is captured
+          // after submit. A logged-in dashboard user isn't anonymous, so the gate never applies to them.
+          if (reqOrigin !== baseOrigin) {
+            const reqProjectId = String(form.get("project_id") || "")
+            const gateProj = reqProjectId ? await projectById(reqProjectId) : null
+            if (!gateProj) return wjson({ error: "Unknown project." }, 404)
+            if (!rlAllow(`fbanon:proj:${reqProjectId}`, FEEDBACK_ANON_PER_PROJECT, FEEDBACK_ANON_WINDOW)) return wjson({ error: "rate limited" }, 429)
+            const gate = (await getWidgetConfig(reqProjectId))?.reportGate || "email"
+            if (gate === "login") return wjson({ error: "Sign in to Klavity to report on this project." }, 401)
+            if (gate === "email" && !validReporterEmail) return wjson({ error: "A valid email is required to submit." }, 400)
+            anonWidgetAllowed = true
+          }
+        }
 
         // G2/G3/G5: captured dev-tools context (console + network + env + identity/metadata). Optional
         // JSON form field; sanitized + capped so a malformed/oversized blob never poisons the row.
@@ -1381,10 +1400,11 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             // anonymous requests must NOT reach projectById (deferred surface stays closed).
             const firstParty = reqOrigin !== "" && reqOrigin === baseOrigin
             let resolved = actor ? await resolveProject(actor, reqProject) : null
-            // First-party anonymous widget intake: no actor, but a known project_id from our own site.
-            // Gate on firstParty so no-Origin (curl/script) and foreign-Origin anonymous calls can
-            // never persist a feedback row via this path.
-            if (!resolved && !actor && reqProject && firstParty) resolved = await projectById(reqProject)
+            // Anonymous widget intake: no actor, but a known project_id. Allowed when the request is
+            // either first-party (our own site) OR a cross-origin browser report that already passed
+            // the project's report gate above (anonWidgetAllowed). no-Origin (curl/script) anonymous
+            // calls still never reach projectById — the deferred surface stays closed.
+            if (!resolved && !actor && reqProject && (firstParty || anonWidgetAllowed)) resolved = await projectById(reqProject)
             if (resolved) {
               const projectId = resolved.id
               // Path-only URL: strip query + fragment (privacy by structure).
@@ -1444,6 +1464,12 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                   issueKey: suggestedBug ? issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds) : null,
                   clientContext,
                 })
+              }
+              // Reporter email (from the widget's "log in or email" gate): persist as the contact so
+              // it shows in the dashboard and drives notify-on-fix. Fires on new + deduped rows.
+              if (feedbackId && validReporterEmail) {
+                try { await setFeedbackContactEmail(feedbackId, projectId, reporterEmail) }
+                catch (e: any) { console.warn("reporter email save (non-fatal):", e?.message || e) }
               }
               // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
               if (suggestedBug && feedbackId && db) {
@@ -2234,9 +2260,11 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     {
       const m = path.match(/^\/api\/projects\/([^/]+)\/config$/)
       if (req.method === "GET" && m && new URL(req.url).searchParams.get("admin") !== "1") {
+        // CORS-open: the widget fetches this cross-origin from the customer's own site to theme
+        // itself and learn its report gate BEFORE any auth. Non-sensitive, project-scoped.
         const proj = await projectById(m[1])
-        if (!proj) return json({ error: "Not found." }, 404)
-        return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(m[1])), widget: (await getWidgetConfig(m[1])) || { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding" } })
+        if (!proj) return json({ error: "Not found." }, 404, WIDGET_CORS)
+        return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(m[1])), widget: (await getWidgetConfig(m[1])) || { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding", reportGate: "email" } }, 200, WIDGET_CORS)
       }
     }
 
@@ -3017,12 +3045,13 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             if (!v.ok) return json({ error: v.error }, 400)
             await setProjectModalConfig(pid, v.config as any)
             // Persist widget mode/cta/notify if any were provided (partial update).
-            const hasWidget = body.mode !== undefined || body.cta_url !== undefined || body.notify_email !== undefined
+            const hasWidget = body.mode !== undefined || body.cta_url !== undefined || body.notify_email !== undefined || body.report_gate !== undefined
             if (hasWidget) {
-              const wCfg: { mode?: string; ctaUrl?: string | null; notifyEmail?: string | null } = {}
+              const wCfg: { mode?: string; ctaUrl?: string | null; notifyEmail?: string | null; reportGate?: string } = {}
               if (body.mode !== undefined) wCfg.mode = body.mode
               if (body.cta_url !== undefined) wCfg.ctaUrl = body.cta_url
               if (body.notify_email !== undefined) wCfg.notifyEmail = body.notify_email
+              if (body.report_gate !== undefined) wCfg.reportGate = body.report_gate
               await setWidgetConfig(pid, wCfg)
             }
             return json({ ok: true, modalConfig: v.config, pro })

@@ -801,6 +801,14 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           </select>
         </label>
         <p style="font-size:12px;opacity:.7;margin-top:-4px">Lead-gen mode shows a "get it for your product" screen after submit.</p>
+        <label>Who can report
+          <select id="kl-report-gate">
+            <option value="email">Require email (default)</option>
+            <option value="anonymous">Anonymous — no email needed</option>
+            <option value="login">Require Klavity login</option>
+          </select>
+        </label>
+        <p style="font-size:12px;opacity:.7;margin-top:-4px">How an end-user is identified before a report is accepted. <b>Require email</b> = no Klavity account needed, they just type an email (and become a lead). <b>Anonymous</b> = max conversion. <b>Require login</b> = locked down.</p>
         <label>CTA URL
           <input type="url" id="kl-cta" placeholder="https://...">
         </label>
@@ -1004,8 +1012,12 @@ function cspFixPrompt(pid) {
     "  - script-src   " + origin + "   (so widget.js is allowed to execute)",
     "  - connect-src  " + origin + "   (so it can POST reports back to /api/feedback)",
     "",
+    "For full functionality (screenshots + image handling), also allow:",
+    "  - img-src      data: blob:   (the captured screenshot previews)",
+    "  - worker-src   blob:         (in-browser image processing; falls back to script-src)",
+    "",
     "If one of those directives doesn't exist yet, the browser falls back to default-src;",
-    "in that case add " + origin + " to default-src or create the specific directive above.",
+    "in that case add the value to default-src or create the specific directive above.",
     "",
     "The CSP header is usually set in one of these places — find whichever applies to my site:",
     "  - A helmet() / CSP config in an Express, Node, or Next.js server",
@@ -2283,7 +2295,7 @@ async function loadAppearance() {
     if (ecAI) ecAI.onclick = () => { const pid = curProjId(); if (!pid) return; klavCopy(cspFixPrompt(pid), ecAI, "Copied for AI ✓") }
     $("kl-save-appearance").addEventListener("click", async function () {
       const isPro = !!($("kl-pro-note") && $("kl-pro-note").dataset.pro === "1")
-      const body = { theme: sel.value, thankYou: $("kl-thankyou").value, mode: $("kl-mode").value, cta_url: $("kl-cta").value.trim() }
+      const body = { theme: sel.value, thankYou: $("kl-thankyou").value, mode: $("kl-mode").value, cta_url: $("kl-cta").value.trim(), report_gate: $("kl-report-gate") ? $("kl-report-gate").value : "email" }
       if (sel.value === "custom" && isPro) {
         body.primary = $("kl-primary").value
         body.secondary = $("kl-secondary").value
@@ -2320,6 +2332,7 @@ async function loadAppearance() {
     // Pre-fill lead-gen widget fields (notify email is never returned — left blank)
     const w = d.widget || {}
     $("kl-mode").value = w.mode || "support"
+    if ($("kl-report-gate")) $("kl-report-gate").value = w.reportGate || "email"
     $("kl-cta").value = w.ctaUrl || ""
     // Store isPro on the note element for the save handler to read
     proNote.dataset.pro = isPro ? "1" : "0"

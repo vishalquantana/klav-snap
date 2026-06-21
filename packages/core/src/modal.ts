@@ -25,7 +25,13 @@ export interface ModalCallbacks {
     type: ReportType
     description: string
     screenshots: string[]
+    reporterEmail?: string
   }) => Promise<{ issueKey: string; issueUrl: string }>
+  // When true, the compose screen shows a REQUIRED email field and blocks submit until it's valid.
+  // Used by the embeddable widget on third-party sites when the project's report gate is "email",
+  // so an end-user can file a ticket without a Klavity account. Default false → extension/authed
+  // paths are unaffected (they already carry an identity).
+  requireEmail?: boolean
   // Mode-aware success screen. When provided, a successful submit swaps the modal body for this
   // screen (headline/body, optional email-lead capture, optional CTA) and DOES NOT auto-close —
   // the user must interact. When absent, falls back to the themed thankYou/"Filed" auto-close card.
@@ -85,6 +91,7 @@ export function buildModal(
     .klavity-actions button{flex:1;padding:8px;background:var(--kl-chip);color:var(--kl-fg);border:none;border-radius:6px;cursor:pointer;font-size:12px;}
     .klavity-counter{font-size:11px;color:var(--kl-muted);margin-bottom:8px;}
     textarea.klavity-desc{width:100%;min-height:100px;resize:vertical;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:6px;padding:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
+    input.klavity-remail{width:100%;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:6px;padding:10px;font-size:14px;margin-bottom:10px;box-sizing:border-box;}
     .klavity-submit{width:100%;padding:12px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
     .klavity-submit:disabled{opacity:.5;cursor:not-allowed;}
     .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
@@ -123,6 +130,7 @@ export function buildModal(
     <div class="klavity-counter" id="klavity-counter">0/5 images</div>
     <div class="klavity-error" id="klavity-err"></div>
     <textarea class="klavity-desc" id="klavity-desc" placeholder="Describe the bug..."></textarea>
+    ${callbacks.requireEmail ? '<input type="email" class="klavity-remail" id="klavity-remail" placeholder="your@email.com" autocomplete="email">' : ''}
     <button class="klavity-submit" id="klavity-submit" disabled>Submit</button>
   `
 
@@ -213,7 +221,12 @@ export function buildModal(
   // Submit
   const desc = modal.querySelector('#klavity-desc') as HTMLTextAreaElement
   const submitBtn = modal.querySelector('#klavity-submit') as HTMLButtonElement
-  desc.addEventListener('input', () => { submitBtn.disabled = desc.value.trim() === '' })
+  const remail = modal.querySelector('#klavity-remail') as HTMLInputElement | null
+  // Submit is enabled only when there's a description AND (if a required email field is shown) a valid email.
+  const emailValid = () => !callbacks.requireEmail || (!!remail && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(remail.value.trim()))
+  const refreshSubmit = () => { submitBtn.disabled = desc.value.trim() === '' || !emailValid() }
+  desc.addEventListener('input', refreshSubmit)
+  remail?.addEventListener('input', refreshSubmit)
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
 
   submitBtn.addEventListener('click', async () => {
@@ -223,7 +236,7 @@ export function buildModal(
     const errEl = shadowRoot.getElementById('klavity-err')!
     errEl.style.display = 'none'
     try {
-      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots] })
+      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots], reporterEmail: remail?.value.trim() })
       if (callbacks.success) {
         // Mode-aware lead/CTA screen rendered THROUGH the existing themed modal — no auto-close;
         // the user must interact (submit email or click the CTA, or dismiss via overlay/esc).

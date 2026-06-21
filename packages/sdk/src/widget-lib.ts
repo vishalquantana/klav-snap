@@ -43,12 +43,14 @@ export interface SuccessCopy {
   showCta: boolean
 }
 
-export function successCopy(mode: string, ctaUrl: string): SuccessCopy {
+// suppressEmail: hide the post-submit email capture when the reporter is already identified (logged-in
+// / first-party non-leadgen) or we already took their email via the report gate — no point asking twice.
+export function successCopy(mode: string, ctaUrl: string, suppressEmail = false): SuccessCopy {
   if (mode === "leadgen") return {
     headline: "That's exactly how Klavity works",
     body: "You just right-clicked → auto-screenshot → filed a real ticket. Your users could do this for you.",
     emailLabel: "Send me the 2-min setup", ctaText: "Start free →", ctaUrl,
-    showEmail: true, showCta: true,
+    showEmail: !suppressEmail, showCta: true,
   }
   if (mode === "off") return {
     headline: "Thanks — your report is filed", body: "", emailLabel: "", ctaText: "", ctaUrl,
@@ -56,9 +58,9 @@ export function successCopy(mode: string, ctaUrl: string): SuccessCopy {
   }
   return { // support (default)
     headline: `Bug filed ${icon('check-circle', { label: 'filed', size: 16 })}`,
-    body: "Want to know when it's fixed? Drop your email and we'll ping you.",
+    body: suppressEmail ? "Thanks — we'll keep you posted." : "Want to know when it's fixed? Drop your email and we'll ping you.",
     emailLabel: "Notify me", ctaText: "", ctaUrl,
-    showEmail: true, showCta: false,
+    showEmail: !suppressEmail, showCta: false,
   }
 }
 
