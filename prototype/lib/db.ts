@@ -2176,3 +2176,46 @@ export async function eraseUser(email: string): Promise<{ s3Keys: string[] }> {
   await db!.execute({ sql: "DELETE FROM users WHERE email=?", args: [e] })
   return { s3Keys }
 }
+
+// Aggregate "so what" insights for the Overview, computed across ALL of a project's feedback
+// (not just the recent 12 the dashboard lists). Cheap GROUP BY queries; degrades to zeros with no DB.
+// created_at is stored as a millisecond epoch integer.
+// Triage-aware: openBySeverity/hotspots count only accepted (status IN ('open','in_progress'));
+// recurring and sentiment exclude dismissed; needsTriage counts status='new'.
+export async function computeDashboardInsights(projectId: string) {
+  const empty = {
+    openBySeverity: { high: 0, medium: 0, low: 0, none: 0 },
+    recurring: 0,
+    needsTriage: 0,
+    sentiment: { neg: 0, pos: 0, total: 0 },
+    hotspots: [] as { area: string; count: number }[],
+    volume7d: [] as number[],
+    opened7d: 0, resolved7d: 0,
+  }
+  if (!db) return empty
+  try {
+    const now = Date.now()
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+    const [sevRows, sentRows, hotRows, volRows, recRow, throughputRows, triageRow] = await Promise.all([
+      db.execute({ sql: `SELECT COALESCE(severity,'none') sev, COUNT(*) n FROM feedback WHERE project_id=? AND status IN ('open','in_progress') GROUP BY sev`, args: [projectId] }),
+      db.execute({ sql: `SELECT COALESCE(sentiment,'') s, COUNT(*) n FROM feedback WHERE project_id=? AND status!='dismissed' GROUP BY s`, args: [projectId] }),
+      db.execute({ sql: `SELECT COALESCE(NULLIF(url_path,''),'(unknown)') area, COUNT(*) n FROM feedback WHERE project_id=? AND status IN ('open','in_progress') GROUP BY area ORDER BY n DESC LIMIT 6`, args: [projectId] }),
+      db.execute({ sql: `SELECT CAST(created_at/86400000 AS INTEGER) d, COUNT(*) n FROM feedback WHERE project_id=? AND created_at>? GROUP BY d`, args: [projectId, weekAgo] }),
+      db.execute({ sql: `SELECT COUNT(*) n FROM feedback WHERE project_id=? AND recurrence_count>=3 AND status!='dismissed'`, args: [projectId] }),
+      db.execute({ sql: `SELECT (CASE WHEN status='done' THEN 'resolved' ELSE 'opened' END) k, COUNT(*) n FROM feedback WHERE project_id=? AND created_at>? AND status!='dismissed' GROUP BY k`, args: [projectId, weekAgo] }),
+      db.execute({ sql: `SELECT COUNT(*) n FROM feedback WHERE project_id=? AND status='new'`, args: [projectId] }),
+    ])
+    const out = JSON.parse(JSON.stringify(empty))
+    for (const r of sevRows.rows) { const k = String((r as any).sev); if (k in out.openBySeverity) out.openBySeverity[k] = Number((r as any).n) }
+    for (const r of sentRows.rows) { const s = String((r as any).s); const n = Number((r as any).n); out.sentiment.total += n; if (s === "frustrated" || s === "confused") out.sentiment.neg += n; else if (s) out.sentiment.pos += n }
+    out.hotspots = hotRows.rows.map((r: any) => ({ area: String(r.area), count: Number(r.n) }))
+    out.recurring = recRow.rows.length ? Number((recRow.rows[0] as any).n) : 0
+    out.needsTriage = triageRow.rows.length ? Number((triageRow.rows[0] as any).n) : 0
+    const byDay: Record<number, number> = {}
+    for (const r of volRows.rows) byDay[Number((r as any).d)] = Number((r as any).n)
+    const todayIdx = Math.floor(now / 86400000)
+    for (let i = 6; i >= 0; i--) out.volume7d.push(byDay[todayIdx - i] || 0)
+    for (const r of throughputRows.rows) { const k = String((r as any).k); if (k === "resolved") out.resolved7d = Number((r as any).n); else out.opened7d = Number((r as any).n) }
+    return out
+  } catch { return empty }
+}
