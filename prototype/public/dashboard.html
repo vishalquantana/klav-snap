@@ -471,6 +471,18 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .wp-embed .cl-embed button{flex-shrink:0;align-self:flex-start}
 .wp-config-preview{display:block}
 .wp-config{min-width:0}
+/* Appearance config fields — stack each label above a full-width control (default inline <label> read cluttered). */
+.wp-config>label{display:flex;flex-direction:column;gap:5px;margin-bottom:13px;font-size:12.5px;font-weight:600;color:var(--paper)}
+.wp-config input,.wp-config select{width:100%;box-sizing:border-box;background:var(--ink-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;color:var(--paper);font-family:var(--body);font-size:13.5px;outline:none}
+.wp-config input:focus,.wp-config select:focus{border-color:var(--indigo)}
+.wp-config select{appearance:none;padding-right:32px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.wp-config>p{font-size:12px;color:var(--paper-dim);margin:-7px 0 13px}
+/* Custom-colour sub-fields: compact inline rows with swatches (shown only for the Custom theme). */
+#kl-custom{margin:0 0 13px}
+#kl-custom label{display:inline-flex;align-items:center;gap:7px;margin:0 14px 8px 0;font-size:12.5px;font-weight:600;color:var(--paper)}
+#kl-custom input[type=color]{width:40px;height:30px;padding:2px;border-radius:7px;cursor:pointer}
+#kl-custom input[type=text]{width:auto;min-width:170px}
+#kl-custom>p{display:block;margin:4px 0 0}
 .wp-preview{flex:1;min-width:280px}
 .wp-preview-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}
 .wp-preview-label{font-size:12px;font-weight:600;opacity:.7}
