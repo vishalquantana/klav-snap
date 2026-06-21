@@ -10,6 +10,7 @@
 <!-- shared design system: self-hosted fonts + canonical tokens (sourced from the dashboard) -->
 <link rel="stylesheet" href="/fonts/fonts.css" />
 <link rel="stylesheet" href="/tokens.css" />
+<script src="/icons.generated.js"></script>
 <style>
   /* Design tokens (colors, fonts, spacing, radius, shadow) come from the
      shared /tokens.css linked above — sourced from the dashboard. Don't
@@ -485,7 +486,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <div class="panel lane" id="lane1">
       <div class="lhead"><span class="ln">1</span><h2>Add a Sim</h2><span class="pill" id="p1"></span></div>
       <div class="readycard" id="simsReady" style="display:none">
-        <span style="font-size:18px">✅</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.801 10A10 10 0 1 1 17 3.335" /> <path d="m9 11 3 3L22 4" /></svg>
         <div><div class="big"><span id="simsReadyN">0</span> Sims ready</div><div class="sm">Edit them here or pick one to review in step 2 →</div></div>
       </div>
       <div class="l1-tabs">
@@ -498,7 +499,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
         <textarea id="transcript"></textarea>
         <div class="row">
           <button class="primary" id="extractBtn">Extract Sims</button>
-          <button class="ghost" id="uploadBtn">📄 Upload transcript</button>
+          <button class="ghost" id="uploadBtn"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /> <path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></svg> Upload transcript</button>
           <button class="ghost" id="clearBtn">Clear</button>
         </div>
         <input type="file" id="transcriptFile" accept=".txt,.md,.markdown,.vtt,.srt,.text,text/*" style="display:none" />
@@ -511,7 +512,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
         <div class="label" style="margin-top:14px">…or describe your user</div>
         <div class="briefrow">
           <input id="brief" placeholder="e.g. a busy CFO who scans for overdue items" />
-          <button class="ghost mic" id="micBtn" title="Dictate with your voice">🎙</button>
+          <button class="ghost mic" id="micBtn" title="Dictate with your voice"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19v3" /> <path d="M19 10v2a7 7 0 0 1-14 0v-2" /> <rect x="9" y="2" width="6" height="13" rx="3" /></svg></button>
           <button class="primary" id="briefBtn">Create</button>
         </div>
         <div class="status" id="briefStatus"></div>
@@ -523,7 +524,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
     <!-- ===== STEP 2 — Have a Sim review the page ===== -->
     <div class="panel lane" id="lane2">
-      <div class="lockmsg"><span class="lk">🔒</span><div>Add a Sim first (step 1)</div></div>
+      <div class="lockmsg"><span class="lk"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span><div>Add a Sim first (step 1)</div></div>
       <div class="lhead"><span class="ln">2</span><h2>Have a Sim review the page</h2><span class="pill" id="p2"></span></div>
       <div class="lsub">This is the page your Sims look at. Pick a reviewer below and hit review — they react to exactly what’s on screen.</div>
       <div id="stageWrap">
@@ -541,7 +542,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
                   <div class="kpi"><div class="kl">Revenue</div><div class="kv">$2.4M</div><div class="kd up">↑ 12%</div></div>
                   <div class="kpi"><div class="kl">Pending Approvals</div><div class="kv">14</div><div class="kd dn">3 overdue</div></div>
                   <div class="kpi"><div class="kl">Approval Rate</div><div class="kv">87%</div><div class="kd up">↑ 5%</div></div>
-                  <div class="kpi"><div class="kl">Month-end Close</div><div class="kv">4 days</div><div class="kd dn">⚠ 3 at risk</div></div>
+                  <div class="kpi"><div class="kl">Month-end Close</div><div class="kv">4 days</div><div class="kd dn">! 3 at risk</div></div>
                 </div>
                 <div class="cols">
                   <div class="card c2">
@@ -553,9 +554,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
                   </div>
                   <div class="card c1">
                     <div class="ct">Recent Activity</div>
-                    <div class="act"><span>✅</span><div><strong>James</strong> approved Q1 Audit</div></div>
-                    <div class="act"><span>💬</span><div><strong>Sarah</strong> commented on vendor</div></div>
-                    <div class="act"><span>📎</span><div><strong>Anika</strong> uploaded projections</div></div>
+                    <div class="act"><span><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.801 10A10 10 0 1 1 17 3.335" /> <path d="m9 11 3 3L22 4" /></svg></span><div><strong>James</strong> approved Q1 Audit</div></div>
+                    <div class="act"><span><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg></span><div><strong>Sarah</strong> commented on vendor</div></div>
+                    <div class="act"><span><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></svg></span><div><strong>Anika</strong> uploaded projections</div></div>
                   </div>
                 </div>
               </div>
@@ -577,7 +578,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
     <!-- ===== STEP 3 — Save the feedback ===== -->
     <div class="panel lane" id="lane3">
-      <div class="lockmsg"><span class="lk">🔒</span><div>Run a review first (step 2)</div></div>
+      <div class="lockmsg"><span class="lk"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span><div>Run a review first (step 2)</div></div>
       <div class="lhead"><span class="ln">3</span><h2>Save the feedback</h2><span class="pill" id="p3"></span></div>
       <div class="lsub">Reviews land here as drafts. Keep the useful ones — they get filed to your tracker as bugs.</div>
       <div class="label">Draft queue · <span id="draftCount">0</span></div>
@@ -589,8 +590,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 </div>
 
-<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
-<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.textContent=dark()?'☀️':'🌙'}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></button>
+<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.innerHTML=dark()?kicon('sun',{size:18}):kicon('moon',{size:18})}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
 
 <script type="module">
 import { toPng } from "https://esm.sh/html-to-image@1.11.13"
@@ -670,11 +671,11 @@ $("transcriptFile").onchange = async (e) => {
   try {
     const text = await file.text()
     $("transcript").value = text
-    setStatus("extractStatus", `📄 Loaded “${file.name}” (${text.length.toLocaleString()} chars). Click Extract Sims.`)
+    setStatus(“extractStatus”, `Loaded “${file.name}” (${text.length.toLocaleString()} chars). Click Extract Sims.`)
   } catch (err) {
-    setStatus("extractStatus", "Couldn’t read that file: " + err.message, true)
+    setStatus(“extractStatus”, “Couldn’t read that file: “ + err.message, true)
   }
-  e.target.value = "" // allow re-selecting the same file
+  e.target.value = “” // allow re-selecting the same file
 }
 
 // ── drag-and-drop transcript onto the textarea ──
@@ -690,7 +691,7 @@ ta.addEventListener("drop", async (e) => {
   try {
     const text = await file.text()
     ta.value = text
-    setStatus("extractStatus", `📄 Loaded "${file.name}" (${text.length.toLocaleString()} chars). Click Extract Sims.`)
+    setStatus("extractStatus", `Loaded "${file.name}" (${text.length.toLocaleString()} chars). Click Extract Sims.`)
   } catch (err) {
     setStatus("extractStatus", "Couldn't read that file: " + err.message, true)
   }
@@ -704,18 +705,18 @@ $("extractBtn").onclick = async () => {
   const cached = devCacheGet(cacheKey)
   if (cached) {
     sims = cached.personas; renderDock(); devSaveSims()
-    setStatus("extractStatus", `⚡ [cache] ${sims.length} Sim${sims.length === 1 ? "" : "s"} (${devCacheCount()} entries cached)`)
+    setStatus("extractStatus", `[cache] ${sims.length} Sim${sims.length === 1 ? "" : "s"} (${devCacheCount()} entries cached)`)
     switchL1Tab('sims')
     $("extractBtn").disabled = false; renderDevBar(); return
   }
-  setStatus("extractStatus", "🧠 Extracting personas with " + "Claude… (10-30s)")
+  setStatus("extractStatus", "Extracting personas with Claude… (10-30s)")
   try {
     const r = await fetch("/api/extract", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript }) })
     const data = await r.json()
     if (data.error) throw new Error(data.error)
     devCacheSet(cacheKey, { personas: data.personas }); renderDevBar()
     sims = data.personas; renderDock(); devSaveSims()
-    setStatus("extractStatus", `✅ Extracted ${sims.length} Sim${sims.length === 1 ? "" : "s"}.` + usageStr(data.usage))
+    setStatus("extractStatus", `Extracted ${sims.length} Sim${sims.length === 1 ? "" : "s"}.` + usageStr(data.usage))
     switchL1Tab('sims')
   } catch (e) {
     setStatus("extractStatus", "Error: " + e.message, true)
@@ -812,13 +813,13 @@ function renderDock(newIndex = -1) {
             <div class="ds-av" style="background:${s.accent || "#6366f1"}">${avatarInner(s)}</div>
             <div style="flex:1"><div class="ds-name">${esc(s.name)}</div><div class="ds-role">${esc(s.role)}</div></div>
             <div class="ds-type ${s.type === "client" ? "t-client" : "t-internal"}">${esc(s.type)}</div>
-            <button class="ds-edit" data-edit="${i}" title="Edit Sim">✎</button>
+            <button class="ds-edit" data-edit="${i}" title="Edit Sim">${kicon('pencil')}</button>
           </div>
           <div class="ds-insights">${shown.length ? shown.map(x => `${badge(x.kind)} ${esc(x.text)}`).join(" · ") : (onlyCriticalInsights && ins.length ? '<span style="opacity:.6">No critical insights</span>' : "")}</div>
           <button class="reviewbtn" data-i="${i}">Have ${esc(s.name.split(" ")[0])} review this page →</button>
           ${s._saved
-            ? `<div class="ds-savedtag">✓ Saved to library <button class="ds-delbtn" data-del="${i}">Remove</button></div>
-               <button class="ds-evo-toggle" data-evo="${i}">📜 Evolution</button>
+            ? `<div class="ds-savedtag">${kicon('check')} Saved to library <button class="ds-delbtn" data-del="${i}">Remove</button></div>
+               <button class="ds-evo-toggle" data-evo="${i}">${kicon('file-text')} Evolution</button>
                <div class="ds-evo" id="evo-${i}" style="display:none"></div>`
             : `<button class="ds-savebtn" data-savesim="${i}">Save Sim to library →</button>`}
         </div>`
@@ -1305,7 +1306,7 @@ function ssTraitCardHtml(t, k) {
   for (let i = 0; i < 3; i++) bars += `<span class="ss-bar${i < strength ? " on" : ""}"></span>`
   bars += '</div>'
   return `<div class="ss-trait ${t.id === ssSelectedTraitId ? "sel" : ""}" data-trait="${esc(t.id)}">
-    <div class="ss-trait-ctl"><button data-tedit="${esc(t.id)}" title="Edit">✎</button><button data-tdel="${esc(t.id)}" title="Archive">✕</button></div>
+    <div class="ss-trait-ctl"><button data-tedit="${esc(t.id)}" title="Edit">${kicon('pencil')}</button><button data-tdel="${esc(t.id)}" title="Archive">${kicon('x')}</button></div>
     <div class="ss-trait-text">${esc(t.text || "")}</div>
     <div class="ss-trait-foot">
       ${provLabel ? `<span class="ss-prov"><span class="ss-ar">↳</span>${esc(provLabel)}</span>` : ""}
@@ -1347,7 +1348,7 @@ async function ssSavePersona(sim) {
   }
 }
 
-// ── Task 6: trait edit (inline textarea → PUT) + archive (✕ → DELETE) ──
+// ── Task 6: trait edit (inline textarea → PUT) + archive ([x] → DELETE) ──
 let ssTraitEditingId = null
 function ssWireTraitControls() {
   const wrap = $("ssTraitsWrap"); if (!wrap) return
@@ -1617,7 +1618,7 @@ async function review(i) {
   if (pickBtn) { pickBtn.disabled = true; pickBtn.textContent = `Reviewing…` }
   clearOverlays()
   updateFlow()
-  setStatus("reactStatus", `📸 ${sim.name.split(" ")[0]} is screenshotting the page…`)
+  setStatus("reactStatus", `${sim.name.split(" ")[0]} is screenshotting the page…`)
   let dataUrl
   try {
     dataUrl = await toPng($("stage"), { pixelRatio: 1, cacheBust: true })
@@ -1630,12 +1631,12 @@ async function review(i) {
   }
   const imageB64 = dataUrl.split(",")[1]
   const pageUrl = "acme-finance/overview"
-  setStatus("reactStatus", `👀 ${sim.name.split(" ")[0]} is reviewing… (Claude vision, 10-30s)`)
+  setStatus("reactStatus", `${sim.name.split(" ")[0]} is reviewing… (Claude vision, 10-30s)`)
   const reactKey = "react_" + devHash(sim.name + "|" + sim.role + "|" + pageUrl)
   const cachedReact = devCacheGet(reactKey)
   try {
     if (cachedReact) {
-      setStatus("reactStatus", `⚡ [cache] ${sim.name.split(" ")[0]} gave ${cachedReact.reactions.length} reaction(s) (${devCacheCount()} entries cached)`)
+      setStatus("reactStatus", `[cache] ${sim.name.split(" ")[0]} gave ${cachedReact.reactions.length} reaction(s) (${devCacheCount()} entries cached)`)
       playReactions(sim, cachedReact.reactions)
     } else {
       // Send the saved Sim's stable id so the server can resolve citedTraitIds → citation
@@ -1645,7 +1646,7 @@ async function review(i) {
       const data = await r.json()
       if (data.error) throw new Error(data.error)
       devCacheSet(reactKey, { reactions: data.reactions }); renderDevBar()
-      setStatus("reactStatus", `✅ ${sim.name.split(" ")[0]} gave ${data.reactions.length} reaction(s).` + usageStr(data.usage))
+      setStatus("reactStatus", `${sim.name.split(" ")[0]} gave ${data.reactions.length} reaction(s).` + usageStr(data.usage))
       playReactions(sim, data.reactions)
     }
   } catch (e) {
@@ -1661,7 +1662,7 @@ async function playReactions(sim, reactions) {
   // "Critical feedback only" also hides positive review reactions (satisfied/delighted),
   // not just positive dock insights — so it never shows or saves a positive draft.
   if (onlyCriticalInsights) reactions = reactions.filter(rx => rx.sentiment !== "satisfied" && rx.sentiment !== "delighted")
-  if (!reactions.length) { setStatus("reactStatus", `🙂 ${sim.name.split(" ")[0]} had only positive reactions — hidden by "Critical feedback only". Untick it to see them.`); return }
+  if (!reactions.length) { setStatus("reactStatus", `${sim.name.split(" ")[0]} had only positive reactions — hidden by "Critical feedback only". Untick it to see them.`); return }
   const stage = $("stage")
   const W = stage.clientWidth, H = stage.clientHeight
   const stageWrap = $("stageWrap")
@@ -1722,7 +1723,7 @@ function makeChar(sim) {
   el.className = "sim-char"
   el.innerHTML = `
     <div style="position:relative;display:flex;flex-direction:column;align-items:center">
-      <div class="ch-arm" style="background:${shade(sim.accent)}"><span class="ch-fing">👆</span></div>
+      <div class="ch-arm" style="background:${shade(sim.accent)}"><span class="ch-fing">${kicon('mouse-pointer-2')}</span></div>
       <div class="ch-head" style="background:${sim.accent || "#6366f1"};overflow:hidden">${sim.avatar ? `<img src="${sim.avatar}" alt="" style="width:100%;height:100%;object-fit:cover">` : (sim.initials || sim.name.slice(0,2).toUpperCase())}</div>
       <div class="ch-legs"><div class="ch-leg" style="background:${shade(sim.accent)}"></div><div class="ch-leg" style="background:${shade(sim.accent)}"></div></div>
     </div>`
@@ -1736,7 +1737,7 @@ function showBubble(sim, rx, tailX) {
   b.innerHTML = `
     <div class="bn" style="color:${sim.accent || "#89b4fa"}">${esc(sim.name)} · ${esc(sim.role)} ${rx.emoji || ""}</div>
     <div class="bo">${esc(rx.observation)}</div>
-    ${bug ? `<div class="bbug"><div class="bt">🐛 ${esc(bug.title)} <span style="color:var(--paper-faint)">(${bug.severity})</span></div><div class="bd">${esc(bug.body)}</div></div>` : ""}
+    ${bug ? `<div class="bbug"><div class="bt">${kicon('bug')} ${esc(bug.title)} <span style="color:var(--paper-faint)">(${bug.severity})</span></div><div class="bd">${esc(bug.body)}</div></div>` : ""}
     ${citeChip(rx.citation)}
     <div style="font-size:9.5px;color:var(--paper-faint);margin-top:7px;font-weight:600">↓ saved to your draft queue</div>`
   // dock below the stage so the mockup stays fully visible
@@ -1776,9 +1777,9 @@ function renderDrafts(){
       `<div style="flex:1"><div style="display:flex;align-items:center"><span class="dnm">${esc(d.sim.name)}</span>` +
       (d.saved ? "" : `<button class="drm" data-rm="${d.id}">×</button>`) + `</div>` +
       `<div class="dob">${esc(d.rx.observation)}</div>` +
-      (bug ? `<div class="dbug">🐛 ${esc(bug.title)} (${esc(bug.severity)})</div>` : "") +
+      (bug ? `<div class="dbug">${kicon('bug')} ${esc(bug.title)} (${esc(bug.severity)})</div>` : "") +
       citeChip(d.rx.citation) +
-      (d.saved ? `<div class="savedtag">✅ Saved to Klavity${d.key ? ` · filed ${d.key}` : ""}</div>` : "") +
+      (d.saved ? `<div class="savedtag">${kicon('check-circle')} Saved to Klavity${d.key ? ` · filed ${d.key}` : ""}</div>` : "") +
       `</div>`
     wrap.appendChild(el)
   })
@@ -1793,7 +1794,7 @@ function draftDescription(d){
   const bug = d.rx.suggestedBug
   const who = `${d.sim.name}${d.sim.role ? " · " + d.sim.role : ""}`
   let body = `Sim reaction from ${who}: ${d.rx.observation}`
-  if (bug) body += `\n\n🐛 ${bug.title} (${bug.severity})\n${bug.body || ""}`
+  if (bug) body += `\n\n[bug] ${bug.title} (${bug.severity})\n${bug.body || ""}` // emoji-ok
   return body
 }
 // POST one saved draft to /api/feedback so studio reviews persist (and file to the tracker
@@ -1889,7 +1890,7 @@ function addPreset(k){
   const p=PRESETS[k]; if(!p) return
   if(sims.some(s=>s.name===p.name)){ setStatus("briefStatus", `${p.name} is already in your Sims.`); return }
   sims.push(JSON.parse(JSON.stringify(p))); renderDock(sims.length - 1); switchL1Tab('sims')
-  setStatus("briefStatus", `Added ${p.name} — click ✎ to rename or set a photo, then have them review this page.`)
+  setStatus("briefStatus", `Added ${p.name} — click the edit icon to rename or set a photo, then have them review this page.`)
 }
 // ── secondary on-ramp: the Six Thinking Hats (de Bono) — a balanced review team ──
 const HATS = {
@@ -1923,7 +1924,7 @@ function hatDot(p){ return p.dark ? `background:${p.accent};color:#19140f;border
 function renderHats(){
   const wrap=$("hats"); if(!wrap) return
   const chips=HAT_ORDER.map(([k,label])=>{ const p=HATS[k]; return `<div class="preset" data-h="${k}" title="${p.summary}"><span class="pdot" style="${hatDot(p)}">${p.initials}</span>${label}</div>` }).join("")
-  wrap.innerHTML=chips+`<div class="preset" data-all="1" title="Add all six hats as a balanced review team"><span class="pdot" style="background:linear-gradient(135deg,#3b82f6,#22c55e);color:#fff">✦</span>Add all six</div>`
+  wrap.innerHTML=chips+`<div class="preset" data-all="1" title="Add all six hats as a balanced review team"><span class="pdot" style="background:linear-gradient(135deg,#3b82f6,#22c55e);color:#fff">${kicon('sparkles')}</span>Add all six</div>`
   wrap.querySelectorAll("[data-h]").forEach(el=>el.onclick=()=>addHat(el.dataset.h))
   const all=wrap.querySelector("[data-all]"); if(all) all.onclick=addAllHats
 }
@@ -1947,16 +1948,16 @@ async function createFromBrief(){
   const cachedBrief = devCacheGet(briefKey)
   if (cachedBrief) {
     sims.push(cachedBrief.persona); renderDock(sims.length - 1); devSaveSims(); $("brief").value=""; switchL1Tab('sims')
-    setStatus("briefStatus", `⚡ [cache] ${cachedBrief.persona.name} (${devCacheCount()} entries cached)`)
+    setStatus("briefStatus", `[cache] ${cachedBrief.persona.name} (${devCacheCount()} entries cached)`)
     $("briefBtn").disabled=false; renderDevBar(); return
   }
-  setStatus("briefStatus","🧠 Creating a Sim from your brief…")
+  setStatus("briefStatus","Creating a Sim from your brief…")
   try{
     const r=await fetch("/api/persona/brief",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({brief})})
     const d=await r.json(); if(d.error) throw new Error(d.error)
     devCacheSet(briefKey, { persona: d.persona }); renderDevBar()
     sims.push(d.persona); renderDock(sims.length - 1); devSaveSims(); $("brief").value=""; switchL1Tab('sims')
-    setStatus("briefStatus", `Created ${d.persona.name} — click ✎ to rename or set a photo, then have them review this page.`)
+    setStatus("briefStatus", `Created ${d.persona.name} — click the edit icon to rename or set a photo, then have them review this page.`)
   }catch(e){ setStatus("briefStatus","Error: "+e.message,true) } finally { $("briefBtn").disabled=false }
 }
 // voice dictation (Web Speech API; Chrome)
@@ -2177,7 +2178,7 @@ loadSavedSims()
       })
     })
     if (pong?.klavToken) {
-      btn.textContent = '✓ Extension connected'
+      btn.textContent = 'Extension connected' // emoji-ok
       btn.classList.add('connected')
       btn.disabled = false
     }
@@ -2206,7 +2207,7 @@ loadSavedSims()
         )
       })
       if (resp?.ok) {
-        btn.textContent = '✓ Extension connected'
+        btn.textContent = 'Extension connected' // emoji-ok
         btn.classList.add('connected')
         btn.disabled = false
       } else {

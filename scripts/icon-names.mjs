@@ -10,4 +10,8 @@ export const ICON_NAMES = [
   'camera', 'image', 'map-pin', 'monitor', 'pencil', 'scissors', 'square', 'trash-2',
   // Added for browser extension options page (Task 7)
   'cloud', 'plug', 'ticket',
+  // Added for Noted outcome (Task 7 ext fix)
+  'message-circle',
+  // Added for dashboard + index app pages (Task 7 dash)
+  'users', 'settings', 'radio-tower', 'palette', 'lock', 'plus', 'sparkles', 'paperclip',
 ];

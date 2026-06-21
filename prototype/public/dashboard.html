@@ -7,6 +7,7 @@
 <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Dashboard · Klavity</title>
 <link rel="stylesheet" href="/fonts/fonts.css" />
+<script src="/icons.generated.js"></script>
 <style>
 :root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
 --display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
@@ -362,7 +363,7 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .checklist ol{list-style:none;counter-reset:cl;display:flex;flex-direction:column;gap:12px}
 .checklist li{counter-increment:cl;display:flex;gap:12px;align-items:flex-start}
 .checklist li::before{content:counter(cl);flex-shrink:0;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:12px;color:#fff;background:linear-gradient(135deg,var(--indigo-deep),#a78bfa)}
-.checklist li.cl-done::before{content:"✓";background:var(--green)}
+.checklist li.cl-done::before{content:"\2713";background:var(--green)}
 .checklist li.cl-done .cl-step-t{color:var(--paper-faint);text-decoration:line-through}
 [data-theme="dark"] .checklist li::before{color:#0c0a08}
 .checklist .cl-step-t{font-size:14px;font-weight:600}
@@ -514,7 +515,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 <div class="bar"><div class="bar-in">
   <span class="ws" id="wsName">—</span>
   <div class="right">
-    <button class="nav-icon" id="themeToggle" type="button" aria-label="Toggle dark mode">🌙</button>
+    <button class="nav-icon" id="themeToggle" type="button" aria-label="Toggle dark mode"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></button>
     <span class="who" id="who"></span>
     <button class="lo" id="logout">Log out</button>
   </div>
@@ -522,12 +523,11 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 <div class="wrap">
   <aside class="side" aria-label="Dashboard sections">
-    <a class="brand" href="/dashboard"><img src="/favicon.svg" width="28" height="28" alt="Klavity" style="border-radius:8px;display:block" />Klavity</a>
-    <button class="nv active" data-go="overview"><span class="ic">📊</span>Overview</button>
-    <button class="nv" data-go="sims"><span class="ic">🧬</span>Sims</button>
-    <button class="nv" data-go="tickets"><span class="ic">🐛</span>Tickets <span class="ct" id="navTicketCount"></span></button>
-    <button class="nv" data-go="team"><span class="ic">👥</span>Team <span class="ct" id="navTeamCount"></span></button>
-    <button class="nv" data-go="settings"><span class="ic">⚙️</span>Settings</button>
+    <button class="nv active" data-go="overview"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /> <path d="M12 11h4" /> <path d="M12 16h4" /> <path d="M8 11h.01" /> <path d="M8 16h.01" /></svg></span>Overview</button>
+    <button class="nv" data-go="sims"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg></span>Sims</button>
+    <button class="nv" data-go="tickets"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg></span>Tickets <span class="ct" id="navTicketCount"></span></button>
+    <button class="nv" data-go="team"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></svg></span>Team <span class="ct" id="navTeamCount"></span></button>
+    <button class="nv" data-go="settings"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg></span>Settings</button>
   </aside>
   <div class="content">
   <div class="head">
@@ -558,7 +558,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
   <!-- First-run checklist (zero-state guidance) — shown only when this project has 0 Sims -->
   <div class="checklist hide" id="checklist" data-view="overview">
-    <button class="cl-x" id="checklistDismiss" aria-label="Dismiss checklist">✕</button>
+    <button class="cl-x" id="checklistDismiss" aria-label="Dismiss checklist"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></button>
     <h3>Welcome to Klavity</h3>
     <p class="cl-intro">Four steps to your first Sim review — we'll tick them off as you go:</p>
     <ol>
@@ -568,7 +568,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <div class="cl-step-d">Two ways for Sims and your users to reach Klavity:</div>
           <div class="cl-paths">
             <div class="cl-path">
-              <div class="cl-path-t">🧩 Install the browser extension</div>
+              <div class="cl-path-t"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg> Install the browser extension</div>
               <div class="cl-path-d">Your Sims watch your product through it — best for internal QA. <a href="/onboarding">Get the extension →</a></div>
             </div>
             <div class="cl-path">
@@ -605,42 +605,17 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 
   <!-- Metrics row — at-a-glance counts (feedback, sims, team, tickets) -->
-  <!-- Insight KPI strip — each stat carries a "so what", from /api/dashboard insights -->
-  <div class="kpis" id="kpis" data-view="overview">
-    <div class="kpi">
-      <div class="kl"><span class="kdot doti"></span>Open issues</div>
-      <div class="kpi-sev" id="kpiSev"><span class="muted">—</span></div>
-    </div>
-    <div class="kpi">
-      <div class="kl"><span class="kdot dotc"></span>Recurring</div>
-      <div class="kn" id="kpiRecur">—</div>
-      <div class="kd">issues seen 3+ times</div>
-    </div>
-    <div class="kpi">
-      <div class="kl"><span class="kdot dotc"></span>Sentiment</div>
-      <div class="kn" id="kpiSent">—</div>
-      <div class="kd">frustrated / confused</div>
-    </div>
-    <div class="kpi">
-      <div class="kl"><span class="kdot dotg"></span>Feedback · 7 days</div>
-      <div class="kn" id="kpiVol">—</div>
-      <div id="kpiSpark" class="kspark"></div>
-    </div>
-  </div>
-
-  <!-- Fix next + Hotspots — the "what to fix" insight panel -->
-  <div class="card" data-view="overview" style="margin-bottom:18px">
-    <h2 style="display:flex;align-items:center;gap:8px">🔧 Fix next <span class="h-tag">ranked by severity × recurrence</span></h2>
-    <div class="fixwrap">
-      <div class="fxlist" id="fixNext"><div class="sk sk-row"></div></div>
-      <div><div class="subhead2">Hotspots — where pain clusters</div><div id="hotspots"></div></div>
-    </div>
+  <div class="stats" id="stats" data-view="overview">
+    <div class="stat"><div class="n" id="stFeedback">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg></span>Feedback received</div></div>
+    <div class="stat"><div class="n" id="stSims">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg></span>Sims</div></div>
+    <div class="stat"><div class="n" id="stTeam">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></svg></span>Teammates</div></div>
+    <div class="stat"><div class="n" id="stTickets">—</div><div class="l"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg></span>Tickets filed</div></div>
   </div>
 
   <div class="grid">
     <!-- Sims overview -->
     <div class="card" data-view="overview sims">
-      <h2 style="display:flex;align-items:center;gap:10px">🧬 Your Sims <span class="count" id="simsCount"></span>
+      <h2 style="display:flex;align-items:center;gap:10px"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg> Your Sims <span class="count" id="simsCount"></span>
         <button class="btn btn-indigo btn-sm hide" id="newSimBtn" style="margin-left:auto" onclick="openSimModal()">＋ New Sim</button></h2>
       <div class="muted" style="margin:-8px 0 14px;font-size:12.5px">AI personas, built from real customer calls, that react to your pages.</div>
       <div id="sims"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
@@ -648,7 +623,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
     <!-- People & Teams (R2: invite CTA, admin only) -->
     <div class="card" data-view="team">
-      <h2>👥 Your team <span class="count" id="memCount"></span></h2>
+      <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></svg> Your team <span class="count" id="memCount"></span></h2>
       <div id="members"></div>
       <div id="inviteWrap" class="hide">
         <div class="muted" style="margin:12px 0 2px">Invite your team to this project — they sign in with an email code and join as a <b>User</b>.</div>
@@ -663,23 +638,26 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
     <!-- Recent tickets (overview list) -->
     <div class="card" data-view="overview">
-      <h2>🐛 Recent tickets <span class="count" id="ticketCount"></span></h2>
+      <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg> Recent tickets <span class="count" id="ticketCount"></span></h2>
       <div id="tickets"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
     <!-- Tickets kanban board -->
     <div class="card full" data-view="tickets">
-      <div class="kb-toolbar">
-        <h2>🐛 Tickets <span class="count" id="ticketKanbanCount"></span></h2>
-        <div class="kb-search"><span class="mag">⌕</span><input id="kanbanSearch" placeholder="Search tickets…" autocomplete="off" /></div>
-      </div>
+      <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg> Tickets <span class="count" id="ticketKanbanCount"></span></h2>
       <div id="ticketsKanban"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
       <div id="ticketSingle" class="hide"></div>
     </div>
 
-    <!-- What your Sims are saying — Sims view only (folded out of Overview; the verbatim quote now appears inline in "Fix next") -->
-    <div class="card full" data-view="sims">
-      <h2>💬 What your Sims are saying</h2>
+    <!-- Live activity -->
+    <div class="card" data-view="overview">
+      <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9" /> <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5" /> <circle cx="12" cy="9" r="2" /> <path d="M16.2 4.8c2 2 2.26 5.11.8 7.47" /> <path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1" /> <path d="M9.5 18h5" /> <path d="m8 22 4-11 4 11" /></svg> Live activity <span class="count" id="actCount"></span></h2>
+      <div id="activity"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
+    </div>
+
+    <!-- What your Sims are saying (capped, scrollable) -->
+    <div class="card full" data-view="overview sims">
+      <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg> What your Sims are saying</h2>
       <div id="saying"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
@@ -693,7 +671,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
   <!-- Admin: Live Sims — monitored URLs + pause (P3b, R5). Admin-only. -->
   <details class="drawer hide" id="liveDrawer" data-view="sims">
-    <summary>📡 Live Sims — monitored URLs & pause <span class="caret">›</span></summary>
+    <summary><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9" /> <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5" /> <circle cx="12" cy="9" r="2" /> <path d="M16.2 4.8c2 2 2.26 5.11.8 7.47" /> <path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1" /> <path d="M9.5 18h5" /> <path d="m8 22 4-11 4 11" /></svg> Live Sims — monitored URLs & pause <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="muted" style="margin-bottom:14px">When a teammate (with the Snap extension, signed in) opens a URL that matches a pattern below, this project's Sims <b>auto-comment in-character</b> on that page — popping up and filing what they think. Capture happens <b>only</b> on these allowlisted paths, each member consents before their first capture, and screenshots are private.</div>
 
@@ -720,7 +698,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
   <!-- Admin: Observability (R6) — named activity feed of who ran which Sim on which path. Admin-only. -->
   <details class="drawer hide" id="obsDrawer" data-view="sims">
-    <summary>👁️ Observability — Sim review activity <span class="caret">›</span></summary>
+    <summary><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></svg> Observability — Sim review activity <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="muted" style="margin-bottom:6px">Every live Sim review, <b>named</b>: which teammate triggered which Sim on which path. Click <b>View screenshot</b> for the private capture (a short-lived signed link). URLs are path-only; off-allowlist navigation is never recorded.</div>
       <div class="muted" id="obsMode" style="margin-bottom:14px"></div>
@@ -730,7 +708,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
   <!-- Bug tracking: Klavity Cloud (default) + pluggable connectors -->
   <details class="drawer" id="settingsDrawer" data-view="tickets settings">
-    <summary>⚙️ Project settings — bug tracking <span class="caret">›</span></summary>
+    <summary><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg> Project settings — bug tracking <span class="caret">›</span></summary>
     <div class="drawer-in">
       <!-- Klavity Cloud primary card -->
       <div class="conn-cloud">
@@ -775,7 +753,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
   <!-- Report widget appearance settings -->
   <details class="drawer" id="appearanceDrawer" data-view="settings">
-    <summary>🎨 Report widget appearance <span class="caret">›</span></summary>
+    <summary><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /> <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /> <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /> <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" /> <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" /></svg> Report widget appearance <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="card" id="kl-appearance">
         <h3>Report widget appearance</h3>
@@ -813,7 +791,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <p id="kl-pro-note" style="display:none;font-size:12px;opacity:.7">Custom colors require a Pro plan.</p>
         </div>
         <label>Thank-you message
-          <input type="text" id="kl-thankyou" maxlength="140" placeholder="✓ Filed as KLAV-123 (default)">
+          <input type="text" id="kl-thankyou" maxlength="140" placeholder="Filed as KLAV-123 (default)">
         </label>
         <label>Widget mode
           <select id="kl-mode">
@@ -872,7 +850,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div><!-- /.content -->
 </div>
 
-<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.textContent=dark()?'☀️':'🌙'}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
+<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.innerHTML=dark()?kicon('sun',{size:18}):kicon('moon',{size:18})}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
 <script>
 const $ = (id) => document.getElementById(id)
 const COLORS = ["#6366f1","#e8a24a","#10b981","#ec4899","#06b6d4","#8b5cf6"]
@@ -891,7 +869,7 @@ const ago = (ts) => {
   const d = Math.floor(h/24); if (d < 30) return d+"d ago"
   return new Date(Number(ts)).toLocaleDateString()
 }
-const ACT_ICON = { feedback_filed:"🐛", review_run:"👁️", sim_activated:"⚡", sim_added:"➕", sim_evolved:"🧬", transcript_added:"📝" }
+const ACT_ICON = { feedback_filed:kicon('bug'), review_run:kicon('eye'), sim_activated:kicon('zap'), sim_added:kicon('plus'), sim_evolved:kicon('dna'), transcript_added:kicon('file-text') }
 const ACT_VERB = { feedback_filed:"filed feedback", review_run:"ran a review", sim_activated:"went live", sim_added:"added a Sim", sim_evolved:"evolved a Sim", transcript_added:"added a transcript" }
 
 // How many rows the overview tickets + activity feeds show in Focus mode (the default).
@@ -1048,16 +1026,9 @@ async function klavCopy(text, btn, doneLabel) {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text)
     else { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove() }
-    btn.textContent = doneLabel || "Copied ✓"; setTimeout(() => { btn.textContent = prev }, 1600)
-  } catch (e) { btn.textContent = "Press ⌘C"; setTimeout(() => { btn.textContent = prev }, 1600) }
-}
-$("embedCopy") && ($("embedCopy").onclick = () => {
-  const pid = curProjId(); if (!pid) return
-  klavCopy(embedSnippet(pid), $("embedCopy"))
-})
-$("embedCopyAI") && ($("embedCopyAI").onclick = () => {
-  const pid = curProjId(); if (!pid) return
-  klavCopy(cspFixPrompt(pid), $("embedCopyAI"), "Copied for AI ✓")
+    const prev = btn.textContent; btn.textContent = "Copied" // emoji-ok
+    setTimeout(() => { btn.textContent = prev }, 1600)
+  } catch (e) { btn.textContent = "Press ⌘C"; setTimeout(() => { btn.textContent = "Copy" }, 1600) }
 })
 $("checklistDismiss") && ($("checklistDismiss").onclick = () => {
   try { sessionStorage.setItem("klavChecklistDismissed", "1") } catch (e) {}
@@ -1170,7 +1141,7 @@ $("pauseBtn").onclick = async () => {
   const msg = $("pauseMsg")
   if (d.error) { msg.style.color = "var(--rose)"; msg.textContent = d.error; $("pauseBtn").disabled = false; return }
   renderPause(d.reviewMode || next)
-  msg.style.color = "var(--green)"; msg.textContent = next === "paused" ? "✓ Sims paused project-wide." : "✓ Sims resumed."
+  msg.style.color = "var(--green)"; msg.textContent = next === "paused" ? "Sims paused project-wide." : "Sims resumed." // emoji-ok
 }
 
 let curUrls = []
@@ -1183,9 +1154,9 @@ function renderUrls(urls) {
     const on = u.enabled !== 0 && u.enabled !== false
     return `<div class="urlrow" data-id="${esc(u.id)}">
       <span class="pat${on?"":" off"}">${esc(u.urlPattern)}</span>
-      <button class="edit" title="Edit pattern" aria-label="Edit pattern">✎</button>
+      <button class="edit" title="Edit pattern" aria-label="Edit pattern">${kicon('pencil')}</button>
       <button class="tog${on?" on":""}" data-on="${on?1:0}">${on?"enabled":"disabled"}</button>
-      <button class="x" aria-label="Remove">✕</button>
+      <button class="x" aria-label="Remove">${kicon('x')}</button>
     </div>`
   }).join("")
   wrap.querySelectorAll(".urlrow").forEach(row => {
@@ -1232,7 +1203,7 @@ $("urlAdd").onclick = async () => {
   const d = await r.json().catch(() => ({}))
   $("urlAdd").disabled = false
   if (d.error) { msg.style.color = "var(--rose)"; msg.textContent = d.error; return }
-  $("urlInput").value = ""; msg.style.color = "var(--green)"; msg.textContent = "✓ Added — Sims will auto-comment there."
+  $("urlInput").value = ""; msg.style.color = "var(--green)"; msg.textContent = "Added — Sims will auto-comment there." // emoji-ok
   renderUrls(d.monitoredUrls || [])
 }
 
@@ -1249,14 +1220,14 @@ async function loadObs() {
   } catch { $("obsList").innerHTML = `<div class="muted">Couldn't load activity.</div>` }
 }
 function renderObs(events, named) {
-  if (!events.length) { $("obsList").innerHTML = `<div class="empty"><div class="em">👁️</div><p>No Sim reviews yet. When a teammate visits a monitored URL, the run shows up here — who, which Sim, which path.</p></div>`; return }
+  if (!events.length) { $("obsList").innerHTML = `<div class="empty"><div class="em">${kicon('eye',{size:32})}</div><p>No Sim reviews yet. When a teammate visits a monitored URL, the run shows up here — who, which Sim, which path.</p></div>`; return }
   $("obsList").innerHTML = events.map(e => {
     const who = named && e.actorEmail ? esc(e.actorEmail) : "A teammate"
     const sim = e.simName ? `Sim <b>${esc(e.simName)}</b>` : "Sims"
     const sub = [e.urlPath ? esc(e.urlPath) : "", ago(e.createdAt)].filter(Boolean).join(" · ")
     const shot = e.screenshotId ? `<button class="shot" data-shot="${esc(e.screenshotId)}">View screenshot ↗</button>` : ""
     return `<div class="obs">
-      <span class="ico">👁️</span>
+      <span class="ico">${kicon('eye')}</span>
       <div class="body"><div class="t">${who} ran ${sim}</div><div class="d">${sub}</div></div>
       ${shot}
     </div>`
@@ -1311,7 +1282,7 @@ function emptyState(em, text, cta) {
 function renderSaying() {
   const items = state.saying || []
   if (!items.length) {
-    $("saying").innerHTML = emptyState("💬", "Your Sims haven't reacted yet. Drop in a transcript and run a review to hear what they think.", `<a class="btn btn-indigo btn-sm" href="/app">Open the studio →</a>`)
+    $("saying").innerHTML = emptyState(kicon('message-circle',{size:32}), "Your Sims haven't reacted yet. Drop in a transcript and run a review to hear what they think.", `<a class="btn btn-indigo btn-sm" href="/app">Open the studio →</a>`)
     return
   }
   $("saying").innerHTML = `<div class="saying">` + items.map(s => {
@@ -1338,7 +1309,7 @@ function renderSims(admin) {
   const sims = state.sims || []
   $("simsCount").textContent = sims.length ? sims.length : ""
   if (!sims.length) {
-    $("sims").innerHTML = emptyState("🧬", "No Sims yet — bring your first one to life in a sentence.", `<button class="btn btn-indigo btn-sm" onclick="openSimModal()">＋ Create your first Sim</button>`)
+    $("sims").innerHTML = emptyState(kicon('dna',{size:32}), "No Sims yet — bring your first one to life in a sentence.", `<button class="btn btn-indigo btn-sm" onclick="openSimModal()">＋ Create your first Sim</button>`)
     return
   }
   const pid = curProjId()
@@ -1411,7 +1382,7 @@ function buildTktDetail(t, admin, onChange) {
       <div class="tkt-context">
         ${t.observation ? `<div class="tkt-obs">${esc(t.observation)}</div>` : ""}
         ${(t.severity || t.sentiment || t.simName) ? `<div class="tkt-chips">${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
-        ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">🐞 ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
+        ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">${kicon('bug')} ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
         ${t.sourceQuote ? `<div class="tkt-prov">"${esc(t.sourceQuote)}"${t.sourceDate ? ` · raised ${esc(ago(t.sourceDate))}` : ""}</div>` : ""}
         <div class="tkt-meta-line muted">${t.urlPath ? esc(t.urlPath) : ""}${(t.urlPath && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>
         ${t.screenshotId ? `<div class="tkt-shot" data-shot="${esc(t.screenshotId)}"><div class="muted" style="font-size:12px">Loading screenshot…</div></div>` : ""}
@@ -1433,7 +1404,7 @@ function buildTktDetail(t, admin, onChange) {
       <div class="tkt-actions">
         <div class="tkt-badges">${badgesHtml}</div>
         ${t.hasReplay ? `<button class="btn btn-ghost btn-sm replay-btn" type="button">▶ Session replay</button>` : ""}
-        <button class="btn btn-ghost btn-sm copy-claude-btn" type="button" title="Copy a detailed prompt to paste into Claude / ChatGPT / any AI coding agent">✨ Copy to AI</button>
+        <button class="btn btn-ghost btn-sm copy-claude-btn" type="button" title="Copy a detailed prompt to paste into Claude / ChatGPT / any AI coding agent">${kicon('sparkles')} Copy to AI</button>
         <button class="btn btn-ghost btn-sm save-meta-btn">Save</button>
       </div>
       <div class="tkt-gap tkt-copy">${copySelect}</div>
@@ -1544,7 +1515,7 @@ function renderTickets() {
   const admin = state.active && state.active.role === "admin"
   $("ticketCount").textContent = tickets.length ? tickets.length : ""
   if (!tickets.length) {
-    $("tickets").innerHTML = emptyState("🐛", "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
+    $("tickets").innerHTML = emptyState(kicon('bug',{size:32}), "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
     renderTicketsKanban()
     return
   }
@@ -1565,12 +1536,12 @@ function renderTickets() {
       rowEl.querySelector(".t").innerHTML = `${esc(t.title || "Untitled report")}${statusPart}${assigneePart}`
     }
     rowEl.innerHTML = `
-      <span class="ico">🐛</span>
+      <span class="ico">${kicon('bug')}</span>
       <div class="body">
         <div class="t"></div>
         <div class="d">${sub}</div>
       </div>
-      <button class="copy-ai-icon" type="button" aria-label="Copy to AI" title="Copy to AI — paste into Claude / ChatGPT to fix this bug">✨</button>
+      <button class="copy-ai-icon" type="button" aria-label="Copy to AI" title="Copy to AI — paste into Claude / ChatGPT to fix this bug">${kicon('sparkles')}</button>
       <span class="go" aria-label="Expand">›</span>`
     renderRowTitle()
 
@@ -1647,14 +1618,9 @@ function renderTicketsKanban() {
     if (si) { si.addEventListener("input", () => { _kanbanSearch = si.value; renderTicketsKanban() }); _kbSearchBound = true }
   }
   const admin = state.active && state.active.role === "admin"
-  const allTickets = state.tickets || []
-  const q = _kanbanSearch.trim().toLowerCase()
-  const tickets = q
-    ? allTickets.filter(t => ((t.title || "") + " " + (t.simName || "") + " " + (t.urlPath || "") + " " + (t.observation || "")).toLowerCase().includes(q))
-    : allTickets
-  $("ticketKanbanCount").textContent = allTickets.length ? (q ? (tickets.length + "/" + allTickets.length) : allTickets.length) : ""
-  if (!allTickets.length) {
-    board.innerHTML = emptyState("🐛", "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
+  $("ticketKanbanCount").textContent = tickets.length ? tickets.length : ""
+  if (!tickets.length) {
+    board.innerHTML = emptyState(kicon('bug',{size:32}), "No tickets filed yet. When a Sim spots a bug, it lands here with a tracker link.", "")
     return
   }
   if (!tickets.length) {
@@ -1703,8 +1669,8 @@ function renderTicketsKanban() {
         cardEl.querySelector(".kb-card-meta").innerHTML = `${stChip}${sevChip}${assignee}`
       }
       cardEl.innerHTML = `
-        <button class="copy-ai-icon kb-copy-ai" type="button" aria-label="Copy to AI" title="Copy to AI — paste into Claude / ChatGPT to fix this bug">✨</button>
-        <div class="kb-card-t">🐛 ${esc(t.title || "Untitled report")}</div>
+        <button class="copy-ai-icon kb-copy-ai" type="button" aria-label="Copy to AI" title="Copy to AI — paste into Claude / ChatGPT to fix this bug">${kicon('sparkles')}</button>
+        <div class="kb-card-t">${kicon('bug')} ${esc(t.title || "Untitled report")}</div>
         <div class="kb-card-d">${sub}</div>
         <div class="kb-card-meta"></div>`
       renderCard()
@@ -1783,7 +1749,7 @@ async function copyTicketToAI(ticketId, btn, detailEl) {
   const ok = await copyText(ticketMarkdown(tkt))
   const orig = btn.innerHTML
   const labeled = !btn.classList.contains("copy-ai-icon")
-  btn.innerHTML = ok ? (labeled ? "✓ Copied!" : "✓") : (labeled ? "✗ Copy failed" : "✗")
+  btn.innerHTML = ok ? (labeled ? kicon('check')+" Copied!" : kicon('check')) : (labeled ? kicon('x')+" Copy failed" : kicon('x'))
   btn.classList.toggle("copied", ok)
   if (detailEl) showTktMsg(detailEl, ok ? "Copied a fix-ready prompt to your clipboard." : "Couldn't access the clipboard.", !ok)
   setTimeout(() => { btn.innerHTML = orig; btn.classList.remove("copied") }, 2000)
@@ -1847,7 +1813,7 @@ function renderActivity() {
   const acts = state.activity || []
   $("actCount").textContent = acts.length ? acts.length : ""
   if (!acts.length) {
-    $("activity").innerHTML = emptyState("📡", "No activity yet. Reviews, filings, and Sim updates will stream here.", "")
+    $("activity").innerHTML = emptyState(kicon('radio-tower',{size:32}), "No activity yet. Reviews, filings, and Sim updates will stream here.", "")
     return
   }
   // Focus mode (default) shows just the recent few so the card never grows the page;
@@ -1960,7 +1926,7 @@ function renderConnectors(admin) {
         <span class="conn-name">${esc(c.name)}</span>
         <span class="conn-type">${esc(c.type)}</span>
         <button class="tog${enOn?" on":""}" title="${enOn?"Disable":"Enable"}" data-cid="${esc(c.id)}" data-field="enabled" data-val="${enOn?1:0}">${enOn?"enabled":"disabled"}</button>
-        <button class="btn btn-ghost btn-sm" data-del="${esc(c.id)}" aria-label="Delete connector">✕</button>
+        <button class="btn btn-ghost btn-sm" data-del="${esc(c.id)}" aria-label="Delete connector">${kicon('x')}</button>
       </div>
       <div class="conn-auto">
         <button class="tog${acOn?" on":""}" data-cid="${esc(c.id)}" data-field="autoCopy" data-val="${acOn?1:0}">auto-copy ${acOn?"on":"off"}</button>
@@ -2061,10 +2027,10 @@ function renderTestResult(el, r, d) {
     const link = d.externalUrl
       ? ` <a href="${esc(d.externalUrl)}" target="_blank" rel="noopener">View ↗</a>`
       : ""
-    showConnResult(el, "ok", "✓ Test ticket created" + link)
+    showConnResult(el, "ok", kicon('check')+" Test ticket created" + link)
   } else {
     const err = (d && d.error) || (okHttp ? "Test failed" : "Test failed")
-    showConnResult(el, "err", "✕ " + esc(err))
+    showConnResult(el, "err", kicon('x')+" " + esc(err))
   }
 }
 
@@ -2177,7 +2143,7 @@ function readConnForm() {
 $("connTestNew") && ($("connTestNew").onclick = async () => {
   const { type, config } = readConnForm()
   const resEl = $("connAddTestResult")
-  if (!type) { showConnResult(resEl, "err", "✕ Select a type first."); return }
+  if (!type) { showConnResult(resEl, "err", kicon('x')+" Select a type first."); return }
   $("connTestNew").disabled = true
   showConnResult(resEl, "pend", "Testing…")
   const r = await fetch(projPath("/connectors/test"), {
@@ -2219,7 +2185,7 @@ $("connSaveNew") && ($("connSaveNew").onclick = async () => {
   $("connSaveNew").disabled = false
   const d = r ? await r.json().catch(() => ({})) : {}
   if (d.ok) {
-    msg.style.color = "var(--green)"; msg.textContent = connEditId ? "✓ Connector updated." : "✓ Connector added."
+    msg.style.color = "var(--green)"; msg.textContent = connEditId ? "Connector updated." : "Connector added." // emoji-ok
     $("connAddWrap").classList.add("hide"); $("connAddBtn").classList.remove("hide")
     resetConnForm()
     await loadConnectors(true)
@@ -2330,7 +2296,7 @@ async function loadAppearance() {
       try {
         const r = await fetch(projPath("/config"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
         const d = await r.json().catch(() => ({}))
-        msg.textContent = d.ok ? "Settings saved ✓" : ("Error: " + (d.error || "failed"))
+        msg.textContent = d.ok ? "Settings saved" : ("Error: " + (d.error || "failed")) // emoji-ok
       } catch { msg.textContent = "Network error" }
     })
   }
@@ -2495,16 +2461,16 @@ load()
 <!-- ===== Add-a-Sim modal: describe · from your site · from a call ===== -->
 <div class="sm-ov" id="simOv" role="dialog" aria-modal="true" aria-label="Add a Sim">
   <div class="sm-modal">
-    <div class="sm-top"><button class="sm-close" id="simClose" aria-label="Close">✕</button></div>
+    <div class="sm-top"><button class="sm-close" id="simClose" aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></button></div>
     <div class="sm-hd">
-      <span class="gl">🧬</span>
+      <span class="gl"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg></span>
       <h2 id="simHd">Bring your first Sim to life</h2>
       <p>A Sim is an AI user that reacts to your pages and files what bugs them. Start any way you like — <b>you can edit them later.</b></p>
     </div>
     <div class="sm-seg" role="tablist">
-      <button class="on" data-pane="describe"><span class="e">✍️</span>Describe</button>
-      <button data-pane="site"><span class="e">🔮</span>From your site</button>
-      <button data-pane="call"><span class="e">🎙️</span>From a call</button>
+      <button class="on" data-pane="describe"><span class="e"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" /></svg></span>Describe</button>
+      <button data-pane="site"><span class="e"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg></span>From your site</button>
+      <button data-pane="call"><span class="e"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19v3" /> <path d="M19 10v2a7 7 0 0 1-14 0v-2" /> <rect x="9" y="2" width="6" height="13" rx="3" /></svg></span>From a call</button>
     </div>
     <div class="sm-pane on" data-pane="describe">
       <div class="sm-field">
@@ -2546,7 +2512,7 @@ load()
   function simCardHtml(s,idx){
     const ins=(s.insights||[]).slice(0,3).map(i=>{
       const k=(i.kind==="pain"||i.kind==="want"||i.kind==="love")?i.kind:"want";
-      const g=k==="pain"?"▾":k==="want"?"★":"♥";
+      const g=k==="pain"?kicon('frown',{label:'pain'}):k==="want"?kicon('lightbulb',{label:'want'}):kicon('heart',{label:'love'});
       return `<div class="sm-in ${k}"><span class="ic">${g}</span><span class="qt">${esc(i.text||"")} ${i.quote?`<em>“${esc(i.quote)}”</em>`:""}</span></div>`;
     }).join("");
     const acc=safeAccent(s.accent,col(s.name||"x"));
@@ -2595,7 +2561,7 @@ load()
     try{
       await postJSON("/api/personas"+projQ(),{ name:s.name, role:s.role, type:s.type, initials:s.initials||inits(s.name), accent:safeAccent(s.accent,col(s.name||"x")), summary:s.summary||"", insights:Array.isArray(s.insights)?s.insights:[] });
       simAdded=true;
-      if(cardEl){ cardEl.classList.add("added"); cardEl.querySelectorAll("button").forEach(b=>b.disabled=true); if(btn) btn.textContent="✓ Added"; }
+      if(cardEl){ cardEl.classList.add("added"); cardEl.querySelectorAll("button").forEach(b=>b.disabled=true); if(btn) btn.textContent="Added"; } // emoji-ok
     }catch(e){ if(btn){ btn.disabled=false; btn.textContent=orig; } fail(e.message); }
   }
 
