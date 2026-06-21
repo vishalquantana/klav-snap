@@ -8,6 +8,10 @@ export const githubConnector: Connector = {
     { key: "owner", label: "Repository Owner", required: true, placeholder: "my-org" },
     { key: "repo", label: "Repository Name", required: true, placeholder: "my-repo" },
     { key: "token", label: "Personal Access Token", required: true, secret: true },
+    // Two-way sync (G4): the webhook secret you set on the GitHub repo's issue webhook.
+    // Used ONLY to verify inbound X-Hub-Signature-256; never sent outbound. Optional —
+    // leave blank to keep this connector outbound-only.
+    { key: "inbound_secret", label: "Inbound Webhook Secret (optional, for two-way sync)", secret: true },
   ],
 
   validate(cfg) {

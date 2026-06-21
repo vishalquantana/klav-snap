@@ -9,6 +9,9 @@ export const planeConnector: Connector = {
     { key: "workspace", label: "Workspace Slug", required: true },
     { key: "project_id", label: "Project ID", required: true },
     { key: "token", label: "API Key", required: true, secret: true },
+    // Two-way sync (G4): shared secret sent by Plane's webhook as X-Plane-Signature.
+    // Verified on inbound only; never sent outbound. Optional — blank = outbound-only.
+    { key: "inbound_secret", label: "Inbound Webhook Secret (optional, for two-way sync)", secret: true },
   ],
 
   validate(cfg) {

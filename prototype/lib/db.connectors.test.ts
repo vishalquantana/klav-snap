@@ -16,6 +16,7 @@ const {
   removeConnector, listAutoCopyConnectors,
   updateFeedbackMeta, feedbackById,
   addTicketExport, listTicketExports, exportsForFeedbackIds,
+  findExportByExternalKey,
   insertFeedback,
 } = await import("./db")
 
@@ -137,6 +138,40 @@ test("exportsForFeedbackIds handles empty array and multiple feedback ids", asyn
   expect(batch[fid1][0].externalKey).toBe("JIRA-1")
   expect(batch[fid2][0].status).toBe("failed")
   expect(batch[fid2][0].error).toBe("timeout")
+})
+
+test("findExportByExternalKey maps (type, externalKey) back to the export → feedback (inbound sync)", async () => {
+  const fid = await seedFeedback("proj_inbound")
+  const connId = await createConnector("proj_inbound", {
+    type: "github", name: "GH", config: {}, autoCopy: false, createdBy: null,
+  })
+  await addTicketExport({
+    feedbackId: fid, projectId: "proj_inbound", connectorId: connId,
+    type: "github", externalKey: "#777", externalUrl: "https://gh/issues/777",
+    status: "ok", error: null, createdBy: null,
+  })
+
+  const hit = await findExportByExternalKey("github", "#777")
+  expect(hit).not.toBeNull()
+  expect(hit!.feedbackId).toBe(fid)
+  expect(hit!.projectId).toBe("proj_inbound")
+  expect(hit!.connectorId).toBe(connId)
+
+  // type must match — a Plane issue "#777" must NOT collide with the GitHub one
+  expect(await findExportByExternalKey("plane", "#777")).toBeNull()
+  // unknown key → null
+  expect(await findExportByExternalKey("github", "#999")).toBeNull()
+})
+
+test("findExportByExternalKey ignores failed exports (no external issue exists)", async () => {
+  const fid = await seedFeedback("proj_inbound_fail")
+  await addTicketExport({
+    feedbackId: fid, projectId: "proj_inbound_fail", connectorId: "c_fail",
+    type: "github", externalKey: null, externalUrl: null,
+    status: "failed", error: "boom", createdBy: null,
+  })
+  // a failed export stored no external_key → nothing to match on
+  expect(await findExportByExternalKey("github", "#nope")).toBeNull()
 })
 
 test("initDb runs applySchema + migrations idempotently (no throw on second run)", async () => {

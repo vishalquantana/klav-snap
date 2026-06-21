@@ -1965,6 +1965,21 @@ export async function listTicketExports(feedbackId: string): Promise<TicketExpor
   return r.rows.map(rowToTicketExport)
 }
 
+// INBOUND two-way sync (G4): reverse-map an external tracker issue back to its Klavity export.
+// Matches on (type, external_key) — the EXACT key the outbound createIssue stored — and ignores
+// failed exports (which never produced an external issue, so external_key is null). Returns the
+// most-recent successful export for that key so a webhook can resolve feedbackId + projectId.
+export async function findExportByExternalKey(type: string, externalKey: string): Promise<TicketExportRow | null> {
+  if (!externalKey) return null
+  const r = await db!.execute({
+    sql: `SELECT * FROM ticket_exports
+          WHERE type=? AND external_key=? AND status='ok'
+          ORDER BY created_at DESC LIMIT 1`,
+    args: [type, externalKey],
+  })
+  return r.rows.length ? rowToTicketExport(r.rows[0]) : null
+}
+
 // Batch fetch exports for a list of feedback ids. Groups newest-first per feedback id.
 // Returns a map feedbackId → TicketExportRow[].
 export async function exportsForFeedbackIds(ids: string[]): Promise<Record<string, TicketExportRow[]>> {

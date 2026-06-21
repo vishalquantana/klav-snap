@@ -1,7 +1,8 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, setFeedbackContactEmail } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, setFeedbackContactEmail } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
+import { inboundSupported, verifyGithubSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp, sendLeadAlert } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
@@ -499,6 +500,15 @@ function oops(e: unknown, label: string): { error: string; id: string } {
 // Widget-scoped json: always attaches WIDGET_CORS so every response (success AND error) is
 // readable cross-origin. Used for /api/personas, /api/sim/review, /api/consent only.
 function wjson(body: unknown, status = 200) { return json(body, status, WIDGET_CORS) }
+// Constant-time string compare for shared-secret webhook headers (Plane). Avoids leaking the
+// secret length-by-length / byte-by-byte via response timing. (GitHub uses HMAC in inbound.ts.)
+function timingSafeStrEqual(a: string, b: string): boolean {
+  if (!a || !b) return false
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
 function file(path: string) { return new Response(Bun.file(path)) }
 function redirect(loc: string, headers: Record<string, string> = {}) { return new Response(null, { status: 302, headers: { Location: loc, ...headers } }) }
 function fmtUsd(n: number): string { return "$" + (Number(n) || 0).toFixed(4) }
@@ -955,6 +965,67 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         } catch (e: any) { console.error("lead alert (non-fatal):", e?.message || e) }
       })().catch(() => {})
       return wjson({ ok: true })
+    }
+
+    // ── inbound two-way status sync (G4): external tracker → Klavity ticket ──
+    // POST /api/connectors/:type/webhook — UNAUTHENTICATED on purpose (the external provider
+    // calls it). Trust is established per-request by verifying the provider's webhook signature
+    // against the secret stored on the matching connector. Supported: github (HMAC X-Hub-Signature-256),
+    // plane (shared-secret X-Plane-Signature). jira/linear are stubbed (return 404 via inboundSupported).
+    const inboundMatch = req.method === "POST" && path.match(/^\/api\/connectors\/([a-z]+)\/webhook$/)
+    if (inboundMatch) {
+      const type = inboundMatch[1]
+      // Unknown / stubbed connector type → 404 (don't reveal which are wired).
+      if (!inboundSupported(type)) return json({ error: "Not found" }, 404)
+
+      // Abuse cap: this is a public, unauthenticated endpoint. Bound per source IP.
+      if (!rlAllow(`inbound:${type}:${clientIp(req, server)}`, 120, 60 * 1000)) {
+        return json({ error: "rate limited" }, 429)
+      }
+
+      // Read the RAW body (needed verbatim for HMAC). Hard size cap before any parse/HMAC work.
+      const raw = await req.text().catch(() => "")
+      if (raw.length > 128 * 1024) return json({ error: "payload too large" }, 413)
+
+      let payload: any
+      try { payload = JSON.parse(raw) } catch { return json({ error: "invalid json" }, 400) }
+
+      // Map the external issue id (exactly as we stored it on outbound copy) → our export → feedback.
+      const externalKey = extractExternalKey(type, payload)
+      if (!externalKey) return json({ ok: true, ignored: "no-external-key" }) // not an issue event we track
+
+      const exportRow = await findExportByExternalKey(type, externalKey)
+      // Accept-and-ignore unknown issues so the endpoint isn't an oracle for which ids exist.
+      if (!exportRow) return json({ ok: true, ignored: "unknown-issue" })
+
+      // Load the connector that produced this export and decrypt its inbound secret.
+      const connector = await getConnectorById(exportRow.projectId, exportRow.connectorId)
+      if (!connector) return json({ ok: true, ignored: "connector-gone" })
+      let inboundSecret = ""
+      if (connector.config.inbound_secret) {
+        try { inboundSecret = await decryptSecret(connector.config.inbound_secret) } catch { inboundSecret = "" }
+      }
+      // No secret configured → two-way sync is opt-in; refuse unsigned/unverifiable callbacks.
+      if (!inboundSecret) return json({ error: "unauthorized" }, 401)
+
+      // ── Verify the provider signature (spoofing guard) ──
+      let verified = false
+      if (type === "github") {
+        verified = await verifyGithubSignature(inboundSecret, raw, req.headers.get("x-hub-signature-256"))
+      } else if (type === "plane") {
+        // Plane sends the configured secret back in a header; constant-time compare.
+        const sent = req.headers.get("x-plane-signature") || ""
+        verified = timingSafeStrEqual(sent, inboundSecret)
+      }
+      if (!verified) return json({ error: "unauthorized" }, 401)
+
+      // Map the provider's state → Klavity status. null = a non-status event → no-op.
+      const newStatus = mapExternalStatus(type, payload)
+      if (!newStatus) return json({ ok: true, ignored: "no-status-change" })
+
+      const updated = await updateFeedbackMeta(exportRow.projectId, exportRow.feedbackId, { status: newStatus })
+      if (!updated) return json({ ok: true, ignored: "feedback-gone" })
+      return json({ ok: true, status: newStatus })
     }
 
     // ── auth: request OTP ──
