@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, recordWidgetPing, latestWidgetPing, setFeedbackContactEmail, exportUserData, eraseUser } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, recordWidgetPing, latestWidgetPing, setFeedbackContactEmail, exportUserData, eraseUser, computeDashboardInsights } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload, type TicketAttachment } from "./lib/connectors/index"
 import { inboundSupported, verifyGithubSignature, verifyLinearSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
@@ -733,44 +733,6 @@ async function feedbackToTicketPayload(fb: any, project: { id: string; name?: st
     klavityUrl: `${BASE}/dashboard?project=${project.id}`,
     attachments,
   }
-}
-
-// Aggregate "so what" insights for the Overview, computed across ALL of a project's feedback
-// (not just the recent 12 the dashboard lists). Cheap GROUP BY queries; degrades to zeros with no DB.
-// created_at is stored as a millisecond epoch integer.
-async function computeDashboardInsights(projectId: string) {
-  const empty = {
-    openBySeverity: { high: 0, medium: 0, low: 0, none: 0 },
-    recurring: 0,
-    sentiment: { neg: 0, pos: 0, total: 0 },
-    hotspots: [] as { area: string; count: number }[],
-    volume7d: [] as number[],
-    opened7d: 0, resolved7d: 0,
-  }
-  if (!db) return empty
-  try {
-    const now = Date.now()
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
-    const [sevRows, sentRows, hotRows, volRows, recRow, throughputRows] = await Promise.all([
-      db.execute({ sql: `SELECT COALESCE(severity,'none') sev, COUNT(*) n FROM feedback WHERE project_id=? AND status!='done' GROUP BY sev`, args: [projectId] }),
-      db.execute({ sql: `SELECT COALESCE(sentiment,'') s, COUNT(*) n FROM feedback WHERE project_id=? GROUP BY s`, args: [projectId] }),
-      db.execute({ sql: `SELECT COALESCE(NULLIF(url_path,''),'(unknown)') area, COUNT(*) n FROM feedback WHERE project_id=? AND status!='done' GROUP BY area ORDER BY n DESC LIMIT 6`, args: [projectId] }),
-      db.execute({ sql: `SELECT CAST(created_at/86400000 AS INTEGER) d, COUNT(*) n FROM feedback WHERE project_id=? AND created_at>? GROUP BY d`, args: [projectId, weekAgo] }),
-      db.execute({ sql: `SELECT COUNT(*) n FROM feedback WHERE project_id=? AND recurrence_count>=3`, args: [projectId] }),
-      db.execute({ sql: `SELECT (CASE WHEN status='done' THEN 'resolved' ELSE 'opened' END) k, COUNT(*) n FROM feedback WHERE project_id=? AND created_at>? GROUP BY k`, args: [projectId, weekAgo] }),
-    ])
-    const out = JSON.parse(JSON.stringify(empty))
-    for (const r of sevRows.rows) { const k = String((r as any).sev); if (k in out.openBySeverity) out.openBySeverity[k] = Number((r as any).n) }
-    for (const r of sentRows.rows) { const s = String((r as any).s); const n = Number((r as any).n); out.sentiment.total += n; if (s === "frustrated" || s === "confused") out.sentiment.neg += n; else if (s) out.sentiment.pos += n }
-    out.hotspots = hotRows.rows.map((r: any) => ({ area: String(r.area), count: Number(r.n) }))
-    out.recurring = recRow.rows.length ? Number((recRow.rows[0] as any).n) : 0
-    const byDay: Record<number, number> = {}
-    for (const r of volRows.rows) byDay[Number((r as any).d)] = Number((r as any).n)
-    const todayIdx = Math.floor(now / 86400000)
-    for (let i = 6; i >= 0; i--) out.volume7d.push(byDay[todayIdx - i] || 0)
-    for (const r of throughputRows.rows) { const k = String((r as any).k); if (k === "resolved") out.resolved7d = Number((r as any).n); else out.opened7d = Number((r as any).n) }
-    return out
-  } catch { return empty }
 }
 
 // Resolve a Sim's display name from its id (best-effort; null if unknown). Used to enrich
