@@ -40,4 +40,16 @@ describe('dispatchSubmit', () => {
     const settings: KlavitySettings = { ...DEFAULT_SETTINGS, integration: 'linear', backendUrl: '' }
     await expect(dispatchSubmit(mockPayload, settings, {})).rejects.toThrow('No handler')
   })
+
+  it('backend submit includes project_id and never routes to a direct tracker', async () => {
+    const calls: Record<string, boolean> = {}
+    const backend = vi.fn(async (cfg: any) => { calls.backend = true; expect(cfg.projectId).toBe('proj_X'); return { issueKey: '1', issueUrl: '' } })
+    const jira = vi.fn(async () => { calls.jira = true; return { issueKey: 'J', issueUrl: '' } })
+    await dispatchSubmit(
+      { type: 'bug', description: 'd', context: { pageUrl: 'https://x' } as any, screenshots: [], projectId: 'proj_X' } as any,
+      { ...DEFAULT_SETTINGS, backendUrl: 'https://k', connectionMode: 'klavity', klavToken: 't' },
+      { backend, jira } as any,
+    )
+    expect(calls.backend).toBe(true); expect(calls.jira).toBeUndefined()
+  })
 })

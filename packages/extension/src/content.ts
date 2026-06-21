@@ -215,11 +215,13 @@ function closeModal() {
 let pendingSubmit: { resolve: (r: { issueKey: string; issueUrl: string }) => void; reject: (e: Error) => void } | null = null
 
 function submitViaSW(p: { type: ReportType; description: string; screenshots: string[] }): Promise<{ issueKey: string; issueUrl: string }> {
+  const matchedProject = klavMatchProject(location.href)
   const payload: SubmitReportPayload = {
     type: p.type,
     description: p.description,
     context: buildContext(),
     screenshots: [...p.screenshots],
+    ...(matchedProject?.id ? { projectId: matchedProject.id } : {}),
   }
   return new Promise((resolve, reject) => {
     pendingSubmit = { resolve, reject }

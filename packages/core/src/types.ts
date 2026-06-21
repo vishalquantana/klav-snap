@@ -57,6 +57,7 @@ export interface SubmitReportPayload {
   description: string
   context: ReportContext
   screenshots: string[] // data URLs (PNG or JPEG)
+  projectId?: string    // Klavity project ID; if set, report lands in that project
 }
 
 export interface SubmitResult {
@@ -70,6 +71,7 @@ export interface IntegrationConfig {
   context: ReportContext
   screenshots: string[]
   settings: KlavitySettings
+  projectId?: string    // threaded from SubmitReportPayload; backend appends as project_id
 }
 
 // Extension message protocol

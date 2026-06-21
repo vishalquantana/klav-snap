@@ -1,12 +1,13 @@
 import type { IntegrationConfig, SubmitResult } from '../types'
 
 export async function submitReport(config: IntegrationConfig): Promise<SubmitResult> {
-  const { settings, type, description, context, screenshots } = config
+  const { settings, type, description, context, screenshots, projectId } = config
   const form = new FormData()
   form.append('type', type)
   form.append('description', description)
   form.append('page_url', context.pageUrl)
   form.append('context', JSON.stringify(context))
+  if (projectId) form.append('project_id', projectId)
 
   // Klavity mode: signed-in user. The backend resolves their personal→team connection,
   // so the tracker token never leaves the server — we send only a Bearer token.
