@@ -8,6 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Klavity — Get started</title>
 <link rel="stylesheet" href="/fonts/fonts.css" />
+<script src="/icons.generated.js"></script>
 <style>
 :root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;
 --indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
@@ -144,7 +145,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <li class="rstep" data-r="1"><span class="ix">1</span><div class="rl">Create your project</div></li>
       <li class="rstep" data-r="2"><span class="ix">2</span><div class="rl">Point Sims at your product</div></li>
       <li class="rstep" data-r="3"><span class="ix">3</span><div class="rl">Pick your starting Sims</div></li>
-      <li class="rstep studio" data-r="4"><span class="ix">⚡</span><div class="rl">Meet them in the Studio</div></li>
+      <li class="rstep studio" data-r="4"><span class="ix"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" /></svg></span><div class="rl">Meet them in the Studio</div></li>
     </ul>
     <div class="foot">~90 seconds, then you're in the Studio</div>
   </aside>
@@ -208,7 +209,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <div class="chiplist" id="urlChips"></div>
           <div class="err" id="s2err"></div>
           <div class="tiles" style="margin-top:18px">
-            <div class="tile sel" id="chromeTile" onclick="connectExtension()"><div class="ti">🧩</div><h3>Connect the Klavity extension</h3><p id="chromeMsg">Required for live Sims on your real pages — click to connect (or install it first).</p></div>
+            <div class="tile sel" id="chromeTile" onclick="connectExtension()"><div class="ti"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" /></svg></div><h3>Connect the Klavity extension</h3><p id="chromeMsg">Required for live Sims on your real pages — click to connect (or install it first).</p></div>
             <div class="tile alt" id="widgetTile" onclick="document.getElementById('widgetSnippet').classList.toggle('hide')"><div class="ti">&lt;/&gt;</div><h3>Or embed the widget</h3><p>One script tag for any web app — no extension needed. Click for the snippet.</p></div>
           </div>
           <div class="hide" id="widgetSnippet" style="margin-top:14px">
@@ -231,8 +232,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <h1>Who should <em>review it?</em></h1>
           <p class="sub">Start from a real customer call, or drop in a ready-made review team if you don't have a transcript yet. Either way, you'll meet them in the Studio next.</p>
           <div class="tiles">
-            <div class="tile sel" id="intentTranscript" onclick="pickIntent('transcript')"><div class="ti">📝</div><h3>From a customer call</h3><p>Upload a transcript (Zoom / Meet / Loom). We turn each speaker into a Sim, grounded in their exact words.</p></div>
-            <div class="tile" id="intentHats" onclick="pickIntent('hats')"><div class="ti">🎩</div><h3>The Six Thinking Hats</h3><p>A balanced review team — facts, feelings, optimism, risks, ideas, process — that works on any page, no transcript needed.</p>
+            <div class="tile sel" id="intentTranscript" onclick="pickIntent('transcript')"><div class="ti"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /> <path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></svg></div><h3>From a customer call</h3><p>Upload a transcript (Zoom / Meet / Loom). We turn each speaker into a Sim, grounded in their exact words.</p></div>
+            <div class="tile" id="intentHats" onclick="pickIntent('hats')"><div class="ti"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /> <path d="M9 18h6" /> <path d="M10 22h4" /></svg></div><h3>The Six Thinking Hats</h3><p>A balanced review team — facts, feelings, optimism, risks, ideas, process — that works on any page, no transcript needed.</p>
               <div class="hatdots">
                 <span class="hd" style="background:#3b82f6">BL</span>
                 <span class="hd" style="background:#fff;color:#19140f;border:1px solid rgba(0,0,0,.18)">WH</span>
@@ -251,8 +252,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </main>
 </div>
 
-<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
-<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.textContent=dark()?'☀️':'🌙'}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></button>
+<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function svgIcon(name,label){var body=(window.KLAV_ICONS||{})[name]||'';var a11y=label?'role="img"':'aria-hidden="true"';var title=label?'<title>'+label+'</title>':'';return'<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '+a11y+'>'+title+body+'</svg>'}function paint(){b.innerHTML=svgIcon(dark()?'sun':'moon',dark()?'Switch to light mode':'Switch to dark mode')}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
 <script>
 // ── Onboarding state. step 0 = welcome (no rail); 1..3 = wizard (rail). ──
 let cur = 0
@@ -266,7 +267,7 @@ function renderWidgetSnippet(){ var s = document.getElementById('snipPid'); if (
   var cp = document.getElementById('copySnippet'); if (!cp) return
   cp.addEventListener('click', function(){
     navigator.clipboard && navigator.clipboard.writeText(widgetSnippetText()).then(function(){
-      var t = cp.textContent; cp.textContent = 'Copied ✓'; setTimeout(function(){ cp.textContent = t }, 1500)
+      var t = cp.textContent; cp.textContent = 'Copied!'; setTimeout(function(){ cp.textContent = t }, 1500)
     }).catch(function(){})
   })
 })()
@@ -282,7 +283,7 @@ function paint(){
     const r = Number(el.dataset.r)
     el.classList.toggle('active', r === cur)
     el.classList.toggle('done', r < cur && r !== 4)
-    if (r < cur && r !== 4) el.querySelector('.ix').textContent = '✓'
+    if (r < cur && r !== 4) el.querySelector('.ix').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>'
     else if (r !== 4) el.querySelector('.ix').textContent = String(r)
   })
   window.scrollTo(0, 0)
@@ -387,7 +388,7 @@ async function connectExtension(){
       })
     })
     if (resp && resp.ok) {
-      msg.textContent = '✓ Extension connected — your Sims can now go live on monitored URLs.'
+      msg.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Extension connected — your Sims can now go live on monitored URLs.'
       // Now that the extension is wired, turn the primary CTA into a clean "continue".
       const cont = $('s2continue'); if (cont){ cont.textContent = 'Continue →'; cont.onclick = () => go(3) }
     }
