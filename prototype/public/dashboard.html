@@ -6,8 +6,7 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
 <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Dashboard · Klavity</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/fonts/fonts.css" />
 <style>
 :root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
 --display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
@@ -17,7 +16,7 @@ body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height
 body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(80% 50% at 50% -5%,rgba(139,139,245,.08),transparent 60%)}
 a{color:inherit;text-decoration:none}
 .bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:var(--ink-2);border-bottom:1px solid var(--line)}
-.bar-in{max-width:1060px;margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;gap:14px}
+.bar-in{max-width:1200px;margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;gap:14px}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em}
 .brand .spark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:15px;background:linear-gradient(135deg,var(--indigo-deep),#a78bfa)}
 .ws{margin-left:6px;padding-left:14px;border-left:1px solid var(--line);font-size:14px;color:var(--paper-dim)}
@@ -26,7 +25,27 @@ a{color:inherit;text-decoration:none}
 .rolepill{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px}
 .r-admin{background:rgba(139,139,245,.16);color:var(--indigo)} .r-user{background:var(--ink-3);color:var(--paper-faint)}
 .lo{font-size:13px;color:var(--paper-faint);cursor:pointer;background:none;border:none;font-family:var(--body)}.lo:hover{color:var(--paper-dim)}
-.wrap{max-width:1060px;margin:0 auto;padding:34px 24px}
+.wrap{max-width:1200px;margin:0 auto;padding:26px 24px;display:flex;gap:26px;align-items:flex-start}
+/* ===== sidebar app shell ===== */
+.side{position:sticky;top:84px;flex:0 0 196px;display:flex;flex-direction:column;gap:2px}
+.side .nv{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;color:var(--paper-dim);font-size:14px;font-weight:500;cursor:pointer;border:1px solid transparent;background:none;width:100%;text-align:left;font-family:var(--body);transition:background .15s,color .15s,border-color .15s}
+.side .nv:hover{background:var(--ink-2);color:var(--paper)}
+.side .nv.active{background:var(--ink-2);color:var(--paper);border-color:var(--line)}
+.side .nv .ic{font-size:16px;width:20px;text-align:center;flex:none}
+.side .nv .ct{margin-left:auto;font-size:11px;color:var(--paper-faint);font-family:var(--mono)}
+.content{flex:1 1 auto;min-width:0}
+/* view switching — show only blocks tagged for the active view */
+body[data-view="overview"] [data-view]:not([data-view~="overview"]),
+body[data-view="sims"] [data-view]:not([data-view~="sims"]),
+body[data-view="tickets"] [data-view]:not([data-view~="tickets"]),
+body[data-view="team"] [data-view]:not([data-view~="team"]),
+body[data-view="settings"] [data-view]:not([data-view~="settings"]){display:none!important}
+@media(max-width:760px){
+  .wrap{flex-direction:column;gap:14px;padding:18px 16px}
+  .side{position:static;flex:none;flex-direction:row;width:100%;overflow-x:auto;gap:6px;padding-bottom:4px}
+  .side .nv{width:auto;white-space:nowrap}
+  .side .nv .ct{display:none}
+}
 
 /* header + project switcher */
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:28px}
@@ -238,9 +257,22 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .checklist .cl-step-d a:hover{text-decoration:underline}
 .checklist .cl-x{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--paper-faint);cursor:pointer;font-size:16px;line-height:1;padding:4px}
 .checklist .cl-x:hover{color:var(--paper-dim)}
+/* step-1 two-path chooser: install extension OR embed widget */
+.checklist .cl-paths{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media(max-width:640px){.checklist .cl-paths{grid-template-columns:1fr}}
+.checklist .cl-path{background:var(--ink-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.checklist .cl-path-t{font-size:13px;font-weight:600;margin-bottom:3px}
+.checklist .cl-path-d{font-size:12px;color:var(--paper-faint);line-height:1.5}
+.checklist .cl-path-d a{color:var(--indigo);text-decoration:none;white-space:nowrap}
+.checklist .cl-path-d a:hover{text-decoration:underline}
+.checklist .cl-embed{display:flex;align-items:stretch;gap:8px;margin-top:10px}
+.checklist .cl-embed code{flex:1;min-width:0;background:var(--ink-1,#0c0a08);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--paper);overflow:auto;white-space:pre-wrap;word-break:break-all}
+.checklist .cl-embed button{flex-shrink:0;align-self:flex-start}
 @media(max-width:760px){.grid{grid-template-columns:1fr}.sims{grid-template-columns:1fr}.ws{display:none}.conngrid{grid-template-columns:1fr}}
 
-.theme-toggle{position:fixed;right:16px;bottom:16px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.nav-icon{width:34px;height:34px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--paper-dim);cursor:pointer;font-size:15px;line-height:1;display:grid;place-items:center;transition:border-color .2s,color .2s,transform .12s}
+.nav-icon:hover{border-color:var(--indigo);color:var(--paper)}
+.nav-icon:active{transform:translateY(1px)}
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
@@ -257,24 +289,33 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   .chip.sev-high{background:#3a1416;color:#ffb4ac}.chip.sev-medium{background:#3a2c10;color:#ffd79a}.chip.sev-low{background:#10261a;color:#9ae6b4}
 </style>
 </head>
-<body>
+<body data-view="overview">
 <div class="bar"><div class="bar-in">
   <a class="brand" href="/dashboard"><img src="/favicon.svg" width="28" height="28" alt="Klavity" style="border-radius:8px;display:block" />Klavity</a>
   <span class="ws" id="wsName">—</span>
   <div class="right">
+    <button class="nav-icon" id="themeToggle" type="button" aria-label="Toggle dark mode">🌙</button>
     <span class="who" id="who"></span>
     <button class="lo" id="logout">Log out</button>
   </div>
 </div></div>
 
 <div class="wrap">
+  <aside class="side" aria-label="Dashboard sections">
+    <button class="nv active" data-go="overview"><span class="ic">📊</span>Overview</button>
+    <button class="nv" data-go="sims"><span class="ic">🧬</span>Sims</button>
+    <button class="nv" data-go="tickets"><span class="ic">🐛</span>Tickets <span class="ct" id="navTicketCount"></span></button>
+    <button class="nv" data-go="team"><span class="ic">👥</span>Team <span class="ct" id="navTeamCount"></span></button>
+    <button class="nv" data-go="settings"><span class="ic">⚙️</span>Settings</button>
+  </aside>
+  <div class="content">
   <div class="head">
     <div>
       <h1 id="hello">Dashboard</h1>
       <p class="lead" id="lead">Loading your project…</p>
     </div>
     <div>
-      <div class="switcher">
+      <div class="switcher" id="projSwitcher">
         <span class="sw-lbl">Project</span>
         <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
       </div>
@@ -288,15 +329,29 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 
   <!-- First-run checklist (zero-state guidance) — shown only when this project has 0 Sims -->
-  <div class="checklist hide" id="checklist">
+  <div class="checklist hide" id="checklist" data-view="overview">
     <button class="cl-x" id="checklistDismiss" aria-label="Dismiss checklist">✕</button>
     <h3>Welcome to Klavity</h3>
     <p class="cl-intro">Four steps to your first Sim review — we'll tick them off as you go:</p>
     <ol>
       <li>
-        <div>
-          <div class="cl-step-t">Install the Klavity browser extension</div>
-          <div class="cl-step-d">Your Sims watch your product through it. <a href="/onboarding">Get the extension →</a></div>
+        <div style="flex:1">
+          <div class="cl-step-t">Connect your product — pick one</div>
+          <div class="cl-step-d">Two ways for Sims and your users to reach Klavity:</div>
+          <div class="cl-paths">
+            <div class="cl-path">
+              <div class="cl-path-t">🧩 Install the browser extension</div>
+              <div class="cl-path-d">Your Sims watch your product through it — best for internal QA. <a href="/onboarding">Get the extension →</a></div>
+            </div>
+            <div class="cl-path">
+              <div class="cl-path-t">&lt;/&gt; Embed the report widget</div>
+              <div class="cl-path-d">One script tag on any page — collect real user reports, no extension needed.</div>
+              <div class="cl-embed">
+                <code id="embedSnippet">Loading…</code>
+                <button class="btn btn-ghost btn-sm" id="embedCopy" type="button">Copy</button>
+              </div>
+            </div>
+          </div>
         </div>
       </li>
       <li>
@@ -321,7 +376,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 
   <!-- Metrics row — at-a-glance counts (feedback, sims, team, tickets) -->
-  <div class="stats" id="stats">
+  <div class="stats" id="stats" data-view="overview">
     <div class="stat"><div class="n" id="stFeedback">—</div><div class="l"><span class="ic">💬</span>Feedback received</div></div>
     <div class="stat"><div class="n" id="stSims">—</div><div class="l"><span class="ic">🧬</span>Sims</div></div>
     <div class="stat"><div class="n" id="stTeam">—</div><div class="l"><span class="ic">👥</span>Teammates</div></div>
@@ -330,14 +385,14 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
   <div class="grid">
     <!-- Sims overview -->
-    <div class="card">
+    <div class="card" data-view="overview sims">
       <h2>🧬 Your Sims <span class="count" id="simsCount"></span></h2>
       <div class="muted" style="margin:-8px 0 14px;font-size:12.5px">AI personas, built from real customer calls, that react to your pages.</div>
       <div id="sims"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
     <!-- People & Teams (R2: invite CTA, admin only) -->
-    <div class="card">
+    <div class="card" data-view="team">
       <h2>👥 Your team <span class="count" id="memCount"></span></h2>
       <div id="members"></div>
       <div id="inviteWrap" class="hide">
@@ -352,25 +407,25 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     </div>
 
     <!-- Recent tickets -->
-    <div class="card">
+    <div class="card" data-view="overview tickets">
       <h2>🐛 Recent tickets <span class="count" id="ticketCount"></span></h2>
       <div id="tickets"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
     <!-- Live activity -->
-    <div class="card">
+    <div class="card" data-view="overview">
       <h2>📡 Live activity <span class="count" id="actCount"></span></h2>
       <div id="activity"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
     <!-- What your Sims are saying (capped, scrollable) -->
-    <div class="card full">
+    <div class="card full" data-view="overview sims">
       <h2>💬 What your Sims are saying</h2>
       <div id="saying"><div class="sk sk-row"></div><div class="sk sk-row"></div></div>
     </div>
 
     <!-- Launch studio CTA -->
-    <div class="card full demo">
+    <div class="card full demo" data-view="sims">
       <h3>Put your Sims on a page</h3>
       <p>Open the live studio: drop in a transcript, watch a Sim review a page in their own words, and collect their feedback in the draft queue.</p>
       <a class="btn btn-indigo" href="/app">Launch the Sims studio →</a>
@@ -378,7 +433,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 
   <!-- Admin: Live Sims — monitored URLs + pause (P3b, R5). Admin-only. -->
-  <details class="drawer hide" id="liveDrawer">
+  <details class="drawer hide" id="liveDrawer" data-view="sims">
     <summary>📡 Live Sims — monitored URLs & pause <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="muted" style="margin-bottom:14px">When a teammate (with the Snap extension, signed in) opens a URL that matches a pattern below, this project's Sims <b>auto-comment in-character</b> on that page — popping up and filing what they think. Capture happens <b>only</b> on these allowlisted paths, each member consents before their first capture, and screenshots are private.</div>
@@ -405,7 +460,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </details>
 
   <!-- Admin: Observability (R6) — named activity feed of who ran which Sim on which path. Admin-only. -->
-  <details class="drawer hide" id="obsDrawer">
+  <details class="drawer hide" id="obsDrawer" data-view="sims">
     <summary>👁️ Observability — Sim review activity <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="muted" style="margin-bottom:6px">Every live Sim review, <b>named</b>: which teammate triggered which Sim on which path. Click <b>View screenshot</b> for the private capture (a short-lived signed link). URLs are path-only; off-allowlist navigation is never recorded.</div>
@@ -415,7 +470,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </details>
 
   <!-- Bug tracking: Klavity Cloud (default) + pluggable connectors -->
-  <details class="drawer" id="settingsDrawer">
+  <details class="drawer" id="settingsDrawer" data-view="tickets settings">
     <summary>⚙️ Project settings — bug tracking <span class="caret">›</span></summary>
     <div class="drawer-in">
       <!-- Klavity Cloud primary card -->
@@ -460,7 +515,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </details>
 
   <!-- Report widget appearance settings -->
-  <details class="drawer" id="appearanceDrawer">
+  <details class="drawer" id="appearanceDrawer" data-view="settings">
     <summary>🎨 Report widget appearance <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="card" id="kl-appearance">
@@ -505,9 +560,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
     </div>
   </details>
+  </div><!-- /.content -->
 </div>
 
-<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
 <script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.textContent=dark()?'☀️':'🌙'}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
 <script>
 const $ = (id) => document.getElementById(id)
@@ -618,7 +673,24 @@ function renderChecklist() {
   const pid = curProjId()
   const studio = $("checklistStudioLink")
   if (studio && pid) studio.setAttribute("href", "/app?project=" + encodeURIComponent(pid))
+  // Step 1, widget path: show the real embed snippet for THIS project so it's copy-paste ready.
+  const snip = $("embedSnippet")
+  if (snip && pid) snip.textContent = embedSnippet(pid)
 }
+// Canonical one-line widget embed for a project — host-aware so it works on prod and local.
+function embedSnippet(pid) {
+  return '<script src="' + location.origin + '/widget.js" data-project="' + pid + '" defer></scr' + 'ipt>'
+}
+$("embedCopy") && ($("embedCopy").onclick = async () => {
+  const pid = curProjId(); if (!pid) return
+  const btn = $("embedCopy"), text = embedSnippet(pid)
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text)
+    else { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove() }
+    const prev = btn.textContent; btn.textContent = "Copied ✓"
+    setTimeout(() => { btn.textContent = prev }, 1600)
+  } catch (e) { btn.textContent = "Press ⌘C"; setTimeout(() => { btn.textContent = "Copy" }, 1600) }
+})
 $("checklistDismiss") && ($("checklistDismiss").onclick = () => {
   try { sessionStorage.setItem("klavChecklistDismissed", "1") } catch (e) {}
   const el = $("checklist"); if (el) el.classList.add("hide")
@@ -795,8 +867,8 @@ function renderSwitcher() {
     location.href = "/dashboard?project=" + encodeURIComponent(pid)
   }
 }
-function openNewProject() { $("newProj").classList.remove("hide"); $("newProjName").value = ""; $("newProjMsg").textContent = ""; $("newProjName").focus() }
-function closeNewProject() { $("newProj").classList.add("hide"); $("newProjMsg").textContent = "" }
+function openNewProject() { $("projSwitcher").classList.add("hide"); $("newProj").classList.remove("hide"); $("newProjName").value = ""; $("newProjMsg").textContent = ""; $("newProjName").focus() }
+function closeNewProject() { $("newProj").classList.add("hide"); $("projSwitcher").classList.remove("hide"); $("newProjMsg").textContent = "" }
 async function createProject() {
   const name = $("newProjName").value.trim()
   if (!name) { $("newProjMsg").style.color = "var(--rose)"; $("newProjMsg").textContent = "Enter a project name."; return }
@@ -1549,6 +1621,35 @@ async function openReplay(feedbackId) {
 }
 
 load()
+</script>
+<script>
+// ===== sidebar view switching =====
+(function(){
+  var VIEWS=['overview','sims','tickets','team','settings'];
+  var navs=[].slice.call(document.querySelectorAll('.side .nv'));
+  function setView(v){
+    if(VIEWS.indexOf(v)<0)v='overview';
+    document.body.setAttribute('data-view',v);
+    navs.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-go')===v);});
+    try{history.replaceState(null,'',v==='overview'?(location.pathname+location.search):('#'+v));}catch(e){}
+    window.scrollTo(0,0);
+  }
+  navs.forEach(function(b){b.addEventListener('click',function(){setView(b.getAttribute('data-go'));});});
+  // the checklist's "Open Live Sims settings" link lives under the Sims section
+  var cl=document.getElementById('checklistUrlLink');
+  if(cl){cl.addEventListener('click',function(){setView('sims');});}
+  // mirror live counts into the sidebar labels
+  function mirror(srcId,dstId){
+    var s=document.getElementById(srcId),d=document.getElementById(dstId);
+    if(!s||!d)return;
+    function cp(){var t=(s.textContent||'').trim().replace(/[()]/g,'');d.textContent=(t&&t!=='0')?t:'';}
+    cp();new MutationObserver(cp).observe(s,{childList:true,characterData:true,subtree:true});
+  }
+  mirror('ticketCount','navTicketCount');
+  mirror('memCount','navTeamCount');
+  var init=(location.hash||'').replace('#','');
+  setView(VIEWS.indexOf(init)>=0?init:'overview');
+})();
 </script>
 </body>
 </html>
