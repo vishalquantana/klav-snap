@@ -182,6 +182,7 @@ body{background:var(--ink);color:var(--paper);font-family:var(--body);line-heigh
 .line.sarah .who{color:var(--indigo-deep)}
 .hl{background:color-mix(in srgb,var(--amber) 30%,transparent);border-radius:4px;padding:1px 3px;box-shadow:0 0 0 1px color-mix(in srgb,var(--amber) 45%,transparent);font-weight:500}
 </style>
+<script src="/icons.generated.js"></script>
 </head>
 <body>
 
@@ -194,7 +195,7 @@ body{background:var(--ink);color:var(--paper);font-family:var(--body);line-heigh
   <div class="proj-chip"><span class="pdot">A</span>Acme Corp <span class="car">▾</span></div>
   <div class="spacer"></div>
   <button class="barbtn" id="themeToggle" aria-label="Toggle theme">
-    <span class="theme-ico" id="themeIco">☾</span><span id="themeLbl">Dark</span>
+    <span class="theme-ico" id="themeIco"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></span><span id="themeLbl">Dark</span>
   </button>
 </header>
 
@@ -533,7 +534,7 @@ document.getElementById('themeToggle').addEventListener('click',()=>{
   const html=document.documentElement;
   const dark=html.getAttribute('data-theme')==='dark';
   html.setAttribute('data-theme',dark?'light':'dark');
-  document.getElementById('themeIco').textContent=dark?'☾':'☀';
+  document.getElementById('themeIco').innerHTML=dark?window.kicon('moon',{size:16}):window.kicon('sun',{size:16});
   document.getElementById('themeLbl').textContent=dark?'Dark':'Light';
 });
 

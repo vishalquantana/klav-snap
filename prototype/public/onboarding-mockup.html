@@ -143,12 +143,13 @@
 
   @media(max-width:1100px){ .lanes{grid-template-columns:1fr} .rail{flex-direction:column} .rarrow{transform:rotate(90deg)} }
 </style>
+<script src="/icons.generated.js"></script>
 </head>
 <body>
 <div class="wrap">
 
   <div class="head">
-    <div class="logo">🛰️</div>
+    <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13.5 6.5-3.148-3.148a1.205 1.205 0 0 0-1.704 0L6.352 5.648a1.205 1.205 0 0 0 0 1.704L9.5 10.5" /> <path d="M16.5 7.5 19 5" /> <path d="m17.5 10.5 3.148 3.148a1.205 1.205 0 0 1 0 1.704l-2.296 2.296a1.205 1.205 0 0 1-1.704 0L13.5 14.5" /> <path d="M9 21a6 6 0 0 0-6-6" /> <path d="M9.352 10.648a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l4.296-4.296a1.205 1.205 0 0 0 0-1.704l-2.296-2.296a1.205 1.205 0 0 0-1.704 0z" /></svg></div>
     <div>
       <h1>Klavity · Sims Studio</h1>
       <div class="sub">Add a Sim, watch it review your page, then save what it finds.</div>
@@ -158,7 +159,7 @@
 
   <!-- mockup-only control: flip between the two states -->
   <div class="demobar">
-    <span>👁 <b>Mockup view</b> (not part of product) —</span>
+    <span><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></svg> <b>Mockup view</b> (not part of product) —</span>
     <div class="seg">
       <button id="vFirst" class="on" onclick="setState('first')">First run (gated)</button>
       <button id="vProg" onclick="setState('prog')">Returning (unlocked)</button>
@@ -201,14 +202,14 @@
         <div class="label">…or describe your user</div>
         <div class="briefrow">
           <input placeholder="e.g. a busy CFO who scans for overdue items" />
-          <button class="ghost mic" title="Dictate">🎙</button>
+          <button class="ghost mic" title="Dictate"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19v3" /> <path d="M19 10v2a7 7 0 0 1-14 0v-2" /> <rect x="9" y="2" width="6" height="13" rx="3" /></svg></button>
           <button class="primary">Create</button>
         </div>
       </div>
 
       <div id="s1done" style="display:none">
         <div class="donecard">
-          <span style="font-size:18px">✅</span>
+          <span style="font-size:18px"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.801 10A10 10 0 1 1 17 3.335" /> <path d="m9 11 3 3L22 4" /></svg></span>
           <div><div class="big">5 Sims ready</div><div class="sm">They’re lined up as reviewers in step 2 →</div></div>
         </div>
         <details class="adv" style="margin-top:12px"><summary><span class="caret">▸</span> Add more Sims (presets, describe, or transcript)</summary>
@@ -223,7 +224,7 @@
 
     <!-- ========== STEP 2 ========== -->
     <div class="lane" id="lane2">
-      <div class="lockmsg"><span class="lk">🔒</span><div>Add a Sim first (step 1)</div></div>
+      <div class="lockmsg"><span class="lk"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span><div>Add a Sim first (step 1)</div></div>
       <div class="lhead"><span class="ln">2</span><h2>Have a Sim review the page</h2><span class="pill" id="p2"></span></div>
       <div class="lsub">This is the page your Sims look at. Pick a reviewer below and hit review — they’ll react to exactly what’s on screen.</div>
 
@@ -242,7 +243,7 @@
             <div class="kpi"><div class="kl">Revenue</div><div class="kv">$2.4M</div><div class="kd up">↑ 12%</div></div>
             <div class="kpi"><div class="kl">Pending Approvals</div><div class="kv">14</div><div class="kd dn">3 overdue</div></div>
             <div class="kpi"><div class="kl">Approval Rate</div><div class="kv">87%</div><div class="kd up">↑ 5%</div></div>
-            <div class="kpi"><div class="kl">Month-end Close</div><div class="kv">4 days</div><div class="kd dn">⚠ 3 at risk</div></div>
+            <div class="kpi"><div class="kl">Month-end Close</div><div class="kv">4 days</div><div class="kd dn"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /> <path d="M12 9v4" /> <path d="M12 17h.01" /></svg> 3 at risk</div></div>
           </div>
           <div class="cols">
             <div class="card c2">
@@ -254,9 +255,9 @@
             </div>
             <div class="card c1">
               <div class="ct">Recent Activity</div>
-              <div class="act"><span>✅</span><div><strong>James</strong> approved Q1 Audit</div></div>
-              <div class="act"><span>💬</span><div><strong>Sarah</strong> commented on vendor</div></div>
-              <div class="act"><span>📎</span><div><strong>Anika</strong> uploaded projections</div></div>
+              <div class="act"><span><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.801 10A10 10 0 1 1 17 3.335" /> <path d="m9 11 3 3L22 4" /></svg></span><div><strong>James</strong> approved Q1 Audit</div></div>
+              <div class="act"><span><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg></span><div><strong>Sarah</strong> commented on vendor</div></div>
+              <div class="act"><span><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></svg></span><div><strong>Anika</strong> uploaded projections</div></div>
             </div>
           </div>
         </div>
@@ -299,7 +300,7 @@
 
     <!-- ========== STEP 3 ========== -->
     <div class="lane" id="lane3">
-      <div class="lockmsg"><span class="lk">🔒</span><div>Run a review first (step 2)</div></div>
+      <div class="lockmsg"><span class="lk"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span><div>Run a review first (step 2)</div></div>
       <div class="lhead"><span class="ln">3</span><h2>Save the feedback</h2><span class="pill" id="p3"></span></div>
       <div class="lsub">Reviews land here as drafts. Keep the useful ones — they get filed to your tracker as bugs.</div>
 
@@ -311,12 +312,12 @@
         <div class="draft saved">
           <div class="dh"><span class="dav" style="background:#6366f1">RE</span><span class="dnm">Ramesh Emandi</span></div>
           <div class="dob">3 overdue approvals and 3 at-risk close items are exactly what I need surfaced — but I had to hunt for them. Make “overdue” the default sort.</div>
-          <div class="savedtag">✓ Saved to Klavity</div>
+          <div class="savedtag"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Saved to Klavity</div>
         </div>
         <div class="draft saved">
           <div class="dh"><span class="dav" style="background:#6366f1">RE</span><span class="dnm">Ramesh Emandi</span></div>
           <div class="dob">Love that Approve sits right on each row — no navigating away. Add a bulk “approve selected” for month-end.</div>
-          <div class="savedtag">✓ Saved to Klavity</div>
+          <div class="savedtag"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Saved to Klavity</div>
         </div>
         <button class="savebar">Save selected to Klavity →</button>
       </div>

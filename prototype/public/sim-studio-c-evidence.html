@@ -119,7 +119,7 @@ h1,h2,h3,h4{font-family:var(--display);font-weight:600;letter-spacing:-.01em;}
 .tcard.lit .evidence{display:block;}
 @keyframes pop{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
 .evidence .ev-lbl{text-transform:uppercase;font-size:8.5px;letter-spacing:.12em;font-weight:700;color:var(--lk);display:flex;align-items:center;gap:6px;margin-bottom:6px;}
-.evidence .ev-lbl::before{content:"❝";font-size:14px;line-height:0;}
+.evidence .ev-lbl::before{content:"\201C";font-size:14px;line-height:0;}
 .evidence .ev-quote{font-style:italic;font-size:12.5px;line-height:1.5;color:var(--paper);font-family:var(--display);}
 .evidence .ev-by{font-family:var(--mono);font-size:10px;color:var(--paper-faint);margin-top:7px;}
 
@@ -136,6 +136,7 @@ h1,h2,h3,h4{font-family:var(--display);font-weight:600;letter-spacing:-.01em;}
 
 @media (max-width:1100px){.shell{grid-template-columns:200px 1fr 300px;}}
 </style>
+<script src="/icons.generated.js"></script>
 </head>
 <body>
 
@@ -147,7 +148,7 @@ h1,h2,h3,h4{font-family:var(--display);font-weight:600;letter-spacing:-.01em;}
   <span class="proj-chip">Acme Corp</span>
   <span class="spacer"></span>
   <button class="theme-toggle" id="themeToggle">
-    <span id="themeIcon">☾</span><span id="themeLbl">Dark</span>
+    <span id="themeIcon"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></span><span id="themeLbl">Dark</span>
   </button>
 </div>
 
@@ -387,7 +388,7 @@ h1,h2,h3,h4{font-family:var(--display);font-weight:600;letter-spacing:-.01em;}
   tBtn.addEventListener('click',function(){
     var dark=root.getAttribute('data-theme')==='dark';
     root.setAttribute('data-theme',dark?'light':'dark');
-    tIcon.textContent=dark?'☾':'☀';
+    tIcon.innerHTML=dark?window.kicon('moon',{size:16}):window.kicon('sun',{size:16});
     tLbl.textContent=dark?'Dark':'Light';
   });
 

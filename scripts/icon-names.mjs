@@ -16,4 +16,6 @@ export const ICON_NAMES = [
   'users', 'settings', 'radio-tower', 'palette', 'lock', 'plus', 'sparkles', 'paperclip',
   // Added for warning KPI indicator (Task 7 icons-not-emojis)
   'triangle-alert',
+  // Added for prototype/public app pages (Task 7 proto)
+  'hand', 'footprints', 'satellite',
 ];
