@@ -71,7 +71,7 @@ export function buildModal(
     .klavity-page{font-size:12px;color:var(--kl-muted);margin-bottom:12px;}
     .klavity-strip{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;min-height:64px;}
     .klavity-thumb{position:relative;flex-shrink:0;}
-    .klavity-thumb img{height:60px;border-radius:4px;border:1px solid var(--kl-border);}
+    .klavity-thumb img{height:60px;width:88px;object-fit:cover;object-position:top center;background:var(--kl-chip);display:block;border-radius:4px;border:1px solid var(--kl-border);}
     .klavity-rm{position:absolute;top:-4px;right:-4px;background:var(--kl-accent2);color:var(--kl-on-accent);border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
     .klavity-mk{position:absolute;bottom:-4px;right:-4px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
     .klavity-actions{display:flex;gap:8px;margin-bottom:12px;}

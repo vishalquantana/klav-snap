@@ -143,20 +143,56 @@ async function mount() {
   reportBtn.onclick = () => openReport("bug")
   reportDock.appendChild(reportBtn)
 
-  // Right-click anywhere → open the bug reporter (the "right-click bug reporter"), with NO browser
-  // extension required — the widget owns the gesture. Shift+right-click falls through to the native
-  // menu; right-clicks on the widget launcher or inside an already-open composer/overlay are ignored
-  // (so the modal can't stack and right-click-paste still works in the description box).
+  // Right-click anywhere → a small Klavity menu (mirrors the extension's context menu and the
+  // mock-up on the marketing home page): Report a Bug / Request a Feature, then the native
+  // browser menu. NO extension required — the widget owns the gesture. Shift+right-click (or
+  // "Show browser menu") falls through to the native menu; right-clicks on the widget host
+  // (launcher, this menu, or an open composer/overlay) are ignored so nothing stacks and
+  // right-click-paste still works in the description box. The menu lives in the widget's
+  // shadow root, so the host-path guard below also ignores right-clicks on the menu itself.
+  let menuEl: HTMLDivElement | null = null
+  let nativePending = false
+  const closeMenu = () => { menuEl?.remove(); menuEl = null }
+  function showMenu(x: number, y: number) {
+    closeMenu()
+    const menu = document.createElement("div")
+    menuEl = menu
+    menu.style.cssText = "position:fixed;z-index:2147483647;min-width:250px;background:#eceef2;color:#18181b;border-radius:12px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.22),0 2px 8px rgba(0,0,0,.12);font-family:system-ui,-apple-system,sans-serif;left:" + x + "px;top:" + y + "px"
+    const row = (label: string, opts: { primary?: boolean; muted?: boolean; hint?: string; last?: boolean; onClick: () => void }) => {
+      const b = document.createElement("button")
+      b.innerHTML = label
+      const baseBg = opts.primary ? "#dfe2e8" : "transparent"
+      b.style.cssText = "display:flex;align-items:center;gap:10px;width:100%;padding:11px 15px;border:0;" + (opts.last ? "" : "border-bottom:1px solid rgba(0,0,0,.07);") + "background:" + baseBg + ";color:" + (opts.muted ? "#6b7280" : "#18181b") + ";font-size:13.5px;font-weight:" + (opts.primary ? "600" : "400") + ";cursor:pointer;text-align:left;line-height:1.15"
+      if (opts.hint) { const h = document.createElement("span"); h.textContent = opts.hint; h.style.cssText = "margin-left:auto;font-family:ui-monospace,monospace;font-size:10.5px;color:#8b909b"; b.appendChild(h) }
+      b.addEventListener("mouseenter", () => { b.style.background = "#e3e5ea" })
+      b.addEventListener("mouseleave", () => { b.style.background = baseBg })
+      b.addEventListener("click", () => { closeMenu(); opts.onClick() })
+      return b
+    }
+    menu.appendChild(row("⚡&nbsp;&nbsp;Klavity — Report a Bug", { primary: true, onClick: () => openReport("bug") }))
+    menu.appendChild(row("💡&nbsp;&nbsp;Klavity — Request a Feature", { onClick: () => openReport("feature") }))
+    menu.appendChild(row("🖥️&nbsp;&nbsp;Show browser menu", { muted: true, hint: "⇧ right-click", last: true, onClick: () => { nativePending = true } }))
+    root.appendChild(menu)
+    requestAnimationFrame(() => {
+      const r = menu.getBoundingClientRect()
+      if (r.right > innerWidth - 8) menu.style.left = (x - r.width) + "px"
+      if (r.bottom > innerHeight - 8) menu.style.top = (y - r.height) + "px"
+    })
+    const onOutside = (ev: MouseEvent) => { const p = (ev.composedPath?.() || []) as HTMLElement[]; if (!p.includes(menu)) { closeMenu(); document.removeEventListener("mousedown", onOutside) } }
+    const onEsc = (ev: KeyboardEvent) => { if (ev.key === "Escape") { closeMenu(); document.removeEventListener("keydown", onEsc, true) } }
+    setTimeout(() => { document.addEventListener("mousedown", onOutside); document.addEventListener("keydown", onEsc, true) }, 0)
+  }
+
   let reportArmed = true
   document.addEventListener("contextmenu", (e) => {
-    if (e.shiftKey) return
+    if (e.shiftKey || nativePending) { nativePending = false; return }  // pass through to native menu
     const path = (e.composedPath?.() || []) as HTMLElement[]
     if (path.some((n) => n?.id === HOST_ID || (typeof n?.className === "string" && /klavity-(overlay|modal)/.test(n.className)))) return
     e.preventDefault()
     if (!reportArmed) return
     reportArmed = false
     setTimeout(() => { reportArmed = true }, 400)
-    openReport("bug")
+    showMenu(e.clientX, e.clientY)
   })
 
   const banner = (text: string) => {
