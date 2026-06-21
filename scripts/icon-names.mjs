@@ -14,4 +14,6 @@ export const ICON_NAMES = [
   'message-circle',
   // Added for dashboard + index app pages (Task 7 dash)
   'users', 'settings', 'radio-tower', 'palette', 'lock', 'plus', 'sparkles', 'paperclip',
+  // Added for warning KPI indicator (Task 7 icons-not-emojis)
+  'triangle-alert',
 ];
