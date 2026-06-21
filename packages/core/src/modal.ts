@@ -107,6 +107,7 @@ export function buildModal(
     <div class="klavity-actions">
       <button id="klavity-full">📷 Full Page</button>
       <button id="klavity-upload">🖼 Upload</button>
+      ${callbacks.onRegionCapture ? '<button id="klavity-region">✂ Region</button>' : ''}
     </div>
     <input type="file" id="klavity-file" accept="image/*,.heic,.heif" multiple style="display:none">
     <div class="klavity-counter" id="klavity-counter">0/5 images</div>
@@ -236,6 +237,25 @@ export function buildModal(
       addScreenshot(await fileToDataUrl(file))
     }
   })
+
+  // Region capture button — only rendered when the host provides onRegionCapture
+  const regionBtn = shadowRoot.getElementById('klavity-region') as HTMLButtonElement | null
+  if (regionBtn && callbacks.onRegionCapture) {
+    regionBtn.onclick = () => {
+      host.style.display = 'none'
+      mountRegionOverlay(async (rect) => {
+        try {
+          const shot = await callbacks.onRegionCapture!(rect)
+          if (shot) addScreenshot(shot)
+        } finally {
+          host.style.display = ''
+        }
+      }, () => {
+        // Esc/cancel — re-show the host without calling onRegionCapture
+        host.style.display = ''
+      })
+    }
+  }
 
   // Annotator
   function openAnnotator(index: number) {
@@ -400,6 +420,76 @@ export function buildModal(
   }
 
   return controller
+}
+
+/**
+ * Mounts a drag-to-select overlay on document.body.
+ * Ported from packages/extension/src/content.ts:401-507 (startRegion).
+ * Coords are CSS pixels — the host callback handles DPR scaling.
+ *
+ * @param onRect  Called with the selected {x,y,w,h} rect when the user finishes dragging.
+ * @param onCancel Called when the user presses Esc (no rect provided; overlay already removed).
+ */
+function mountRegionOverlay(
+  onRect: (rect: { x: number; y: number; w: number; h: number }) => void,
+  onCancel: () => void,
+): void {
+  const overlay = document.createElement('div')
+  overlay.style.cssText = 'position:fixed;inset:0;cursor:crosshair;z-index:2147483646;user-select:none;'
+  overlay.setAttribute('data-klavity-region-overlay', '')
+  document.body.appendChild(overlay)
+
+  const hint = document.createElement('div')
+  hint.textContent = 'Drag to select an area · Esc to cancel'
+  hint.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-family:system-ui;font-size:14px;background:rgba(0,0,0,.7);padding:8px 16px;border-radius:6px;pointer-events:none;z-index:2147483647;'
+  document.body.appendChild(hint)
+
+  let startX = 0, startY = 0, active = false
+
+  function cleanup() {
+    document.removeEventListener('keydown', escHandler, { capture: true })
+    overlay.remove()
+    hint.remove()
+  }
+
+  function escHandler(e: KeyboardEvent) {
+    if (e.key === 'Escape') { e.stopPropagation(); cleanup(); onCancel() }
+  }
+  document.addEventListener('keydown', escHandler, { capture: true })
+
+  overlay.addEventListener('pointerdown', (e) => {
+    active = true
+    startX = e.clientX
+    startY = e.clientY
+    hint.remove()
+  })
+
+  overlay.addEventListener('pointermove', (e) => {
+    if (!active) return
+    const x = Math.min(e.clientX, startX)
+    const y = Math.min(e.clientY, startY)
+    const w = Math.abs(e.clientX - startX)
+    const h = Math.abs(e.clientY - startY)
+    overlay.style.background = `
+      linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)) 0 0/${x}px 100%,
+      linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)) ${x + w}px 0/calc(100% - ${x + w}px) 100%,
+      linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)) ${x}px 0/${w}px ${y}px,
+      linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)) ${x}px ${y + h}px/${w}px calc(100% - ${y + h}px)
+    `
+    overlay.style.backgroundRepeat = 'no-repeat'
+  })
+
+  overlay.addEventListener('pointerup', (e) => {
+    if (!active) return
+    active = false
+    const w = Math.abs(e.clientX - startX)
+    const h = Math.abs(e.clientY - startY)
+    if (w < 8 || h < 8) { cleanup(); onCancel(); return }
+
+    const rect = { x: Math.min(e.clientX, startX), y: Math.min(e.clientY, startY), w, h }
+    cleanup()
+    onRect(rect)
+  })
 }
 
 async function fileToDataUrl(file: File): Promise<string> {
