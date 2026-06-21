@@ -393,6 +393,9 @@ export async function applySchema(c: Client) {
     ["recurrence_count",      "INTEGER NOT NULL DEFAULT 1"],
     ["recurrence_dates_json", "TEXT"],
     ["last_seen_at",          "INTEGER"],
+    // G2/G3/G5: captured dev-tools context (console + network + UA/screen/viewport) and custom
+    // identity/metadata, persisted as a JSON blob so every widget/SDK/extension report carries it.
+    ["client_context_json",   "TEXT"],
   ]
   for (const [col, def] of feedbackAlters) {
     if (!(await columnExists(c, "feedback", col))) {
@@ -896,6 +899,7 @@ export type FeedbackInsert = {
   sourceQuote?: string | null; sourceTranscriptId?: string | null; sourceDate?: number | null
   planeIssueKey?: string | null; planeIssueUrl?: string | null
   issueKey?: string | null
+  clientContext?: any  // captured ReportContext (console/network/env + identity/metadata), G2/G3/G5
 }
 export async function insertFeedback(f: FeedbackInsert): Promise<string> {
   const id = "fb_" + crypto.randomUUID()
@@ -903,15 +907,16 @@ export async function insertFeedback(f: FeedbackInsert): Promise<string> {
   await db!.execute({
     sql: `INSERT INTO feedback (id,project_id,sim_id,actor_email,url_host,url_path,observation,sentiment,severity,
           screenshot_id,suggested_bug_json,cited_trait_ids_json,source_quote,source_transcript_id,source_date,
-          plane_issue_key,plane_issue_url,issue_key,recurrence_count,recurrence_dates_json,last_seen_at,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          plane_issue_key,plane_issue_url,issue_key,recurrence_count,recurrence_dates_json,last_seen_at,client_context_json,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [id, f.projectId, f.simId ?? null, f.actorEmail ?? null, f.urlHost ?? null, f.urlPath ?? null,
            f.observation ?? null, f.sentiment ?? null, f.severity ?? null, f.screenshotId ?? null,
            f.suggestedBug != null ? JSON.stringify(f.suggestedBug) : null,
            f.citedTraitIds != null ? JSON.stringify(f.citedTraitIds) : null,
            f.sourceQuote ?? null, f.sourceTranscriptId ?? null, f.sourceDate ?? null,
            f.planeIssueKey ?? null, f.planeIssueUrl ?? null,
-           f.issueKey ?? null, 1, JSON.stringify([now]), now, now],
+           f.issueKey ?? null, 1, JSON.stringify([now]), now,
+           f.clientContext != null ? JSON.stringify(f.clientContext) : null, now],
   })
   return id
 }
@@ -1941,6 +1946,7 @@ export async function feedbackById(projectId: string, id: string): Promise<any |
     createdAt: Number(x.created_at),
     recurrenceCount: Number(x.recurrence_count ?? 1),
     recurrenceDatesJson: x.recurrence_dates_json != null ? String(x.recurrence_dates_json) : null,
+    clientContext: x.client_context_json != null ? safeJsonParse(x.client_context_json) : null,
   }
 }
 

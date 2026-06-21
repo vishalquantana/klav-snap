@@ -2,21 +2,34 @@ import type { IntegrationConfig, SubmitResult } from '../types'
 
 function buildBody(config: IntegrationConfig): string {
   const { context, description } = config
-  const errors = context.consoleErrors.map(e => `- \`${e.message}\``).join('\n') || '_none_'
-  const failures = context.networkFailures.map(f => `- ${f.method} ${f.url} → ${f.status}`).join('\n') || '_none_'
-  return [
+  // G3: render the richer captured set — all console levels (tagged) and all network requests
+  // (status + timing), not just errors/failures. Level defaults to 'error' for legacy rows.
+  const logs = context.consoleErrors.map(e => `- [${e.level ?? 'error'}] \`${e.message}\``).join('\n') || '_none_'
+  const requests = context.networkFailures
+    .map(f => `- ${f.method} ${f.url} → ${f.status}${f.durationMs != null ? ` (${f.durationMs}ms)` : ''}`)
+    .join('\n') || '_none_'
+  const lines = [
     `*Page:* ${context.pageUrl}`,
     `*Browser:* ${context.userAgent}`,
     `*Screen:* ${context.screenSize}  |  *Viewport:* ${context.viewportSize}`,
+  ]
+  // G5: surface custom identity + metadata when present.
+  const idEntries = context.identity ? Object.entries(context.identity).filter(([, v]) => v != null) : []
+  const metaEntries = context.metadata ? Object.entries(context.metadata) : []
+  if (idEntries.length || metaEntries.length) {
+    lines.push(`*User / metadata:* ${[...idEntries, ...metaEntries].map(([k, v]) => `${k}=${v}`).join(', ')}`)
+  }
+  return [
+    ...lines,
     '',
     '----',
     description,
     '',
-    '*Console errors:*',
-    errors,
+    '*Console:*',
+    logs,
     '',
-    '*Network failures:*',
-    failures,
+    '*Network:*',
+    requests,
   ].join('\n')
 }
 

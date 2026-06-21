@@ -54,6 +54,36 @@ describe('jira.submitReport', () => {
     expect(body.fields.labels).toContain('klavity-feature')
   })
 
+  it('renders all console levels, network requests with timing, and custom metadata (G3/G5)', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true, json: async () => ({ key: 'ACME-44' }),
+    } as Response)
+    await submitReport({
+      ...config,
+      context: {
+        ...config.context,
+        consoleErrors: [
+          { message: 'a log', timestamp: 1, level: 'log' },
+          { message: 'boom', timestamp: 2, level: 'error' },
+        ],
+        networkFailures: [
+          { url: 'https://api.x/ok', status: 200, method: 'GET', timestamp: 1, durationMs: 42 },
+          { url: 'https://api.x/bad', status: 500, method: 'POST', timestamp: 2 },
+        ],
+        identity: { id: 'u_1', email: 'a@b.com' },
+        metadata: { plan: 'pro' },
+      },
+    })
+    const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body)
+    const text = body.fields.description.content[0].content[0].text as string
+    expect(text).toContain('[log] `a log`')
+    expect(text).toContain('[error] `boom`')
+    expect(text).toContain('GET https://api.x/ok → 200 (42ms)')
+    expect(text).toContain('POST https://api.x/bad → 500')
+    expect(text).toContain('id=u_1')
+    expect(text).toContain('plan=pro')
+  })
+
   it('throws a user-friendly error on API failure', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: false,

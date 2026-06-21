@@ -1,8 +1,35 @@
-export function parseScriptConfig(scriptEl: { dataset: { project?: string }, src: string }): { projectId: string, backendUrl: string } {
+import type { ReportContext, ReportIdentity } from "@klavity/core"
+
+export function parseScriptConfig(scriptEl: { dataset: Record<string, string | undefined>, src: string }): { projectId: string, backendUrl: string, identity?: ReportIdentity, metadata?: Record<string, string> } {
   const projectId = scriptEl.dataset.project || ""
   let backendUrl = ""
   try { backendUrl = new URL(scriptEl.src).origin } catch { backendUrl = "" }
-  return { projectId, backendUrl }
+  // G5: custom identity/metadata can be declared on the script tag, e.g.
+  //   <script src=".../widget.js" data-project="p1"
+  //           data-user-id="u_42" data-user-email="a@b.com" data-user-name="Ada"
+  //           data-meta='{"plan":"pro","tenant":"acme"}'></script>
+  const identity: ReportIdentity = {}
+  if (scriptEl.dataset.userId) identity.id = String(scriptEl.dataset.userId)
+  if (scriptEl.dataset.userEmail) identity.email = String(scriptEl.dataset.userEmail)
+  if (scriptEl.dataset.userName) identity.name = String(scriptEl.dataset.userName)
+  let metadata: Record<string, string> | undefined
+  if (scriptEl.dataset.meta) {
+    try {
+      const parsed = JSON.parse(scriptEl.dataset.meta)
+      if (parsed && typeof parsed === "object") {
+        metadata = {}
+        for (const [k, v] of Object.entries(parsed)) {
+          if (v === undefined || v === null) continue
+          metadata[String(k).slice(0, 64)] = String(v).slice(0, 1000)
+        }
+      }
+    } catch { /* ignore malformed data-meta */ }
+  }
+  return {
+    projectId, backendUrl,
+    identity: Object.keys(identity).length ? identity : undefined,
+    metadata,
+  }
 }
 
 export interface SuccessCopy {
@@ -60,11 +87,14 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
-export function buildFeedbackForm(input: { description: string; pageUrl: string; projectId: string; screenshots: string[] }): FormData {
+export function buildFeedbackForm(input: { description: string; pageUrl: string; projectId: string; screenshots: string[]; context?: ReportContext }): FormData {
   const fd = new FormData()
   fd.set("description", input.description)
   fd.set("page_url", input.pageUrl)
   fd.set("project_id", input.projectId)
+  // G2/G5: attach the captured dev-tools context (console + network + env + identity/metadata) so the
+  // no-install widget report carries the SAME technical context as the extension/SDK paths.
+  if (input.context) fd.set("context", JSON.stringify(input.context))
   for (const s of input.screenshots) fd.append("screenshots", dataUrlToBlob(s), "screenshot.png")
   return fd
 }

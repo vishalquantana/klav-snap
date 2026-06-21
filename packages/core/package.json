@@ -11,6 +11,7 @@
     ".": "./src/index.ts",
     "./sim": "./src/sim.ts",
     "./submit": "./src/submit.ts",
+    "./capture": "./src/capture.ts",
     "./annotator": "./src/annotator.ts",
     "./crop": "./src/crop.ts",
     "./integrations/jira": "./src/integrations/jira.ts",

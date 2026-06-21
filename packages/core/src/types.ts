@@ -30,17 +30,35 @@ export const DEFAULT_SETTINGS: KlavitySettings = {
   plane: { token: '', host: 'https://api.plane.so', workspace: '', projectId: '' },
 }
 
+export type ConsoleLevel = 'log' | 'info' | 'warn' | 'error'
+
 export interface ConsoleError {
   message: string
   stack?: string
   timestamp: number
+  // Console level (G3). Optional + defaults to 'error' so pre-existing rows / consumers that only
+  // ever saw errors stay valid. Errors from window.onerror / unhandledrejection keep 'error'.
+  level?: ConsoleLevel
 }
 
 export interface NetworkFailure {
   url: string
+  // status is the HTTP status code. 0 means the request never completed (network error / abort).
+  // With full-fidelity capture (G3) this is recorded for ALL requests, not just status >= 400.
   status: number
   method: string
   timestamp: number
+  // Round-trip duration in milliseconds (G3). Optional for backward compatibility.
+  durationMs?: number
+}
+
+// Arbitrary site-owner-supplied identity + key/values (G5). Plumbed through the report context and
+// surfaced on the ticket. Values are coerced to strings and length-capped server-/client-side.
+export interface ReportIdentity {
+  id?: string
+  email?: string
+  name?: string
+  [key: string]: string | undefined
 }
 
 export interface ReportContext {
@@ -50,6 +68,9 @@ export interface ReportContext {
   viewportSize: string
   consoleErrors: ConsoleError[]
   networkFailures: NetworkFailure[]
+  // Custom metadata / identity (G5). Optional so existing payloads stay valid.
+  identity?: ReportIdentity
+  metadata?: Record<string, string>
 }
 
 export interface SubmitReportPayload {

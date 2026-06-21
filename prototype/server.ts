@@ -7,7 +7,7 @@ import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, 
 import { sendOtp, sendLeadAlert } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
 import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib/s3"
-import { buildIssueHtml, escapeHtml } from "./lib/feedback"
+import { buildIssueHtml, escapeHtml, sanitizeClientContext, clientContextLines } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
 import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
 import { assertSafeUrl } from "./lib/url-guard"
@@ -700,6 +700,12 @@ function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }
   else if (fb.simId) lines.push(`Sim: ${fb.simId}`)
   const urlVal = fb.pageUrl ?? fb.urlPath ?? null
   if (urlVal) lines.push(`URL: ${urlVal}`)
+  // G2/G3/G5: append captured dev-tools context (console + network + env + identity/metadata) so the
+  // external ticket carries the same technical context the extension path does.
+  if (fb.clientContext) {
+    const ctxLines = clientContextLines(fb.clientContext)
+    if (ctxLines.length) lines.push(ctxLines.join("\n"))
+  }
   lines.push("Filed by Klavity Sims")
   const body = lines.join("\n\n")
   return {
@@ -1119,6 +1125,14 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         if (!description) return wjson({ error: "Description is required." }, 400)
         if (description.length > 5000) return wjson({ error: "Description too long." }, 400)
 
+        // G2/G3/G5: captured dev-tools context (console + network + env + identity/metadata). Optional
+        // JSON form field; sanitized + capped so a malformed/oversized blob never poisons the row.
+        let clientContext: any = null
+        const ctxRaw = String(form.get("context") || "")
+        if (ctxRaw && ctxRaw.length <= 200_000) {
+          try { clientContext = sanitizeClientContext(JSON.parse(ctxRaw)) } catch { clientContext = null }
+        }
+
         // Resolve the Plane connection: Bearer (personal → team) else forwarded direct creds.
         let planeToken = "", planeWorkspace = "", planeProject = "", planeHost = "https://api.plane.so"
         const email = await bearerEmail(req)
@@ -1235,6 +1249,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                   sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
                   planeIssueKey: null, planeIssueUrl: null,
                   issueKey: suggestedBug ? issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds) : null,
+                  clientContext,
                 })
               }
               // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
@@ -1324,7 +1339,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
         // R8: append the Sim citation line to the issue body when this feedback cites a trait.
         const citeLine = citation ? citationLine({ sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceDate: citation.sourceDate, recurrence: citation.recurrence }) : null
-        const description_html = buildIssueHtml(description, pageUrl, imageUrls) +
+        const description_html = buildIssueHtml(description, pageUrl, imageUrls, clientContext) +
           (citeLine ? `<p><em>${escapeHtml(citeLine)}</em></p>` : "")
         // SSRF guard (H2): the Plane host can arrive from untrusted form input (direct mode is
         // unauthenticated). Block requests to internal/loopback/link-local addresses — including the

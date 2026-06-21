@@ -6,6 +6,22 @@ describe("parseScriptConfig", () => {
     const cfg = parseScriptConfig({ dataset: { project: "P1" }, src: "https://klavity.quantana.top/widget.js?v=1" })
     expect(cfg.projectId).toBe("P1")
     expect(cfg.backendUrl).toBe("https://klavity.quantana.top")
+    expect(cfg.identity).toBeUndefined()
+    expect(cfg.metadata).toBeUndefined()
+  })
+
+  it("parses data-user-* identity and data-meta JSON metadata (G5)", () => {
+    const cfg = parseScriptConfig({
+      dataset: { project: "P1", userId: "u_42", userEmail: "a@b.com", userName: "Ada", meta: '{"plan":"pro","tenant":"acme"}' },
+      src: "https://klavity.quantana.top/widget.js",
+    })
+    expect(cfg.identity).toEqual({ id: "u_42", email: "a@b.com", name: "Ada" })
+    expect(cfg.metadata).toEqual({ plan: "pro", tenant: "acme" })
+  })
+
+  it("ignores malformed data-meta without throwing (G5)", () => {
+    const cfg = parseScriptConfig({ dataset: { project: "P1", meta: "{not json" }, src: "https://klavity.quantana.top/widget.js" })
+    expect(cfg.metadata).toBeUndefined()
   })
 })
 

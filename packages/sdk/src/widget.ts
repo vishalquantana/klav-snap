@@ -3,6 +3,8 @@ import { createSim, injectSimStyles, emotionFromSentiment } from "@klavity/core/
 import { toPng } from "html-to-image"
 import { buildModal } from "@klavity/core/modal"
 import { cropDataUrl } from "@klavity/core/crop"
+import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
+import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
 
 const HOST_ID = "klavity-widget-host"
@@ -19,9 +21,48 @@ function getToken(): string { try { return localStorage.getItem(TOKEN_KEY) || ""
 function setToken(t: string) { try { localStorage.setItem(TOKEN_KEY, t) } catch {} }
 function clearToken() { try { localStorage.removeItem(TOKEN_KEY) } catch {} }
 
+// ── Dev-tools capture (G2) + custom metadata (G5) ──
+// Shared full-fidelity capture buffers, plus site-owner identity/metadata that can be set either via
+// the script-tag config (data-user-*/data-meta) or the public JS API (window.Klavity.identify/...).
+const _buffers: CaptureBuffers = { consoleErrors: [], networkFailures: [] }
+let _identity: ReportIdentity | undefined
+let _metadata: Record<string, string> | undefined
+
+function coerceStrings(obj: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null) continue
+    out[String(k).slice(0, 64)] = String(v).slice(0, 1000)
+  }
+  return out
+}
+
+// Public JS SDK (G5): window.Klavity.identify({...}) / setMetadata({...}).
+export function identify(user: ReportIdentity | null) {
+  _identity = user ? (coerceStrings(user as Record<string, unknown>) as ReportIdentity) : undefined
+}
+export function setMetadata(meta: Record<string, unknown> | null) {
+  _metadata = meta ? coerceStrings(meta) : undefined
+}
+function buildWidgetContext(): ReportContext {
+  return buildReportContext(_buffers, { identity: _identity, metadata: _metadata })
+}
+
+// Expose the public API as early as possible so site code can call it before mount() resolves.
+if (typeof window !== "undefined") {
+  const w = window as any
+  w.Klavity = { ...(w.Klavity || {}), identify, setMetadata, mount }
+}
+
 async function mount() {
   const cfg = parseScriptConfig(currentScript())
   if (!cfg.projectId || !cfg.backendUrl) return
+
+  // G2: start full-fidelity dev-tools capture for every widget report (console + network + env).
+  installCapture(_buffers, { consoleLevels: true })
+  // G5: seed identity/metadata declared on the script tag (a later identify()/setMetadata() wins).
+  if (cfg.identity && !_identity) _identity = cfg.identity
+  if (cfg.metadata && !_metadata) _metadata = cfg.metadata
 
   const host = document.createElement("div")
   host.id = HOST_ID
@@ -73,7 +114,7 @@ async function mount() {
       onRegionCapture: async (rect) => cropDataUrl(await toPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
-        { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots },
+        { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots, context: buildWidgetContext() },
       ),
       success: { copy: successCopy(widget.mode, widget.ctaUrl), onLead: postLead },
     }, modalConfig)
@@ -221,18 +262,19 @@ async function mount() {
   // Boot — the Sims-review dock is for embedded customer sites. On first-party (the klavity.quantana.top
   // dogfood) we show only the report launcher, so users don't see a confusing second "Connect" dock.
   if (!firstParty) { if (getToken()) loadSims(); else renderConnectButton() }
-  ;(window as any).KlavityWidget = { mount }
+  ;(window as any).KlavityWidget = { mount, identify, setMetadata }
 }
 
 export async function submitFeedback(
   cfg: { backendUrl: string; projectId: string; firstParty: boolean; token: string },
-  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[] },
+  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext },
 ): Promise<{ issueKey: string; issueUrl: string }> {
   const fd = buildFeedbackForm({
     description: `[${payload.type}] ${payload.description}`,
     pageUrl: payload.pageUrl,
     projectId: cfg.projectId,
     screenshots: payload.screenshots,
+    context: payload.context,
   })
   const init: RequestInit = { method: "POST", body: fd }
   if (cfg.firstParty) init.credentials = "include"

@@ -1,6 +1,7 @@
 import { toPng } from 'html-to-image'
-import type { KlavitySettings, ReportType, SubmitReportPayload, IntegrationConfig, ConsoleError, NetworkFailure } from '@klavity/core'
+import type { KlavitySettings, ReportType, SubmitReportPayload, IntegrationConfig, ReportIdentity } from '@klavity/core'
 import { DEFAULT_SETTINGS } from '@klavity/core'
+import { installCapture, buildReportContext, type CaptureBuffers } from '@klavity/core/capture'
 import { dispatchSubmit } from '@klavity/core/submit'
 import { buildModal } from '@klavity/core/modal'
 import { submitReport as jiraSubmit } from '@klavity/core/integrations/jira'
@@ -12,9 +13,20 @@ import { submitReport as backendSubmit } from '@klavity/core/integrations/backen
 export type SdkConfig = Partial<KlavitySettings>
 
 let _settings: KlavitySettings = DEFAULT_SETTINGS
-const _consoleErrors: ConsoleError[] = []
-const _networkFailures: NetworkFailure[] = []
-const MAX_RING = 50
+// Shared full-fidelity capture buffers (G2/G3) — populated by @klavity/core/capture.
+const _buffers: CaptureBuffers = { consoleErrors: [], networkFailures: [] }
+// Site-owner identity + custom metadata (G5), set via identify()/setMetadata().
+let _identity: ReportIdentity | undefined
+let _metadata: Record<string, string> | undefined
+
+function coerceStrings(obj: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null) continue
+    out[String(k).slice(0, 64)] = String(v).slice(0, 1000)
+  }
+  return out
+}
 
 async function capturePageDataUrl(): Promise<string> {
   return toPng(document.body, {
@@ -33,14 +45,7 @@ async function capturePageDataUrl(): Promise<string> {
 }
 
 function buildContext(): SubmitReportPayload['context'] {
-  return {
-    pageUrl: window.location.href,
-    userAgent: navigator.userAgent,
-    screenSize: `${window.screen.width}x${window.screen.height}`,
-    viewportSize: `${window.innerWidth}x${window.innerHeight}`,
-    consoleErrors: [..._consoleErrors],
-    networkFailures: [..._networkFailures],
-  }
+  return buildReportContext(_buffers, { identity: _identity, metadata: _metadata })
 }
 
 async function dispatchToIntegration(config: IntegrationConfig) {
@@ -73,25 +78,17 @@ export function openModal(type: ReportType = 'bug') {
 }
 
 function setupErrorCapture() {
-  window.onerror = (msg, _src, _line, _col, err) => {
-    _consoleErrors.push({ message: String(msg), stack: err?.stack, timestamp: Date.now() })
-    if (_consoleErrors.length > MAX_RING) _consoleErrors.shift()
-    return false
-  }
-  window.addEventListener('unhandledrejection', (e) => {
-    _consoleErrors.push({ message: String(e.reason), stack: e.reason?.stack, timestamp: Date.now() })
-    if (_consoleErrors.length > MAX_RING) _consoleErrors.shift()
-  })
-  const origFetch = window.fetch
-  window.fetch = async (...args) => {
-    const res = await origFetch(...args)
-    if (res.status >= 400) {
-      const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url
-      _networkFailures.push({ url, status: res.status, method: 'FETCH', timestamp: Date.now() })
-      if (_networkFailures.length > MAX_RING) _networkFailures.shift()
-    }
-    return res
-  }
+  // Full-fidelity capture (G3): all console levels + all fetch/XHR requests, bounded + redacted.
+  installCapture(_buffers, { consoleLevels: true })
+}
+
+// ── Public custom-metadata API (G5) ──
+// window.KlavitySnap.identify({...}) / setMetadata({...}). Values are coerced to strings + capped.
+export function identify(user: ReportIdentity | null) {
+  _identity = user ? (coerceStrings(user as Record<string, unknown>) as ReportIdentity) : undefined
+}
+export function setMetadata(meta: Record<string, unknown> | null) {
+  _metadata = meta ? coerceStrings(meta) : undefined
 }
 
 function addContextMenu() {
@@ -138,7 +135,7 @@ export function init(config: SdkConfig = {}) {
 
 // Expose on window for script-tag usage
 if (typeof window !== 'undefined') {
-  (window as unknown as Record<string, unknown>).KlavitySnap = { init, openModal }
+  (window as unknown as Record<string, unknown>).KlavitySnap = { init, openModal, identify, setMetadata }
 }
 
-export default { init, openModal }
+export default { init, openModal, identify, setMetadata }

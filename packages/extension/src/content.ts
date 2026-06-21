@@ -1,13 +1,12 @@
-import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload, ConsoleError, NetworkFailure, KlavConfig, KlavMonitoredProject } from '@klavity/core'
+import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload, KlavConfig, KlavMonitoredProject } from '@klavity/core'
+import { installCapture, buildReportContext, type CaptureBuffers } from '@klavity/core/capture'
 import { Annotator } from '@klavity/core/annotator'
 import { cropDataUrl } from '@klavity/core/crop'
 import { klavContentSig, shouldCapture, DEBOUNCE_MS, ROUTE_COOLDOWN_MS, MAX_REVIEWS_PER_ROUTE } from './feedback-trigger'
 import { widgetPresent } from './coexist'
 
-// ── Error + network capture ring buffer ──────────────────────────────────────
-const consoleErrors: ConsoleError[] = []
-const networkFailures: NetworkFailure[] = []
-const MAX_RING = 50
+// ── Error + network capture ring buffer (shared @klavity/core/capture, full fidelity G3) ──
+const _buffers: CaptureBuffers = { consoleErrors: [], networkFailures: [] }
 
 // ── Context validity check & Toast helper ────────────────────────────────────
 function isContextValid(): boolean {
@@ -95,38 +94,14 @@ function maybeAutoFile(message: string, stack?: string) {
   })
 }
 
-window.onerror = (msg, _src, _line, _col, err) => {
-  if (!isContextValid()) return false
-  const message = String(msg)
-  const stack = err?.stack
-  consoleErrors.push({ message, stack, timestamp: Date.now() })
-  if (consoleErrors.length > MAX_RING) consoleErrors.shift()
-  maybeAutoFile(message, stack)
-  return false
-}
-
-window.addEventListener('unhandledrejection', (e) => {
-  if (!isContextValid()) return
-  const message = String(e.reason)
-  const stack = e.reason?.stack
-  consoleErrors.push({ message, stack, timestamp: Date.now() })
-  if (consoleErrors.length > MAX_RING) consoleErrors.shift()
-  maybeAutoFile(message, stack)
+// Full-fidelity capture (G3): all console levels + all fetch/XHR requests, bounded + redacted.
+// The onError hook preserves the extension's auto-file-on-error behavior; isContextValid keeps the
+// wrappers inert after an extension reload (MV3 context invalidation).
+installCapture(_buffers, {
+  consoleLevels: true,
+  isContextValid,
+  onError: (message, stack) => maybeAutoFile(message, stack),
 })
-
-const origFetch = window.fetch
-window.fetch = async (...args) => {
-  if (!isContextValid()) {
-    return origFetch(...args)
-  }
-  const res = await origFetch(...args)
-  if (res.status >= 400) {
-    const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url
-    networkFailures.push({ url, status: res.status, method: 'FETCH', timestamp: Date.now() })
-    if (networkFailures.length > MAX_RING) networkFailures.shift()
-  }
-  return res
-}
 
 // ── Shadow DOM host ──────────────────────────────────────────────────────────
 let shadowRoot: ShadowRoot | null = null
@@ -146,14 +121,7 @@ function getHost(): ShadowRoot {
 }
 
 function buildContext(): SubmitReportPayload['context'] {
-  return {
-    pageUrl: window.location.href,
-    userAgent: navigator.userAgent,
-    screenSize: `${window.screen.width}x${window.screen.height}`,
-    viewportSize: `${window.innerWidth}x${window.innerHeight}`,
-    consoleErrors: [...consoleErrors],
-    networkFailures: [...networkFailures],
-  }
+  return buildReportContext(_buffers)
 }
 
 // ── Modal ────────────────────────────────────────────────────────────────────
