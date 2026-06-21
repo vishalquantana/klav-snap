@@ -29,6 +29,7 @@ export async function initDb() {
   await db!.execute("ALTER TABLE projects ADD COLUMN modal_config_json TEXT DEFAULT '{}'").catch((e: any) => console.warn("projects.modal_config_json ALTER skipped:", e?.message || e))
   await db!.execute("ALTER TABLE accounts ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'").catch((e: any) => console.warn("accounts.plan ALTER skipped:", e?.message || e))
   await migrateConnectorsPlane(db)
+  await backfillTriageV1(db)
   console.log("✓ Turso connected, schema ready")
 }
 
@@ -578,6 +579,18 @@ export async function migrateConnectorsPlane(c: Client) {
     })
   }
   await metaSet(c, "connectors_plane_migrated", String(Date.now()))
+}
+
+// ── One-time retroactive triage backfill (guarded by schema_meta flag). ──
+// Legacy rows were all 'open'. Re-apply the auto-accept rule so non-high, non-recurring items
+// move into the triage queue. Idempotent via flag.
+export async function backfillTriageV1(c: Client) {
+  if (await metaGet(c, "triage_backfill_v1")) return
+  await c.execute({
+    sql: `UPDATE feedback SET status='new'
+          WHERE status='open' AND COALESCE(severity,'') != 'high' AND recurrence_count < 3`,
+  })
+  await metaSet(c, "triage_backfill_v1", String(Date.now()))
 }
 
 async function tableExists(c: Client, name: string): Promise<boolean> {
