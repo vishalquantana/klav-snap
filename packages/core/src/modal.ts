@@ -1,6 +1,7 @@
 import type { ReportType } from './types'
 import { Annotator } from './annotator'
 import { themeCss, resolveModalConfig, type ModalConfig } from './modal-theme'
+import { icon } from './icons'
 
 export interface SuccessCopy {
   headline: string
@@ -22,7 +23,7 @@ export interface ModalCallbacks {
   }) => Promise<{ issueKey: string; issueUrl: string }>
   // Mode-aware success screen. When provided, a successful submit swaps the modal body for this
   // screen (headline/body, optional email-lead capture, optional CTA) and DOES NOT auto-close —
-  // the user must interact. When absent, falls back to the themed thankYou/✓ Filed auto-close card.
+  // the user must interact. When absent, falls back to the themed thankYou/"Filed" auto-close card.
   // `copy` is static (built by the host from successCopy()); `onLead` POSTs the captured email,
   // referencing the returned feedback id (= issueKey).
   success?: {
@@ -103,15 +104,15 @@ export function buildModal(
   modal.className = 'klavity-modal'
   modal.innerHTML = `
     <div class="klavity-toggle">
-      <button class="bug ${initialType === 'bug' ? 'active' : ''}">🐛 Bug</button>
-      <button class="feat ${initialType === 'feature' ? 'active' : ''}">💡 Feature</button>
+      <button class="bug ${initialType === 'bug' ? 'active' : ''}">${icon('bug')} Bug</button>
+      <button class="feat ${initialType === 'feature' ? 'active' : ''}">${icon('lightbulb')} Feature</button>
     </div>
-    <div class="klavity-page">📍 ${typeof window !== 'undefined' ? window.location.pathname : ''}</div>
+    <div class="klavity-page">${icon('map-pin')} ${typeof window !== 'undefined' ? window.location.pathname : ''}</div>
     <div class="klavity-strip" id="klavity-strip"></div>
     <div class="klavity-actions">
-      <button id="klavity-full">📷 Full Page</button>
-      <button id="klavity-upload">🖼 Upload</button>
-      ${callbacks.onRegionCapture ? '<button id="klavity-region">✂ Region</button>' : ''}
+      <button id="klavity-full">${icon('camera')} Full Page</button>
+      <button id="klavity-upload">${icon('image')} Upload</button>
+      ${callbacks.onRegionCapture ? `<button id="klavity-region">${icon('scissors')} Region</button>` : ''}
     </div>
     <input type="file" id="klavity-file" accept="image/*,.heic,.heif" multiple style="display:none">
     <div class="klavity-counter" id="klavity-counter">0/5 images</div>
@@ -139,7 +140,7 @@ export function buildModal(
       const img = document.createElement('img')
       img.src = dataUrl
       img.title = 'Click to mark up'
-      // Click the thumbnail itself to open the full-screen markup editor (not just the ✏ icon)
+      // Click the thumbnail itself to open the full-screen markup editor (not just the pencil icon)
       img.addEventListener('click', () => openAnnotator(i))
       const rm = document.createElement('button')
       rm.className = 'klavity-rm'
@@ -148,7 +149,7 @@ export function buildModal(
       rm.addEventListener('click', (e) => { e.stopPropagation(); screenshots.splice(i, 1); updateStrip() })
       const mk = document.createElement('button')
       mk.className = 'klavity-mk'
-      mk.textContent = '✏'
+      mk.innerHTML = icon('pencil', { size: 13 })
       mk.title = 'Mark up'
       mk.addEventListener('click', (e) => { e.stopPropagation(); openAnnotator(i) })
       wrap.append(img, rm, mk)
@@ -223,12 +224,17 @@ export function buildModal(
         // the user must interact (submit email or click the CTA, or dismiss via overlay/esc).
         renderSuccess(result.issueKey, callbacks.success)
       } else {
-        // Their themed auto-close card: custom thank-you (2600ms) or "✓ Filed as KEY" (1500ms).
+        // Their themed auto-close card: custom thank-you (2600ms) or "check-circle Filed as KEY" (1500ms).
         const wrap = document.createElement('div')
         wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:all;'
         const card = document.createElement('div')
         card.style.cssText = 'background:var(--kl-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:var(--kl-radius);padding:32px;font-family:var(--kl-font,system-ui),sans-serif;font-size:16px;text-align:center;box-shadow:var(--kl-shadow);'
-        card.textContent = cfg.thankYou ? cfg.thankYou : `✓ Filed as ${result.issueKey}`
+        if (cfg.thankYou) {
+          card.textContent = cfg.thankYou
+        } else {
+          card.innerHTML = `${icon('check-circle', { label: 'Filed', size: 20 })} Filed as `
+          card.appendChild(document.createTextNode(result.issueKey))
+        }
         wrap.appendChild(card)
         // keep the themed style element; swap only the body
         overlay.remove()
@@ -303,19 +309,18 @@ export function buildModal(
       toolbar.style.cssText = 'display:flex;gap:8px;padding:8px;background:#1e1e2e;flex-wrap:wrap;'
       const keyHint = (k: string) => `<span style="opacity:.45;margin-left:5px;font-size:11px;">${k}</span>`
       toolbar.innerHTML = `
-        <button data-tool="pen" title="Pen (P)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">✏️ Pen${keyHint('P')}</button>
-        <button data-tool="rect" title="Rectangle (R)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">⬜ Rect${keyHint('R')}</button>
-        <button data-tool="circle" title="Circle (C)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">⭕ Circle${keyHint('C')}</button>
-        <button data-tool="arrow" title="Arrow (A)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">↗ Arrow${keyHint('A')}</button>
-        <button data-tool="text" title="Text (T)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">T Text${keyHint('T')}</button>
+        <button data-tool="pen" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">${icon('pencil', { size: 14 })} Pen</button>
+        <button data-tool="rect" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">${icon('square', { size: 14 })} Rect</button>
+        <button data-tool="arrow" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">↗ Arrow</button>
+        <button data-tool="text" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">T Text</button>
         <button data-color="#ef4444" style="background:#ef4444;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;"></button>
         <button data-color="#f97316" style="background:#f97316;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;"></button>
         <button data-color="#3b82f6" style="background:#3b82f6;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;"></button>
         <button data-color="#111827" style="background:#111827;width:24px;height:24px;border:none;border-radius:50%;cursor:pointer;border:1px solid #555;"></button>
-        <button id="klavity-undo" title="Undo (⌘/Ctrl+Z)" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;margin-left:auto;">↩ Undo</button>
-        <button id="klavity-clear-ann" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">🗑 Clear</button>
-        <button id="klavity-save-ann" style="padding:6px 10px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:4px;cursor:pointer;font-weight:700;">✓ Save</button>
-        <button id="klavity-cancel-ann" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">✕</button>
+        <button id="klavity-undo" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;margin-left:auto;">↩ Undo</button>
+        <button id="klavity-clear-ann" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">${icon('trash-2', { size: 14 })} Clear</button>
+        <button id="klavity-save-ann" style="padding:6px 10px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:4px;cursor:pointer;font-weight:700;">${icon('check', { label: 'Save', size: 14 })} Save</button>
+        <button id="klavity-cancel-ann" style="padding:6px 10px;background:#313244;color:#cdd6f4;border:none;border-radius:4px;cursor:pointer;">${icon('x', { size: 14 })}</button>
       `
       canvas.style.cssText = 'flex:1;max-width:100%;max-height:calc(100vh - 60px);object-fit:contain;cursor:crosshair;display:block;margin:auto;'
       editor.append(toolbar, canvas)
