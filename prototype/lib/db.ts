@@ -421,6 +421,7 @@ export async function applySchema(c: Client) {
     // G2/G3/G5: captured dev-tools context (console + network + UA/screen/viewport) and custom
     // identity/metadata, persisted as a JSON blob so every widget/SDK/extension report carries it.
     ["client_context_json",   "TEXT"],
+    ["annotations_json",      "TEXT"],
   ]
   for (const [col, def] of feedbackAlters) {
     if (!(await columnExists(c, "feedback", col))) {
@@ -984,6 +985,7 @@ export type FeedbackInsert = {
   planeIssueKey?: string | null; planeIssueUrl?: string | null
   issueKey?: string | null
   clientContext?: any  // captured ReportContext (console/network/env + identity/metadata), G2/G3/G5
+  annotations?: any    // structured markup: { w, h, shapes:Shape[], region?, selector? } — re-rendered as the ticket overlay
 }
 export async function insertFeedback(f: FeedbackInsert): Promise<string> {
   const id = "fb_" + crypto.randomUUID()
@@ -991,8 +993,8 @@ export async function insertFeedback(f: FeedbackInsert): Promise<string> {
   await db!.execute({
     sql: `INSERT INTO feedback (id,project_id,sim_id,actor_email,url_host,url_path,observation,sentiment,severity,
           screenshot_id,suggested_bug_json,cited_trait_ids_json,source_quote,source_transcript_id,source_date,
-          plane_issue_key,plane_issue_url,issue_key,recurrence_count,recurrence_dates_json,last_seen_at,client_context_json,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          plane_issue_key,plane_issue_url,issue_key,recurrence_count,recurrence_dates_json,last_seen_at,client_context_json,annotations_json,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     args: [id, f.projectId, f.simId ?? null, f.actorEmail ?? null, f.urlHost ?? null, f.urlPath ?? null,
            f.observation ?? null, f.sentiment ?? null, f.severity ?? null, f.screenshotId ?? null,
            f.suggestedBug != null ? JSON.stringify(f.suggestedBug) : null,
@@ -1000,7 +1002,8 @@ export async function insertFeedback(f: FeedbackInsert): Promise<string> {
            f.sourceQuote ?? null, f.sourceTranscriptId ?? null, f.sourceDate ?? null,
            f.planeIssueKey ?? null, f.planeIssueUrl ?? null,
            f.issueKey ?? null, 1, JSON.stringify([now]), now,
-           f.clientContext != null ? JSON.stringify(f.clientContext) : null, now],
+           f.clientContext != null ? JSON.stringify(f.clientContext) : null,
+           f.annotations != null ? JSON.stringify(f.annotations) : null, now],
   })
   return id
 }
@@ -1069,7 +1072,7 @@ export type FeedbackRow = {
   urlHost: string | null; urlPath: string | null; observation: string | null
   sentiment: string | null; severity: string | null; screenshotId: string | null
   suggestedBug: any | null; sourceQuote: string | null; citedTraitIds: any | null; sourceDate: number | null
-  planeIssueKey: string | null; planeIssueUrl: string | null; createdAt: number
+  planeIssueKey: string | null; planeIssueUrl: string | null; annotations: any | null; createdAt: number
 }
 function safeJsonParse(s: any): any { try { return s ? JSON.parse(String(s)) : null } catch { return null } }
 function rowToFeedback(x: any): FeedbackRow {
@@ -1089,6 +1092,7 @@ function rowToFeedback(x: any): FeedbackRow {
     sourceDate: x.source_date != null ? Number(x.source_date) : null,
     planeIssueKey: x.plane_issue_key != null ? String(x.plane_issue_key) : null,
     planeIssueUrl: x.plane_issue_url != null ? String(x.plane_issue_url) : null,
+    annotations: safeJsonParse(x.annotations_json),
     createdAt: Number(x.created_at),
   }
 }

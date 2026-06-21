@@ -1307,6 +1307,31 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           try { clientContext = sanitizeClientContext(JSON.parse(ctxRaw)) } catch { clientContext = null }
         }
 
+        // Annotation overlay (KLAVITYKLA-1): structured markup { w, h, shapes:[], region?, selector? } so the
+        // ticket can re-render the highlight over the screenshot. Optional, size-capped, sanitized defensively
+        // (coords coerced to finite numbers, shape types allowlisted, strings clamped) since it renders into the DOM.
+        let annotations: any = null
+        const annRaw = String(form.get("annotations_json") || "")
+        if (annRaw && annRaw.length <= 100_000) {
+          try {
+            const a = JSON.parse(annRaw)
+            const num = (v: any) => (typeof v === "number" && isFinite(v)) ? v : 0
+            const okTypes = new Set(["rect", "arrow", "circle", "pen", "text", "pin"])
+            const shapes = Array.isArray(a?.shapes) ? a.shapes.slice(0, 50).filter((s: any) => s && okTypes.has(s.type)).map((s: any) => {
+              const o: any = { type: String(s.type) }
+              for (const k of ["x", "y", "w", "h", "x1", "y1", "x2", "y2", "rx", "ry", "n"]) if (s[k] != null) o[k] = num(s[k])
+              if (s.color != null) o.color = String(s.color).slice(0, 24)
+              if (s.label != null) o.label = String(s.label).slice(0, 200)
+              if (s.type === "text") o.text = String(s.text ?? "").slice(0, 200)
+              if (Array.isArray(s.points)) o.points = s.points.slice(0, 400).map((p: any) => ({ x: num(p?.x), y: num(p?.y) }))
+              return o
+            }) : []
+            const region = a?.region ? { x: num(a.region.x), y: num(a.region.y), w: num(a.region.w), h: num(a.region.h) } : null
+            const selector = a?.selector != null ? String(a.selector).slice(0, 300) : null
+            annotations = (shapes.length || region || selector) ? { w: num(a?.w), h: num(a?.h), shapes, region, selector } : null
+          } catch { annotations = null }
+        }
+
         // ── G1 session replay: the widget/SDK attaches a rolling rrweb event buffer as `replay_events`
         // (a JSON array string). Parse defensively here; an oversize/garbage field must NEVER fail the
         // bug submission. The per-event-buffer byte cap below is a coarse pre-parse guard; the durable
@@ -1442,7 +1467,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                   sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
                   planeIssueKey: null, planeIssueUrl: null,
                   issueKey: suggestedBug ? issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds) : null,
-                  clientContext,
+                  clientContext, annotations,
                 })
               }
               // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
@@ -2594,7 +2619,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               sentiment: f.sentiment, screenshotId: f.screenshotId,
               sourceQuote: f.sourceQuote, sourceDate: f.sourceDate,
               notes: meta.notes, hasReplay: ticketsWithReplay.has(f.id),
-              recurrence: meta.recurrence,
+              recurrence: meta.recurrence, annotations: f.annotations,
             }
           })
 

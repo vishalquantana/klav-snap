@@ -151,7 +151,7 @@ async function mount() {
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots,
-          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [] },
+          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [], annotations: p.annotations },
       ),
       success: { copy: successCopy(widget.mode, widget.ctaUrl), onLead: postLead },
     }, modalConfig)
@@ -359,7 +359,7 @@ async function mount() {
 
 export async function submitFeedback(
   cfg: { backendUrl: string; projectId: string; firstParty: boolean; token: string },
-  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[] },
+  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any },
 ): Promise<{ issueKey: string; issueUrl: string }> {
   const fd = buildFeedbackForm({
     description: `[${payload.type}] ${payload.description}`,

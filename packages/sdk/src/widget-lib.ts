@@ -88,7 +88,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
-export function buildFeedbackForm(input: { description: string; pageUrl: string; projectId: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[] }): FormData {
+export function buildFeedbackForm(input: { description: string; pageUrl: string; projectId: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any }): FormData {
   const fd = new FormData()
   fd.set("description", input.description)
   fd.set("page_url", input.pageUrl)
@@ -100,5 +100,8 @@ export function buildFeedbackForm(input: { description: string; pageUrl: string;
   // G1 session replay: attach the rolling rrweb buffer as a JSON array. Only when there are events to
   // send (an empty/unplayable buffer is omitted so the server stores nothing).
   if (input.replayEvents && input.replayEvents.length) fd.set("replay_events", JSON.stringify(input.replayEvents))
+  // Annotation overlay (KLAVITYKLA-1): structured markup { w, h, shapes } for the clean screenshot, so the
+  // ticket re-renders a toggleable/zoomable highlight instead of baking the drawing into the image.
+  if (input.annotations && Array.isArray(input.annotations.shapes) && input.annotations.shapes.length) fd.set("annotations_json", JSON.stringify(input.annotations))
   return fd
 }

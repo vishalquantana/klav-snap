@@ -292,6 +292,18 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .single-title{font-family:var(--display);font-weight:500;font-size:22px;line-height:1.25;letter-spacing:-.01em}
 .single-meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px}
 #ticketSingle .tkt-detail{display:flex;border:1px solid var(--line);border-radius:14px;max-width:760px}
+/* annotation overlay on the ticket screenshot (KLAVITYKLA-1) */
+.tkt-shotwrap{position:relative;max-width:100%;border-radius:10px;overflow:hidden;margin-top:2px}
+.tkt-shotwrap.zoomed{overflow:auto;max-height:72vh}
+.tkt-shot-inner{position:relative;width:100%;line-height:0;transition:width .2s}
+.tkt-shotwrap.zoomed .tkt-shot-inner{width:175%}
+.tkt-shot-inner img{display:block;width:100%;border:1px solid var(--line);border-radius:10px;cursor:zoom-in}
+.tkt-shotwrap.zoomed .tkt-shot-inner img{cursor:zoom-out}
+.tkt-ann-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.tkt-ann-svg.off{display:none}
+.tkt-ann-bar{position:absolute;top:8px;right:8px;display:flex;gap:6px;line-height:1;z-index:2}
+.tkt-ann-btn{font-family:var(--body);font-size:11px;font-weight:600;padding:5px 9px;border-radius:7px;border:1px solid rgba(255,255,255,.22);background:rgba(25,20,15,.55);color:#fff;cursor:pointer}
+.tkt-ann-btn.on{background:var(--indigo);border-color:transparent}
 .chip.kb-st-open{background:rgba(217,131,36,.16);color:var(--amber)}
 .chip.kb-st-in_progress{background:rgba(79,70,229,.16);color:var(--indigo)}
 .chip.kb-st-done{background:rgba(15,157,107,.16);color:var(--green)}
@@ -1622,7 +1634,7 @@ function openSingleTicket(id) {
   const detailEl = buildTktDetail(t, admin, () => { renderHead(); renderTicketsKanban() })
   detailEl.classList.add("show")
   single.appendChild(detailEl)
-  loadTktShot(detailEl)
+  loadTktShot(detailEl, t.annotations)
   if (board) board.classList.add("hide")
   if (toolbar) toolbar.classList.add("hide")
   single.classList.remove("hide")
@@ -1724,7 +1736,7 @@ function renderTicketsKanban() {
   board.appendChild(boardEl)
 }
 
-async function loadTktShot(detailEl) {
+async function loadTktShot(detailEl, annotations) {
   const box = detailEl.querySelector(".tkt-shot")
   if (!box || box.getAttribute("data-loaded")) return
   box.setAttribute("data-loaded", "1")
@@ -1735,10 +1747,48 @@ async function loadTktShot(detailEl) {
     if (d.url) {
       const img = document.createElement("img")
       img.src = d.url; img.alt = "Sim screenshot"
-      img.addEventListener("click", () => window.open(d.url, "_blank", "noopener"))
-      box.innerHTML = ""; box.appendChild(img)
-    } else { box.innerHTML = '<div class="muted" style="font-size:12px">Screenshot unavailable</div>' }
+      if (annotations && Array.isArray(annotations.shapes) && annotations.shapes.length) {
+        mountAnnotationOverlay(box, img, annotations, d.url)
+      } else {
+        img.addEventListener("click", () => window.open(d.url, "_blank", "noopener"))
+        box.innerHTML = ""; box.appendChild(img)
+      }
+    } else { box.innerHTML = '<div class="muted" style="font-size:12px">Screenshot couldn’t be loaded.</div>' }
   } catch { box.innerHTML = '<div class="muted" style="font-size:12px">Screenshot error</div>' }
+}
+// Re-render the reporter's markup as a toggleable/zoomable SVG overlay over the clean screenshot.
+// Shapes are in natural-image coords; the SVG viewBox = the image's natural size, so it auto-scales.
+function mountAnnotationOverlay(box, img, ann, url) {
+  const W = ann.w || 1000, H = ann.h || 700, NS = "http://www.w3.org/2000/svg"
+  const sw = Math.max(3, W / 320)
+  const svg = document.createElementNS(NS, "svg")
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H)
+  svg.setAttribute("preserveAspectRatio", "none")
+  svg.setAttribute("class", "tkt-ann-svg")
+  const set = (el, o) => { for (const k in o) el.setAttribute(k, o[k]); return el }
+  ann.shapes.forEach(s => {
+    const col = s.color || "#db2777"
+    if (s.type === "rect") svg.appendChild(set(document.createElementNS(NS, "rect"), { x: s.x, y: s.y, width: s.w, height: s.h, rx: 6, fill: "none", stroke: col, "stroke-width": sw }))
+    else if (s.type === "circle") svg.appendChild(set(document.createElementNS(NS, "ellipse"), { cx: s.x, cy: s.y, rx: Math.abs(s.rx || 0), ry: Math.abs(s.ry || 0), fill: "none", stroke: col, "stroke-width": sw }))
+    else if (s.type === "pen" && Array.isArray(s.points)) svg.appendChild(set(document.createElementNS(NS, "polyline"), { points: s.points.map(p => p.x + "," + p.y).join(" "), fill: "none", stroke: col, "stroke-width": sw, "stroke-linecap": "round", "stroke-linejoin": "round" }))
+    else if (s.type === "text") { const t = set(document.createElementNS(NS, "text"), { x: s.x, y: s.y, fill: col, "font-size": Math.max(16, W / 55), "font-weight": 700, "font-family": "sans-serif" }); t.textContent = s.text || ""; svg.appendChild(t) }
+    else if (s.type === "arrow") {
+      svg.appendChild(set(document.createElementNS(NS, "line"), { x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2, stroke: col, "stroke-width": sw, "stroke-linecap": "round" }))
+      const a = Math.atan2(s.y2 - s.y1, s.x2 - s.x1), hl = Math.max(12, sw * 4)
+      svg.appendChild(set(document.createElementNS(NS, "polyline"), { points: `${s.x2 - hl * Math.cos(a - Math.PI / 6)},${s.y2 - hl * Math.sin(a - Math.PI / 6)} ${s.x2},${s.y2} ${s.x2 - hl * Math.cos(a + Math.PI / 6)},${s.y2 - hl * Math.sin(a + Math.PI / 6)}`, fill: "none", stroke: col, "stroke-width": sw, "stroke-linecap": "round", "stroke-linejoin": "round" }))
+    }
+  })
+  const inner = document.createElement("div"); inner.className = "tkt-shot-inner"
+  inner.appendChild(img); inner.appendChild(svg)
+  const bar = document.createElement("div"); bar.className = "tkt-ann-bar"
+  const tg = document.createElement("button"); tg.type = "button"; tg.className = "tkt-ann-btn on"; tg.textContent = "⦿ Markup"
+  tg.addEventListener("click", e => { e.stopPropagation(); svg.classList.toggle("off"); tg.classList.toggle("on") })
+  const op = document.createElement("button"); op.type = "button"; op.className = "tkt-ann-btn"; op.textContent = "↗ Full size"
+  op.addEventListener("click", e => { e.stopPropagation(); window.open(url, "_blank", "noopener") })
+  bar.appendChild(tg); bar.appendChild(op)
+  box.classList.add("tkt-shotwrap")
+  box.innerHTML = ""; box.appendChild(inner); box.appendChild(bar)
+  box.addEventListener("click", e => { if (e.target.closest(".tkt-ann-btn")) return; box.classList.toggle("zoomed") })
 }
 
 function showTktMsg(detailEl, msg, isErr) {

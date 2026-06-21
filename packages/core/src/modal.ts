@@ -25,6 +25,7 @@ export interface ModalCallbacks {
     type: ReportType
     description: string
     screenshots: string[]
+    annotations?: any
   }) => Promise<{ issueKey: string; issueUrl: string }>
   // Mode-aware success screen. When provided, a successful submit swaps the modal body for this
   // screen (headline/body, optional email-lead capture, optional CTA) and DOES NOT auto-close —
@@ -59,6 +60,9 @@ export function buildModal(
   document.body.appendChild(host)
 
   let screenshots: string[] = []
+  // Structured markup per screenshot index { w, h, shapes } so the ticket can re-render a
+  // toggleable/zoomable overlay instead of baking the drawing into the uploaded image.
+  const annotationsByIndex: Record<number, any> = {}
   let currentType = initialType
 
   const style = document.createElement('style')
@@ -223,7 +227,7 @@ export function buildModal(
     const errEl = shadowRoot.getElementById('klavity-err')!
     errEl.style.display = 'none'
     try {
-      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots] })
+      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots], annotations: annotationsByIndex[0] ?? null })
       if (callbacks.success) {
         // Mode-aware lead/CTA screen rendered THROUGH the existing themed modal — no auto-close;
         // the user must interact (submit email or click the CTA, or dismiss via overlay/esc).
@@ -373,7 +377,14 @@ export function buildModal(
       selectTool(activeTool)
 
       toolbar.querySelector('#klavity-save-ann')!.addEventListener('click', async () => {
-        screenshots[index] = await annotator.save()
+        // Keep the CLEAN screenshot; the drawn shapes travel as a structured overlay (re-rendered
+        // toggleable + zoomable in the ticket) instead of being flattened into the image.
+        if (annotator.shapes.length) {
+          annotationsByIndex[index] = { w: canvas.width, h: canvas.height, shapes: annotator.shapes.map(s => ({ ...s })) }
+          screenshots[index] = dataUrl
+        } else {
+          delete annotationsByIndex[index]
+        }
         close()
         updateStrip()
       })
