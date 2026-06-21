@@ -142,6 +142,7 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 #playerHost{min-height:200px;border-radius:12px;overflow:hidden}
 .modal .mnote{font-size:12.5px;color:var(--paper-faint);margin-top:10px;font-family:var(--mono)}
 </style>
+<script src="/icons.generated.js"></script>
 </head>
 <body>
 <div class="bar"><div class="bar-in">
@@ -373,7 +374,7 @@ function renderTrails(d){
   var trails = d.trails || []
   $("trailsCount").textContent = String(trails.length)
   var tEl = $("trails")
-  tEl.innerHTML = trails.length ? "" : '<div class="empty"><div class="em">🐾</div><p>No Trails yet.</p></div>'
+  tEl.innerHTML = trails.length ? "" : '<div class="empty"><div class="em">'+window.kicon('footprints',{size:18})+'</div><p>No Trails yet.</p></div>'
   trails.forEach(function(t){
     var w = latestWalkFor(d.recentWalks||[], t.id)
     var v = w ? String(w.status||"") : ""
@@ -438,7 +439,7 @@ async function render(d){
   const walks = d.recentWalks || []
   $("walksCount").textContent = String(walks.length)
   const wEl = $("walks")
-  wEl.innerHTML = walks.length ? "" : '<div class="empty"><div class="em">🐾</div><p>No Walks yet. Author a Trail and walk it to see verdicts here.</p></div>'
+  wEl.innerHTML = walks.length ? "" : '<div class="empty"><div class="em">'+window.kicon('footprints',{size:18})+'</div><p>No Walks yet. Author a Trail and walk it to see verdicts here.</p></div>'
   for (const w of walks) {
     const v = String(w.status || "running")
     const when = w.startedAt ? new Date(w.startedAt).toLocaleString() : ""
@@ -461,7 +462,7 @@ async function render(d){
 
 function renderQueue(queue){
   const qEl = $("queue")
-  qEl.innerHTML = queue.length ? "" : '<div class="empty"><div class="em">✓</div><p>Queue clear — nothing waiting for review.</p></div>'
+  qEl.innerHTML = queue.length ? "" : '<div class="empty"><div class="em">'+window.kicon('check',{size:18})+'</div><p>Queue clear — nothing waiting for review.</p></div>'
   for (const f of queue) {
     const ev = f.evidence || {}
     const rationale = ev.rationale || f.groundQuote || ""
@@ -598,7 +599,7 @@ async function enforceExpectation(expId, card) {
     }
     // Success — reload expectations board (card moves to Enforced)
     confirmEl.remove()
-    if (msgEl) { msgEl.style.color = "var(--green)"; msgEl.textContent = "Enforced ✓" }
+    if (msgEl) { msgEl.style.color = "var(--green)"; msgEl.textContent = "Enforced" }
     setTimeout(loadExpectations, 600)
   }
 }
@@ -656,8 +657,8 @@ function renderExpectations(expectations) {
     card.className = "exp-card"
     card.innerHTML = expCardHtml(exp)
     + (exp.enforcedStepId
-        ? '<div class="ec-badges" style="margin-top:8px"><span class="ec-badge enforced-ok">enforced ✓</span><span class="ec-meta" style="margin-left:4px;font-size:10px">'+esc(exp.enforcedStepId)+'</span></div>'
-        : '<div class="ec-badges" style="margin-top:8px"><span class="ec-badge enforced-ok">enforced ✓</span></div>')
+        ? '<div class="ec-badges" style="margin-top:8px"><span class="ec-badge enforced-ok">enforced</span><span class="ec-meta" style="margin-left:4px;font-size:10px">'+esc(exp.enforcedStepId)+'</span></div>'
+        : '<div class="ec-badges" style="margin-top:8px"><span class="ec-badge enforced-ok">enforced</span></div>')
     enfEl.appendChild(card)
   })
 }

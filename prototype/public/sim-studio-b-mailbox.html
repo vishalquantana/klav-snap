@@ -181,6 +181,7 @@ body{background:var(--ink);color:var(--paper);font-family:var(--body);line-heigh
 .pane::-webkit-scrollbar,.list::-webkit-scrollbar{width:9px}
 .pane::-webkit-scrollbar-thumb,.list::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
 </style>
+<script src="/icons.generated.js"></script>
 </head>
 <body>
 
@@ -193,7 +194,7 @@ body{background:var(--ink);color:var(--paper);font-family:var(--body);line-heigh
   <span class="proj-chip"><span class="pd"></span>Acme Corp</span>
   <div class="spacer"></div>
   <span class="meta" id="paneMeta">Reading · Sarah Chen</span>
-  <button class="tbtn" id="themeToggle"><span id="themeIcon">☾</span> <span id="themeText">Dark</span></button>
+  <button class="tbtn" id="themeToggle"><span id="themeIcon"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></span> <span id="themeText">Dark</span></button>
 </div>
 
 <div class="shell">
@@ -453,7 +454,7 @@ function renderSarah(){
       <span class="type-chip">${s.type}</span>
       <div class="summary">“${s.summary}”</div>
     </div>
-    <button class="edit-btn">✎ Edit persona</button>
+    <button class="edit-btn">${window.kicon('pencil',{size:14})} Edit persona</button>
   </div>
   ${body}`;
 }
@@ -469,7 +470,7 @@ function renderStubSim(key){
       <span class="type-chip">${s.type}</span>
       <div class="summary">“${s.summary}”</div>
     </div>
-    <button class="edit-btn">✎ Edit persona</button>
+    <button class="edit-btn">${window.kicon('pencil',{size:14})} Edit persona</button>
   </div>
   <div style="margin-top:34px;color:var(--paper-dim);font-size:14px">
     <div class="grp-label" style="--kind:var(--paper-faint)"><span class="gd"></span>${s.meta.split('·')[0].trim()}</div>
@@ -678,7 +679,7 @@ const html = document.documentElement;
 document.getElementById('themeToggle').addEventListener('click', ()=>{
   const dark = html.getAttribute('data-theme')==='dark';
   html.setAttribute('data-theme', dark?'light':'dark');
-  document.getElementById('themeIcon').textContent = dark?'☾':'☀';
+  document.getElementById('themeIcon').innerHTML = dark?window.kicon('moon',{size:16}):window.kicon('sun',{size:16});
   document.getElementById('themeText').textContent = dark?'Dark':'Light';
 });
 

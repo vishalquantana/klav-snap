@@ -67,6 +67,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .theme-toggle{position:fixed;right:16px;bottom:16px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12)}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+<script src="/icons.generated.js"></script>
 </head>
 <body>
 <div class="card">
@@ -97,7 +98,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 <div class="login-sim" aria-hidden="true">
   <div class="ls-bubble"><div class="ls-tag" id="lsTag">SARAH CHEN · CFO</div><span id="lsText">“Your Sims are ready when you are.”</span></div>
   <div style="position:relative;display:flex;flex-direction:column;align-items:center">
-    <div class="ls-arm"><span class="ls-fin">👋</span></div>
+    <div class="ls-arm"><span class="ls-fin"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" /> <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" /> <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" /> <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg></span></div>
     <div class="ls-head" id="lsHead"><span id="lsInit">SC</span><div class="ls-eyes"><span class="ls-eye"></span><span class="ls-eye"></span></div></div>
     <div class="ls-legs"><span class="ls-leg"></span><span class="ls-leg"></span></div>
   </div>
@@ -112,9 +113,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <span class="q-item">“Sort it by what's overdue. Always.” <span class="q-who">— Sarah, CFO</span></span>
 </div></div>
 
-<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">🌙</button>
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></button>
 
-<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.textContent=dark()?'☀️':'🌙'}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
+<script>(function(){var b=document.getElementById('themeToggle');if(!b)return;var R=document.documentElement;function dark(){return R.getAttribute('data-theme')==='dark'}function paint(){b.innerHTML=dark()?window.kicon('sun',{size:16}):window.kicon('moon',{size:16})}paint();b.addEventListener('click',function(){var n=dark()?'light':'dark';if(n==='dark')R.setAttribute('data-theme','dark');else R.removeAttribute('data-theme');try{localStorage.setItem('klav-theme',n)}catch(e){}paint()})})();</script>
 
 <script>
 const $ = (id) => document.getElementById(id)
