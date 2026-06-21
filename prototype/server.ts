@@ -1413,7 +1413,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // ── persist to our durable ledger (P0) FIRST, always — best-effort, never fails the submission.
         // Runs whether or not a tracker is connected, so the dashboard always gets a row.
         let feedbackId: string | null = null
-        let citation: { citedTraitIds: string[]; sourceQuote: string | null; speaker: string | null; sourceTranscriptId: string | null; sourceDate: number | null } | null = null
+        let citation: Awaited<ReturnType<typeof resolveCitations>> | null = null
         if (db) {
           try {
             // Actor: Bearer (extension) or cookie session (studio). Resolve to a real project

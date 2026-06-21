@@ -243,16 +243,6 @@ section{padding:90px 0; position:relative}
 .integrations{display:flex; gap:9px; margin-top:16px; flex-wrap:wrap}
 .intg{font-family:var(--mono); font-size:11px; padding:6px 12px; border:1px solid var(--line); border-radius:8px; color:var(--paper-dim)}
 
-/* phases */
-.phases{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
-.phase{border:1px solid var(--line); border-radius:18px; padding:24px; position:relative}
-.phase.live{background:linear-gradient(180deg,rgba(159,214,160,.06),transparent); border-color:rgba(159,214,160,.3)}
-.phase.build{background:linear-gradient(180deg,rgba(139,139,245,.07),transparent); border-color:rgba(139,139,245,.35)}
-.ph-stat{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:3px 9px; border-radius:20px; display:inline-block; margin-bottom:14px}
-.ph-stat.s-live{background:rgba(159,214,160,.15); color:var(--green)} .ph-stat.s-build{background:rgba(139,139,245,.15); color:var(--indigo)} .ph-stat.s-soon{background:var(--ink-3); color:var(--paper-faint)}
-.phase h3{font-family:var(--display); font-weight:600; font-size:24px; letter-spacing:-.01em}
-.phase .pl{font-family:var(--mono); font-size:11px; color:var(--paper-faint); margin:2px 0 12px}
-.phase p{font-size:14.5px; color:var(--paper-dim); line-height:1.55}
 
 /* trust */
 .trust{background:var(--ink-2); border:1px solid var(--line); border-radius:24px; padding:54px; text-align:center; position:relative; overflow:hidden}
@@ -278,7 +268,7 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 @media(max-width:880px){
   .hero-grid,.split{grid-template-columns:1fr; gap:36px}
   .stage{aspect-ratio:1/.7; order:-1}
-  .loop,.sims-row,.phases{grid-template-columns:1fr}
+  .loop,.sims-row{grid-template-columns:1fr}
   .nav-links{display:none}
 }
 
@@ -297,8 +287,8 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 @keyframes wiggle{0%,100%{transform:rotate(0)}28%{transform:rotate(-10deg) scale(1.1)}62%{transform:rotate(8deg)}}
 .intg{transition:transform .2s,border-color .2s,color .2s}
 .intg:hover{border-color:var(--indigo);color:var(--indigo);transform:translateY(-2px)}
-.tile,.persona,.step{will-change:transform}
-.p-av,.sr-av,.pc-target{transition:transform .25s}
+.persona,.step{will-change:transform}
+.p-av,.pc-target{transition:transform .25s}
 .persona:hover .p-av{transform:scale(1.08) rotate(-4deg)}
 .eyebrow .tag{transition:color .2s}
 .hero-note .mono{animation:pulse 2s infinite}
@@ -377,9 +367,9 @@ h1 .ind{color:var(--paper)}
 .pc-kpi{background:#ffffff!important; border:1px solid rgba(0,0,0,0.05)!important; border-radius:12px!important; box-shadow:0 1px 2px rgba(0,0,0,0.03)!important}
 .pc-target{outline:2px solid var(--rose)!important; box-shadow:0 0 0 4px color-mix(in srgb, var(--rose) 15%, transparent)!important}
 .snap-card{background:var(--ink-2); border:1px solid var(--line); box-shadow:0 18px 46px rgba(17,17,19,0.10); border-radius:20px}
-.step, .persona, .phase{background:var(--ink-2); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:0 14px 40px rgba(17,17,19,0.08); position:relative; overflow:hidden; border-radius:20px}
-.step:hover, .persona:hover, .phase:hover{border-color:var(--paper-faint); background:var(--ink-3); box-shadow:0 20px 40px rgba(0,0,0,0.06)}
-.step::after, .persona::after, .phase::after{content:""; position:absolute; top:0; right:0; width:40px; height:40px; background-image:repeating-linear-gradient(45deg, var(--line-2), var(--line-2) 4px, transparent 4px, transparent 8px); clip-path:polygon(100% 0, 0 0, 100% 100%); opacity:0.8}
+.step, .persona{background:var(--ink-2); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:0 14px 40px rgba(17,17,19,0.08); position:relative; overflow:hidden; border-radius:20px}
+.step:hover, .persona:hover{border-color:var(--paper-faint); background:var(--ink-3); box-shadow:0 20px 40px rgba(0,0,0,0.06)}
+.step::after, .persona::after{content:""; position:absolute; top:0; right:0; width:40px; height:40px; background-image:repeating-linear-gradient(45deg, var(--line-2), var(--line-2) 4px, transparent 4px, transparent 8px); clip-path:polygon(100% 0, 0 0, 100% 100%); opacity:0.8}
 .sim .speech{background:var(--ink-2); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 44px rgba(17,17,19,0.14)}
 .sim .speech .sp-tag{color:var(--indigo-text); font-weight:700}
 .sim .speech::after{border-top-color:var(--ink-2)}
@@ -801,7 +791,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // scroll reveal
 if (!reduce && 'IntersectionObserver' in window) {
-  const els = [...document.querySelectorAll('section .sec-head, .step, .persona, .phase, .split > div, .trust, #cta .wrap')];
+  const els = [...document.querySelectorAll('section .sec-head, .step, .persona, .split > div, .trust, #cta .wrap')];
   els.forEach(el => el.classList.add('io'));
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .14 });
   els.forEach((el, i) => { el.style.transitionDelay = (Math.min(i % 3, 2) * .06) + 's'; io.observe(el); });

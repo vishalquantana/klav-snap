@@ -800,7 +800,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
         <div class="msg" id="connMsg"></div>
       </div>
       <!-- Non-admin: read-only note -->
-      <div id="connUser" class="hide muted">Only admins can configure external tracker connections.<span id="connStatus"></span></div>
+      <div id="connUser" class="hide muted">Only admins can configure external tracker connections.</div>
     </div>
   </details>
 
@@ -2022,7 +2022,6 @@ function renderDashMode() {
   })
 }
 
-function projQuery() { const p = state && state.active ? state.active.id : null; return p ? "?project=" + encodeURIComponent(p) : "" }
 
 // Carry the active project onto every "/app" link so the studio opens the SAME project
 // (not the account default). Preserves any #hash. Runs after each render.
@@ -2681,7 +2680,6 @@ load()
     "A mobile-only user on a flaky connection",
     "A skeptical IT admin worried about security",
   ];
-  const accentFor=(s)=>safeAccent(s,col(s||"x"));
   function inits(n){return String(n||"").replace(/\(.*?\)/g,"").trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase()||"S"}
   function simCardHtml(s,idx){
     const ins=(s.insights||[]).slice(0,3).map(i=>{
