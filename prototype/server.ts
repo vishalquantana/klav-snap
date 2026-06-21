@@ -2719,17 +2719,22 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           return json({ feedbackId: fid, events: replay.events, nEvents: replay.nEvents, trimmed: replay.trimmed, createdAt: replay.createdAt })
         }
 
-        // PATCH /api/feedback/:id — any project member may edit status/assignee/notes
+        // PATCH /api/feedback/:id — any project member may edit status/assignee/notes/severity
         if (req.method === "PATCH" && !isExport) {
           const body = await req.json().catch(() => ({}))
-          const VALID_STATUS = ["open", "in_progress", "done"]
+          const VALID_STATUS = ["new", "open", "in_progress", "done", "dismissed"]
           if (body.status !== undefined && !VALID_STATUS.includes(body.status)) {
             return json({ error: `status must be one of: ${VALID_STATUS.join(", ")}` }, 400)
           }
-          const meta: Partial<{ status: string; assignee: string | null; notes: string | null }> = {}
+          const VALID_SEV = ["high", "medium", "low"]
+          if (body.severity !== undefined && body.severity !== null && !VALID_SEV.includes(body.severity)) {
+            return json({ error: `severity must be one of: ${VALID_SEV.join(", ")}` }, 400)
+          }
+          const meta: Partial<{ status: string; assignee: string | null; notes: string | null; severity: string | null }> = {}
           if (body.status !== undefined) meta.status = body.status
           if (body.assignee !== undefined) meta.assignee = body.assignee ?? null
           if (body.notes !== undefined) meta.notes = body.notes ?? null
+          if (body.severity !== undefined) meta.severity = body.severity ?? null
           const updated = await updateFeedbackMeta(fbRow.projectId, fid, meta)
           if (!updated) return json({ error: "Update failed." }, 500)
           return json({ ok: true })
