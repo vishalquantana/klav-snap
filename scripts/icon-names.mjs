@@ -5,4 +5,5 @@ export const ICON_NAMES = [
   'moon', 'sun', 'mouse-pointer-2', 'eye',
   'heart', 'meh', 'angry', 'frown',
   'check', 'check-circle', 'x', 'x-circle',
+  'link', 'user', 'mic', 'puzzle', 'sprout',
 ];
