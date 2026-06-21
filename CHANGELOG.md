@@ -10,6 +10,14 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.37.0] — 2026-06-21
+
+### Added
+- **Two-way status sync now covers Jira & Linear** (completes #7 / G4 — GitHub + Plane shipped in 0.35.0). The inbound receiver `POST /api/connectors/:type/webhook` now maps Jira and Linear status changes back onto the linked Klavity ticket. **Linear:** HMAC-SHA256 over the raw body in the `Linear-Signature` header; `state.type` completed/canceled→`done`, started→`in_progress`, backlog/unstarted/triage→`open`; matched via `data.identifier`. **Jira:** shared-secret token (Jira Cloud webhooks aren't HMAC-signed) read from `?token=` or `X-Klavity-Token`, constant-time compared; `statusCategory.key` done→`done`, indeterminate→`in_progress`, new→`open` (maps the stable category, so it survives custom workflows); matched via `issue.key`. Both add an encrypted `inbound_secret` connector field and inherit the same posture as GitHub/Plane (opt-in 401 when unconfigured, no existence oracle, 128 KB cap, per-IP rate limit).
+
+### Changed
+- **rrweb is no longer bundled into the no-install widget.** The session-replay recorder (~260 KB) is lazy-loaded at runtime from a vendored `GET /vendor/rrweb-record.min.js` on the Klavity backend (CORS-enabled, cached) after the widget mounts — non-blocking, with `data-replay="off"` opt-out preserved. Widget IIFE drops **418 KB → ~361 KB gzip** (−14%). Replay still records the rolling buffer once the recorder resolves; until then `replay` is null and submission is unaffected. (Largest remaining widget weight is `html-to-image`/`heic2any` — a future lazy-load candidate.)
+
 ## [0.36.0] — 2026-06-21
 
 ### Changed
