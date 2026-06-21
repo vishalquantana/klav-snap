@@ -25,19 +25,36 @@ function getClient(): S3Client {
 export type UploadedScreenshot = { url: string; key: string; bucket: string; contentType: string; acl: string }
 
 // Upload one screenshot and return its storage metadata (key/bucket so callers can record a durable
-// `screenshots` ledger row). `acl` is caller-chosen (§6 locked): 'public-read' for user-initiated Snap
-// reports (default, back-compat), 'private' for Sim/live-review captures. For a private object the
-// returned `url` is the (non-public) path-style URL — callers serve it via a signed GET (presignGet),
-// never as a direct link.
+// `screenshots` ledger row). `acl` defaults to 'private' (no public bucket exposure — CASA/PII): the
+// returned `url` is the (non-public) path-style URL and callers MUST serve it via a signed GET
+// (`presignGet`) — for the dashboard via the membership-checked /api/screenshots/:id endpoint, and for
+// external trackers by embedding a short-lived presigned URL. 'public-read' remains available for any
+// caller that explicitly needs a permanent direct link, but should be avoided for user content.
 export async function uploadScreenshotMeta(
   bytes: ArrayBuffer | Uint8Array,
   contentType: string,
-  acl: 'public-read' | 'private' = 'public-read',
+  acl: 'public-read' | 'private' = 'private',
 ): Promise<UploadedScreenshot> {
   const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'png'
   const key = s3Key(FOLDER, Date.now(), crypto.randomUUID(), ext)
+  // TODO SSE: Bun's S3Client.write has no server-side-encryption option (no x-amz-server-side-encryption
+  // passthrough); enable bucket default encryption (SSE-S3/aws:kms) in the provider console instead.
   await getClient().write(key, bytes, { acl, type: contentType })
   return { url: `${ENDPOINT.replace(/\/+$/, '')}/${BUCKET}/${key}`, key, bucket: BUCKET, contentType, acl }
+}
+
+// Delete one object by key. Used by the data-retention sweep (C1) and GDPR erasure (C2) to remove the
+// underlying S3 bytes when a screenshots ledger row is deleted. Best-effort: callers should catch/log.
+export async function deleteObject(key: string): Promise<void> {
+  await getClient().delete(key)
+}
+
+// Read one PRIVATE object's bytes (used by the /img permalink handler to stream a screenshot, and to
+// pass bytes to connectors that natively attach the image). Throws if S3 isn't configured / not found.
+export async function getObjectBytes(key: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+  const f = getClient().file(key)
+  const buf = await f.arrayBuffer()
+  return { bytes: new Uint8Array(buf), contentType: f.type || "image/png" }
 }
 
 // Upload one screenshot and return its public path-style URL.

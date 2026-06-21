@@ -76,6 +76,45 @@ export const jiraConnector: Connector = {
 
     const json = await res.json()
     const key: string = json.key
+
+    // Native screenshot attachment (ENHANCEMENT — the ticket body already contains a permanent
+    // fallback link to each screenshot, so this is best-effort and never affects the result).
+    // Endpoint: POST {host}/rest/api/3/issue/{key}/attachments
+    // NEEDS E2E VERIFICATION against a live Jira Cloud instance (multipart attachment API, X-Atlassian-Token).
+    if (ticket.attachments?.length) {
+      const attachUrl = `${host.replace(/\/$/, "")}/rest/api/3/issue/${key}/attachments`
+      for (const att of ticket.attachments) {
+        try {
+          // Build a Web FormData so the multipart boundary is set automatically — do NOT set
+          // Content-Type manually (the boundary would be missing/wrong).
+          const form = new FormData()
+          form.append("file", new Blob([att.bytes], { type: att.contentType }), att.filename)
+
+          // SSRF guard (H3): host is user-supplied → validate with safeFetch before sending creds.
+          const attRes = await safeFetch(
+            attachUrl,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": `Basic ${credentials}`,
+                // Required by Jira to accept multipart attachment uploads (XSRF bypass).
+                "X-Atlassian-Token": "no-check",
+              },
+              body: form,
+            },
+            { allowLoopbackInTest: true },
+          )
+          if (!attRes.ok) {
+            const text = (await attRes.text().catch(() => "")).slice(0, 200)
+            console.warn(`jira attachment upload failed for ${att.filename} (HTTP ${attRes.status}): ${text}`)
+          }
+        } catch (err) {
+          // Swallow: the issue already exists and its body has the permanent link. Never throw.
+          console.warn(`jira attachment upload error for ${att.filename}:`, err)
+        }
+      }
+    }
+
     return {
       externalKey: key,
       externalUrl: `${host.replace(/\/$/, "")}/browse/${key}`,

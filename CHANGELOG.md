@@ -10,6 +10,31 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.38.0] — 2026-06-21
+
+Security hardening + CASA Tier 2 readiness pass (SAST/SCA self-scan → remediation → evidence pack), plus permanent screenshot links and native tracker attachments.
+
+### Security
+- **Session & extension/widget bearer tokens are now stored as SHA-256 hashes** (`sessions.id`, `extension_tokens.token`), not plaintext — a DB read can no longer replay live sessions/tokens. Lookups hash the presented token with a **dual-read fallback** to legacy plaintext rows, so existing sessions keep working until they expire (≤7 days); the fallback branches are marked for removal afterward. `lib/db.ts`, `lib/crypto.ts` `sha256hex`.
+- **OTP codes hashed at rest** (`login_otps.code` → `sha256hex`); `verifyOtp` hashes the input. Single-live-code/used-flag/expiry logic unchanged.
+- **Connector/Jira inbound webhook token moved out of the query string** into a header (`Authorization: Bearer` / `X-Klavity-Token`); `?token=` kept as a deprecated, warned fallback. `server.ts`, `lib/connectors/inbound.ts`.
+- **DOM-XSS fix**: the extension Sim-reaction renderer now HTML-escapes every AI/server field before `innerHTML` (and allowlists the accent color). `packages/extension/src/content.ts`.
+- **Screenshots are PRIVATE in object storage by default** (was `public-read`) — no world-readable, enumerable bucket objects. `lib/s3.ts`.
+- **Dependency hygiene**: bumped vitest/vite and pinned `esbuild` via `pnpm-workspace.yaml` `overrides`; `pnpm audit` → 0 known vulnerabilities. Added `.github/workflows/ci.yml` (frozen-lockfile install, build, test, audit + weekly audit cron).
+- **Extension least-privilege**: removed 4 verified-dead tracker `host_permissions` (`*.atlassian.net`, `api.linear.app`, `api.github.com`, `api.plane.so`) — all extension network calls go to the Klavity backend; tracker refs only build display URLs. Requires a Web Store re-upload to take effect.
+- **Self-hosted fonts**: Google Fonts copied into `site/fonts/` and served same-origin; CSP tightened to drop `fonts.googleapis.com`/`fonts.gstatic.com` (no third-party font origin). Fixes the missing-SRI finding.
+
+### Added
+- **Slack alert on new signup**: when a genuinely new user verifies their OTP (`POST /api/auth/verify`, `wasNew`), Klavity posts an enriched Block-Kit message to `SLACK_SIGNUP_WEBHOOK_URL` — email + corporate-vs-freemail company inference (Clearbit logo / Gravatar), IP geolocation (country/city/ISP/ASN + proxy-VPN-hosting risk flags via free ip-api.com), parsed browser/OS/device, acquisition referer, and IST timestamp. Fire-and-forget and fully guarded so it never blocks or fails signup; no-op when the env var is unset. The Slack POST goes through `safeFetch` (allowlisted to `hooks.slack.com`); the HTTP-only free ip-api lookup uses a plain `fetch` to a hardcoded host with no secret attached (documented). `lib/signup-alert.ts`, `server.ts`.
+- **GDPR endpoints**: `GET /api/me/export` (account, memberships, feedback, screenshot metadata, ai_calls) and `POST /api/me/delete` / `DELETE /api/me` (cascade erasure incl. S3 objects). `server.ts`, `lib/db.ts`.
+- **Data-retention sweep** (`lib/retention.ts`): deletes expired OTPs, expired sessions, and past-expiry screenshots (incl. the S3 object); runs ~30s after boot then every 6h, test-guarded.
+- **Permanent screenshot links in tickets**: external tracker tickets now embed a permanent, unforgeable, **revocable** signed link `/img/<id>.<hmac>` (`lib/imgsign.ts`) that streams the private S3 object — replaces the old 7-day presigned URL that would 404. Every uploaded screenshot gets a ledger row so each link resolves.
+- **Native screenshot attachments** for Plane, Jira, and Linear connectors — the image is uploaded into the tracker itself (Jira multipart attachment, Linear `fileUpload`+presigned PUT inline markdown, Plane issue-attachment), with graceful degradation to the permanent signed link if upload is unavailable/fails. GitHub/webhook use the signed link. ⚠️ The native-attachment API calls are unit-tested with mocks and **need e2e verification against live tracker instances**. `lib/connectors/{plane,jira,linear}.ts`.
+- **CASA Tier 2 evidence pack** under `docs/security/` (security architecture, PII data-flow, encryption-at-rest, permission justification, checklist, data-retention policy, incident-response plan, secret-rotation runbook, SAQ) + `SECURITY-SCAN-2026-06-21.md`. `deploy/klav.env.example` completed.
+
+### Notes
+- Provider/ops items still open (not code): confirm Turso at-rest encryption + enable S3 bucket default SSE (Bun's S3 client can't set it per-object), secrets-file perms, sub-processor DPAs; and the CSP `script-src 'unsafe-inline'/'unsafe-eval'` → nonce migration needs an in-browser pass.
+
 ## [0.37.1] — 2026-06-21
 
 ### Fixed

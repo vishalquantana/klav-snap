@@ -29,3 +29,10 @@ export async function decryptSecret(blob: string): Promise<string> {
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(ivb) }, await getKey(), unb64(ctb))
   return dec.decode(pt)
 }
+
+// Non-reversible SHA-256 (hex) — used to store bearer credentials (session ids, extension tokens,
+// OTP codes) hashed at rest (E1/E2) so a DB read can't be replayed as a credential. Deterministic
+// (no salt) on purpose: lookups are by exact hash. Uses Bun's CryptoHasher.
+export function sha256hex(s: string): string {
+  return new Bun.CryptoHasher('sha256').update(s).digest('hex')
+}

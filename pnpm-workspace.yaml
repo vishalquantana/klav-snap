@@ -2,3 +2,8 @@ packages:
   - "packages/*"
 allowBuilds:
   esbuild: true
+# Force a single patched esbuild everywhere: clears both the dev-server CORS advisory
+# (GHSA-67mh-4wv8-2f99, ≤0.24.2) and the Windows dev-server file-read advisory
+# (GHSA-g7r4-m6w7-qqqr, 0.27.3–0.28.0). 0.25.x is safe from both.
+overrides:
+  esbuild: "0.25.12"

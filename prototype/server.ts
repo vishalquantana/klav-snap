@@ -1,12 +1,14 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, setFeedbackContactEmail } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, setFeedbackContactEmail, exportUserData, eraseUser } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
-import { getConnector, listConnectorTypes, type TicketPayload } from "./lib/connectors/index"
+import { getConnector, listConnectorTypes, type TicketPayload, type TicketAttachment } from "./lib/connectors/index"
 import { inboundSupported, verifyGithubSignature, verifyLinearSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
 import { applyReconcileOps, recurrenceFromEvents, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
 import { sendOtp, sendLeadAlert } from "./lib/mail"
 import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin } from "./lib/auth"
-import { uploadScreenshotMeta, presignGet, type UploadedScreenshot } from "./lib/s3"
+import { uploadScreenshotMeta, presignGet, deleteObject, getObjectBytes, type UploadedScreenshot } from "./lib/s3"
+import { signImageToken, verifyImageToken } from "./lib/imgsign"
+import { runRetentionSweep } from "./lib/retention"
 import { buildIssueHtml, escapeHtml, sanitizeClientContext, clientContextLines } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
 import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
@@ -14,6 +16,7 @@ import { assertSafeUrl } from "./lib/url-guard"
 import { safeFetch } from "./lib/safe-fetch"
 import { allow as rlAllow, record as rlRecord, count as rlCount, clear as rlClear } from "./lib/ratelimit"
 import { wrapUntrusted, UNTRUSTED_GUARD } from "./lib/prompt-safety"
+import { notifyNewSignup } from "./lib/signup-alert"
 import { validateModalConfigInput, resolveModalConfig } from "../packages/core/src/modal-theme"
 import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
 import { AsyncLocalStorage } from "node:async_hooks"
@@ -44,6 +47,8 @@ const OPS_DAILY_CAP_USD = Number(process.env.OPS_DAILY_CAP_USD || 50)
 const SITE = import.meta.dir + "/../site"
 const PUB = import.meta.dir + "/public"
 const SESSION_DAYS = 7
+// Screenshots embedded in external tracker tickets use a PERMANENT signed link (`/img/<id>.<hmac>`,
+// see lib/imgsign.ts) — never expires, revocable, S3 stays private. (Replaces the old 7-day presign.)
 
 await initDb()
 
@@ -692,8 +697,9 @@ function normAccent(v: unknown): string {
   return /^#[0-9a-fA-F]{6}$/.test(s) ? s : "#6366f1"
 }
 
-// Build a normalized TicketPayload from a feedback row for the connector adapters.
-function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }, simName: string | null = null): TicketPayload {
+// Build a normalized TicketPayload from a feedback row for the connector adapters. Async because it
+// resolves the screenshot into a permanent signed link (body fallback) + bytes (for native attachment).
+async function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }, simName: string | null = null): Promise<TicketPayload> {
   const title = fb.observation || "Sim report"
   const lines: string[] = []
   if (fb.observation) lines.push(fb.observation)
@@ -707,6 +713,24 @@ function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }
     const ctxLines = clientContextLines(fb.clientContext)
     if (ctxLines.length) lines.push(ctxLines.join("\n"))
   }
+  // Screenshot: connectors natively attach `bytes` when they can; the permanent `url` is the body
+  // fallback so the image shows even if native upload is unavailable/fails. Best-effort — a failure
+  // here must never block the ticket. Only the feedback's primary screenshot is carried.
+  const attachments: TicketAttachment[] = []
+  if (fb.screenshotId) {
+    try {
+      const shot = await screenshotById(fb.screenshotId)
+      if (shot) {
+        const url = `${BASE}/img/${signImageToken(shot.id)}`
+        lines.push(`Screenshot: ${url}`)
+        try {
+          const { bytes, contentType } = await getObjectBytes(shot.s3Key)
+          const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png"
+          attachments.push({ filename: `screenshot.${ext}`, contentType, bytes, url })
+        } catch (e: any) { console.warn("attachment bytes fetch failed (link still in body):", e?.message || e) }
+      }
+    } catch (e: any) { console.warn("screenshot lookup failed for ticket:", e?.message || e) }
+  }
   lines.push("Filed by Klavity Sims")
   const body = lines.join("\n\n")
   return {
@@ -717,6 +741,7 @@ function feedbackToTicketPayload(fb: any, project: { id: string; name?: string }
     simName,
     createdAt: fb.createdAt,
     klavityUrl: `${BASE}/dashboard?project=${project.id}`,
+    attachments,
   }
 }
 
@@ -839,8 +864,9 @@ function clientIp(req: Request, server?: { requestIP?: (r: Request) => { address
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://esm.sh",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com data:",
+  // Fonts are self-hosted (site/fonts/) — no third-party font origins needed.
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
@@ -912,6 +938,25 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     }
     if (req.method === "GET" && path === "/kit.css") return new Response(Bun.file(SITE + "/kit.css"), { headers: { "content-type": "text/css; charset=utf-8" } })
     if (req.method === "GET" && path === "/kit.js") return new Response(Bun.file(SITE + "/kit.js"), { headers: { "content-type": "text/javascript; charset=utf-8" } })
+    // ── self-hosted fonts (replaces Google Fonts CDN; same-origin under default-src 'self') ──
+    if (req.method === "GET" && path === "/fonts/fonts.css") return new Response(Bun.file(SITE + "/fonts/fonts.css"), { headers: { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=31536000, immutable" } })
+    if (req.method === "GET" && path.startsWith("/fonts/") && /^[a-z0-9-]+\.woff2$/.test(path.slice(7))) {
+      return new Response(Bun.file(SITE + "/fonts/" + path.slice(7)), { headers: { "content-type": "font/woff2", "cache-control": "public, max-age=31536000, immutable" } })
+    }
+    // ── permanent signed screenshot link (for external tracker tickets, never expires, revocable) ──
+    // /img/<screenshotId>.<hmac> — HMAC-gated (KLAV_SECRET), streams the PRIVATE S3 object. Token is
+    // unforgeable; revoked by deleting the screenshots row (→ 404). Keeps the bucket private while the
+    // ticket <img> renders forever (vs SigV4's 7-day presign cap). No DB session needed by design.
+    if (req.method === "GET" && path.startsWith("/img/")) {
+      const id = verifyImageToken(decodeURIComponent(path.slice(5)))
+      if (!id) return new Response("Not found", { status: 404 })
+      const shot = await screenshotById(id)
+      if (!shot) return new Response("Not found", { status: 404 })
+      try {
+        const { bytes, contentType } = await getObjectBytes(shot.s3Key)
+        return new Response(bytes, { headers: { "content-type": contentType, "cache-control": "public, max-age=86400" } })
+      } catch (e: any) { console.error("img stream failed:", e?.message || e); return new Response("Not found", { status: 404 }) }
+    }
     if (req.method === "GET" && path === "/sitemap.xml") {
       const core = ["/", "/snap", "/sims", "/autosim", "/blog", "/privacy", "/terms"]
       let blog: Array<{ slug: string; date: string }> = []
@@ -1040,9 +1085,17 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // Linear signs the raw body: hex(HMAC_SHA256(secret, body)) in Linear-Signature.
         verified = await verifyLinearSignature(inboundSecret, raw, req.headers.get("linear-signature"))
       } else if (type === "jira") {
-        // Jira Cloud webhooks aren't HMAC-signed by default. Auth via a shared secret token
-        // embedded in the webhook URL (?token=…) OR sent as X-Klavity-Token. Constant-time compare.
-        const sent = url.searchParams.get("token") || req.headers.get("x-klavity-token") || ""
+        // Jira Cloud webhooks aren't HMAC-signed by default. Auth via a shared secret token sent in a
+        // request HEADER (Authorization: Bearer … OR X-Klavity-Token). Constant-time compare.
+        // A3: the ?token=… query param is DEPRECATED (it leaks the secret into URLs/logs/referrers) and
+        // is accepted only as a transitional fallback — configure Jira to send the header instead.
+        const authHeader = (req.headers.get("authorization") || "").match(/^Bearer\s+(.+)$/i)?.[1] || ""
+        const headerToken = authHeader || req.headers.get("x-klavity-token") || ""
+        const queryToken = url.searchParams.get("token") || ""
+        if (!headerToken && queryToken) {
+          console.warn("⚠  jira inbound webhook authenticated via DEPRECATED ?token= query param — switch to the X-Klavity-Token (or Authorization: Bearer) header; the query param will be removed.")
+        }
+        const sent = headerToken || queryToken
         verified = timingSafeStrEqual(sent, inboundSecret)
       }
       if (!verified) return json({ error: "unauthorized" }, 401)
@@ -1108,6 +1161,14 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // a default membership (which it always does on first login). A genuinely new user starts in the
         // signup wizard, not a cold empty dashboard; returning users go straight to the dashboard.
         const wasNew = (await membershipsFor(e)).length === 0
+        // Fire-and-forget Slack alert on genuinely new signups (enriched with geo/device/domain).
+        // Best-effort: never blocks or fails the signup. No-op unless SLACK_SIGNUP_WEBHOOK_URL is set.
+        if (wasNew) {
+          const sUa = req.headers.get("user-agent") || undefined
+          const sRef = req.headers.get("referer") || req.headers.get("origin") || undefined
+          void notifyNewSignup({ email: e, ip: vIp, userAgent: sUa, referer: sRef, at: Date.now() })
+            .catch((err: any) => console.error("signup slack alert (non-fatal):", err?.message || err))
+        }
         await ensureAccount(e)
         const sid = token()
         await createSession(sid, e, Date.now() + SESSION_DAYS * 86400 * 1000)
@@ -1119,6 +1180,43 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       const sid = parseCookies(req.headers.get("cookie"))["klav_session"]
       if (sid && db) await deleteSession(sid).catch(() => {})
       return json({ ok: true }, 200, { "Set-Cookie": clearCookie("klav_session", SECURE) })
+    }
+
+    // ── GDPR: data export (Art. 15/20) ── authenticated (cookie OR bearer); acts on the caller's OWN
+    // data. An ops-admin may target another user via ?email= (for DSAR fulfilment); everyone else is
+    // pinned to their own email regardless of the param.
+    if (req.method === "GET" && path === "/api/me/export") {
+      if (!db) return json({ error: "Not configured." }, 500)
+      const meE = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meE) return json({ error: "unauthorized" }, 401)
+      const requested = url.searchParams.get("email")?.trim().toLowerCase()
+      const target = requested && isOpsAdmin(meE) ? requested : meE
+      try {
+        const data = await exportUserData(target)
+        return json(data, 200, { "Content-Disposition": `attachment; filename="klavity-export-${target}.json"` })
+      } catch (err: any) { return json(oops(err, "export"), 500) }
+    }
+
+    // ── GDPR: account erasure (Art. 17) ── authenticated; erases the caller's OWN account (or, for an
+    // ops-admin, the ?email= target). Deletes feedback/screenshots (incl. S3 objects), memberships,
+    // sessions/OTPs/extension tokens, then the user row. Idempotent. Clears the session cookie.
+    if ((req.method === "POST" && path === "/api/me/delete") || (req.method === "DELETE" && path === "/api/me")) {
+      if (!db) return json({ error: "Not configured." }, 500)
+      const meD = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meD) return json({ error: "unauthorized" }, 401)
+      const reqEmail = url.searchParams.get("email")?.trim().toLowerCase()
+      const victim = reqEmail && isOpsAdmin(meD) ? reqEmail : meD
+      try {
+        const { s3Keys } = await eraseUser(victim)
+        // Best-effort: purge the backing S3 objects. A failure here doesn't block erasure of the DB rows
+        // (the ledger row is already gone); we just log so the object can be reaped by the retention sweep.
+        for (const key of s3Keys) {
+          await deleteObject(key).catch((e) => console.warn(`erase: S3 delete failed for ${key}: ${e?.message || e}`))
+        }
+        // If the caller erased themselves, clear their session cookie too.
+        const clearSelf = victim === meD
+        return json({ ok: true, erased: victim, screenshots: s3Keys.length }, 200, clearSelf ? { "Set-Cookie": clearCookie("klav_session", SECURE) } : undefined)
+      } catch (err: any) { return json(oops(err, "delete"), 500) }
     }
 
     // ── feedback intake (extension backend mode) ──
@@ -1199,14 +1297,19 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // Upload screenshots (cap 5, 8MB each) to object storage.
         const files = form.getAll("screenshots").filter((f): f is File => f instanceof File).slice(0, 5)
         const imageUrls: string[] = []
-        const uploaded: Array<UploadedScreenshot & { bytes: number }> = []
+        const uploaded: Array<UploadedScreenshot & { bytes: number; id: string }> = []
         for (const f of files) {
           if (f.type && !f.type.startsWith("image/")) return wjson({ error: `Screenshot ${f.name} is not an image.` }, 400)
           if (f.size > 8 * 1024 * 1024) return wjson({ error: `Screenshot ${f.name} exceeds 8MB.` }, 400)
           const buf = await f.arrayBuffer()
-          const meta = await uploadScreenshotMeta(buf, f.type || "image/png")
-          imageUrls.push(meta.url)
-          uploaded.push({ ...meta, bytes: buf.byteLength })
+          // Upload PRIVATE (no public bucket exposure). The dashboard reads via the membership-checked
+          // /api/screenshots/:id endpoint; the external tracker ticket embeds the PERMANENT signed link
+          // /img/<id>.<hmac> (never expires, revocable, served from our domain) so the <img> renders
+          // forever without making the object world-readable. Mint the id now so we can sign the link.
+          const sid = "shot_" + crypto.randomUUID()
+          const meta = await uploadScreenshotMeta(buf, f.type || "image/png", "private")
+          imageUrls.push(`${BASE}/img/${signImageToken(sid)}`)
+          uploaded.push({ ...meta, bytes: buf.byteLength, id: sid })
         }
 
         // ── persist to our durable ledger (P0) FIRST, always — best-effort, never fails the submission.
@@ -1234,14 +1337,17 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               let urlHost: string | null = null, urlPath: string | null = null
               if (pageUrl) { try { const u = new URL(pageUrl); urlHost = u.host; urlPath = u.pathname } catch { urlPath = pageUrl.split(/[?#]/)[0] || null } }
 
+              // Persist a ledger row for EVERY uploaded screenshot using its pre-minted id, so each
+              // permanent /img link resolves (the dashboard still references screenshotId = the first).
               let screenshotId: string | null = null
-              if (uploaded[0]) {
-                screenshotId = await insertScreenshot({
-                  projectId, s3Key: uploaded[0].key, bucket: uploaded[0].bucket,
-                  contentType: uploaded[0].contentType, acl: uploaded[0].acl,
-                  bytes: uploaded[0].bytes, ownerEmail: actor,
+              for (const u of uploaded) {
+                await insertScreenshot({
+                  id: u.id, projectId, s3Key: u.key, bucket: u.bucket,
+                  contentType: u.contentType, acl: u.acl,
+                  bytes: u.bytes, ownerEmail: actor,
                 })
               }
+              if (uploaded[0]) screenshotId = uploaded[0].id
 
               // A01/IDOR: the sim_id is attacker-supplied. Before any trait/citation lookup, verify it
               // belongs to THIS project; if not, treat the persona as ephemeral (simId=null) so no
@@ -1335,7 +1441,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                     const autoCopyFb = await feedbackById(autoCopyProjectId, autoCopyFbId)
                     if (!autoCopyFb) return
                     const autoCopySimName = await resolveSimName(autoCopyProjectId, autoCopyFb.simId)
-                    const ticketPayload = feedbackToTicketPayload(autoCopyFb, { id: autoCopyProjectId }, autoCopySimName)
+                    const ticketPayload = await feedbackToTicketPayload(autoCopyFb, { id: autoCopyProjectId }, autoCopySimName)
                     for (const c of autoCopyConnectors) {
                       const adapter = getConnector(c.type)
                       if (!adapter) continue
@@ -2588,7 +2694,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           }
 
           const exportSimName = await resolveSimName(fbRow.projectId, fbRow.simId)
-          const payload = feedbackToTicketPayload(fbRow, { id: fbRow.projectId }, exportSimName)
+          const payload = await feedbackToTicketPayload(fbRow, { id: fbRow.projectId }, exportSimName)
           let exportResult: { type: string; externalKey: string | null; externalUrl: string | null; status: "ok" | "failed"; error: string | null }
 
           try {
@@ -3026,3 +3132,11 @@ Bun.serve({
 
 console.log(`\n⚡ Klavity app → ${BASE}`)
 console.log(`   model: ${MODEL} · auth: ${db ? "Turso OTP" : "DISABLED (no Turso)"} · dev-otp: ${DEV_SHOW_OTP}\n`)
+
+// C1: data-retention TTL sweep. Run once shortly after boot, then every 6h. GUARDED so it never fires
+// under tests (NODE_ENV==='test', which spawned-server tests inherit) — keeps the suite deterministic
+// and stops the interval from holding the test process open.
+if (db && process.env.NODE_ENV !== "test") {
+  setTimeout(() => { runRetentionSweep().catch((e) => console.warn("retention sweep failed:", e?.message || e)) }, 30_000)
+  setInterval(() => { runRetentionSweep().catch((e) => console.warn("retention sweep failed:", e?.message || e)) }, 6 * 60 * 60 * 1000)
+}

@@ -8,3 +8,9 @@ dist
 
 bun.lock
 sdd/
+
+# Local Claude Code agent config (not for the repo)
+.claude/
+
+# Build artifacts
+*.zip

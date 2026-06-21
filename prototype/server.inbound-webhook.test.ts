@@ -279,6 +279,16 @@ test("jira webhook: valid token (header) + indeterminate → in_progress", async
   expect(await feedbackStatus(JIRA_FID)).toBe("in_progress")
 })
 
+test("jira webhook: valid token via Authorization: Bearer header → in_progress (A3)", async () => {
+  await rawClient.execute({ sql: "UPDATE feedback SET status='open' WHERE id=?", args: [JIRA_FID] })
+  const payload = JSON.stringify({ webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "indeterminate" } } } } })
+  const r = await fetch(`${BASE}/api/connectors/jira/webhook`, {
+    method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${JIRA_SECRET}` }, body: payload,
+  })
+  expect(r.status).toBe(200)
+  expect(await feedbackStatus(JIRA_FID)).toBe("in_progress")
+})
+
 test("jira webhook: wrong token rejected (401), status unchanged", async () => {
   await rawClient.execute({ sql: "UPDATE feedback SET status='open' WHERE id=?", args: [JIRA_FID] })
   const payload = JSON.stringify({ webhookEvent: "jira:issue_updated", issue: { key: "PROJ-42", fields: { status: { statusCategory: { key: "done" } } } } })

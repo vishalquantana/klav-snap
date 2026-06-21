@@ -1,6 +1,6 @@
 {
   "name": "@klavity/snap",
-  "version": "0.37.1",
+  "version": "0.38.0",
   "author": "Quantana <hello@quantana.com.au> (https://quantana.com.au)",
   "license": "FSL-1.1-ALv2",
   "type": "module",
@@ -23,8 +23,8 @@
     "rrweb": "^2.0.1"
   },
   "devDependencies": {
-    "vite": "^5.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vite": "^6.4.3",
+    "vitest": "^3.2.6"
   }
 }

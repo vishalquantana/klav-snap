@@ -1,6 +1,7 @@
 // Turso / libSQL access: users, email-OTP login, sessions, accounts, projects, memberships.
 import { createClient, type Client } from "@libsql/client"
 import { insightsFromTraits, type Trait, type TraitKind, type TraitStatus, type TraitEventRow } from "./provenance"
+import { sha256hex } from "./crypto"
 
 const url = process.env.TURSO_DATABASE_URL
 const authToken = process.env.TURSO_AUTH_TOKEN
@@ -583,11 +584,14 @@ async function columnExists(c: Client, table: string, col: string): Promise<bool
 export async function createOtp(email: string, code: string, expiresAt: number) {
   // Single live code per email (M1): retire any prior unused codes so only the newest can verify.
   // Shrinks the brute-force surface and enforces clean single-use semantics.
+  // E2: store sha256hex(code), never the raw 6-digit code — a DB read can't reveal a live login code.
+  // OTPs are short-lived + single-live, so no dual-read fallback is needed.
   await db!.execute({ sql: "UPDATE login_otps SET used=1 WHERE email=? AND used=0", args: [email] })
-  await db!.execute({ sql: "INSERT INTO login_otps (email,code,expires_at,used) VALUES (?,?,?,0)", args: [email, code, expiresAt] })
+  await db!.execute({ sql: "INSERT INTO login_otps (email,code,expires_at,used) VALUES (?,?,?,0)", args: [email, sha256hex(code), expiresAt] })
 }
 export async function verifyOtp(email: string, code: string): Promise<boolean> {
-  const r = await db!.execute({ sql: "SELECT rowid FROM login_otps WHERE email=? AND code=? AND used=0 AND expires_at>? ORDER BY expires_at DESC LIMIT 1", args: [email, code, Date.now()] })
+  // E2: hash the presented code and compare against the stored hash.
+  const r = await db!.execute({ sql: "SELECT rowid FROM login_otps WHERE email=? AND code=? AND used=0 AND expires_at>? ORDER BY expires_at DESC LIMIT 1", args: [email, sha256hex(code), Date.now()] })
   if (!r.rows.length) return false
   await db!.execute({ sql: "UPDATE login_otps SET used=1 WHERE rowid=?", args: [(r.rows[0] as any).rowid] })
   return true
@@ -597,18 +601,48 @@ export async function verifyOtp(email: string, code: string): Promise<boolean> {
 export async function upsertUser(email: string) {
   await db!.execute({ sql: "INSERT INTO users (email,created_at) VALUES (?,?) ON CONFLICT(email) DO NOTHING", args: [email, Date.now()] })
 }
+// E1: sessions.id stores sha256hex(raw token), never the raw bearer. The caller keeps the RAW `id`
+// (it generated it) for the HttpOnly cookie; we only ever persist its hash, so a DB read can't be
+// replayed as a session.
 export async function createSession(id: string, email: string, expiresAt: number) {
-  await db!.execute({ sql: "INSERT INTO sessions (id,email,created_at,expires_at) VALUES (?,?,?,?)", args: [id, email, Date.now(), expiresAt] })
+  await db!.execute({ sql: "INSERT INTO sessions (id,email,created_at,expires_at) VALUES (?,?,?,?)", args: [sha256hex(id), email, Date.now(), expiresAt] })
 }
 export async function getSession(id: string): Promise<string | null> {
-  const r = await db!.execute({ sql: "SELECT email,expires_at FROM sessions WHERE id=?", args: [id] })
+  // Primary: look up by hash. Dual-read migration fallback: if no hashed row matches, try the raw id
+  // so legacy plaintext sessions minted before E1 keep working until they expire. REMOVE the raw
+  // fallback once all pre-E1 sessions have aged out (≤ SESSION_DAYS after deploy).
+  let r = await db!.execute({ sql: "SELECT email,expires_at FROM sessions WHERE id=?", args: [sha256hex(id)] })
+  if (!r.rows.length) r = await db!.execute({ sql: "SELECT email,expires_at FROM sessions WHERE id=?", args: [id] })
   if (!r.rows.length) return null
   const row = r.rows[0] as any
   if (Number(row.expires_at) < Date.now()) return null
   return String(row.email)
 }
 export async function deleteSession(id: string) {
-  await db!.execute({ sql: "DELETE FROM sessions WHERE id=?", args: [id] })
+  // Delete both the hashed row (E1) and any legacy plaintext row so logout/revoke works during the
+  // dual-read migration window.
+  await db!.execute({ sql: "DELETE FROM sessions WHERE id=? OR id=?", args: [sha256hex(id), id] })
+}
+
+// ── data-retention / TTL sweep helpers (C1) ──
+// Each returns the number of rows deleted (or, for screenshots, the s3 keys to delete) so the sweep
+// can log a summary and remove the backing S3 objects.
+export async function deleteExpiredOtps(now = Date.now()): Promise<number> {
+  const r = await db!.execute({ sql: "DELETE FROM login_otps WHERE expires_at < ?", args: [now] })
+  return Number(r.rowsAffected || 0)
+}
+export async function deleteExpiredSessions(now = Date.now()): Promise<number> {
+  const r = await db!.execute({ sql: "DELETE FROM sessions WHERE expires_at < ?", args: [now] })
+  return Number(r.rowsAffected || 0)
+}
+// Screenshots are deleted in two steps so the caller can purge the S3 object too: first collect the keys
+// of rows past their (non-null) expires_at, then DELETE those rows. Rows with a NULL expires_at never expire.
+export async function expiredScreenshotKeys(now = Date.now()): Promise<{ id: string; s3Key: string }[]> {
+  const r = await db!.execute({ sql: "SELECT id, s3_key FROM screenshots WHERE expires_at IS NOT NULL AND expires_at < ?", args: [now] })
+  return r.rows.map((x: any) => ({ id: String(x.id), s3Key: String(x.s3_key) }))
+}
+export async function deleteScreenshotRow(id: string): Promise<void> {
+  await db!.execute({ sql: "DELETE FROM screenshots WHERE id=?", args: [id] })
 }
 
 // ── accounts / projects / two-tier roles (P2) ──
@@ -871,11 +905,12 @@ export async function deletePersona(id: string, projectId: string) {
 // ── screenshots / feedback / activity (Sims-dashboard ledger, P0) ──
 // project_id is the denormalized 'proj_'+workspaceId string (no FK; projects table lands in P2).
 export type ScreenshotInsert = {
-  projectId?: string | null; s3Key: string; bucket: string; contentType: string
+  id?: string; projectId?: string | null; s3Key: string; bucket: string; contentType: string
   acl?: string; bytes?: number | null; ownerEmail?: string | null; expiresAt?: number | null
 }
 export async function insertScreenshot(s: ScreenshotInsert): Promise<string> {
-  const id = "shot_" + crypto.randomUUID()
+  // Caller may pre-supply the id (so it can mint the permanent /img signed link before insert).
+  const id = s.id ?? "shot_" + crypto.randomUUID()
   await db!.execute({
     sql: `INSERT INTO screenshots (id,project_id,s3_key,bucket,content_type,acl,bytes,owner_email,expires_at,created_at)
           VALUES (?,?,?,?,?,?,?,?,?,?)`,
@@ -1618,7 +1653,10 @@ function normForMatch(u: string): string {
 }
 function globToRegExp(pattern: string): RegExp {
   // Escape everything except '*', which becomes '.*'. Anchored at start (prefix match), open at end.
-  const esc = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")
+  // Bound the input and collapse runs of '*' so a pathological pattern can't build a regex with
+  // many overlapping '.*' groups (catastrophic-backtracking / ReDoS hardening — OWASP A05).
+  const safe = String(pattern || "").slice(0, 512).replace(/\*{2,}/g, "*")
+  const esc = safe.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")
   return new RegExp("^" + esc)
 }
 export function patternMatchesUrl(pattern: string, url: string): boolean {
@@ -1705,12 +1743,14 @@ export async function reviewBudgetUsed(projectId: string, day: string): Promise<
 // ── extension tokens (dedicated narrow-scope Bearer, R5 pre-req) ──
 // Issue (or rotate) a token bound to email (+optional project). Replaces reusing the raw session id.
 export async function issueExtensionToken(email: string, projectId?: string | null, ttlMs?: number | null): Promise<string> {
+  // E1: return the RAW token to the caller (the extension/widget holds it as its Bearer), but persist
+  // only sha256hex(token) so a DB read can't be replayed as a credential.
   const token = "ext_" + crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "")
   const now = Date.now()
   const expiresAt = ttlMs && ttlMs > 0 ? now + ttlMs : null
   await db!.execute({
     sql: "INSERT INTO extension_tokens (token,email,project_id,created_at,expires_at,revoked) VALUES (?,?,?,?,?,0)",
-    args: [token, email, projectId ?? null, now, expiresAt],
+    args: [sha256hex(token), email, projectId ?? null, now, expiresAt],
   })
   return token
 }
@@ -1719,7 +1759,10 @@ export async function issueExtensionToken(email: string, projectId?: string | nu
 // Widget tokens (minted via /api/widget/token) carry a project_id and MUST be constrained to it (F5);
 // the extension's own token is account-wide (project_id null).
 export async function getExtensionTokenInfo(token: string): Promise<{ email: string; projectId: string | null } | null> {
-  const r = await db!.execute({ sql: "SELECT email, project_id, expires_at, revoked FROM extension_tokens WHERE token=?", args: [token] })
+  // E1: look up by hash. Dual-read migration fallback to the raw value keeps tokens minted before E1
+  // working until they expire/are revoked. REMOVE the raw fallback once all pre-E1 tokens have aged out.
+  let r = await db!.execute({ sql: "SELECT email, project_id, expires_at, revoked FROM extension_tokens WHERE token=?", args: [sha256hex(token)] })
+  if (!r.rows.length) r = await db!.execute({ sql: "SELECT email, project_id, expires_at, revoked FROM extension_tokens WHERE token=?", args: [token] })
   if (!r.rows.length) return null
   const x = r.rows[0] as any
   if (Number(x.revoked) === 1) return null
@@ -1730,7 +1773,8 @@ export async function getExtensionTokenEmail(token: string): Promise<string | nu
   return (await getExtensionTokenInfo(token))?.email ?? null
 }
 export async function revokeExtensionToken(token: string): Promise<void> {
-  await db!.execute({ sql: "UPDATE extension_tokens SET revoked=1 WHERE token=?", args: [token] })
+  // Revoke both the hashed row (E1) and any legacy plaintext row during the dual-read migration window.
+  await db!.execute({ sql: "UPDATE extension_tokens SET revoked=1 WHERE token=? OR token=?", args: [sha256hex(token), token] })
 }
 
 // ── /api/sim/review guardrail ordering (§5, binding) ──
@@ -2015,4 +2059,59 @@ export async function exportsForFeedbackIds(ids: string[]): Promise<Record<strin
     result[x.feedbackId].push(x)
   }
   return result
+}
+
+// ── GDPR: data export (Art. 15/20) + account erasure (Art. 17) ──
+// All scoped to ONE email. The user only ever sees/erases their OWN data: rows are matched on the
+// identity columns that carry the user's email (users.email, *_members.email, feedback.actor_email,
+// screenshots.owner_email, ai_calls.actor_email, sessions/login_otps/extension_tokens.email). We do NOT
+// touch other tenants' rows.
+
+export type UserDataExport = {
+  email: string
+  account: any | null
+  accountMemberships: any[]
+  projectMemberships: any[]
+  feedback: any[]
+  screenshots: any[]
+  aiCalls: any[]
+  exportedAt: number
+}
+
+export async function exportUserData(email: string): Promise<UserDataExport> {
+  const e = email.toLowerCase()
+  const rows = async (sql: string, args: any[]) => (await db!.execute({ sql, args })).rows.map((r) => ({ ...(r as any) }))
+  const userR = await db!.execute({ sql: "SELECT * FROM users WHERE email=?", args: [e] })
+  return {
+    email: e,
+    account: userR.rows.length ? { ...(userR.rows[0] as any) } : null,
+    accountMemberships: await rows("SELECT * FROM account_members WHERE email=?", [e]),
+    projectMemberships: await rows("SELECT * FROM project_members WHERE email=?", [e]),
+    feedback: await rows("SELECT * FROM feedback WHERE actor_email=?", [e]),
+    screenshots: await rows("SELECT id,project_id,s3_key,bucket,content_type,acl,bytes,owner_email,expires_at,created_at FROM screenshots WHERE owner_email=?", [e]),
+    aiCalls: await rows("SELECT * FROM ai_calls WHERE actor_email=?", [e]),
+    exportedAt: Date.now(),
+  }
+}
+
+// Erase all of the user's PERSONAL data and return the S3 keys of the screenshots that were deleted so
+// the caller can purge the underlying objects. Order: collect screenshot keys → delete dependent rows
+// (ticket_exports of the user's feedback) → feedback → screenshots → memberships → credentials → user.
+export async function eraseUser(email: string): Promise<{ s3Keys: string[] }> {
+  const e = email.toLowerCase()
+  const shots = await db!.execute({ sql: "SELECT s3_key FROM screenshots WHERE owner_email=?", args: [e] })
+  const s3Keys = shots.rows.map((r: any) => String(r.s3_key))
+  // ticket_exports of feedback this user authored (FK-less, so clean up explicitly).
+  await db!.execute({ sql: "DELETE FROM ticket_exports WHERE feedback_id IN (SELECT id FROM feedback WHERE actor_email=?)", args: [e] })
+  await db!.execute({ sql: "DELETE FROM feedback WHERE actor_email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM screenshots WHERE owner_email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM ai_calls WHERE actor_email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM account_members WHERE email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM project_members WHERE email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM monitoring_consent WHERE email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM extension_tokens WHERE email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM login_otps WHERE email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM sessions WHERE email=?", args: [e] })
+  await db!.execute({ sql: "DELETE FROM users WHERE email=?", args: [e] })
+  return { s3Keys }
 }

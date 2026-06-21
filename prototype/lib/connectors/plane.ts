@@ -55,6 +55,52 @@ export const planeConnector: Connector = {
     const id: string = String(json.id)
     const seqId: string | null = json.sequence_id != null ? String(json.sequence_id) : null
 
+    // ── Native screenshot attachment (pure ENHANCEMENT) ─────────────────────────────
+    // ASSUMED Plane attachment API — NEEDS E2E VERIFICATION against the actual deployed
+    // Plane version; falls back to the permanent body link if wrong.
+    //   Endpoint: POST {host}/api/v1/workspaces/{workspace}/projects/{project_id}/issues/{id}/issue-attachments/
+    //   Auth:     X-API-Key: {token}
+    //   Body:     multipart/form-data — field `asset` = Blob(bytes, contentType) + filename.
+    //             We let fetch set the multipart Content-Type boundary (do NOT set it manually).
+    //
+    // Plane's public REST attachment API is version-dependent and NOT fully stable, so the
+    // ENTIRE step is wrapped in try/catch and SWALLOWED on any failure: the issue already
+    // exists and its body carries a permanent signed fallback link to every screenshot, so a
+    // failed/absent upload must NEVER throw or alter the returned {externalKey, externalUrl}.
+    if (ticket.attachments?.length) {
+      const attachUrl = `${host}/api/v1/workspaces/${workspace}/projects/${project_id}/issues/${id}/issue-attachments/`
+      for (const att of ticket.attachments) {
+        try {
+          const form = new FormData()
+          // `asset` is the best-documented field name; some Plane builds expect `file`.
+          form.append("asset", new Blob([att.bytes], { type: att.contentType }), att.filename)
+          // Best-known metadata the API may require alongside the binary.
+          form.append(
+            "attributes",
+            JSON.stringify({ name: att.filename, type: att.contentType, size: att.bytes.byteLength }),
+          )
+
+          const aRes = await safeFetch(
+            attachUrl,
+            {
+              method: "POST",
+              // NOTE: no Content-Type header — fetch derives the multipart boundary from FormData.
+              headers: { "X-API-Key": token },
+              body: form,
+            },
+            { allowLoopbackInTest: true },
+          )
+
+          if (!aRes.ok) {
+            const text = (await aRes.text().catch(() => "")).slice(0, 200)
+            console.warn(`plane attachment upload failed ${aRes.status}: ${text} (falling back to body link)`)
+          }
+        } catch (e) {
+          console.warn(`plane attachment upload error for ${att.filename}: ${String(e)} (falling back to body link)`)
+        }
+      }
+    }
+
     // URL: strip /api suffix from host for the web URL
     const webBase = host.replace(/\/api$/, "")
     const externalUrl = `${webBase}/${workspace}/projects/${project_id}/issues/${id}`

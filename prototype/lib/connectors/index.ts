@@ -9,6 +9,18 @@ import { linearConnector } from "./linear"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+// An image to attach to the external ticket. `bytes` lets a connector upload the file NATIVELY into
+// the tracker (Jira/Plane/Linear) so it lives with the ticket forever; `url` is the permanent signed
+// link on our domain (`/img/<id>.<hmac>`) used in the body as a fallback and by connectors that have
+// no attachment API (GitHub/webhook). Connectors should attach natively when they can, and ALWAYS
+// keep the `url` working in the body so a failed/absent upload still shows the screenshot.
+export type TicketAttachment = {
+  filename: string
+  contentType: string
+  bytes: Uint8Array
+  url: string
+}
+
 export type TicketPayload = {
   title: string
   body: string
@@ -17,6 +29,7 @@ export type TicketPayload = {
   simName: string | null
   createdAt: number
   klavityUrl: string
+  attachments?: TicketAttachment[]
 }
 
 export type ExportResult = {

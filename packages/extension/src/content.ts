@@ -575,6 +575,23 @@ function klavGetHost(): ShadowRoot {
   return klavHostRoot
 }
 
+// Sim-review reactions are LLM-generated server output (POST /api/sim/review) and the
+// citation quote is lifted verbatim from page content — i.e. attacker-influencable. Every
+// field below is therefore treated as untrusted and HTML-escaped before it reaches innerHTML
+// (mirrors the escaping in prototype/public/klavity-sim.js's renderer). OWASP A05 / LLM05.
+function klavEsc(s: unknown): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+// Accent is dropped straight into a style attribute; allow only safe color tokens
+// (#hex, rgb()/hsl(), or a CSS named color) and fall back otherwise — no attribute breakout.
+function klavSafeColor(c: unknown): string {
+  const s = String(c ?? '').trim()
+  return /^(#[0-9a-fA-F]{3,8}|rgba?\([\d.,\s%]+\)|hsla?\([\d.,\s%]+\)|[a-zA-Z]{3,20})$/.test(s)
+    ? s : '#A98BD6'
+}
+
 function klavRenderBubble(r: { simName: string; initials: string; accent: string; observation?: string; severity?: string; citation?: any; suggestedBug?: any }) {
   const root = klavGetHost()
   const stack = root.getElementById('klav-stack')!
@@ -582,8 +599,8 @@ function klavRenderBubble(r: { simName: string; initials: string; accent: string
   b.className = 'klav-bubble'
   b.style.position = 'relative'
   const cite = r.citation?.sourceQuote
-    ? `<div class="klav-cite">“${String(r.citation.sourceQuote).slice(0, 90)}”${r.citation.speaker ? ' — ' + r.citation.speaker : ''}</div>` : ''
-  const sev = r.severity ? `<span class="klav-sev">${r.severity}</span>` : ''
+    ? `<div class="klav-cite">“${klavEsc(String(r.citation.sourceQuote).slice(0, 90))}”${r.citation.speaker ? ' — ' + klavEsc(r.citation.speaker) : ''}</div>` : ''
+  const sev = r.severity ? `<span class="klav-sev">${klavEsc(r.severity)}</span>` : ''
   // Make the payoff legible: every reaction is persisted server-side as a ticket in the dashboard.
   const outcome = r.suggestedBug
     ? `<div class="klav-outcome">🐛 Flagged as a bug · saved to your dashboard</div>`
@@ -591,10 +608,10 @@ function klavRenderBubble(r: { simName: string; initials: string; accent: string
   b.innerHTML = `
     <button class="klav-bclose" aria-label="Dismiss">×</button>
     <div class="klav-bhead">
-      <div class="klav-av" style="background:${r.accent || '#A98BD6'}">${(r.initials || r.simName || '?').slice(0, 2)}</div>
-      <div class="klav-nm">${r.simName || 'Sim'}</div>${sev}
+      <div class="klav-av" style="background:${klavSafeColor(r.accent)}">${klavEsc((r.initials || r.simName || '?').slice(0, 2))}</div>
+      <div class="klav-nm">${klavEsc(r.simName || 'Sim')}</div>${sev}
     </div>
-    <div class="klav-obs">${(r.observation || '').replace(/</g, '&lt;')}</div>
+    <div class="klav-obs">${klavEsc(r.observation || '')}</div>
     ${cite}
     ${outcome}
   `
@@ -742,7 +759,7 @@ function klavNotice(text: string) {
   const n = document.createElement('div')
   n.className = 'klav-bubble in'
   n.style.position = 'relative'
-  n.innerHTML = `<div class="klav-obs" style="color:#6B655C">${text}</div>`
+  n.innerHTML = `<div class="klav-obs" style="color:#6B655C">${klavEsc(text)}</div>`
   stack.appendChild(n)
   setTimeout(() => { n.classList.remove('in'); setTimeout(() => n.remove(), 300) }, 6000)
 }
