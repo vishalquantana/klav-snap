@@ -20,11 +20,13 @@
     "./integrations/plane": "./src/integrations/plane.ts",
     "./integrations/backend": "./src/integrations/backend.ts",
     "./modal": "./src/modal.ts",
-    "./modal-theme": "./src/modal-theme.ts"
+    "./modal-theme": "./src/modal-theme.ts",
+    "./icons": "./src/icons.ts"
   },
   "scripts": {
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "gen:icons": "node ../../scripts/gen-icons.mjs"
   },
   "dependencies": {
     "heic2any": "^0.0.4"
@@ -32,6 +34,7 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^3.2.6",
     "jsdom": "^29.1.1",
+    "lucide-static": "^0.544.0",
     "typescript": "^5.4.0",
     "vitest": "^3.2.6"
   }
