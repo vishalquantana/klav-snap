@@ -79,3 +79,33 @@
   /* Expose a minimal API for pages that build content dynamically. */
   window.KlavityKit = { reveal: init };
 })();
+
+// --- icons (mirror of @klavity/core icon()) ---
+// Reads from window.KLAV_ICONS populated by /icons.generated.js.
+// Extends window.KlavityKit (the existing static-site global) rather than
+// introducing a separate window.Klav, following kit.js's own export pattern.
+(function (K) {
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  K.icon = function (name, opts) {
+    opts = opts || {};
+    var body = (window.KLAV_ICONS || {})[name];
+    if (!body) throw new Error('Unknown icon: ' + name);
+    var size = opts.size || 18;
+    var cls = opts['class'] ? 'icon ' + opts['class'] : 'icon';
+    var a11y = opts.label ? 'role="img"' : 'aria-hidden="true"';
+    var title = opts.label ? '<title>' + esc(opts.label) + '</title>' : '';
+    return (
+      '<svg xmlns="http://www.w3.org/2000/svg" class="' + cls +
+      '" width="' + size + '" height="' + size +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor"' +
+      ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+      a11y + '>' + title + body + '</svg>'
+    );
+  };
+})(window.KlavityKit = window.KlavityKit || {});
