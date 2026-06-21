@@ -197,8 +197,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
             <div class="tile sel" id="chromeTile" onclick="connectExtension()"><div class="ti">🧩</div><h3>Connect the Klavity extension</h3><p id="chromeMsg">Required for live Sims on your real pages — click to connect (or install it first).</p></div>
             <div class="tile alt" id="widgetTile" onclick="document.getElementById('widgetSnippet').classList.toggle('hide')"><div class="ti">&lt;/&gt;</div><h3>Or embed the widget</h3><p>One script tag for any web app — no extension needed. Click for the snippet.</p></div>
           </div>
-          <pre class="hide" id="widgetSnippet" style="margin-top:14px;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;overflow:auto;white-space:pre-wrap;word-break:break-all">&lt;script src="https://klavity.quantana.top/widget.js" data-project="YOUR_PROJECT_ID" defer&gt;&lt;/script&gt;
-<span style="color:var(--paper-faint)"># Add your product's URL above first. Replace YOUR_PROJECT_ID with the id in your dashboard URL. A logged-in teammate clicks "Connect to Klavity", then "Have your Sims review this page".</span></pre>
+          <div class="hide" id="widgetSnippet" style="margin-top:14px">
+            <pre style="margin:0;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;overflow:auto;white-space:pre-wrap;word-break:break-all">&lt;script src="https://klavity.quantana.top/widget.js" data-project="<span id="snipPid">YOUR_PROJECT_ID</span>" defer&gt;&lt;/script&gt;</pre>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+              <button type="button" id="copySnippet" style="background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;color:var(--paper);font-family:var(--body);font-size:12.5px;cursor:pointer">Copy snippet</button>
+              <span style="color:var(--paper-faint);font-size:11.5px">Your project ID is filled in — paste this before &lt;/body&gt; on any page.</span>
+            </div>
+          </div>
           <div class="row"><button class="btn btn-indigo" id="s2continue" onclick="connectExtension()">Connect the extension to continue →</button><span class="skip" onclick="go(3)">I'll set this up later</span></div>
         </div>
       </div>
@@ -239,6 +244,18 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 let cur = 0
 let projectId = null          // resolved after sign-in (the user's default project)
 let intent = 'transcript'     // step-3 choice: 'transcript' | 'hats'
+
+// Fill the embed snippet with the real project ID so users never hand-edit it.
+function widgetSnippetText(){ return '<script src="https://klavity.quantana.top/widget.js" data-project="' + (projectId || 'YOUR_PROJECT_ID') + '" defer><\/script>' }
+function renderWidgetSnippet(){ var s = document.getElementById('snipPid'); if (s) s.textContent = projectId || 'YOUR_PROJECT_ID' }
+;(function(){
+  var cp = document.getElementById('copySnippet'); if (!cp) return
+  cp.addEventListener('click', function(){
+    navigator.clipboard && navigator.clipboard.writeText(widgetSnippetText()).then(function(){
+      var t = cp.textContent; cp.textContent = 'Copied ✓'; setTimeout(function(){ cp.textContent = t }, 1500)
+    }).catch(function(){})
+  })
+})()
 
 const $ = (id) => document.getElementById(id)
 
@@ -321,6 +338,7 @@ async function applyProjectName(){
     const { ok, data } = await jsonFetch('/api/projects', { headers:{'accept':'application/json'} })
     if (!ok || !data.projects || !data.projects.length) return
     projectId = (data.projects.filter(p => p.role === 'admin').pop() || data.projects[0]).id
+    renderWidgetSnippet()
     if (name) {
       await jsonFetch('/api/projects/' + encodeURIComponent(projectId) + '/rename', {
         method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name })
@@ -427,6 +445,7 @@ async function bootstrap(){
       if (pr.ok && pr.data.projects && pr.data.projects.length){
         const own = pr.data.projects.filter(p => p.role === 'admin').pop() || pr.data.projects[0]
         projectId = own.id
+        renderWidgetSnippet()
         if (!$('projectName').value.trim()) $('projectName').value = own.name || ''
       }
     }

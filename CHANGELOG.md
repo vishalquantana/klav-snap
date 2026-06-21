@@ -10,6 +10,16 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.38.5] — 2026-06-21
+
+### Changed
+- **Dashboard redesigned around a left sidebar.** The single long scroll is now navigable sections — Overview / Sims / Tickets / Team / Settings — via an attribute-driven view system (`data-view` per card + `body[data-view]`), so every element ID and all existing dashboard JS is preserved. The dark-mode toggle moved from the floating corner into the top navbar; sidebar mirrors live ticket/team counts. `prototype/public/dashboard.html`.
+- **Onboarding embed snippet auto-fills the project ID.** The "Or embed the widget" script tag now shows the user's real `data-project` id (no more hand-replacing `YOUR_PROJECT_ID` from the dashboard URL) with a one-click Copy button. `site/onboarding.html`.
+
+### Fixed
+- **Dashboard fonts** now load from the self-hosted `/fonts/fonts.css` instead of the Google Fonts CDN (which the 0.38.0 CSP blocked, leaving the dashboard in fallback fonts).
+- **Dashboard embed-snippet code block** was dark-on-black (unreadable) in light theme — now a fixed dark box with light text, readable in both themes.
+
 ## [0.38.4] — 2026-06-21
 
 ### Fixed
