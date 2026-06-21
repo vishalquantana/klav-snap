@@ -935,6 +935,18 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         headers: { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=86400" },
       })
     }
+    // ── vendored rrweb RECORDER (lazy-loaded by the embeddable widget; kept OUT of the widget IIFE
+    // so the no-install widget's initial payload stays small). CORS-open: the widget runs cross-origin
+    // on customers' sites and injects this <script src> from the Klavity backend origin. ──
+    if (req.method === "GET" && path === "/vendor/rrweb-record.min.js") {
+      return new Response(Bun.file(PUB + "/vendor/rrweb-record.min.js"), {
+        headers: {
+          "content-type": "text/javascript; charset=utf-8",
+          "cache-control": "public, max-age=86400",
+          "access-control-allow-origin": "*",
+        },
+      })
+    }
 
     // ── embeddable widget bundle ──
     if (req.method === "GET" && path === "/widget.js") {
