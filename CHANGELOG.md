@@ -10,6 +10,19 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.35.0] — 2026-06-21
+
+### Added
+- **Session replay on bug reports (free) — Marker.io parity.** The no-install widget and the npm SDK now run an rrweb recorder on a rolling ~45s buffer (inputs masked by default; opt out with `data-replay="off"`). On submit the trailing events ride along as `replay_events`; the server gzips + size-caps them (oldest-first trim, 600 KB durable cap, 6 MB raw reject) into a new `feedback_replays` table. `GET /api/feedback/:id/replay` (auth + project-scoped) serves them and the dashboard ticket detail gains a "▶ Session replay" player. Matches the feature Marker.io gates behind its $149 Team tier. *(#4 / G1)*
+- **Dev-tools context on every widget report.** The no-install embed widget now attaches the same technical context the extension/SDK capture — console + network + `userAgent`/screen/viewport — via a new optional `context` form field on `POST /api/feedback`, sanitized + capped server-side, persisted to `feedback.client_context_json`, and surfaced on both the Klavity ticket and external connector tickets. *(#5 / G2)*
+- **Full-fidelity capture.** Capture upgraded from console-errors + failed-fetches only to **all** console levels (log/info/warn/error, level-tagged) and **all** network requests including XMLHttpRequest (method/url/status/timing), via a shared `@klavity/core/capture` installer used by both the SDK and the extension. Bounded ring buffers + URL secret-param redaction. *(#6 / G3)*
+- **Custom metadata / public JS SDK.** Site owners can now identify the user and attach arbitrary metadata: `window.Klavity.identify({...})` / `setMetadata({...})` (and `KlavitySnap.*` for the npm SDK), plus script-tag config (`data-user-id`/`data-email`/`data-name`, `data-meta` JSON). Values are coerced to strings + length-capped, plumbed into the report context, persisted, and shown on the ticket. *(#8 / G5)*
+- **Two-way status sync with external trackers.** New inbound receiver `POST /api/connectors/:type/webhook` reflects external status changes back onto the linked Klavity ticket (`feedback.status`). GitHub (issue opened/closed/reopened, HMAC `X-Hub-Signature-256`) and Plane (state group, shared-secret `X-Plane-Signature`) are wired; Jira/Linear stubbed (return 404 until mapped). Signatures verified constant-time; unsigned/unknown payloads refused or no-op'd (no existence oracle); raw-body 128 KB cap + per-IP rate limit. Inbound secret stored AES-GCM-encrypted on the connector config. *(#7 / G4)*
+
+### Notes
+- Origin: Marker.io competitive PLG analysis (`docs/competitor-marker-io-plg.md`) — give away everything Marker paywalls as the free wedge into Sims/AutoSim.
+- Widget bundle now embeds rrweb (~418 KB gzip); lazy-loading the recorder is a tracked follow-up.
+
 ## [0.34.0] — 2026-06-21
 
 ### Added
