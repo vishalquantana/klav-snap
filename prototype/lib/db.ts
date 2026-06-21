@@ -1135,15 +1135,19 @@ export async function listRecentFeedbackForDedup(projectId: string, limit = 50):
 }
 
 export async function bumpFeedbackRecurrence(id: string, atMs: number): Promise<void> {
-  const r = await db!.execute({ sql: "SELECT recurrence_count, recurrence_dates_json FROM feedback WHERE id=?", args: [id] })
+  const r = await db!.execute({ sql: "SELECT recurrence_count, recurrence_dates_json, status FROM feedback WHERE id=?", args: [id] })
   if (!r.rows.length) return
   const row = r.rows[0] as any
   const count = Number(row.recurrence_count ?? 1) + 1
   let dates: number[] = []
   try { dates = JSON.parse(row.recurrence_dates_json || "[]") } catch { dates = [] }
   dates.push(atMs)
+  // A still-untriaged item that recurs ≥3 times is a strong signal — auto-accept it.
+  const promote = count >= 3 && String(row.status) === "new"
   await db!.execute({
-    sql: "UPDATE feedback SET recurrence_count=?, recurrence_dates_json=?, last_seen_at=? WHERE id=?",
+    sql: promote
+      ? "UPDATE feedback SET recurrence_count=?, recurrence_dates_json=?, last_seen_at=?, status='open' WHERE id=?"
+      : "UPDATE feedback SET recurrence_count=?, recurrence_dates_json=?, last_seen_at=? WHERE id=?",
     args: [count, JSON.stringify(dates), atMs, id],
   })
 }
