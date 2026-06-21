@@ -561,6 +561,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
               <div class="cl-embed">
                 <code id="embedSnippet">Loading…</code>
                 <button class="btn btn-ghost btn-sm" id="embedCopy" type="button">Copy</button>
+                <button class="btn btn-ghost btn-sm" id="embedCopyAI" type="button" title="Widget not loading? If your site has a Content Security Policy, copy paste-ready fix instructions for your AI or developer.">Copy to AI</button>
               </div>
             </div>
           </div>
@@ -772,8 +773,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <div class="cl-embed">
             <code id="appearanceSnippet">Loading…</code>
             <button class="btn btn-ghost btn-sm" id="appearanceEmbedCopy" type="button">Copy</button>
+            <button class="btn btn-ghost btn-sm" id="appearanceEmbedCopyAI" type="button" title="Widget not loading? If your site has a Content Security Policy, copy paste-ready fix instructions for your AI or developer.">Copy to AI</button>
           </div>
-          <p style="font-size:12px;opacity:.7;margin:6px 0 0">Paste this before <code>&lt;/body&gt;</code> on any page — no extension needed.</p>
+          <p style="font-size:12px;opacity:.7;margin:6px 0 0">Paste this before <code>&lt;/body&gt;</code> on any page — no extension needed. Widget not showing up? Use <b>Copy to AI</b> to get a Content-Security-Policy fix for your dev.</p>
         </div>
         <div class="wp-config-preview">
         <div class="wp-config">
@@ -992,15 +994,54 @@ function renderChecklist() {
 function embedSnippet(pid) {
   return '<script src="' + location.origin + '/widget.js" data-project="' + pid + '" defer></scr' + 'ipt>'
 }
-$("embedCopy") && ($("embedCopy").onclick = async () => {
-  const pid = curProjId(); if (!pid) return
-  const btn = $("embedCopy"), text = embedSnippet(pid)
+// Paste-ready prompt the admin hands to their AI/dev when a strict Content Security
+// Policy blocks the widget from loading (common on security-hardened sites — the widget
+// silently never appears and the heartbeat status stays grey). Host-aware so the origin
+// it tells them to allowlist always matches where widget.js is actually served from.
+function cspFixPrompt(pid) {
+  const origin = location.origin
+  return [
+    "My site embeds the Klavity report widget but it isn't loading — the browser",
+    "console shows a Content Security Policy (CSP) error blocking " + origin + "/widget.js.",
+    "",
+    "Please update my site's Content-Security-Policy so the widget can load. Add the",
+    "Klavity origin to BOTH of these directives:",
+    "",
+    "  - script-src   " + origin + "   (so widget.js is allowed to execute)",
+    "  - connect-src  " + origin + "   (so it can POST reports back to /api/feedback)",
+    "",
+    "If one of those directives doesn't exist yet, the browser falls back to default-src;",
+    "in that case add " + origin + " to default-src or create the specific directive above.",
+    "",
+    "The CSP header is usually set in one of these places — find whichever applies to my site:",
+    "  - A helmet() / CSP config in an Express, Node, or Next.js server",
+    "  - A <meta http-equiv=\"Content-Security-Policy\"> tag in the HTML <head>",
+    "  - A reverse proxy or host: nginx (add_header Content-Security-Policy), Caddy,",
+    "    Cloudflare, or a Vercel / Netlify headers config",
+    "",
+    "The widget snippet on my page is:",
+    "  " + embedSnippet(pid),
+    "",
+    "After the change, reload the page and confirm the console CSP error is gone and the",
+    "Klavity widget button appears. Do not remove any of the existing CSP sources.",
+  ].join("\n")
+}
+// Shared clipboard helper with button feedback — used by both Copy and Copy-to-AI buttons.
+async function klavCopy(text, btn, doneLabel) {
+  const prev = btn.textContent
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text)
     else { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove() }
-    const prev = btn.textContent; btn.textContent = "Copied ✓"
-    setTimeout(() => { btn.textContent = prev }, 1600)
-  } catch (e) { btn.textContent = "Press ⌘C"; setTimeout(() => { btn.textContent = "Copy" }, 1600) }
+    btn.textContent = doneLabel || "Copied ✓"; setTimeout(() => { btn.textContent = prev }, 1600)
+  } catch (e) { btn.textContent = "Press ⌘C"; setTimeout(() => { btn.textContent = prev }, 1600) }
+}
+$("embedCopy") && ($("embedCopy").onclick = () => {
+  const pid = curProjId(); if (!pid) return
+  klavCopy(embedSnippet(pid), $("embedCopy"))
+})
+$("embedCopyAI") && ($("embedCopyAI").onclick = () => {
+  const pid = curProjId(); if (!pid) return
+  klavCopy(cspFixPrompt(pid), $("embedCopyAI"), "Copied for AI ✓")
 })
 $("checklistDismiss") && ($("checklistDismiss").onclick = () => {
   try { sessionStorage.setItem("klavChecklistDismissed", "1") } catch (e) {}
@@ -2253,17 +2294,11 @@ async function loadAppearance() {
       const el = $(id); if (el) { el.addEventListener("input", renderWidgetPreview); el.addEventListener("change", renderWidgetPreview) }
     })
     const wpT = $("wp-thanks-toggle"); if (wpT) wpT.addEventListener("change", renderWidgetPreview)
-    // Copy the embed snippet for this project (mirrors the onboarding checklist's embedCopy pattern).
+    // Copy the embed snippet + the CSP fix-for-AI prompt (mirrors the onboarding checklist's buttons).
     const ecBtn = $("appearanceEmbedCopy")
-    if (ecBtn) ecBtn.onclick = async () => {
-      const pid = curProjId(); if (!pid) return
-      const text = embedSnippet(pid)
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text)
-        else { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove() }
-        const prev = ecBtn.textContent; ecBtn.textContent = "Copied ✓"; setTimeout(() => { ecBtn.textContent = prev }, 1600)
-      } catch (e) { ecBtn.textContent = "Press ⌘C"; setTimeout(() => { ecBtn.textContent = "Copy" }, 1600) }
-    }
+    if (ecBtn) ecBtn.onclick = () => { const pid = curProjId(); if (!pid) return; klavCopy(embedSnippet(pid), ecBtn) }
+    const ecAI = $("appearanceEmbedCopyAI")
+    if (ecAI) ecAI.onclick = () => { const pid = curProjId(); if (!pid) return; klavCopy(cspFixPrompt(pid), ecAI, "Copied for AI ✓") }
     $("kl-save-appearance").addEventListener("click", async function () {
       const isPro = !!($("kl-pro-note") && $("kl-pro-note").dataset.pro === "1")
       const body = { theme: sel.value, thankYou: $("kl-thankyou").value, mode: $("kl-mode").value, cta_url: $("kl-cta").value.trim() }
@@ -2321,7 +2356,7 @@ function renderWidgetStatus(s) {
   box.classList.remove("kl-wstatus-active","kl-wstatus-idle","kl-wstatus-inactive","kl-wstatus-unknown")
   if (!s || !s.lastSeen) {
     box.classList.add("kl-wstatus-inactive")
-    txt.innerHTML = "<b>Widget not detected yet.</b> Add the embed snippet to your site, then load a page — this turns green automatically."
+    txt.innerHTML = "<b>Widget not detected yet.</b> Add the embed snippet to your site, then load a page — this turns green automatically. Already added it but still grey? Your site may have a Content Security Policy blocking it — use <b>Copy to AI</b> below for the fix."
     return
   }
   const STALE = 24 * 60 * 60 * 1000  // >24h since last load ⇒ "idle"
