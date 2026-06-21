@@ -24,6 +24,7 @@ import { ingestSnapOrSim } from "./lib/expectations-ingest"
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
+import { saveFeedbackReplay, getFeedbackReplay, feedbackIdsWithReplay } from "./lib/feedback-replay"
 import { listRunSteps, listTrails, getTrail, listTrailSteps, insertAssertStep, deleteTrailStep } from "./lib/trails"
 import { runWalkNow } from "./lib/trails-trigger"
 import { WalkBusyError } from "./lib/trails-browser"
@@ -1048,6 +1049,17 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         if (!description) return wjson({ error: "Description is required." }, 400)
         if (description.length > 5000) return wjson({ error: "Description too long." }, 400)
 
+        // ── G1 session replay: the widget/SDK attaches a rolling rrweb event buffer as `replay_events`
+        // (a JSON array string). Parse defensively here; an oversize/garbage field must NEVER fail the
+        // bug submission. The per-event-buffer byte cap below is a coarse pre-parse guard; the durable
+        // size cap (oldest-first trim) lives in saveFeedbackReplay.
+        const REPLAY_RAW_CAP = 6 * 1024 * 1024 // 6MB of raw JSON before gzip — reject anything larger outright
+        let replayEvents: unknown[] | null = null
+        const replayRaw = String(form.get("replay_events") || "")
+        if (replayRaw && replayRaw.length <= REPLAY_RAW_CAP) {
+          try { const parsed = JSON.parse(replayRaw); if (Array.isArray(parsed) && parsed.length) replayEvents = parsed } catch { /* ignore bad replay */ }
+        }
+
         // Resolve the Plane connection: Bearer (personal → team) else forwarded direct creds.
         let planeToken = "", planeWorkspace = "", planeProject = "", planeHost = "https://api.plane.so"
         const email = await bearerEmail(req)
@@ -1181,6 +1193,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                   projectId, type: "feedback_filed", actorEmail: actor, simId,
                   urlHost, urlPath, feedbackId, screenshotId,
                 })
+              }
+
+              // ── G1 session replay attach: store the rolling rrweb buffer keyed to this feedback row.
+              // Best-effort + size-capped (oldest-first trim) inside saveFeedbackReplay — a replay
+              // failure must never fail or slow the submission. Fires for both new and deduped rows so a
+              // recurring bug's freshest replay is available.
+              if (replayEvents && feedbackId) {
+                try { await saveFeedbackReplay(projectId, feedbackId, replayEvents) }
+                catch (re: any) { console.warn("feedback replay save (non-fatal):", re?.message || re) }
               }
 
               // ── auto-copy hook: fire-and-forget, never blocks the response ──
@@ -2257,6 +2278,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // tickets — all recent feedback (Klavity Cloud is the primary tracker), newest-first.
           // Enriched with status/assignee (management state) and exports (connector push history).
           const ticketIds = feedbackTickets.map(f => f.id)
+          // G1: which tickets carry a session replay → show the "▶ Session replay" affordance only there.
+          const ticketsWithReplay = ticketIds.length ? await feedbackIdsWithReplay(projectId, ticketIds) : new Set<string>()
           const [ticketExportsMap, ticketMetaRows] = await Promise.all([
             ticketIds.length ? exportsForFeedbackIds(ticketIds) : Promise.resolve({} as Record<string, any[]>),
             // Fetch status/assignee via feedbackById in batch (single IN query via raw DB).
@@ -2299,7 +2322,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               observation: f.observation, suggestedBug: f.suggestedBug,
               sentiment: f.sentiment, screenshotId: f.screenshotId,
               sourceQuote: f.sourceQuote, sourceDate: f.sourceDate,
-              notes: meta.notes,
+              notes: meta.notes, hasReplay: ticketsWithReplay.has(f.id),
             }
           })
 
@@ -2394,10 +2417,11 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
       // ── Ticket management: PATCH /api/feedback/:id and POST /api/feedback/:id/export ──
       // Resolve the feedback's project via feedbackById across accessible projects.
-      const feedbackIdMatch = path.match(/^\/api\/feedback\/([^/]+?)(\/export)?$/)
+      const feedbackIdMatch = path.match(/^\/api\/feedback\/([^/]+?)(\/export|\/replay)?$/)
       if (feedbackIdMatch) {
         const fid = feedbackIdMatch[1]
         const isExport = feedbackIdMatch[2] === "/export"
+        const isReplay = feedbackIdMatch[2] === "/replay"
 
         // Resolve which project this feedback belongs to and check the caller has access.
         let fbRow: any = null
@@ -2410,6 +2434,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           if (row) { fbRow = row; fbAccess = a; break }
         }
         if (!fbRow) return json({ error: "Feedback not found or not accessible." }, 404)
+
+        // GET /api/feedback/:id/replay — the stored rrweb session-replay events for a ticket, so the
+        // dashboard viewer can play them. Project-scoped (access already verified via fbRow above);
+        // 404 when this ticket has no recording (widget didn't capture, or buffer was empty).
+        if (req.method === "GET" && isReplay) {
+          const replay = await getFeedbackReplay(fbRow.projectId, fid)
+          if (!replay) return json({ error: "No replay for this report." }, 404)
+          return json({ feedbackId: fid, events: replay.events, nEvents: replay.nEvents, trimmed: replay.trimmed, createdAt: replay.createdAt })
+        }
 
         // PATCH /api/feedback/:id — any project member may edit status/assignee/notes
         if (req.method === "PATCH" && !isExport) {
