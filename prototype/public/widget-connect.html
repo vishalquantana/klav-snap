@@ -11,6 +11,11 @@
   button{width:100%;border:0;border-radius:10px;padding:11px;background:#6366f1;color:#fff;
     font-size:15px;font-weight:600;cursor:pointer}
   .err{color:#db2777;font-size:13px;min-height:1em;margin-top:8px}
+  .ok{color:#34d399;font-size:13px;min-height:1em;margin-top:8px}
+  .links{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+  .link{width:auto;background:none;color:#a59beb;font-size:13px;font-weight:500;
+    padding:4px 2px;cursor:pointer}
+  .link:disabled{color:#6b6358;cursor:default}
   .hide{display:none}
 </style></head><body>
 <div class="card">
@@ -23,7 +28,12 @@
   <div id="codeStep" class="hide">
     <input id="code" inputmode="numeric" maxlength="6" placeholder="6-digit code" />
     <button id="verifyBtn">Verify &amp; connect</button>
+    <div class="links">
+      <button type="button" class="link" id="resendBtn">Resend code</button>
+      <button type="button" class="link" id="changeBtn">Change email</button>
+    </div>
   </div>
+  <div class="ok" id="ok"></div>
   <div class="err" id="err"></div>
 </div>
 <script>
@@ -31,8 +41,37 @@ const qs = new URLSearchParams(location.search)
 const projectId = qs.get("project") || ""
 const targetOrigin = qs.get("origin") || ""
 const $ = (id) => document.getElementById(id)
-const err = (m) => { $("err").textContent = m || "" }
+const err = (m) => { $("err").textContent = m || ""; if (m) $("ok").textContent = "" }
+const ok = (m) => { $("ok").textContent = m || ""; if (m) $("err").textContent = "" }
 async function jf(url, opts){ const r = await fetch(url, opts); let d={}; try{d=await r.json()}catch(e){} return {ok:r.ok,status:r.status,data:d} }
+
+// Send (or resend) a sign-in code for the given email. Returns true on success.
+async function requestCode(email){
+  const r = await jf("/api/auth/request", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ email }) })
+  if (!r.ok){ err(r.data.error || "Could not send a code."); return false }
+  return true
+}
+
+// Reveal the code step for an email; remembers which address the code went to.
+function showCodeStep(email){
+  $("sub").textContent = "Enter the code we sent to " + email + "."
+  $("emailStep").classList.add("hide"); $("codeStep").classList.remove("hide")
+  $("code").value = ""; $("code").focus()
+}
+
+// 30s cooldown so the resend link can't be hammered.
+let resendTimer = 0
+function startResendCooldown(){
+  let left = 30
+  $("resendBtn").disabled = true
+  $("resendBtn").textContent = "Resend in " + left + "s"
+  clearInterval(resendTimer)
+  resendTimer = setInterval(() => {
+    left -= 1
+    if (left <= 0){ clearInterval(resendTimer); $("resendBtn").disabled = false; $("resendBtn").textContent = "Resend code" }
+    else $("resendBtn").textContent = "Resend in " + left + "s"
+  }, 1000)
+}
 
 async function mintAndFinish(){
   const r = await jf("/api/widget/token", { method:"POST", headers:{"content-type":"application/json"},
@@ -52,9 +91,22 @@ $("sendBtn").onclick = async () => {
   const probe = await jf("/api/widget/token", { method:"POST", headers:{"content-type":"application/json"},
     body: JSON.stringify({ projectId, origin: targetOrigin }) })
   if (probe.ok){ if (window.opener && targetOrigin) window.opener.postMessage({type:"klavity-widget-token",token:probe.data.token,projectId}, targetOrigin); $("sub").textContent="Connected — you can close this window."; $("emailStep").classList.add("hide"); setTimeout(()=>window.close(),600); return }
-  const r = await jf("/api/auth/request", { method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({ email }) })
-  if (!r.ok) return err(r.data.error || "Could not send a code.")
-  $("emailStep").classList.add("hide"); $("codeStep").classList.remove("hide"); $("code").focus()
+  if (!(await requestCode(email))) return
+  showCodeStep(email); startResendCooldown()
+}
+$("resendBtn").onclick = async () => {
+  if ($("resendBtn").disabled) return
+  err(""); const email = $("email").value.trim().toLowerCase()
+  if (!email.includes("@")) return err("Enter a valid email.")
+  if (!(await requestCode(email))) return
+  ok("New code sent to " + email + "."); startResendCooldown()
+}
+$("changeBtn").onclick = () => {
+  err(""); ok(""); clearInterval(resendTimer)
+  $("resendBtn").disabled = false; $("resendBtn").textContent = "Resend code"
+  $("codeStep").classList.add("hide"); $("emailStep").classList.remove("hide")
+  $("sub").textContent = "Sign in to bring your Sims onto this page."
+  $("email").focus(); $("email").select()
 }
 $("verifyBtn").onclick = async () => {
   err(""); const email = $("email").value.trim().toLowerCase(); const code = $("code").value.trim()
