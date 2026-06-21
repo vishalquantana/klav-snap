@@ -8,4 +8,6 @@ export const ICON_NAMES = [
   'link', 'user', 'mic', 'puzzle', 'sprout',
   // Added for widget/SDK + shared modal (Task 6)
   'camera', 'image', 'map-pin', 'monitor', 'pencil', 'scissors', 'square', 'trash-2',
+  // Added for browser extension options page (Task 7)
+  'cloud', 'plug', 'ticket',
 ];

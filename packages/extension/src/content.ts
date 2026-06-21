@@ -1,5 +1,6 @@
 import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload, KlavConfig, KlavMonitoredProject } from '@klavity/core'
 import { buildModal, type ModalController } from '@klavity/core/modal'
+import { icon } from '@klavity/core/icons'
 import { resolveModalConfig } from '@klavity/core/modal-theme'
 import { installCapture, buildReportContext, type CaptureBuffers } from '@klavity/core/capture'
 import { cropDataUrl } from '@klavity/core/crop'
@@ -237,7 +238,7 @@ chrome.runtime.onMessage.addListener((msg: ContentMessage) => {
   }
 
   if (msg.kind === 'SUBMIT_SUCCESS') {
-    // Resolve the submitViaSW Promise; buildModal owns the "✓ Filed as KEY" success card.
+    // Resolve the submitViaSW Promise; buildModal owns the "Filed as KEY" success card.
     pendingSubmit?.resolve({ issueKey: msg.issueKey, issueUrl: msg.issueUrl })
     pendingSubmit = null
     return
@@ -604,8 +605,8 @@ function klavRenderBubble(r: { simName: string; initials: string; accent: string
   const sev = r.severity ? `<span class="klav-sev">${klavEsc(r.severity)}</span>` : ''
   // Make the payoff legible: every reaction is persisted server-side as a ticket in the dashboard.
   const outcome = r.suggestedBug
-    ? `<div class="klav-outcome">🐛 Flagged as a bug · saved to your dashboard</div>`
-    : `<div class="klav-outcome">💬 Noted · saved to your dashboard</div>`
+    ? `<div class="klav-outcome">${icon('bug', { size: 14 })} Flagged as a bug · saved to your dashboard</div>`
+    : `<div class="klav-outcome">${icon('meh', { size: 14 })} Noted · saved to your dashboard</div>`
   b.innerHTML = `
     <button class="klav-bclose" aria-label="Dismiss">×</button>
     <div class="klav-bhead">
@@ -865,7 +866,7 @@ async function maybeActivate(reason: string) {
     const body = resp?.body || {}
     if (resp?.ok && Array.isArray(body.reviews)) {
       const nReactions = body.reviews.reduce((n: number, rv: any) => n + (rv.reactions?.length || 0), 0)
-      console.log(`[Klavity] ✓ review done — ${body.reviews.length} sim(s), ${nReactions} reaction(s) rendered`)
+      console.log(`[Klavity] review done — ${body.reviews.length} sim(s), ${nReactions} reaction(s) rendered`)
       // Confirmed review: now arm cooldown, record sig, increment count.
       klavLastSentSig = postSig
       klavCooldownUntil = Date.now() + ROUTE_COOLDOWN_MS

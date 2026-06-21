@@ -190,11 +190,11 @@ function setupContextMenus() {
   chrome.contextMenus.removeAll(() => {
     const common = { contexts: ['all'] as chrome.contextMenus.ContextType[], documentUrlPatterns: ['http://*/*', 'https://*/*'] }
     chrome.contextMenus.create({ id: 'klavity-root', title: 'Klavity', ...common })
-    chrome.contextMenus.create({ id: 'klavity-bug', parentId: 'klavity-root', title: '🐞 Report a Bug', ...common })
-    chrome.contextMenus.create({ id: 'klavity-feature', parentId: 'klavity-root', title: '💡 Request a Feature', ...common })
-    chrome.contextMenus.create({ id: 'klavity-analyze', parentId: 'klavity-root', title: '🧬 Analyze this page', ...common })
+    chrome.contextMenus.create({ id: 'klavity-bug', parentId: 'klavity-root', title: 'Report a Bug', ...common })
+    chrome.contextMenus.create({ id: 'klavity-feature', parentId: 'klavity-root', title: 'Request a Feature', ...common })
+    chrome.contextMenus.create({ id: 'klavity-analyze', parentId: 'klavity-root', title: 'Analyze this page', ...common })
     chrome.contextMenus.create({ id: 'klavity-sep', parentId: 'klavity-root', type: 'separator', ...common })
-    chrome.contextMenus.create({ id: 'klavity-tracker', parentId: 'klavity-root', title: '📋 View submissions', ...common })
+    chrome.contextMenus.create({ id: 'klavity-tracker', parentId: 'klavity-root', title: 'View submissions', ...common })
   })
 }
 
