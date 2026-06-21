@@ -10,6 +10,11 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.38.1] — 2026-06-21
+
+### Changed
+- **Home page declutter.** Moved the dark-mode toggle (🌙) out of the floating bottom-right stack and into the top navbar, next to Log in / Get started — it survives the logged-in Dashboard swap and shows on mobile. Hid the auto-starting "Sims reviewing" demo tour (the walking-persona animation read as ambient website motion); its toggle and 4.6s auto-start are disabled, code left in place and commented so it can be re-enabled. The bottom-right corner now carries only the real "Report a bug" widget launcher. `site/index.html`.
+
 ## [0.38.0] — 2026-06-21
 
 Security hardening + CASA Tier 2 readiness pass (SAST/SCA self-scan → remediation → evidence pack), plus permanent screenshot links and native tracker attachments.
