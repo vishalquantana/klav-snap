@@ -58,3 +58,22 @@ describe('buildModal region capture', () => {
     ctrl.close()
   })
 })
+
+describe('buildModal autoCaptureOnOpen', () => {
+  it('autoCaptureOnOpen calls onCaptureFull once on mount', async () => {
+    vi.useFakeTimers()
+    const onCaptureFull = vi.fn(async () => 'data:image/png;base64,FULL')
+    const ctrl = buildModal('bug', { onCaptureFull, autoCaptureOnOpen: true, onSubmit: async () => ({ issueKey: '1', issueUrl: '' }) })
+    await vi.advanceTimersByTimeAsync(250)
+    expect(onCaptureFull).toHaveBeenCalledTimes(1)
+    ctrl.close(); vi.useRealTimers()
+  })
+  it('without autoCaptureOnOpen, onCaptureFull is NOT called on mount', async () => {
+    vi.useFakeTimers()
+    const onCaptureFull = vi.fn(async () => 'x')
+    const ctrl = buildModal('bug', { onCaptureFull, onSubmit: async () => ({ issueKey: '1', issueUrl: '' }) })
+    await vi.advanceTimersByTimeAsync(250)
+    expect(onCaptureFull).not.toHaveBeenCalled()
+    ctrl.close(); vi.useRealTimers()
+  })
+})

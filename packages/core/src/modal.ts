@@ -29,6 +29,9 @@ export interface ModalCallbacks {
     copy: SuccessCopy
     onLead?: (feedbackId: string, email: string) => Promise<void>
   }
+  // When true, onCaptureFull() is called automatically ~200ms after the modal mounts and the
+  // result is added to the screenshot strip. Default false — the production widget is unaffected.
+  autoCaptureOnOpen?: boolean
 }
 
 export interface ModalController {
@@ -437,6 +440,10 @@ export function buildModal(
     pb.className = 'klavity-pb'
     pb.innerHTML = `Powered by <a href="https://klavity.quantana.top" target="_blank" rel="noopener">Klavity</a>`
     modal.appendChild(pb)
+  }
+
+  if (callbacks.autoCaptureOnOpen) {
+    setTimeout(() => { callbacks.onCaptureFull().then(addScreenshot).catch(() => {}) }, 200)
   }
 
   return controller
