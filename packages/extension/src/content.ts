@@ -429,6 +429,9 @@ let klavConfig: KlavConfig | null = null
 let klavReviewedRoutes = new Set<string>()   // legacy compat: keeps existing usage for consent/revoke
 let klavLastUrl = location.href
 let klavIndicatorEl: HTMLElement | null = null
+// Flattened reactions from the most recent review, kept so the user can Replay them after they
+// auto-dismiss. Each entry is the same shape klavRenderBubble takes.
+let klavLastReactions: Array<{ simName: string; initials: string; accent: string; observation?: string; severity?: string; citation?: any; suggestedBug?: any }> = []
 
 // ── Per-route dedup / flood state ────────────────────────────────────────────
 let klavLastSentSig: string | null = null      // sig of last confirmed-sent review
@@ -564,6 +567,8 @@ function klavGetHost(): ShadowRoot {
       @media (prefers-reduced-motion: reduce){.klav-indicator.reviewing::before{animation-duration:2.4s;}}
       .klav-pausebtn{border:none;background:rgba(251,246,238,.14);color:#FBF6EE;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer;}
       .klav-pausebtn:hover{background:rgba(251,246,238,.24);}
+      .klav-replaybtn{border:none;background:rgba(124,208,143,.18);color:#BFEBCB;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;cursor:pointer;}
+      .klav-replaybtn:hover{background:rgba(124,208,143,.30);}
       .klav-consent{position:fixed;right:18px;bottom:18px;z-index:2147483647;pointer-events:auto;max-width:330px;background:#FBF6EE;color:#2D2A26;border-radius:16px;box-shadow:0 14px 44px rgba(40,30,20,.26);border:1px solid #EFE9DE;padding:16px 16px 14px;font-family:system-ui,-apple-system,sans-serif;}
       .klav-consent h4{margin:0 0 6px;font-size:14px;}
       .klav-consent p{margin:0 0 12px;font-size:12.5px;line-height:1.45;color:#6B655C;}
@@ -652,6 +657,7 @@ function klavRenderIndicator(projectId: string, paused: boolean) {
   })
   root.appendChild(el)
   klavIndicatorEl = el
+  klavShowReplay()  // re-attach the Replay control after any indicator re-render (e.g. pause toggle)
 }
 
 // Toggle the "thinking" ring + label on the live indicator while a review is in flight, so it's
@@ -663,6 +669,26 @@ function klavSetReviewing(active: boolean) {
   el.classList.toggle('reviewing', active)
   const label = el.querySelector('span:not(.klav-dot)')
   if (label) label.textContent = active ? 'Sims reviewing…' : 'Sims reviewing'
+}
+
+// Replay: bubbles auto-dismiss after a few seconds, so cache the last review's reactions and let the
+// user re-watch them on demand. klavShowReplay adds a "Replay" button to the live indicator once
+// there's something to replay; klavReplayLast clears current bubbles and re-renders them staggered.
+function klavShowReplay() {
+  const el = klavIndicatorEl
+  if (!el || el.classList.contains('paused') || !klavLastReactions.length) return
+  if (el.querySelector('.klav-replaybtn')) return
+  const btn = document.createElement('button')
+  btn.className = 'klav-replaybtn'
+  btn.textContent = 'Replay'
+  btn.title = `Replay the last review (${klavLastReactions.length} reaction${klavLastReactions.length === 1 ? '' : 's'})`
+  btn.addEventListener('click', () => klavReplayLast())
+  el.appendChild(btn)
+}
+function klavReplayLast() {
+  if (!klavLastReactions.length) return
+  klavClearBubbles()
+  klavLastReactions.forEach((b, i) => setTimeout(() => klavRenderBubble(b), i * 450))
 }
 
 // First-capture consent prompt (gate c). Resolves true once the user grants.
@@ -893,11 +919,16 @@ async function maybeActivate(reason: string) {
       klavCooldownUntil = Date.now() + ROUTE_COOLDOWN_MS
       klavRouteCount++
       klavReviewedRoutes.add(routeKey)
+      const flat: typeof klavLastReactions = []
       for (const rv of body.reviews) {
         for (const r of (rv.reactions || [])) {
-          klavRenderBubble({ simName: rv.simName, initials: rv.initials, accent: rv.accent, observation: r.observation, severity: r?.suggestedBug?.severity, citation: r.citation, suggestedBug: r?.suggestedBug })
+          const bubble = { simName: rv.simName, initials: rv.initials, accent: rv.accent, observation: r.observation, severity: r?.suggestedBug?.severity, citation: r.citation, suggestedBug: r?.suggestedBug }
+          flat.push(bubble)
+          klavRenderBubble(bubble)
         }
       }
+      // Cache for Replay so the user can re-watch the reactions after they auto-dismiss.
+      if (flat.length) { klavLastReactions = flat; klavShowReplay() }
     } else if (body.reason === 'alreadyReviewed') {
       console.log('[Klavity] already reviewed this view (dedup) — no new feedback')
       // Server says already reviewed — count it so we don't keep hammering.
