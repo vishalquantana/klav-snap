@@ -26,6 +26,23 @@ describe('buildModal region capture', () => {
     overlay.dispatchEvent(new PointerEvent('pointerup',   { clientX: 60, clientY: 80, bubbles: true }))
     await new Promise(r => setTimeout(r, 0))
     expect(onRegionCapture).toHaveBeenCalledWith({ x: 10, y: 20, w: 50, h: 60 })
+    // Fix 2: assert the returned data URL was actually added to the strip
+    expect(ctrl.shadowRoot.querySelector('.klavity-thumb')).not.toBeNull()
+    ctrl.close()
+  })
+
+  it('Esc while region overlay is mounted cancels the overlay but does NOT close the modal', () => {
+    const onRegionCapture = vi.fn(async (_r: any) => 'data:image/png;base64,REGION')
+    const ctrl = buildModal('bug', { onCaptureFull: async () => 'x', onRegionCapture, onSubmit: async () => ({ issueKey: '1', issueUrl: '' }) })
+    ;(q(ctrl, '#klavity-region') as HTMLButtonElement).click()
+    const overlay = document.querySelector('[data-klavity-region-overlay]') as HTMLElement
+    expect(overlay).not.toBeNull()
+    // Fire Esc — should cancel region overlay, not close the modal
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    // Overlay must be gone
+    expect(document.querySelector('[data-klavity-region-overlay]')).toBeNull()
+    // Modal host must still be in the DOM
+    expect(document.body.contains(ctrl.shadowRoot.host)).toBe(true)
     ctrl.close()
   })
 })

@@ -242,8 +242,14 @@ export function buildModal(
   const regionBtn = shadowRoot.getElementById('klavity-region') as HTMLButtonElement | null
   if (regionBtn && callbacks.onRegionCapture) {
     regionBtn.onclick = () => {
+      // Remove the modal's own Esc handler so pressing Esc during region-select only
+      // cancels the overlay and does NOT also close the modal.  It is re-added by the
+      // cleanup() callback inside mountRegionOverlay (both the cancel and pointerup paths).
+      document.removeEventListener('keydown', escHandler, { capture: true })
       host.style.display = 'none'
       mountRegionOverlay(async (rect) => {
+        // Re-register the modal Esc handler now that the overlay is gone (success path).
+        document.addEventListener('keydown', escHandler, { capture: true })
         try {
           const shot = await callbacks.onRegionCapture!(rect)
           if (shot) addScreenshot(shot)
@@ -251,6 +257,8 @@ export function buildModal(
           host.style.display = ''
         }
       }, () => {
+        // Re-register the modal Esc handler now that the overlay is gone (cancel/Esc path).
+        document.addEventListener('keydown', escHandler, { capture: true })
         // Esc/cancel — re-show the host without calling onRegionCapture
         host.style.display = ''
       })
