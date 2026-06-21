@@ -9,6 +9,8 @@ import { submitReport as linearSubmit } from '@klavity/core/integrations/linear'
 import { submitReport as githubSubmit } from '@klavity/core/integrations/github'
 import { submitReport as planeSubmit } from '@klavity/core/integrations/plane'
 import { submitReport as backendSubmit } from '@klavity/core/integrations/backend'
+import { record as rrwebRecord } from 'rrweb'
+import { startReplayRecording, type ReplayController } from './replay-recorder'
 
 export type SdkConfig = Partial<KlavitySettings>
 
@@ -18,6 +20,8 @@ const _buffers: CaptureBuffers = { consoleErrors: [], networkFailures: [] }
 // Site-owner identity + custom metadata (G5), set via identify()/setMetadata().
 let _identity: ReportIdentity | undefined
 let _metadata: Record<string, string> | undefined
+// G1 session replay: rolling rrweb buffer, attached to reports filed via the Klavity backend.
+let _replay: ReplayController | null = null
 
 function coerceStrings(obj: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {}
@@ -50,7 +54,7 @@ function buildContext(): SubmitReportPayload['context'] {
 
 async function dispatchToIntegration(config: IntegrationConfig) {
   return dispatchSubmit(
-    { type: config.type, description: config.description, context: config.context, screenshots: config.screenshots },
+    { type: config.type, description: config.description, context: config.context, screenshots: config.screenshots, replayEvents: config.replayEvents },
     _settings,
     { jira: jiraSubmit, linear: linearSubmit, github: githubSubmit, plane: planeSubmit, backend: backendSubmit },
   )
@@ -65,6 +69,7 @@ export function openModal(type: ReportType = 'bug') {
       context: buildContext(),
       screenshots: payload.screenshots,
       settings: _settings,
+      replayEvents: _replay?.getEvents() ?? [],
     }),
   })
 
@@ -131,6 +136,9 @@ export function init(config: SdkConfig = {}) {
   }
   setupErrorCapture()
   addContextMenu()
+  // G1 session replay: start a rolling rrweb buffer (masked by default). Best-effort — a recorder
+  // failure must never break host-app init. Only meaningful when reporting via the Klavity backend.
+  if (!_replay) { try { _replay = startReplayRecording(rrwebRecord as any) } catch { _replay = null } }
 }
 
 // Expose on window for script-tag usage

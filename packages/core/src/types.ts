@@ -78,6 +78,8 @@ export interface SubmitReportPayload {
   description: string
   context: ReportContext
   screenshots: string[] // data URLs (PNG or JPEG)
+  // G1 session replay: rolling rrweb DOM-event buffer (Klavity backend integration only).
+  replayEvents?: unknown[]
 }
 
 export interface SubmitResult {
@@ -91,6 +93,8 @@ export interface IntegrationConfig {
   context: ReportContext
   screenshots: string[]
   settings: KlavitySettings
+  // G1 session replay: rolling rrweb DOM-event buffer (only the Klavity backend integration uses it).
+  replayEvents?: unknown[]
 }
 
 // Extension message protocol

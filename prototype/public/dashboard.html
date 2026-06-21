@@ -961,6 +961,7 @@ function renderTickets() {
       </div>
       <div class="tkt-actions">
         <div class="tkt-badges">${badgesHtml}</div>
+        ${t.hasReplay ? `<button class="btn btn-ghost btn-sm replay-btn" type="button">▶ Session replay</button>` : ""}
         <button class="btn btn-ghost btn-sm save-meta-btn">Save</button>
       </div>
       <div class="tkt-gap tkt-copy">${copySelect}</div>
@@ -1010,6 +1011,12 @@ function renderTickets() {
         showTktMsg(detailEl, d.error || "Couldn't save.", true)
       }
     })
+
+    // Wire up the G1 session-replay button (only present when t.hasReplay)
+    const replayBtn = detailEl.querySelector(".replay-btn")
+    if (replayBtn) {
+      replayBtn.addEventListener("click", (ev) => { ev.stopPropagation(); openReplay(ticketId) })
+    }
 
     // Wire up copy-to button
     const copyBtn = detailEl.querySelector(".copy-btn")
@@ -1478,6 +1485,69 @@ $("newProjCreate") && ($("newProjCreate").onclick = createProject)
 $("newProjCancel") && ($("newProjCancel").onclick = closeNewProject)
 $("newProjName") && ($("newProjName").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); createProject() } else if (e.key === "Escape") closeNewProject() })
 $("logout").onclick = async () => { await fetch("/api/auth/logout", { method:"POST" }); location.href = "/" }
+
+// ── G1 session replay viewer (rrweb-player, lazy-loaded vendor asset) ─────────────────
+var __replayState = { player: null, loaded: false }
+function __loadRrwebPlayer() {
+  if (__replayState.loaded) return Promise.resolve()
+  return new Promise(function(resolve, reject){
+    var css = document.createElement("link"); css.rel = "stylesheet"; css.href = "/vendor/rrweb-player.css"
+    document.head.appendChild(css)
+    var s = document.createElement("script"); s.src = "/vendor/rrweb-player.umd.min.js"
+    s.onload = function(){ __replayState.loaded = true; resolve() }
+    s.onerror = function(){ reject(new Error("Failed to load the replay player.")) }
+    document.head.appendChild(s)
+  })
+}
+function __ensureReplayModal() {
+  var bg = document.getElementById("replayBg")
+  if (bg) return bg
+  bg = document.createElement("div")
+  bg.id = "replayBg"
+  bg.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:2147483646"
+  bg.innerHTML = '<div style="background:var(--ink-1,#15110d);border:1px solid var(--line,#574f45);border-radius:14px;padding:18px;max-width:980px;width:94%;max-height:92vh;overflow:auto">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+    + '<h3 style="margin:0;font-size:15px">Session replay</h3>'
+    + '<button id="replayClose" aria-label="Close" style="background:none;border:0;color:inherit;font-size:22px;cursor:pointer;line-height:1">&times;</button></div>'
+    + '<div id="replayPlayerHost"></div>'
+    + '<div id="replayNote" class="muted" style="font-size:12px;margin-top:10px"></div></div>'
+  document.body.appendChild(bg)
+  function close(){ bg.style.display = "none"; __destroyReplay() }
+  bg.querySelector("#replayClose").onclick = close
+  bg.addEventListener("click", function(e){ if (e.target === bg) close() })
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && bg.style.display !== "none") close() })
+  return bg
+}
+function __destroyReplay() {
+  try { if (__replayState.player && __replayState.player.$destroy) __replayState.player.$destroy() } catch(e){}
+  __replayState.player = null
+  var host = document.getElementById("replayPlayerHost"); if (host) host.innerHTML = ""
+}
+async function openReplay(feedbackId) {
+  var bg = __ensureReplayModal()
+  bg.style.display = "flex"
+  var note = document.getElementById("replayNote")
+  __destroyReplay()
+  note.textContent = "Loading replay…"
+  try { await __loadRrwebPlayer() } catch(e){ note.textContent = "Couldn't load the replay player."; return }
+  var r
+  try { r = await fetch("/api/feedback/" + encodeURIComponent(feedbackId) + "/replay") }
+  catch(e){ note.textContent = "Network error loading replay."; return }
+  if (r.status === 404){ note.textContent = "No replay was recorded for this report."; return }
+  if (!r.ok){ note.textContent = "Couldn't load the replay."; return }
+  var d = await r.json()
+  var events = (d.events || [])
+  if (events.length < 2){ note.textContent = "Too few frames to scrub."; return }
+  try {
+    var RRWebPlayer = (window.rrwebPlayer && (window.rrwebPlayer.default || window.rrwebPlayer.Player)) || window.rrwebPlayer
+    __replayState.player = new RRWebPlayer({
+      target: document.getElementById("replayPlayerHost"),
+      props: { events: events, width: 900, autoPlay: true, showController: true },
+    })
+    note.textContent = (d.nEvents || events.length) + " events" + (d.trimmed ? " · trimmed to the most recent window" : "") + " · recorded just before the report was filed"
+  } catch(e){ note.textContent = "Could not start the player." }
+}
+
 load()
 </script>
 </body>

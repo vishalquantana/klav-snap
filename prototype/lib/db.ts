@@ -342,6 +342,19 @@ export async function applySchema(c: Client) {
        created_at INTEGER NOT NULL
      )`,
     `CREATE INDEX IF NOT EXISTS walk_replay_run_idx ON walk_replays(project_id, run_id)`,
+    // ── G1 session replay: rrweb DOM-event recording attached to a bug report (free vs Marker's $149). ──
+    // events_gz = base64(gzip(JSON.stringify(events))); trimmed=1 when the buffer was capped oldest-first.
+    `CREATE TABLE IF NOT EXISTS feedback_replays (
+       id TEXT PRIMARY KEY,
+       feedback_id TEXT NOT NULL,
+       project_id TEXT NOT NULL,
+       events_gz TEXT NOT NULL,
+       n_events INTEGER,
+       bytes INTEGER,
+       trimmed INTEGER NOT NULL DEFAULT 0,
+       created_at INTEGER NOT NULL
+     )`,
+    `CREATE INDEX IF NOT EXISTS feedback_replay_idx ON feedback_replays(project_id, feedback_id)`,
     // ── Expectations spine (discover→enforce): unifies Snap/Sim/AutoSim findings into one issue identity. ──
     `CREATE TABLE IF NOT EXISTS expectations (
        id TEXT PRIMARY KEY,

@@ -54,4 +54,17 @@ describe("buildFeedbackForm", () => {
     expect(shot).toBeInstanceOf(Blob)
     expect((shot as File).type).toBe("image/png")
   })
+  it("attaches replay_events as a JSON array when present", () => {
+    const events = [{ type: 4, timestamp: 1 }, { type: 2, timestamp: 2 }, { type: 3, timestamp: 3 }]
+    const fd = buildFeedbackForm({ description: "bug", pageUrl: "https://x/y", projectId: "p1", screenshots: [], replayEvents: events })
+    const raw = fd.get("replay_events")
+    expect(typeof raw).toBe("string")
+    expect(JSON.parse(raw as string)).toHaveLength(3)
+  })
+  it("omits replay_events when the buffer is empty/absent", () => {
+    const fd = buildFeedbackForm({ description: "bug", pageUrl: "https://x/y", projectId: "p1", screenshots: [] })
+    expect(fd.get("replay_events")).toBeNull()
+    const fd2 = buildFeedbackForm({ description: "bug", pageUrl: "https://x/y", projectId: "p1", screenshots: [], replayEvents: [] })
+    expect(fd2.get("replay_events")).toBeNull()
+  })
 })

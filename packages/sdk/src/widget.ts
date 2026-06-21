@@ -6,6 +6,8 @@ import { cropDataUrl } from "@klavity/core/crop"
 import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
+import { record as rrwebRecord } from "rrweb"
+import { startReplayRecording, type ReplayController } from "./replay-recorder"
 
 const HOST_ID = "klavity-widget-host"
 const TOKEN_KEY = "klavity_widget_token"
@@ -82,6 +84,16 @@ async function mount() {
   // Announce widget presence so the extension can yield (Task 3 handshake).
   document.dispatchEvent(new CustomEvent("klavity:widget-ready"))
 
+  // ── G1 session replay: continuously record a rolling ~45s buffer of rrweb DOM events so that, on
+  // bug submit, we can attach the seconds leading up to the bug (the free answer to Marker's $149
+  // "Session replay"). Masked by default (maskAllInputs + masked text) for privacy. Best-effort: a
+  // recorder failure must never break the widget. Disable per-page with data-replay="off".
+  let replay: ReplayController | null = null
+  const replayEnabled = (currentScript()?.dataset?.replay || "on") !== "off"
+  if (replayEnabled) {
+    try { replay = startReplayRecording(rrwebRecord as any) } catch { replay = null }
+  }
+
   const firstParty = isFirstParty(location.origin, cfg.backendUrl)
 
   // ONE unified fetch: the project config endpoint returns BOTH the appearance theme (modalConfig,
@@ -114,7 +126,8 @@ async function mount() {
       onRegionCapture: async (rect) => cropDataUrl(await toPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
-        { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots, context: buildWidgetContext() },
+        { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots,
+          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [] },
       ),
       success: { copy: successCopy(widget.mode, widget.ctaUrl), onLead: postLead },
     }, modalConfig)
@@ -267,7 +280,7 @@ async function mount() {
 
 export async function submitFeedback(
   cfg: { backendUrl: string; projectId: string; firstParty: boolean; token: string },
-  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext },
+  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[] },
 ): Promise<{ issueKey: string; issueUrl: string }> {
   const fd = buildFeedbackForm({
     description: `[${payload.type}] ${payload.description}`,
@@ -275,6 +288,7 @@ export async function submitFeedback(
     projectId: cfg.projectId,
     screenshots: payload.screenshots,
     context: payload.context,
+    replayEvents: payload.replayEvents,
   })
   const init: RequestInit = { method: "POST", body: fd }
   if (cfg.firstParty) init.credentials = "include"

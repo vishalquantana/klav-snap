@@ -87,7 +87,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
-export function buildFeedbackForm(input: { description: string; pageUrl: string; projectId: string; screenshots: string[]; context?: ReportContext }): FormData {
+export function buildFeedbackForm(input: { description: string; pageUrl: string; projectId: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[] }): FormData {
   const fd = new FormData()
   fd.set("description", input.description)
   fd.set("page_url", input.pageUrl)
@@ -96,5 +96,8 @@ export function buildFeedbackForm(input: { description: string; pageUrl: string;
   // no-install widget report carries the SAME technical context as the extension/SDK paths.
   if (input.context) fd.set("context", JSON.stringify(input.context))
   for (const s of input.screenshots) fd.append("screenshots", dataUrlToBlob(s), "screenshot.png")
+  // G1 session replay: attach the rolling rrweb buffer as a JSON array. Only when there are events to
+  // send (an empty/unplayable buffer is omitted so the server stores nothing).
+  if (input.replayEvents && input.replayEvents.length) fd.set("replay_events", JSON.stringify(input.replayEvents))
   return fd
 }
