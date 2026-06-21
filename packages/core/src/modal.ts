@@ -71,9 +71,10 @@ export function buildModal(
     .klavity-page{font-size:12px;color:var(--kl-muted);margin-bottom:12px;}
     .klavity-strip{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;min-height:64px;}
     .klavity-thumb{position:relative;flex-shrink:0;}
-    .klavity-thumb img{height:60px;width:88px;object-fit:cover;object-position:top center;background:var(--kl-chip);display:block;border-radius:4px;border:1px solid var(--kl-border);}
-    .klavity-rm{position:absolute;top:-4px;right:-4px;background:var(--kl-accent2);color:var(--kl-on-accent);border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
-    .klavity-mk{position:absolute;bottom:-4px;right:-4px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;}
+    .klavity-thumb img{height:72px;width:104px;object-fit:cover;object-position:top center;background:var(--kl-chip);display:block;border-radius:4px;border:1px solid var(--kl-border);cursor:pointer;transition:filter .12s;}
+    .klavity-thumb img:hover{filter:brightness(.85);}
+    .klavity-rm{position:absolute;top:-6px;right:-6px;background:var(--kl-accent2);color:var(--kl-on-accent);border:none;border-radius:50%;width:24px;height:24px;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.3);}
+    .klavity-mk{position:absolute;bottom:-6px;right:-6px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:50%;width:24px;height:24px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.3);}
     .klavity-actions{display:flex;gap:8px;margin-bottom:12px;}
     .klavity-actions button{flex:1;padding:8px;background:var(--kl-chip);color:var(--kl-fg);border:none;border-radius:6px;cursor:pointer;font-size:12px;}
     .klavity-counter{font-size:11px;color:var(--kl-muted);margin-bottom:8px;}
@@ -137,14 +138,19 @@ export function buildModal(
       wrap.className = 'klavity-thumb'
       const img = document.createElement('img')
       img.src = dataUrl
+      img.title = 'Click to mark up'
+      // Click the thumbnail itself to open the full-screen markup editor (not just the ✏ icon)
+      img.addEventListener('click', () => openAnnotator(i))
       const rm = document.createElement('button')
       rm.className = 'klavity-rm'
       rm.textContent = '×'
-      rm.addEventListener('click', () => { screenshots.splice(i, 1); updateStrip() })
+      rm.title = 'Remove'
+      rm.addEventListener('click', (e) => { e.stopPropagation(); screenshots.splice(i, 1); updateStrip() })
       const mk = document.createElement('button')
       mk.className = 'klavity-mk'
       mk.textContent = '✏'
-      mk.addEventListener('click', () => openAnnotator(i))
+      mk.title = 'Mark up'
+      mk.addEventListener('click', (e) => { e.stopPropagation(); openAnnotator(i) })
       wrap.append(img, rm, mk)
       strip.appendChild(wrap)
     })

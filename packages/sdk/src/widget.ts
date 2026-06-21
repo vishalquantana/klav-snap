@@ -130,6 +130,9 @@ async function mount() {
   function openReport(type: "bug" | "feature" = "bug") {
     if (!firstParty && !getToken()) { openConnect(); return }
     buildModal(type, {
+      // Auto-grab a Full Page shot the moment the modal opens — parity with the extension
+      // (content.ts autoCaptureOnOpen). Captures the current page state without an extra click.
+      autoCaptureOnOpen: true,
       onCaptureFull: async () => toPng(document.body, { skipFonts: true, cacheBust: true, pixelRatio: 1, filter: (n) => (n as HTMLElement).id !== HOST_ID }),
       onRegionCapture: async (rect) => cropDataUrl(await toPng(document.body, { skipFonts: true, cacheBust: true, pixelRatio: 1, filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
       onSubmit: async (p) => submitFeedback(
@@ -180,9 +183,17 @@ async function mount() {
       b.addEventListener("click", () => { closeMenu(); opts.onClick() })
       return b
     }
-    menu.appendChild(row("⚡&nbsp;&nbsp;Klavity — Report a Bug", { primary: true, onClick: () => openReport("bug") }))
-    menu.appendChild(row("💡&nbsp;&nbsp;Klavity — Request a Feature", { onClick: () => openReport("feature") }))
-    menu.appendChild(row("🖥️&nbsp;&nbsp;Show browser menu", { muted: true, hint: "⇧ right-click", last: true, onClick: () => { nativePending = true; showNativeHint(x, y) } }))
+    menu.appendChild(row("⚡&nbsp;&nbsp;Report a Bug", { primary: true, onClick: () => openReport("bug") }))
+    menu.appendChild(row("💡&nbsp;&nbsp;Request a Feature", { onClick: () => openReport("feature") }))
+    menu.appendChild(row("🖥️&nbsp;&nbsp;Show browser menu", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
+    // "Powered by Klavity" footer — opens the marketing site in a new tab
+    const footer = document.createElement("button")
+    footer.innerHTML = "Powered by <strong>Klavity</strong>"
+    footer.style.cssText = "display:block;width:100%;padding:9px 15px;border:0;background:#e3e5ea;color:#6b7280;font-family:system-ui,-apple-system,sans-serif;font-size:11.5px;font-weight:400;cursor:pointer;text-align:center;line-height:1.15"
+    footer.addEventListener("mouseenter", () => { footer.style.background = "#d7dae1"; footer.style.color = "#18181b" })
+    footer.addEventListener("mouseleave", () => { footer.style.background = "#e3e5ea"; footer.style.color = "#6b7280" })
+    footer.addEventListener("click", () => { closeMenu(); window.open("https://klavity.quantana.top", "_blank", "noopener,noreferrer") })
+    menu.appendChild(footer)
     root.appendChild(menu)
     requestAnimationFrame(() => {
       const r = menu.getBoundingClientRect()

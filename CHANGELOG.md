@@ -10,6 +10,13 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
+## [0.38.3] — 2026-06-21
+
+### Changed
+- **Widget auto-captures a Full Page screenshot on open** — parity with the extension (`autoCaptureOnOpen`). Opening "Report a bug" now grabs the current page state immediately instead of requiring a click on "Full Page". `packages/sdk/src/widget.ts`.
+- **Screenshot thumbnails are now clickable to open the full-screen markup editor**, and the remove (×) / markup (✏) icons were enlarged from 16px to 24px with shadows for tappability — the markup editor was previously only reachable via a tiny ✏ icon and was effectively undiscoverable. `packages/core/src/modal.ts` (shared by widget + extension).
+- **Right-click menu rebrand.** Dropped the "Klavity —" prefix from the menu items (now just "Report a Bug" / "Request a Feature") and added a "Powered by **Klavity**" footer that opens klavity.quantana.top in a new tab. `packages/sdk/src/widget.ts`.
+
 ## [0.38.2] — 2026-06-21
 
 ### Fixed
