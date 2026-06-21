@@ -2018,13 +2018,14 @@ export async function listAutoCopyConnectors(projectId: string): Promise<Connect
 export async function updateFeedbackMeta(
   projectId: string,
   feedbackId: string,
-  meta: Partial<{ status: string; assignee: string | null; notes: string | null }>
+  meta: Partial<{ status: string; assignee: string | null; notes: string | null; severity: string | null }>
 ): Promise<boolean> {
   const sets: string[] = ["updated_at=?"]
   const args: any[] = [Date.now()]
   if (meta.status !== undefined) { sets.push("status=?"); args.push(meta.status) }
   if ("assignee" in meta) { sets.push("assignee=?"); args.push(meta.assignee ?? null) }
   if ("notes" in meta) { sets.push("notes=?"); args.push(meta.notes ?? null) }
+  if ("severity" in meta) { sets.push("severity=?"); args.push(meta.severity ?? null) }
   args.push(projectId, feedbackId)
   const r = await db!.execute({
     sql: `UPDATE feedback SET ${sets.join(",")} WHERE project_id=? AND id=?`,
