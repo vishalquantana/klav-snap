@@ -178,12 +178,39 @@ async function reconcileDynamicScripts(): Promise<void> {
   catch (e) { console.warn('[Klavity] registerContentScripts failed:', e) }
 }
 
+// ── Native context menu (hybrid) ─────────────────────────────────────────────
+// The content script shows a styled overlay on a normal right-click (it preventDefaults,
+// so the native menu — and these items — stay hidden then). On Shift+right-click (or the
+// overlay's "Show browser menu"), the native menu IS shown, now carrying a "Klavity"
+// submenu. So our actions live in BOTH places with no gesture conflict. Items only show
+// on real web pages (documentUrlPatterns) — clicks route to the same openModal/tracker
+// paths the overlay and popup use.
+function setupContextMenus() {
+  if (!chrome.contextMenus) return
+  chrome.contextMenus.removeAll(() => {
+    const common = { contexts: ['all'] as chrome.contextMenus.ContextType[], documentUrlPatterns: ['http://*/*', 'https://*/*'] }
+    chrome.contextMenus.create({ id: 'klavity-root', title: 'Klavity', ...common })
+    chrome.contextMenus.create({ id: 'klavity-bug', parentId: 'klavity-root', title: '🐞 Report a Bug', ...common })
+    chrome.contextMenus.create({ id: 'klavity-feature', parentId: 'klavity-root', title: '💡 Request a Feature', ...common })
+    chrome.contextMenus.create({ id: 'klavity-sep', parentId: 'klavity-root', type: 'separator', ...common })
+    chrome.contextMenus.create({ id: 'klavity-tracker', parentId: 'klavity-root', title: '📋 View submissions', ...common })
+  })
+}
+
+chrome.contextMenus?.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'klavity-bug' && tab?.id) void openModal(tab.id, 'bug')
+  else if (info.menuItemId === 'klavity-feature' && tab?.id) void openModal(tab.id, 'feature')
+  else if (info.menuItemId === 'klavity-tracker') {
+    getSettings().then((settings) => { const url = getTrackerUrl(settings); if (url) chrome.tabs.create({ url }) })
+  }
+})
+
 chrome.runtime.onInstalled.addListener(() => {
-  // Native context menu replaced by custom overlay in content script.
+  setupContextMenus()
   void syncConfig()
   void reconcileDynamicScripts() // refresh registrations (e.g. file paths after an update)
 })
-chrome.runtime.onStartup?.addListener?.(() => { void syncConfig() })
+chrome.runtime.onStartup?.addListener?.(() => { setupContextMenus(); void syncConfig() })
 
 // SPA backstop (P3b): the content script watches history in-page, but some SPA route
 // changes only surface to the platform via tabs.onUpdated. When a monitored tab's URL

@@ -4,7 +4,7 @@
   "short_name": "Klavity",
   "version": "0.37.1",
   "description": "AI Sims review your pages and file bug & feature tickets to Jira, Linear, GitHub, or Plane — or report any page in one click.",
-  "permissions": ["activeTab", "storage", "scripting", "tabs", "cookies"],
+  "permissions": ["activeTab", "storage", "scripting", "tabs", "cookies", "contextMenus"],
   "host_permissions": [
     "https://klavity.quantana.top/*",
     "http://localhost/*",
