@@ -28,4 +28,28 @@ writeFileSync(
   join(root, 'site', 'icons.generated.js'),
   banner + 'window.KLAV_ICONS = ' + JSON.stringify(map, null, 2) + ';\n',
 );
+
+// Self-contained helper for prototype/public app pages (they do not load site/kit.js).
+// Exposes window.kicon(name, opts) mirroring @klavity/core icon().
+const kicon = [
+  banner,
+  'window.KLAV_ICONS = ' + JSON.stringify(map, null, 2) + ';',
+  '(function(){',
+  '  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}',
+  '  window.kicon = function(name, opts){',
+  '    opts = opts || {};',
+  '    var body = (window.KLAV_ICONS || {})[name];',
+  '    if (!body) throw new Error("Unknown icon: " + name);',
+  '    var size = opts.size || 18;',
+  '    var cls = opts.class ? "icon " + opts.class : "icon";',
+  '    var a11y = opts.label ? "role=\\"img\\"" : "aria-hidden=\\"true\\"";',
+  '    var title = opts.label ? "<title>" + esc(opts.label) + "</title>" : "";',
+  '    return "<svg xmlns=\\"http://www.w3.org/2000/svg\\" class=\\"" + cls + "\\" width=\\"" + size + "\\" height=\\"" + size +',
+  '      "\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\" " +',
+  '      a11y + ">" + title + body + "</svg>";',
+  '  };',
+  '})();',
+  '',
+].join('\n');
+writeFileSync(join(root, 'prototype', 'public', 'icons.generated.js'), kicon);
 console.log(`Generated ${ICON_NAMES.length} icons.`);
