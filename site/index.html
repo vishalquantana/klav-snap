@@ -94,6 +94,8 @@
   --red-text:#b02418;     /* 6.3:1 on card */
   --muted-safe:#6b6055;   /* replaces #9a8f7d (5.7:1 on card) */
   --display:'Fraunces',serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  /* layered shadow-as-border for card depth (adapts to any background; replaces a flat 1px edge) */
+  --shadow-border:0 0 0 1px rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.06), 0 2px 4px 0 rgba(0,0,0,.04);
 }
 [data-theme="dark"]{
   --ink:#0c0a08; --ink-2:#15110d; --ink-3:#1e1813;
@@ -104,12 +106,14 @@
   /* on dark bg the brighter accents already pass; keep them for text */
   --indigo-text:#8b8bf5; --rose-text:#e8849a; --green-text:#9fd6a0;
   --amber-text:#e8a24a; --red-text:#ff6b5e; --muted-safe:#776c5d;
+  /* dark: a single white ring — layered depth shadows aren't visible on dark surfaces */
+  --shadow-border:0 0 0 1px rgba(255,255,255,.08);
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
   background:var(--ink); color:var(--paper); font-family:var(--body);
-  font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
   overflow-x:hidden;
 }
 /* warm grain + vignette atmosphere */
@@ -134,7 +138,10 @@ a:hover,a:focus-visible{text-decoration:underline; text-underline-offset:2px}
 .foot a,.foot a:hover,.foot a:focus-visible,
 .parc-more a,.parc-arc a,
 a:has(> .parc-sim){text-decoration:none}
-.mono{font-family:var(--mono); font-weight:500}
+.mono{font-family:var(--mono); font-weight:500; font-variant-numeric:tabular-nums}
+/* feel-better: even line breaks on headings, no orphans in body copy */
+h1,h2,h3,h4{text-wrap:balance}
+p,li,.lede,figcaption,blockquote{text-wrap:pretty}
 .tag{
   font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
   color:var(--paper-faint);
@@ -152,11 +159,13 @@ nav{position:sticky; top:0; z-index:50; backdrop-filter:blur(14px);
 .nav-links a:hover{color:var(--paper)}
 .nav-right{margin-left:auto; display:flex; gap:14px; align-items:center}
 .nav-cta{display:flex; gap:12px; align-items:center}
-.nav-icon{width:38px; height:38px; flex:0 0 auto; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--paper-dim); cursor:pointer; font-size:16px; line-height:1; display:grid; place-items:center; transition:border-color .2s, color .2s, transform .12s}
+.nav-icon{position:relative; width:38px; height:38px; flex:0 0 auto; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--paper-dim); cursor:pointer; font-size:16px; line-height:1; display:grid; place-items:center; transition:border-color .2s, color .2s, transform .12s}
+/* extend the 38px control to a 40×40 hit target without changing its visual size */
+.nav-icon::after{content:""; position:absolute; top:50%; left:50%; width:40px; height:40px; transform:translate(-50%,-50%)}
 .nav-icon:hover{border-color:var(--indigo); color:var(--paper)}
-.nav-icon:active{transform:translateY(1px)}
+.nav-icon:active{transform:scale(.96)}
 .btn{font-family:var(--body); font-weight:600; font-size:14.5px; padding:10px 18px; border-radius:11px; cursor:pointer; border:1px solid transparent; transition:transform .12s, background .2s, border-color .2s; display:inline-flex; align-items:center; gap:8px}
-.btn:active{transform:translateY(1px)}
+.btn:active{transform:scale(.96)}
 .btn-ghost{color:var(--paper); border-color:var(--line); background:transparent}
 .btn-ghost:hover{border-color:rgba(243,236,225,.3)}
 .btn-solid{color:#100d0a; background:var(--paper)}
@@ -189,7 +198,7 @@ h1 .ind{color:var(--indigo)}
 .pc-h{font-family:var(--display); font-weight:600; font-size:15px}
 .pc-sub{font-size:10.5px; color:var(--muted-safe); margin-bottom:11px; font-family:var(--mono)}
 .pc-kpis{display:flex; gap:7px; margin-bottom:11px}
-.pc-kpi{flex:1; background:#fff; border:1px solid #ece6db; border-radius:9px; padding:8px}
+.pc-kpi{flex:1; background:#fff; box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 1px 2px -1px rgba(0,0,0,.06), 0 2px 4px 0 rgba(0,0,0,.04); border-radius:9px; padding:8px}
 .pc-kl{font-size:7.5px; color:var(--muted-safe); letter-spacing:.05em; text-transform:uppercase}
 .pc-kv{font-size:17px; font-weight:700; font-family:var(--display)}
 .pc-row{display:flex; align-items:center; gap:7px; font-size:10px; padding:5px 0; border-top:1px solid #f1ece2}
@@ -248,7 +257,7 @@ section{padding:90px 0; position:relative}
 
 /* sims showcase */
 .sims-row{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
-.persona{background:var(--ink-2); border:1px solid var(--line); border-radius:18px; padding:22px; transition:transform .2s, box-shadow .2s}
+.persona{background:var(--ink-2); box-shadow:var(--shadow-border); border-radius:18px; padding:22px; transition:transform .2s, box-shadow .2s}
 .persona:hover{transform:translateY(-5px) rotate(-.6deg); box-shadow:0 24px 50px rgba(0,0,0,.45)}
 .p-top{display:flex; align-items:center; gap:12px; margin-bottom:16px}
 .p-av{width:46px; height:46px; border-radius:50%; display:grid; place-items:center; font-family:var(--mono); font-weight:700; color:#fff; font-size:14px}
@@ -366,7 +375,7 @@ footer{border-top:1px solid var(--line-2); padding:40px 0; color:var(--paper-fai
 .klavity-hl.on{opacity:1}
 #klavity-toggle{position:fixed;right:18px;bottom:18px;z-index:64;font-family:var(--body);font-weight:600;font-size:13px;padding:11px 16px;border-radius:30px;border:1px solid var(--line);background:rgba(21,17,13,.92);backdrop-filter:blur(12px);color:var(--paper);cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 12px 30px rgba(0,0,0,.45);transition:border-color .2s,transform .12s}
 #klavity-toggle:hover{border-color:var(--indigo)}
-#klavity-toggle:active{transform:translateY(1px)}
+#klavity-toggle:active{transform:scale(.96)}
 #klavity-toggle .live{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.4s infinite}
 #klavity-toggle.hint{animation:tgpulse 2.2s ease infinite}
 @keyframes tgpulse{0%,100%{box-shadow:0 12px 30px rgba(0,0,0,.45)}50%{box-shadow:0 12px 30px rgba(0,0,0,.45),0 0 0 7px rgba(139,139,245,.13)}}
