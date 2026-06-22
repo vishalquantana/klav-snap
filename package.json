@@ -8,5 +8,11 @@
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "check:emoji": "node scripts/check-no-emoji.mjs"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "overrides": {
+    "esbuild": "0.25.12"
   }
 }
