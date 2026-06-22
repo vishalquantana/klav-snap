@@ -155,16 +155,19 @@ export function buildModal(
     .klavity-progress.show{opacity:1;max-height:5px;margin-top:10px;}
     .klavity-progress-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,color-mix(in srgb,var(--kl-accent) 65%,#fff),var(--kl-accent));}
     .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
-    .klavity-success h2{margin:0 0 8px;font-size:18px;color:var(--kl-fg);}
+    .klavity-success h2{margin:0 0 8px;font-size:20px;color:var(--kl-fg);display:flex;align-items:center;gap:8px;line-height:1.2;}
     .klavity-success p{margin:0 0 16px;font-size:14px;color:var(--kl-muted);line-height:1.4;}
+    .klavity-success>h2{animation:kl-rise .45s cubic-bezier(.16,1,.3,1) .05s both;}.klavity-success>p{animation:kl-rise .45s cubic-bezier(.16,1,.3,1) .12s both;}.klavity-lead,.klavity-thanks{animation:kl-rise .45s cubic-bezier(.16,1,.3,1) .18s both;}.klavity-success>.klavity-cta{animation:kl-rise .45s cubic-bezier(.16,1,.3,1) .24s both;}
     .klavity-lead{display:flex;gap:8px;margin-bottom:12px;}
     .klavity-lead input{flex:1;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:8px;padding:9px 10px;font-size:14px;box-sizing:border-box;}
-    .klavity-lead button{min-height:40px;padding:9px 14px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .klavity-lead input:focus{outline:none;border-color:var(--kl-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--kl-accent) 20%,transparent);}
+    .klavity-lead button{min-height:40px;padding:9px 14px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px color-mix(in srgb,var(--kl-accent) 30%,transparent);}
     .klavity-lead button:disabled{opacity:.5;cursor:not-allowed;}
     .klavity-thanks{font-size:13px;color:var(--kl-fg);margin-bottom:12px;}
-    .klavity-cta{display:inline-block;padding:10px 16px;background:var(--kl-accent);color:var(--kl-on-accent);border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:12px;}
+    .klavity-cta{display:inline-block;padding:10px 16px;background:linear-gradient(135deg,var(--kl-accent),color-mix(in srgb,var(--kl-accent) 70%,#8b5cf6));color:var(--kl-on-accent);border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:12px;box-shadow:0 4px 14px color-mix(in srgb,var(--kl-accent) 35%,transparent);}
     .klavity-pb{text-align:center;font-size:10px;color:var(--kl-muted);margin-top:12px;}
-    .klavity-pb a{color:var(--kl-muted);text-decoration:none;}
+    .klavity-pb a{color:var(--kl-muted);text-decoration:none;transition:color .15s ease;}
+    .klavity-pb a:hover{color:var(--kl-accent);}
     /* ── Button micro-interactions — subtle hover lift/scale + press, Klavity-accent on hover, focus
        rings. Same feel as the right-click menu + dashboard buttons. Transform amounts are CSS vars so
        prefers-reduced-motion can zero them (below). color-mix degrades gracefully if unsupported. ── */
