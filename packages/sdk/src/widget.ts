@@ -341,6 +341,7 @@ async function mount() {
       "@keyframes klm-in{0%{opacity:0;transform:scale(.9) translateY(8px)}100%{opacity:1;transform:scale(1) translateY(0)}}" +
       "@keyframes klm-row-in{0%{opacity:0;transform:translateY(10px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}" +
       "@keyframes klm-shine{0%{transform:translateX(-130%)}100%{transform:translateX(240%)}}" +
+      "@keyframes klm-spin{to{transform:rotate(360deg)}}" +
       ".klm-menu{animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}" +
       // ── Large touch cards (L6): icon chip + label + one-line description + arrow ──
       ".klm-card{position:relative;display:flex;align-items:center;gap:12px;width:100%;border:0;cursor:pointer;text-align:left;padding:11px 12px;border-radius:12px;color:#2a2342;font-family:inherit;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(252,250,246,.55));box-shadow:0 1px 2px rgba(40,25,70,.06),inset 0 0 0 1px rgba(99,102,241,.08);transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s ease,background .2s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
@@ -418,12 +419,85 @@ async function mount() {
       b.addEventListener("click", () => { closeMenu(); opts.onClick() })
       return b
     }
+    // ── Inline Sim picker — replaces menu content in-place, async fetch of /api/personas ──
+    const showSimPicker = async () => {
+      // Reveal overflow so a long Sim list scrolls rather than clips
+      menu.style.overflow = "visible"
+      Array.from(menu.children).forEach((c) => { if (!(c as HTMLElement).classList.contains("klm-shine")) c.remove() })
+      // Loading state
+      const status = document.createElement("div")
+      status.style.cssText = "display:flex;align-items:center;gap:8px;padding:14px 12px;font-size:12.5px;color:#7c7793"
+      const spinSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:klm-spin .7s linear infinite;flex-shrink:0"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`
+      status.innerHTML = spinSvg + " Loading Sims…"
+      menu.appendChild(status)
+      let personas: Array<{ id: string; name: string; role?: string }> = []
+      try {
+        const r = await api("/api/personas?project=" + encodeURIComponent(cfg.projectId))
+        if (!r.ok) throw new Error()
+        personas = ((await r.json()).personas || []) as typeof personas
+      } catch {
+        status.innerHTML = "Couldn't load Sims."
+        return
+      }
+      if (!personas.length) { status.innerHTML = "No Sims in this project yet."; return }
+      status.remove()
+      // Header row: × close + title
+      const hdr = document.createElement("div")
+      hdr.style.cssText = "display:flex;align-items:center;gap:8px;padding:4px 4px 8px"
+      const closeBtn = document.createElement("button")
+      closeBtn.innerHTML = icon("x", { size: 14 })
+      closeBtn.style.cssText = "display:grid;place-items:center;width:26px;height:26px;border:0;background:rgba(99,102,241,.1);border-radius:8px;cursor:pointer;color:#5b51c9;flex-shrink:0"
+      closeBtn.addEventListener("click", () => closeMenu())
+      const hdrTitle = document.createElement("span")
+      hdrTitle.textContent = "Choose Sims"
+      hdrTitle.style.cssText = "font-size:13px;font-weight:650;color:#2a2342"
+      hdr.append(closeBtn, hdrTitle); menu.appendChild(hdr)
+      const sel = new Set<string>()
+      // Confirm button (built early so sync() can update it)
+      const confirmBtn = document.createElement("button")
+      confirmBtn.disabled = true
+      confirmBtn.style.cssText = "width:100%;padding:11px;border:0;border-radius:12px;font-family:inherit;font-size:13.5px;font-weight:650;cursor:pointer;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;margin-top:6px;opacity:.45;transition:opacity .15s"
+      confirmBtn.textContent = "Select a Sim first"
+      const syncConfirm = () => {
+        const n = sel.size
+        confirmBtn.disabled = n === 0
+        confirmBtn.textContent = n > 0 ? `Deploy ${n} Sim${n > 1 ? "s" : ""} →` : "Select a Sim first"
+        confirmBtn.style.opacity = n > 0 ? "1" : ".45"
+      }
+      confirmBtn.addEventListener("click", () => { if (!sel.size) return; closeMenu(); ;(window as any).KlavitySims?.deploy?.([...sel]) })
+      // Sim rows — scrollable list
+      const list = document.createElement("div")
+      list.style.cssText = "display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto"
+      for (const p of personas) {
+        const row = document.createElement("button")
+        row.style.cssText = "display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;background:transparent;border:1.5px solid transparent;border-radius:10px;cursor:pointer;text-align:left;font-family:inherit;transition:background .14s,border-color .14s"
+        const chk = document.createElement("span")
+        chk.style.cssText = "width:17px;height:17px;border-radius:5px;border:1.5px solid rgba(99,102,241,.35);display:grid;place-items:center;flex-shrink:0;transition:background .14s,border-color .14s"
+        const nm = document.createElement("span")
+        nm.textContent = p.name
+        nm.style.cssText = "font-size:13px;font-weight:550;color:#2a2342;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+        row.append(chk, nm)
+        if (p.role) { const rl = document.createElement("span"); rl.textContent = p.role; rl.style.cssText = "font-size:10.5px;color:#9a93a6;white-space:nowrap"; row.appendChild(rl) }
+        const setOn = (on: boolean) => {
+          chk.style.background = on ? "#6366f1" : ""; chk.style.borderColor = on ? "#6366f1" : "rgba(99,102,241,.35)"
+          chk.innerHTML = on ? icon("check", { size: 11 }) : ""
+          row.style.background = on ? "rgba(99,102,241,.09)" : ""; row.style.borderColor = on ? "rgba(99,102,241,.22)" : "transparent"
+        }
+        row.addEventListener("click", () => { sel.has(p.id) ? sel.delete(p.id) : sel.add(p.id); setOn(sel.has(p.id)); syncConfirm() })
+        row.addEventListener("mouseenter", () => { if (!sel.has(p.id)) row.style.background = "rgba(99,102,241,.05)" })
+        row.addEventListener("mouseleave", () => { if (!sel.has(p.id)) row.style.background = "" })
+        list.appendChild(row)
+      }
+      menu.append(list, confirmBtn)
+    }
     menu.appendChild(card("zap", "Report a Bug", "Snap the page and tell us what broke.", { primary: true, onClick: () => openReport("bug") }))
     menu.appendChild(card("lightbulb", "Request a Feature", "Suggest something you'd love to see.", { onClick: () => openReport("feature") }))
     // Sims live review — only shown to authenticated team members (token present).
     if (getToken()) {
       menu.appendChild(card("dna", "Ask Sims to review this", "Get instant in-character reactions from your AI personas.", { onClick: () => void runReview() }))
     }
+    menu.appendChild(card("users", "Deploy all Sims", "Have every Sim jump in and analyze this page.", { onClick: () => { closeMenu(); ;(window as any).KlavitySims?.deploy?.("all") } }))
+    menu.appendChild(card("sparkles", "Select Sims…", "Choose which Sims jump into action.", { onClick: () => { void showSimPicker() } }))
     menu.appendChild(card("monitor", "Show browser menu", "Open your browser's own menu instead.", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
     // "Powered by Klavity" footer — gradient wordmark, opens the marketing site in a new tab
     const footer = document.createElement("button")
