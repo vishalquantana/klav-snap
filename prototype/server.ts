@@ -1,4 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
+import { insertSimRun, getSimRun, listSimRuns } from "./lib/db"
 import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, recordWidgetPing, latestWidgetPing, setFeedbackContactEmail, exportUserData, eraseUser, computeDashboardInsights, listTriageFeedback, listFeedbackForSim } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { classifySimObservation } from "./lib/sim-bug-classify"
@@ -27,6 +28,7 @@ import { AsyncLocalStorage } from "node:async_hooks"
 // resolveProject can constrain it to that project (F5) — without threading state through every route.
 const reqCtx = new AsyncLocalStorage<{ boundProject?: string | null }>()
 import { ingestSnapOrSim } from "./lib/expectations-ingest"
+import { runSimReviews, decodeDataUrl as decodeDataUrlLib, splitUrl as splitUrlLib, buildSimRunSummary, type SimReview } from "./lib/sim-review"
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
@@ -1908,6 +1910,18 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const screenshotDataUrl = String(body.screenshotDataUrl || "")
         const reqSimIds: string[] = Array.isArray(body.simIds) ? body.simIds.map(String) : []
         const adhoc = body.adhoc === true
+        // Session dedup: client sends a sessionId (opaque string; scoped to one browse session) and
+        // the set of observation hashes already shown so we never repeat observations in one session.
+        const sessionId = body.sessionId ? String(body.sessionId).slice(0, 64) : null
+        const seenHashes = new Set<string>(
+          Array.isArray(body.seenHashes) ? body.seenHashes.map(String).filter((h: string) => /^[0-9a-f]{16}$/.test(h)) : []
+        )
+        // Per-session throttle: cap continuous-mode calls to 1 req/2s per (session, project) to
+        // prevent runaway AI spend while still feeling live. Uses the same ratelimit infra as other
+        // rate-limited endpoints. No-op when sessionId is absent (passive/one-shot mode).
+        if (sessionId && !rlAllow(`simreview:${sessionId}`, 1, 2000)) {
+          return wjson({ ok: true, reason: "throttled", projectId: body.projectId || null, reviews: [] }, 200)
+        }
 
         // (a) AUTH + project access. Resolve project by matchMonitored(url) when projectId is absent — but
         //     only across projects the caller can access (no cross-project leakage / off-account capture).
@@ -1968,10 +1982,10 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           return wjson({ ok: false, reason: gate.reason, error: gate.message, projectId }, gate.status)
         }
 
-        // ── ALL GATES PASSED. Only now do we capture + review. ──
+        // ── ALL GATES PASSED. Only now do we review. ──
         console.log(`[review] running sims=${targetSims.length} path=${urlPath || "/"}`)
         if (!screenshotDataUrl) return wjson({ ok: false, reason: "noScreenshot", error: "screenshotDataUrl is required." }, 400)
-        const decoded = decodeDataUrl(screenshotDataUrl)
+        const decoded = decodeDataUrlLib(screenshotDataUrl)
         if (!decoded) return wjson({ ok: false, reason: "badScreenshot", error: "screenshotDataUrl could not be decoded." }, 400)
 
         // Store the screenshot PRIVATE (acl='private') + record the durable ledger row (P0).
@@ -1982,131 +1996,85 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           acl: "private", bytes: decoded.bytes.byteLength, ownerEmail: meR, expiresAt,
         })
 
-        // Run the vision review (reuse reactToPage) for each target Sim; persist feedback + activity.
-        const imageB64 = decoded.base64
-        const out: any[] = []
-        for (let i = 0; i < targetSims.length; i++) {
-          const sim = targetSims[i]
-          // Skip a Sim whose (sim,path,domSig) was already reviewed (per-Sim dedupe; we still captured once).
-          if (reviewSeen(seenKeys[i])) continue
+        // Run all Sim reviews via the extracted lib function. Each Sim reacts to the page,
+        // observations are session-deduped by hash, feedback rows are inserted/bumped, and the
+        // expectations spine is updated. Recurring issues carry RecurrenceMemory (KLA-2).
+        const activeIndexes = targetSims.map((_, i) => i).filter((i) => !reviewSeen(seenKeys[i]))
+        const reviews = await runSimReviews({
+          projectId, urlPath, urlHost, pageUrl, imageB64: decoded.base64, mediaType: decoded.contentType,
+          targetSims: activeIndexes.map((i) => targetSims[i]),
+          actorEmail: meR, screenshotId,
+          seenKeys: activeIndexes.map((i) => seenKeys[i]),
+          seenHashes,
+          reactFn: (sim, b64, mt, pu) => reactToPage(sim, b64, mt, pu),
+          resolveCitationsFn: resolveCitations,
+          autoCopy: autoCopyFeedback,
+          markSeen: markReviewSeen,
+          db: db ?? null,
+        })
 
-          // Build regression-gated recurrence memory for this Sim's traits. Fetch all events ONCE,
-          // group by traitId in memory, then compute recurrenceFromEvents per trait. Only attach a
-          // memory block when regressed=true — a trait reinforced many times but never resolved must
-          // NOT carry disappointment voice.
-          let simWithMemory: any = sim
-          // Built ONCE per Sim and reused for every reaction's resolveCitations (avoids the N+1).
-          let citePre: { traits: Trait[]; eventsByTrait: Map<string, TraitEventRow[]> } | undefined
+        // Persist a lightweight sim_runs record for run history and dashboard correlation.
+        // Best-effort — a record failure never fails the HTTP response.
+        if (db) {
           try {
-            const allSimEvents: TraitEventRow[] = await listTraitEvents(sim.id, { projectId })
-            const eventsByTrait = new Map<string, TraitEventRow[]>()
-            for (const e of allSimEvents) {
-              const arr = eventsByTrait.get(e.traitId) ?? []
-              arr.push(e)
-              eventsByTrait.set(e.traitId, arr)
-            }
-            citePre = { traits: await listTraits(sim.id, { projectId }), eventsByTrait }
-            // Attach recurrenceMemory only to traits where regressed=true.
-            const insights = Array.isArray(sim.insights) ? sim.insights : []
-            const insightsWithMemory = insights.map((ins: any) => {
-              const traitId = ins.traitId
-              if (!traitId) return ins
-              const evts = eventsByTrait.get(traitId) ?? []
-              const rec = recurrenceFromEvents(evts)
-              if (!rec.regressed) return ins // no disappointment for mere recurrence
-              return {
-                ...ins,
-                recurrenceMemory: {
-                  regressed: true,
-                  firstRaised: rec.firstRaised,
-                  lastRaised: rec.lastRaised,
-                  priorResolvedAt: rec.priorResolvedAt,
-                  timesRaised: rec.timesRaised,
-                },
-              }
+            await insertSimRun({
+              projectId, url: pageUrl,
+              simIds: reqSimIds.length ? reqSimIds : null,  // null = all Sims
+              screenshotId, reactions: reviews,
+              actorEmail: meR, status: "done", finishedAt: Date.now(),
             })
-            simWithMemory = { ...sim, insights: insightsWithMemory }
-          } catch {
-            // Non-fatal: if DB is unavailable, fall back to plain sim.
-          }
-
-          let reactions: any[] = []
-          try {
-            const { data } = await reactToPage(simWithMemory, imageB64, decoded.contentType, urlPath || pageUrl)
-            reactions = Array.isArray(data?.reactions) ? data.reactions : []
-          } catch (e: any) {
-            console.error("sim/review reactToPage (non-fatal):", e?.message || e)
-            continue
-          }
-          for (const r of reactions) {
-            const citation = await resolveCitations(sim.id, r?.citedTraitIds, projectId, citePre)
-            let bug = r?.suggestedBug
-            // Route broken/stuck/blocked Sim observations to real bug candidates. If the model didn't
-            // already attach a suggestedBug, run the heuristic classifier on the observation text — a
-            // hit synthesises a suggestedBug (with a sim-flagged marker + matched signals) so it flows
-            // through the normal bug path: severity-driven triage gate (high → auto-accepted OPEN,
-            // medium → triage queue, promoted by recurrence), Plane auto-copy, and expectations spine —
-            // instead of being buried as low-value noise.
-            if (!bug) {
-              const verdict = classifySimObservation(r?.observation, r?.sentiment)
-              if (verdict.flagged) {
-                const obs = String(r?.observation ?? "").trim()
-                bug = { title: obs.slice(0, 90) || "Sim-flagged issue", body: obs, severity: verdict.severity, simFlagged: true, signals: verdict.signals }
-                r.suggestedBug = bug
-                r.simFlagged = true
-              }
-            }
-            let dedupedInto: string | null = null
-            if (bug) {
-              dedupedInto = await findDuplicateFeedback({
-                projectId, urlPath, issueType: citation.issueType,
-                citedTraitIds: citation.citedTraitIds,
-                title: String(bug?.title || ""), observation: r?.observation ?? "",
-              })
-            }
-            let feedbackId: string
-            if (dedupedInto) {
-              await bumpFeedbackRecurrence(dedupedInto, Date.now())
-              feedbackId = dedupedInto
-              r.deduped = true
-            } else {
-              feedbackId = await insertFeedback({
-                projectId, simId: sim.id, actorEmail: meR, urlHost, urlPath,
-                observation: r?.observation ?? null, sentiment: r?.sentiment ?? null,
-                severity: r?.suggestedBug?.severity ?? null, screenshotId, suggestedBug: r?.suggestedBug ?? null,
-                citedTraitIds: citation.citedTraitIds.length ? citation.citedTraitIds : null,
-                sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
-                issueKey: bug ? issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds) : null,
-              })
-            }
-            r.citation = citation.citedTraitIds.length
-              ? { citedTraitIds: citation.citedTraitIds, sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate, sourceQuoteVerified: citation.sourceQuoteVerified, recurrence: citation.recurrence }
-              : null
-            r.feedbackId = feedbackId
-            // Auto-copy Sim-generated observations to the project's tracker too (previously only
-            // manual/widget reports auto-copied → Sim feedback never reached Plane). New rows only.
-            if (feedbackId && !dedupedInto) autoCopyFeedback(feedbackId, projectId, meR)
-            // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
-            if (bug && feedbackId && db) {
-              await ingestSnapOrSim(db, {
-                projectId, feedbackId, isSnap: false,
-                title: (bug?.title ?? r?.observation ?? "").slice(0, 200),
-                dedupKey: issueKeyForFeedback(projectId, urlPath, citation.issueType, citation.citedTraitIds),
-                urlPath: urlPath ?? null, issueType: citation.issueType ?? null,
-                citedTraitIds: Array.isArray(citation.citedTraitIds) ? citation.citedTraitIds.map(String) : [],
-              })
-            }
-          }
-          // activity: a review ran (actor + sim + path + screenshot) — the R6 observability spine.
-          await insertActivity({ projectId, type: "review_run", actorEmail: meR, simId: sim.id, urlHost, urlPath, screenshotId, meta: { reactions: reactions.length } })
-          markReviewSeen(seenKeys[i])
-          out.push({ simId: sim.id, simName: sim.name, initials: sim.initials, accent: sim.accent, reactions })
+          } catch (e: any) { console.warn("[review] sim_runs insert skipped:", e?.message || e) }
         }
 
-        console.log(`[review] done path=${urlPath || "/"} sims_reviewed=${out.length} reactions=${out.reduce((n: number, r: any) => n + (r.reactions?.length || 0), 0)}`)
-        return wjson({ ok: true, projectId, screenshotId, reviews: out })
+        const { simCount, totalObservations } = buildSimRunSummary(reviews)
+        console.log(`[review] done path=${urlPath || "/"} sims_reviewed=${simCount} observations=${totalObservations}`)
+        return wjson({ ok: true, projectId, screenshotId, reviews })
       } catch (e: any) {
         return wjson({ ok: false, reason: "error", error: e?.message || "review failed" }, 500)
+      }
+    }
+
+    // ── GET /api/sims — list project Sims for the widget/extension Sim picker (Dev 6 menu). ──
+    // Returns the lightweight summary the picker needs: id, name, initials, accent, role.
+    // Auth: cookie OR Bearer (same as /api/personas but at the /api/sims path so Dev 6 has a
+    // stable contract without coupling to the Sim Studio /api/personas shape).
+    if (req.method === "GET" && path === "/api/sims") {
+      const meS2 = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meS2) return json({ error: "Sign in to continue." }, 401)
+      const projS = await resolveProject(meS2, url.searchParams.get("project"))
+      if (!projS) return json({ error: "No accessible project." }, 404)
+      const personas = await listPersonas(projS.id)
+      const sims = personas.map((p) => ({ id: p.id, name: p.name, initials: p.initials ?? null, accent: p.accent ?? null, role: p.role ?? null }))
+      return json({ sims })
+    }
+
+    // ── /api/sims/runs — Sim run history (v1 manual trigger). Auth: cookie OR Bearer. ──
+    // GET /api/sims/runs?project=<id>&limit=<n>  — list recent runs for a project (default 20).
+    // GET /api/sims/runs/:runId                  — fetch a single run with full reactions payload.
+    if (path === "/api/sims/runs" || path.startsWith("/api/sims/runs/")) {
+      const meS = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meS) return json({ error: "Sign in to continue." }, 401)
+      if (!db) return json({ error: "Database unavailable." }, 503)
+
+      const runIdMatch = path.match(/^\/api\/sims\/runs\/([^/]+)$/)
+
+      if (req.method === "GET" && runIdMatch) {
+        const runId = runIdMatch[1]
+        const run = await getSimRun(runId)
+        if (!run) return json({ error: "Run not found." }, 404)
+        // Project-access gate: caller must have access to the run's project.
+        const access = await projectAccess(meS, run.projectId)
+        if (!access) return json({ error: "Access denied." }, 403)
+        return json({ run })
+      }
+
+      if (req.method === "GET" && path === "/api/sims/runs") {
+        const projR = await resolveProject(meS, url.searchParams.get("project"))
+        if (!projR) return json({ error: "No accessible project." }, 404)
+        const limitRaw = Number(url.searchParams.get("limit") || "20")
+        const limit = Math.max(1, Math.min(limitRaw, 100))
+        const runs = await listSimRuns(projR.id, limit)
+        return json({ runs })
       }
     }
 
