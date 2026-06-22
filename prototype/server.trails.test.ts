@@ -114,7 +114,12 @@ let serverProc: ReturnType<typeof Bun.spawn>
 let BASE: string
 
 beforeAll(async () => {
-  serverPort = 19000 + Math.floor(Math.random() * 1000)
+  // Unique port band (41xxx) so this subprocess server can't collide with another suite's.
+  // The old 19xxx band was shared with server.connectors (19000-19999) and overlapped
+  // server.inbound-webhook (19500-19899); under bun's concurrent file execution a port clash
+  // meant our readiness probe hit the OTHER suite's server, whose DB has no MEMBER_SID, so every
+  // authed route 401'd — the intermittent CI red. No other test uses 4xxxx.
+  serverPort = 41000 + Math.floor(Math.random() * 1000)
   BASE = `http://localhost:${serverPort}`
   serverProc = Bun.spawn(["bun", "run", "server.ts"], {
     cwd: import.meta.dir,

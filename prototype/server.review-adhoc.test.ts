@@ -81,7 +81,7 @@ let BASE: string
 const TINY_PNG_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 
 beforeAll(async () => {
-  serverPort = 21000 + Math.floor(Math.random() * 1000)
+  serverPort = 42000 + Math.floor(Math.random() * 1000)
   BASE = `http://localhost:${serverPort}`
 
   serverProc = Bun.spawn(["bun", "run", "server.ts"], {

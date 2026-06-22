@@ -71,7 +71,7 @@ const projectId = PROJECT_ID
 const sessionCookie = `klav_session=${ADMIN_SID}`
 
 beforeAll(async () => {
-  serverPort = 20000 + Math.floor(Math.random() * 1000)
+  serverPort = 47000 + Math.floor(Math.random() * 1000)
   base = `http://localhost:${serverPort}`
 
   serverProc = Bun.spawn(["bun", "run", "server.ts"], {

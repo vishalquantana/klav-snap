@@ -86,7 +86,7 @@ async function hmacHex(secret: string, body: string): Promise<string> {
 }
 
 beforeAll(async () => {
-  serverPort = 19500 + Math.floor(Math.random() * 400)
+  serverPort = 39000 + Math.floor(Math.random() * 400)
   BASE = `http://localhost:${serverPort}`
   serverProc = Bun.spawn(["bun", "run", "server.ts"], {
     cwd: import.meta.dir,

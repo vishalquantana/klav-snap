@@ -52,7 +52,7 @@ await rawExec(`INSERT INTO feedback_replays (id, feedback_id, project_id, events
 let serverPort: number, serverProc: ReturnType<typeof Bun.spawn>, BASE: string, sessionCookie = ""
 
 beforeAll(async () => {
-  serverPort = 23000 + Math.floor(Math.random() * 1000)
+  serverPort = 36000 + Math.floor(Math.random() * 1000)
   BASE = `http://localhost:${serverPort}`
   serverProc = Bun.spawn(["bun", "run", "server.ts"], {
     cwd: import.meta.dir,

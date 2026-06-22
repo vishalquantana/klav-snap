@@ -12,7 +12,7 @@ let serverProc: ReturnType<typeof Bun.spawn>
 let BASE: string
 
 beforeAll(async () => {
-  const port = 22000 + Math.floor(Math.random() * 1000)
+  const port = 38000 + Math.floor(Math.random() * 1000)
   BASE = `http://localhost:${port}`
   serverProc = Bun.spawn(["bun", "run", "server.ts"], {
     cwd: import.meta.dir,
