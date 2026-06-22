@@ -112,6 +112,7 @@ export type BackgroundMessage =
   | { kind: 'KLAV_REVIEW'; projectId: string; url: string; domSig: string; screenshotDataUrl: string; adhoc?: boolean } // POST /api/sim/review
   | { kind: 'KLAV_CONSENT'; projectId: string; status: 'granted' | 'paused' | 'revoked' }               // POST /api/consent
   | { kind: 'KLAV_RECONCILE_SCRIPTS' }                       // re-register dynamic content scripts after a host-permission grant
+  | { kind: 'KLAV_DEPLOY_SIMS'; projectId: string; simIds: string[] | 'all' } // trigger sims-live deploy (Dev2 hook)
 
 export type KlavMonitoredProject = { id: string; name: string; reviewMode: string; monitoredUrls: string[] }
 export interface KlavConfig {

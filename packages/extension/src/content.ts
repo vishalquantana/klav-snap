@@ -318,6 +318,7 @@ function ensureCtxMenuStyle() {
     '@keyframes klm-in{0%{opacity:0;transform:scale(.9) translateY(-8px)}100%{opacity:1;transform:scale(1) translateY(0)}}' +
     '@keyframes klm-row-in{0%{opacity:0;transform:translateY(7px)}100%{opacity:1;transform:translateY(0)}}' +
     '@keyframes klm-shine{0%{transform:translateX(-130%)}100%{transform:translateX(240%)}}' +
+    '@keyframes klm-spin{to{transform:rotate(360deg)}}' +
     '.klm-menu{animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}' +
     '.klm-row{animation:klm-row-in .34s cubic-bezier(.16,1,.3,1) both}' +
     '.klm-ic{transition:transform .2s cubic-bezier(.34,1.56,.64,1)}' +
@@ -376,6 +377,84 @@ function showCtxMenu(x: number, y: number) {
   // already knows this page), fall back to the first configured project, or null if not signed in.
   const simsProject = klavMatchProject(location.href) ?? (klavConfig?.projects?.length ? klavConfig.projects[0] : null)
 
+  // ── Inline Sim picker — replaces menu content in place, fetches /api/personas ──
+  const showExtSimPicker = async () => {
+    if (!simsProject || !klavConfig) return
+    Array.from(menu.children).forEach((c) => {
+      if (!(c as HTMLElement).classList.contains('klm-shine')) c.remove()
+    })
+    const status = document.createElement('div')
+    status.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px;font-size:12.5px;color:#7c7793'
+    const spinSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:klm-spin .7s linear infinite;flex-shrink:0"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`
+    status.innerHTML = spinSvg + ' Loading Sims…'
+    menu.appendChild(status)
+    let personas: Array<{ id: string; name: string; role?: string }> = []
+    try {
+      const r = await fetch(klavConfig.backendUrl + '/api/personas?project=' + encodeURIComponent(simsProject.id), {
+        headers: { authorization: 'Bearer ' + klavConfig.token },
+      })
+      if (!r.ok) throw new Error()
+      personas = ((await r.json()).personas || []) as typeof personas
+    } catch {
+      status.innerHTML = "Couldn't load Sims."
+      return
+    }
+    if (!personas.length) { status.innerHTML = 'No Sims in this project yet.'; return }
+    status.remove()
+    // Header
+    const hdr = document.createElement('div')
+    hdr.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 8px 8px;border-bottom:1px solid rgba(99,102,241,.1);margin-bottom:4px'
+    const closeBtn = document.createElement('button')
+    closeBtn.innerHTML = icon('x', { size: 13 })
+    closeBtn.style.cssText = 'display:grid;place-items:center;width:24px;height:24px;border:0;background:rgba(99,102,241,.1);border-radius:7px;cursor:pointer;color:#5b51c9;flex-shrink:0'
+    closeBtn.addEventListener('click', () => closeCtxMenu())
+    const hdrTitle = document.createElement('span')
+    hdrTitle.textContent = 'Choose Sims'
+    hdrTitle.style.cssText = 'font-size:13px;font-weight:650;color:#19140f'
+    hdr.append(closeBtn, hdrTitle); menu.appendChild(hdr)
+    const sel = new Set<string>()
+    const confirmBtn = document.createElement('button')
+    confirmBtn.disabled = true
+    confirmBtn.style.cssText = 'width:calc(100% - 16px);margin:6px 8px 0;padding:9px;border:0;border-radius:10px;font-family:inherit;font-size:13px;font-weight:650;cursor:pointer;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;opacity:.45;transition:opacity .15s'
+    confirmBtn.textContent = 'Select a Sim first'
+    const syncConfirm = () => {
+      const n = sel.size
+      confirmBtn.disabled = n === 0
+      confirmBtn.textContent = n > 0 ? `Deploy ${n} Sim${n > 1 ? 's' : ''} →` : 'Select a Sim first'
+      confirmBtn.style.opacity = n > 0 ? '1' : '.45'
+    }
+    confirmBtn.addEventListener('click', () => {
+      if (!sel.size) return
+      closeCtxMenu()
+      const ids = [...sel]
+      const w = window as any
+      if (w.KlavitySims?.deploy) { w.KlavitySims.deploy(ids) }
+      else { klavSend({ kind: 'KLAV_DEPLOY_SIMS', projectId: simsProject.id, simIds: ids }).catch(() => {}) }
+    })
+    const list = document.createElement('div')
+    list.style.cssText = 'display:flex;flex-direction:column;gap:3px;max-height:180px;overflow-y:auto;padding:0 4px'
+    for (const p of personas) {
+      const row = document.createElement('button')
+      row.style.cssText = 'display:flex;align-items:center;gap:9px;width:100%;padding:7px 8px;background:transparent;border:1.5px solid transparent;border-radius:8px;cursor:pointer;text-align:left;font-family:inherit;color:#19140f;font-size:13.5px;font-weight:500;transition:background .14s,border-color .14s'
+      const chk = document.createElement('span')
+      chk.style.cssText = 'width:16px;height:16px;border-radius:4px;border:1.5px solid rgba(99,102,241,.35);display:grid;place-items:center;flex-shrink:0;transition:background .14s,border-color .14s'
+      const nm = document.createElement('span')
+      nm.textContent = p.name; nm.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'
+      row.append(chk, nm)
+      if (p.role) { const rl = document.createElement('span'); rl.textContent = p.role; rl.style.cssText = 'font-size:10.5px;color:#a59a8c;white-space:nowrap'; row.appendChild(rl) }
+      const setOn = (on: boolean) => {
+        chk.style.background = on ? '#6366f1' : ''; chk.style.borderColor = on ? '#6366f1' : 'rgba(99,102,241,.35)'
+        chk.innerHTML = on ? icon('check', { size: 10 }) : ''
+        row.style.background = on ? 'rgba(99,102,241,.09)' : ''; row.style.borderColor = on ? 'rgba(99,102,241,.2)' : 'transparent'
+      }
+      row.addEventListener('click', () => { sel.has(p.id) ? sel.delete(p.id) : sel.add(p.id); setOn(sel.has(p.id)); syncConfirm() })
+      row.addEventListener('mouseenter', () => { if (!sel.has(p.id)) row.style.background = 'rgba(99,102,241,.05)' })
+      row.addEventListener('mouseleave', () => { if (!sel.has(p.id)) row.style.background = '' })
+      list.appendChild(row)
+    }
+    menu.append(list, confirmBtn)
+  }
+
   const actions: Array<{ icon: string; color: string; label: string; run: () => void }> = [
     { icon: icon('bug', { size: 16 }), color: '#E94F37', label: 'Report a Bug', run: () => openModal('bug') },
     { icon: icon('lightbulb', { size: 16 }), color: '#F4A93C', label: 'Request a Feature', run: () => openModal('feature') },
@@ -387,6 +466,21 @@ function showCtxMenu(x: number, y: number) {
     btn.addEventListener('click', () => { closeCtxMenu(); a.run() })
     menu.appendChild(btn)
   })
+
+  // Sims deploy entries — only shown when the extension has a configured project
+  if (simsProject) {
+    const deployAllBtn = makeRow(icon('users', { size: 16 }), '#7c4dff', 'Deploy all Sims')
+    deployAllBtn.addEventListener('click', () => {
+      closeCtxMenu()
+      const w = window as any
+      if (w.KlavitySims?.deploy) { w.KlavitySims.deploy('all') }
+      else { klavSend({ kind: 'KLAV_DEPLOY_SIMS', projectId: simsProject.id, simIds: 'all' }).catch(() => {}) }
+    })
+    menu.appendChild(deployAllBtn)
+    const selectSimsBtn = makeRow(icon('sparkles', { size: 16 }), '#7c4dff', 'Select Sims…')
+    selectSimsBtn.addEventListener('click', () => { void showExtSimPicker() })
+    menu.appendChild(selectSimsBtn)
+  }
 
   // single divider, then the browser-menu affordance as an aligned footer row
   const divider = document.createElement('div')
