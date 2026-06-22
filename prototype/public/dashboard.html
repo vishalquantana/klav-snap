@@ -13,6 +13,7 @@
 --display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
 [data-theme="dark"]{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;--indigo:#8b8bf5;--indigo-deep:#6366f1;--amber:#e8a24a;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11)}
 *{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height:100vh}
 body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(80% 50% at 50% -5%,rgba(139,139,245,.08),transparent 60%)}
 a{color:inherit;text-decoration:none}
@@ -30,7 +31,7 @@ a{color:inherit;text-decoration:none}
 /* ===== fixed left rail (app shell) — sidebar is a full-height sticky rail ===== */
 .side{position:fixed;left:0;top:0;height:100vh;width:214px;z-index:20;background:var(--ink-2);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;padding:16px 12px;overflow-y:auto}
 .side .brand{padding:4px 8px 16px;font-size:19px}
-.side .nv{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;color:var(--paper-dim);font-size:14px;font-weight:500;cursor:pointer;border:1px solid transparent;background:none;width:100%;text-align:left;font-family:var(--body);transition:background .15s,color .15s,border-color .15s}
+.side .nv{display:flex;align-items:center;gap:11px;padding:9px 11px 9px 9px;border-radius:10px;color:var(--paper-dim);font-size:14px;font-weight:500;cursor:pointer;border:1px solid transparent;background:none;width:100%;text-align:left;font-family:var(--body);will-change:transform;transition:background .15s,color .15s,border-color .15s}
 .side .nv:hover{background:var(--ink-3);color:var(--paper)}
 .side .nv.active{background:var(--ink-3);color:var(--paper);border-color:var(--line)}
 .side .nv .ic{font-size:16px;width:20px;text-align:center;flex:none}
@@ -73,14 +74,14 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 
 /* metrics row — the "dashboard feel": at-a-glance counts up top */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
-.stat{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px}
+.stat{background:var(--ink-2);box-shadow:var(--shadow-border);border-radius:16px;padding:18px 18px 16px}
 .stat .n{font-family:var(--display);font-weight:500;font-size:32px;line-height:1;letter-spacing:-.02em}
 .stat .l{margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint);display:flex;align-items:center;gap:6px}
 .stat .l .ic{font-size:13px}
 @media(max-width:760px){.stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 /* insight KPI strip */
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
-.kpi{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:15px 16px;min-height:104px}
+.kpi{background:var(--ink-2);box-shadow:var(--shadow-border);border-radius:16px;padding:15px 16px;min-height:104px}
 .kpi .kl{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--paper-faint);display:flex;align-items:center;gap:7px}
 .kpi .kdot{width:7px;height:7px;border-radius:50%;flex:none}
 .doti{background:var(--indigo)}.dotc{background:var(--rose)}.dota{background:var(--amber)}.dotg{background:var(--green)}
@@ -128,7 +129,7 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .hotrow .hn{font-family:var(--mono);font-size:11px;color:var(--paper-faint);width:18px;text-align:right}
 
 .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
-.card{background:var(--ink-2);border:1px solid var(--line);border-radius:18px;padding:22px}
+.card{background:var(--ink-2);box-shadow:var(--shadow-border);border-radius:18px;padding:22px}
 .card.full{grid-column:1/-1}
 /* per-view refit: use the wide shell well instead of a lone narrow card in a 2-col grid */
 body[data-view="sims"] .grid>.card[data-view~="sims"]{grid-column:1/-1}
@@ -259,8 +260,8 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .tkt-detail.show{display:flex}
 .tkt-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tkt-status-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--paper-faint);margin-right:4px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.seg button{border:none;background:transparent;color:var(--paper-faint);font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:5px 12px;cursor:pointer;transition:background .15s}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;padding:2px;gap:2px}
+.seg button{border:none;background:transparent;color:var(--paper-faint);font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:4px 11px;border-radius:6px;cursor:pointer;transition:background .15s}
 .seg button.active{background:var(--indigo);color:#fff}
 [data-theme="dark"] .seg button.active{color:#0c0a08}
 .seg button:not(.active):hover{background:var(--ink-3)}
@@ -318,7 +319,7 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .tkt-shotwrap.zoomed{overflow:auto;max-height:72vh}
 .tkt-shot-inner{position:relative;width:100%;line-height:0;transition:width .2s}
 .tkt-shotwrap.zoomed .tkt-shot-inner{width:175%}
-.tkt-shot-inner img{display:block;width:100%;border:1px solid var(--line);border-radius:10px;cursor:zoom-in}
+.tkt-shot-inner img{display:block;width:100%;border-radius:10px;cursor:zoom-in}
 .tkt-shotwrap.zoomed .tkt-shot-inner img{cursor:zoom-out}
 .tkt-ann-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .tkt-ann-svg.off{display:none}
@@ -443,11 +444,15 @@ details.drawer .drawer-in{padding:0 22px 22px}
   --mi-dur:.15s; --mi-press-dur:.08s;
   --mi-lift:translateY(-1px) scale(1.02);   /* control tier: buttons/toggles/icons */
   --mi-lift-card:translateY(-2px);          /* surface tier: clickable cards/rows  */
-  --mi-press:scale(.97);
+  --mi-press:scale(.96);                    /* press scale — exactly .96 (skill #12) */
   --mi-shadow:0 6px 18px -8px rgba(99,102,241,.40);
   --mi-shadow-card:0 12px 28px -14px rgba(76,40,130,.42);
   --mi-accent:var(--indigo);
+  /* shadow-as-border: layered transparent rings replace hard card borders (skill #3) */
+  --shadow-border:0 0 0 1px rgba(0,0,0,.06),0 1px 2px -1px rgba(0,0,0,.06),0 2px 4px 0 rgba(0,0,0,.04);
+  --shadow-border-hover:0 0 0 1px rgba(0,0,0,.08),0 1px 2px -1px rgba(0,0,0,.08),0 2px 6px 0 rgba(0,0,0,.06);
 }
+[data-theme="dark"]{--shadow-border:0 0 0 1px rgba(255,255,255,.08);--shadow-border-hover:0 0 0 1px rgba(255,255,255,.13)}
 /* Canonical reusable class — add `.mi` to any new clickable element for the same feel. */
 .mi{transition:transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease)}
 .mi:hover{transform:var(--mi-lift);box-shadow:var(--mi-shadow)}
@@ -464,7 +469,7 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .side .nv{transition:background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),border-color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease)}
 .side .nv:hover{background:var(--ink-3);color:var(--paper);transform:translateY(-1px);box-shadow:inset 2px 0 0 var(--mi-accent),0 5px 16px -10px rgba(99,102,241,.55)}
 .side .nv.active{box-shadow:inset 2px 0 0 var(--mi-accent)}
-.side .nv:active{transform:scale(.985);transition-duration:var(--mi-press-dur)}
+.side .nv:active{transform:scale(.96);transition-duration:var(--mi-press-dur)}
 
 /* Round icon buttons (theme toggle …) */
 .nav-icon{transition:border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease)}
@@ -474,10 +479,10 @@ details.drawer .drawer-in{padding:0 22px 22px}
 /* Segmented + pill toggles. Seg buttons sit inside overflow:hidden, so they only
    press inward (a scale-up would clip); pills get the purple accent + press. */
 .seg button{transition:background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease)}
-.seg button:active,.sm-seg button:active{transform:scale(.94);transition-duration:var(--mi-press-dur)}
+.seg button:active,.sm-seg button:active{transform:scale(.96);transition-duration:var(--mi-press-dur)}
 .tog{transition:border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease)}
 .tog:hover{border-color:var(--mi-accent);color:var(--paper)}
-.tog:active{transform:scale(.95);transition-duration:var(--mi-press-dur)}
+.tog:active{transform:scale(.96);transition-duration:var(--mi-press-dur)}
 
 /* Small affordance buttons — purple-accent border on hover + quick press */
 .copy-ai-icon,.tkt-back,.sm-chip{transition:border-color var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease)}
@@ -488,6 +493,21 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .fxrow,.row-tkt,.kb-card,.kpi-click{transition:border-color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease)}
 .fxrow:hover,.row-tkt:hover,.kb-card:hover,.kpi-click:hover{transform:var(--mi-lift-card);border-color:var(--indigo-soft);box-shadow:var(--mi-shadow-card)}
 .fxrow:active,.row-tkt:active,.kb-card:active,.kpi-click:active{transform:translateY(-1px) scale(.995);transition-duration:var(--mi-press-dur)}
+
+/* ── Detail polish (make-interfaces-feel-better) — on top of the existing design ── */
+/* #9 tabular-nums: dynamically-updating numbers don't shift width as values change */
+.stat .n,.kpi .kn,.kpi-sev .sg b,.side .nv .ct,.card h2 .count,.side-version,.hotrow .hn,.fx-recur{font-variant-numeric:tabular-nums}
+/* #10 text-wrap: balance headings (even lines, no orphans), pretty for short body copy */
+h1,h2,h3{text-wrap:balance}
+p,li,.lead,.fx-q,.kpi .kd,.say .obs,.muted,.cl-intro,.sm-hd p{text-wrap:pretty}
+/* #11 image outlines: a neutral 1px inset ring — pure black (light) / pure white (dark),
+   never a tinted near-neutral (it reads as dirt on the image edge) */
+img{outline:1px solid rgba(0,0,0,.1);outline-offset:-1px}
+[data-theme="dark"] img{outline-color:rgba(255,255,255,.1)}
+/* #16 minimum 40×40 hit area on small controls — extended via a centered pseudo-element
+   (cl-x is already absolutely positioned, so it anchors its own ::after) */
+.nav-icon,.copy-ai-icon,.sm-close{position:relative}
+.nav-icon::after,.copy-ai-icon::after,.sm-close::after,.checklist .cl-x::after{content:"";position:absolute;top:50%;left:50%;width:40px;height:40px;transform:translate(-50%,-50%)}
 
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
@@ -501,7 +521,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   .tkt-prov{font-size:12.5px;color:var(--paper-dim);font-style:italic;border-left:2px solid var(--line);padding-left:10px}
   .tkt-meta-line{font-size:11px}
   .tkt-shot{margin-top:2px}
-  .tkt-shot img{max-width:100%;border:1px solid var(--line);border-radius:10px;cursor:zoom-in;display:block}
+  .tkt-shot img{max-width:100%;border-radius:10px;cursor:zoom-in;display:block}
   .chip.sev-high{background:#3a1416;color:#ffb4ac}.chip.sev-medium{background:#3a2c10;color:#ffd79a}.chip.sev-low{background:#10261a;color:#9ae6b4}
 
 /* ===== Add-a-Sim modal (first-run + "New Sim") ===== */
