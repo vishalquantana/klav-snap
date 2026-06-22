@@ -1,6 +1,7 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
 import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, recordWidgetPing, latestWidgetPing, setFeedbackContactEmail, exportUserData, eraseUser, computeDashboardInsights, listTriageFeedback, listFeedbackForSim } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
+import { classifySimObservation } from "./lib/sim-bug-classify"
 import { getConnector, listConnectorTypes, type TicketPayload, type TicketAttachment } from "./lib/connectors/index"
 import { inboundSupported, verifyGithubSignature, verifyLinearSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
 import { applyReconcileOps, recurrenceFromEvents, pickCitation, type ReconcileOp, type Trait, type TraitEventRow } from "./lib/provenance"
@@ -2032,7 +2033,22 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           }
           for (const r of reactions) {
             const citation = await resolveCitations(sim.id, r?.citedTraitIds, projectId, citePre)
-            const bug = r?.suggestedBug
+            let bug = r?.suggestedBug
+            // Route broken/stuck/blocked Sim observations to real bug candidates. If the model didn't
+            // already attach a suggestedBug, run the heuristic classifier on the observation text — a
+            // hit synthesises a suggestedBug (with a sim-flagged marker + matched signals) so it flows
+            // through the normal bug path: severity-driven triage gate (high → auto-accepted OPEN,
+            // medium → triage queue, promoted by recurrence), Plane auto-copy, and expectations spine —
+            // instead of being buried as low-value noise.
+            if (!bug) {
+              const verdict = classifySimObservation(r?.observation, r?.sentiment)
+              if (verdict.flagged) {
+                const obs = String(r?.observation ?? "").trim()
+                bug = { title: obs.slice(0, 90) || "Sim-flagged issue", body: obs, severity: verdict.severity, simFlagged: true, signals: verdict.signals }
+                r.suggestedBug = bug
+                r.simFlagged = true
+              }
+            }
             let dedupedInto: string | null = null
             if (bug) {
               dedupedInto = await findDuplicateFeedback({
