@@ -15,6 +15,7 @@
     font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
     color:#241d33;
     min-height:100vh;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
     background:
       radial-gradient(70rem 50rem at 12% 0%, #ece6fb 0%, transparent 55%),
       radial-gradient(60rem 50rem at 92% 18%, #e4ecf9 0%, transparent 55%),
@@ -22,30 +23,42 @@
       linear-gradient(160deg,#f6f2ec,#efe9f6);
   }
   header{max-width:1180px;margin:0 auto;padding:48px 28px 8px}
-  h1{font-size:30px;font-weight:680;letter-spacing:-.02em;margin:0 0 8px}
-  .sub{color:#6b6480;font-size:15px;max-width:640px;line-height:1.5;margin:0}
+  h1{font-size:30px;font-weight:680;letter-spacing:-.02em;margin:0 0 8px;text-wrap:balance}
+  .sub{color:#6b6480;font-size:15px;max-width:660px;line-height:1.5;margin:0;text-wrap:pretty}
   .toolbar{max-width:1180px;margin:20px auto 0;padding:0 28px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  .btn{appearance:none;border:1px solid rgba(99,102,241,.30);background:#fff;color:var(--indigo-deep);
-    font:600 13px system-ui;padding:9px 16px;border-radius:10px;cursor:pointer;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-  .btn:hover{background:var(--indigo-deep);color:#fff;border-color:var(--indigo-deep)}
+  .btn{appearance:none;border:0;background:#fff;color:var(--indigo-deep);
+    font:600 13px system-ui;padding:9px 16px;border-radius:10px;cursor:pointer;
+    transition:background .15s,color .15s,box-shadow .15s,scale .12s;
+    box-shadow:0 1px 2px rgba(40,25,70,.10),0 4px 14px -8px rgba(40,25,70,.34),inset 0 0 0 1px rgba(99,102,241,.18)}
+  .btn:hover{background:var(--indigo-deep);color:#fff;box-shadow:0 2px 6px rgba(79,70,229,.30),0 10px 24px -10px rgba(79,70,229,.55)}
+  .btn:active{scale:.96}
   .hintbar{color:#8a83a0;font-size:12.5px}
 
-  .grid{max-width:1180px;margin:26px auto 80px;padding:0 28px;
+  .sechead{max-width:1180px;margin:40px auto 0;padding:0 28px;display:flex;align-items:baseline;gap:12px}
+  .sechead h2{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6b5fd6;margin:0}
+  .sechead .line{flex:1;height:1px;background:linear-gradient(90deg,rgba(99,102,241,.28),transparent)}
+  .sechead .note{color:#8a83a0;font-size:12.5px}
+
+  .grid{max-width:1180px;margin:18px auto 0;padding:0 28px;
     display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px}
   @media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
 
-  .card{border-radius:20px;padding:22px 22px 26px;position:relative;overflow:hidden;
-    border:1px solid rgba(40,30,60,.08);background:rgba(255,255,255,.5);backdrop-filter:blur(4px);
-    box-shadow:0 10px 30px -16px rgba(40,25,70,.30)}
+  .card{border-radius:22px;padding:22px 22px 26px;position:relative;overflow:hidden;
+    background:rgba(255,255,255,.5);backdrop-filter:blur(4px);
+    box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 0 0 1px rgba(40,30,60,.06),0 14px 36px -20px rgba(40,25,70,.40)}
   .card .meta{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
-  .card h2{font-size:16px;font-weight:660;margin:0 0 3px;letter-spacing:-.01em}
-  .card .desc{font-size:12.5px;color:#73708a;line-height:1.45;margin:0;max-width:300px}
-  .replay{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(99,102,241,.28);
-    background:#fff;color:var(--indigo-deep);font:600 11.5px system-ui;padding:6px 11px;border-radius:9px;cursor:pointer;transition:.15s}
-  .replay:hover{background:var(--indigo);color:#fff;border-color:var(--indigo)}
+  .card h3{font-size:16px;font-weight:660;margin:0 0 3px;letter-spacing:-.01em;text-wrap:balance}
+  .card .desc{font-size:12.5px;color:#73708a;line-height:1.45;margin:0;max-width:320px;text-wrap:pretty}
+  .replay{flex:none;display:inline-flex;align-items:center;gap:6px;border:0;
+    background:#fff;color:var(--indigo-deep);font:600 11.5px system-ui;padding:7px 12px;border-radius:10px;cursor:pointer;
+    transition:background .15s,color .15s,box-shadow .15s,scale .12s;
+    box-shadow:0 1px 2px rgba(40,25,70,.10),inset 0 0 0 1px rgba(99,102,241,.18)}
+  .replay:hover{background:var(--indigo);color:#fff;box-shadow:0 6px 16px -8px rgba(99,102,241,.7)}
+  .replay:active{scale:.96}
   .replay svg{width:13px;height:13px}
   /* the stage each menu sits on — a representative page swatch behind the glass */
-  .stage{height:300px;border-radius:14px;display:grid;place-items:center;position:relative;overflow:hidden;
+  .stage{height:312px;border-radius:16px;display:grid;place-items:center;position:relative;overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(40,30,60,.05);
     background:
       linear-gradient(115deg,#fbfaf7 0 33%,#eef1f7 33% 66%,#f3eef8 66%);}
   .stage.dark{background:linear-gradient(125deg,#16121f,#241b34 55%,#101019)}
@@ -54,13 +67,14 @@
     background-size:26px 26px}
   .stage.dark::before{background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)}
 
-  /* ============================ shared menu skeleton ============================ */
+  /* ============================ shared vertical-list menu ============================ */
   .menu{position:relative;min-width:248px;border-radius:14px;overflow:hidden;
     font-family:system-ui,-apple-system,sans-serif;transform-origin:top left}
   .menu.animate{animation:klm-in .36s cubic-bezier(.34,1.56,.64,1) both}
   .row{position:relative;display:flex;align-items:center;gap:11px;width:100%;padding:11px 15px;border:0;background:transparent;
     cursor:pointer;text-align:left;line-height:1.15;font-size:13.5px;font-weight:450;
-    transition:background .18s ease,color .18s ease}
+    transition:background .18s ease,color .18s ease,scale .12s}
+  .row:active{scale:.985}
   .menu.animate .row,.menu.animate .foot{animation:klm-row .36s cubic-bezier(.16,1,.3,1) both}
   .row.primary{font-weight:600}
   .ic{display:inline-flex;align-items:center;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
@@ -150,15 +164,183 @@
   .v4 .shine{background:linear-gradient(105deg,transparent,rgba(255,255,255,.75),transparent)}
   .v4 .brand{background:linear-gradient(135deg,#fff,#e9d8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;font-weight:800}
 
+  /* ===================================================================== */
+  /* ====================== LAYOUT DIRECTIONS (new) ======================= */
+  /* Glass surface shared by the layout mockups so focus stays on STRUCTURE */
+  .surf{position:relative;color:#19140f;
+    background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.16), rgba(139,92,246,0) 55%),
+      linear-gradient(180deg, rgba(252,250,246,.97), rgba(244,239,230,.97));
+    box-shadow:0 24px 60px -16px rgba(76,40,130,.34),0 8px 22px -10px rgba(99,102,241,.20),inset 0 1px 0 rgba(255,255,255,.8);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
+  .brand{background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;font-weight:700}
+
+  /* ---- L1 · RADIAL / arc — actions fan out around the cursor point ---- */
+  .radial{position:relative;width:280px;height:240px;font-family:system-ui,sans-serif}
+  .radial .origin{position:absolute;left:50%;bottom:30px;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+    background:#6366f1;box-shadow:0 0 0 5px rgba(99,102,241,.18),0 0 0 10px rgba(99,102,241,.08)}
+  .radial .ray{position:absolute;left:50%;bottom:30px;width:1px;height:96px;transform-origin:bottom center;
+    background:linear-gradient(rgba(99,102,241,.0),rgba(99,102,241,.22));pointer-events:none}
+  .arc{position:absolute;left:50%;bottom:30px;width:0;height:0}
+  .arc .arc-btn{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border:0;cursor:pointer;
+    border-radius:50%;display:grid;place-items:center;color:#5b51c9;
+    background:linear-gradient(180deg,#fff,#f4f1fb);
+    box-shadow:0 2px 5px rgba(40,25,70,.12),0 10px 24px -12px rgba(76,40,130,.5),inset 0 0 0 1px rgba(99,102,241,.16);
+    transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .18s,color .18s;
+    animation:arc-out .4s cubic-bezier(.34,1.56,.64,1) both}
+  .arc .arc-btn.primary{color:#fff;background:linear-gradient(180deg,#6d6bf3,#5b51d8);
+    box-shadow:0 4px 10px -2px rgba(79,70,229,.5),0 14px 30px -10px rgba(79,70,229,.6),inset 0 1px 0 rgba(255,255,255,.4)}
+  .arc .arc-btn svg{width:21px;height:21px}
+  .arc .arc-btn:hover{scale:1.12;color:#4f46e5}
+  .arc .arc-btn.primary:hover{color:#fff}
+  .arc .arc-btn:active{scale:.96}
+  .arc .arc-lbl{position:absolute;left:50%;top:60px;transform:translateX(-50%) translateY(4px);white-space:nowrap;
+    font-size:11px;font-weight:600;color:#4a4360;background:rgba(255,255,255,.92);padding:3px 9px;border-radius:7px;
+    box-shadow:0 4px 12px -4px rgba(40,25,70,.4),inset 0 0 0 1px rgba(99,102,241,.12);
+    opacity:0;pointer-events:none;transition:opacity .16s,transform .16s cubic-bezier(.2,0,0,1)}
+  .arc .arc-btn:hover + .arc-lbl{opacity:1;transform:translateX(-50%) translateY(0)}
+  .radial .rbrand{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);font-size:10.5px;color:#8a8076;font-weight:450}
+  @keyframes arc-out{0%{opacity:0;left:50%;top:50%;scale:.3}100%{opacity:1;scale:1}}
+
+  /* ---- L2 · GRID — 2×2 card tiles, icon + label ---- */
+  .gridmenu{display:grid;grid-template-columns:repeat(2,108px);grid-template-rows:repeat(2,96px);gap:10px;padding:14px;border-radius:22px;
+    width:max-content;font-family:system-ui,sans-serif}
+  .gridmenu .tile{position:relative;border:0;cursor:pointer;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
+    color:#3a3650;background:linear-gradient(180deg,#fff,#faf8fd);
+    box-shadow:0 1px 3px rgba(40,25,70,.10),0 8px 20px -14px rgba(76,40,130,.5),inset 0 0 0 1px rgba(99,102,241,.10);
+    transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s,color .2s,background .2s;
+    animation:tile-in .42s cubic-bezier(.16,1,.3,1) both}
+  .gridmenu .tile .ic{transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .gridmenu .tile .ic svg{width:22px;height:22px}
+  .gridmenu .tile .t{font-size:11.5px;font-weight:600;letter-spacing:-.01em}
+  .gridmenu .tile.primary{color:#fff;background:linear-gradient(160deg,#6d6bf3,#5b51d8)}
+  .gridmenu .tile.primary{box-shadow:0 4px 12px -2px rgba(79,70,229,.5),0 14px 30px -12px rgba(79,70,229,.55),inset 0 1px 0 rgba(255,255,255,.35)}
+  .gridmenu .tile.muted{color:#8a8390}
+  .gridmenu .tile.brandtile{cursor:default;color:#8a8076;gap:5px;background:linear-gradient(180deg,#f7f3ec,#efe9df)}
+  .gridmenu .tile.brandtile .bm{font-size:10px;font-weight:450}
+  .gridmenu .tile:not(.brandtile):hover{scale:1.04;color:#4f46e5;box-shadow:0 6px 14px -2px rgba(99,102,241,.32),0 18px 36px -14px rgba(76,40,130,.6)}
+  .gridmenu .tile.primary:hover{color:#fff}
+  .gridmenu .tile:not(.brandtile):hover .ic{transform:scale(1.18) rotate(-6deg)}
+  .gridmenu .tile:active{scale:.96}
+  @keyframes tile-in{0%{opacity:0;transform:scale(.82) translateY(8px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+
+  /* ---- L3 · COMPACT ICON DOCK — labels reveal on hover ---- */
+  .dockwrap{display:flex;flex-direction:column;align-items:center;gap:10px;font-family:system-ui,sans-serif}
+  .dock{display:flex;align-items:center;gap:6px;padding:9px;border-radius:18px;
+    background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(247,243,250,.95));
+    box-shadow:0 2px 6px rgba(40,25,70,.12),0 18px 40px -18px rgba(76,40,130,.6),inset 0 1px 0 rgba(255,255,255,.8)}
+  .dock .dock-btn{position:relative;width:46px;height:46px;border:0;cursor:pointer;border-radius:13px;display:grid;place-items:center;color:#5b51c9;
+    background:transparent;transition:scale .14s cubic-bezier(.2,0,0,1),background .18s,color .18s;
+    animation:dock-pop .4s cubic-bezier(.34,1.56,.64,1) both}
+  .dock .dock-btn svg{width:21px;height:21px}
+  .dock .dock-btn.primary{color:#fff;background:linear-gradient(180deg,#6d6bf3,#5b51d8);box-shadow:0 6px 16px -6px rgba(79,70,229,.7)}
+  .dock .dock-btn:hover{background:rgba(99,102,241,.12);scale:1.12;color:#4f46e5}
+  .dock .dock-btn.primary:hover{color:#fff;background:linear-gradient(180deg,#6d6bf3,#5b51d8)}
+  .dock .dock-btn:active{scale:.96}
+  .dock .dock-lbl{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%) translateY(4px) scale(.96);transform-origin:bottom center;white-space:nowrap;
+    font-size:11px;font-weight:600;color:#fff;background:#2a2342;padding:4px 9px;border-radius:8px;
+    box-shadow:0 6px 16px -6px rgba(20,10,40,.7);opacity:0;pointer-events:none;
+    transition:opacity .16s,transform .16s cubic-bezier(.2,0,0,1)}
+  .dock .dock-lbl::after{content:"";position:absolute;left:50%;top:100%;width:7px;height:7px;background:#2a2342;transform:translateX(-50%) translateY(-3px) rotate(45deg);border-radius:1px}
+  .dock .dock-btn:hover .dock-lbl{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  .dockwrap .dbrand{font-size:10.5px;color:#8a8076;font-weight:450}
+  @keyframes dock-pop{0%{opacity:0;transform:translateY(10px) scale(.7)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
+  /* ---- L4 · COMMAND-PALETTE — search field + filterable list ---- */
+  .palette{width:280px;border-radius:16px;overflow:hidden;font-family:system-ui,sans-serif;
+    animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}
+  .palette .pal-search{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid rgba(99,102,241,.12);
+    background:rgba(255,255,255,.55)}
+  .palette .pal-search .si{color:#9a91c0;display:inline-flex}
+  .palette .pal-search .si svg{width:16px;height:16px}
+  .palette .pal-search input{flex:1;border:0;outline:0;background:transparent;font:500 13px system-ui;color:#2a2342}
+  .palette .pal-search input::placeholder{color:#a59ec0}
+  .palette .pal-search .kbd{font:600 10px ui-monospace,monospace;color:#8a82ad;background:rgba(99,102,241,.10);padding:2px 6px;border-radius:6px}
+  .palette .pal-list{padding:6px;max-height:210px;overflow:auto}
+  .palette .pal-row{position:relative;display:flex;align-items:center;gap:11px;width:100%;border:0;background:transparent;cursor:pointer;
+    padding:9px 11px;border-radius:10px;text-align:left;font-size:13px;font-weight:500;color:#3a3650;
+    transition:background .15s,color .15s,scale .12s;animation:klm-row .34s cubic-bezier(.16,1,.3,1) both}
+  .palette .pal-row.primary{font-weight:600;color:#1f1d2b}
+  .palette .pal-row.muted{color:#9794a8}
+  .palette .pal-row .ic{color:#6b5fd6;display:inline-flex;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .palette .pal-row.muted .ic{color:#a9a3bd}
+  .palette .pal-row .ic svg{width:16px;height:16px}
+  .palette .pal-row .hint{margin-left:auto;font:10.5px ui-monospace,monospace;color:#a59ec0}
+  .palette .pal-row:hover{background:rgba(99,102,241,.10);color:#4f46e5}
+  .palette .pal-row:hover .ic{transform:scale(1.14) rotate(-6deg)}
+  .palette .pal-row:active{scale:.985}
+  .palette .pal-empty{padding:16px;text-align:center;color:#a59ec0;font-size:12px}
+  .palette .pal-foot{padding:8px 14px;text-align:center;font-size:11px;color:#8a8076;
+    background:rgba(244,239,230,.6);border-top:1px solid rgba(99,102,241,.10)}
+
+  /* ---- L5 · ICON-RAIL + PANEL — thin icon column + label/preview panel ---- */
+  .railmenu{display:flex;border-radius:16px;overflow:hidden;width:300px;font-family:system-ui,sans-serif;
+    animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}
+  .railmenu .rail{flex:none;display:flex;flex-direction:column;gap:6px;padding:10px;background:rgba(244,239,230,.7);
+    box-shadow:inset -1px 0 0 rgba(99,102,241,.12)}
+  .railmenu .rail-btn{position:relative;width:42px;height:42px;border:0;cursor:pointer;border-radius:11px;display:grid;place-items:center;
+    color:#7a719e;background:transparent;transition:background .16s,color .16s,scale .12s;
+    animation:rail-in .4s cubic-bezier(.16,1,.3,1) both}
+  .railmenu .rail-btn svg{width:18px;height:18px}
+  .railmenu .rail-btn:hover{color:#4f46e5;background:rgba(99,102,241,.10)}
+  .railmenu .rail-btn:active{scale:.96}
+  .railmenu .rail-btn.active{color:#fff;background:linear-gradient(180deg,#6d6bf3,#5b51d8);box-shadow:0 6px 14px -6px rgba(79,70,229,.7)}
+  .railmenu .panel{flex:1;padding:16px 16px 13px;display:flex;flex-direction:column;min-height:128px;background:rgba(255,255,255,.5)}
+  .railmenu .panel .p-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#5b51c9;
+    background:rgba(99,102,241,.12);margin-bottom:11px}
+  .railmenu .panel .p-ic svg{width:19px;height:19px}
+  .railmenu .panel h4{margin:0 0 4px;font-size:14.5px;font-weight:660;color:#221d33;letter-spacing:-.01em}
+  .railmenu .panel p{margin:0;font-size:12px;color:#73708a;line-height:1.45}
+  .railmenu .panel .p-go{margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;
+    font-size:11.5px;font-weight:600;color:#4f46e5;background:rgba(99,102,241,.10);padding:6px 11px;border-radius:9px;cursor:pointer;border:0;
+    transition:background .15s,scale .12s}
+  .railmenu .panel .p-go:hover{background:rgba(99,102,241,.18)}
+  .railmenu .panel .p-go:active{scale:.96}
+  .railmenu .panel .p-go svg{width:14px;height:14px}
+  .railmenu .panel .p-anim{animation:panel-swap .26s cubic-bezier(.2,0,0,1) both}
+  @keyframes rail-in{0%{opacity:0;transform:translateX(-10px)}100%{opacity:1;transform:translateX(0)}}
+  @keyframes panel-swap{0%{opacity:0;transform:translateY(5px)}100%{opacity:1;transform:translateY(0)}}
+
+  /* ---- L6 · LARGE TOUCH CARDS — big cards + description per action ---- */
+  .touch{width:300px;border-radius:18px;overflow:hidden;font-family:system-ui,sans-serif;padding:10px;
+    display:flex;flex-direction:column;gap:8px;animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}
+  .touch .tcard{position:relative;display:flex;align-items:center;gap:13px;width:100%;border:0;cursor:pointer;text-align:left;
+    padding:13px 13px;border-radius:14px;background:linear-gradient(180deg,#fff,#faf8fd);color:#2a2342;
+    box-shadow:0 1px 3px rgba(40,25,70,.08),0 8px 20px -16px rgba(76,40,130,.5),inset 0 0 0 1px rgba(99,102,241,.08);
+    transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s,background .2s;
+    animation:touch-in .42s cubic-bezier(.16,1,.3,1) both}
+  .touch .tcard .t-ic{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:#5b51c9;
+    background:rgba(99,102,241,.12);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .touch .tcard .t-ic svg{width:21px;height:21px}
+  .touch .tcard.primary{background:linear-gradient(160deg,#6d6bf3,#5b51d8);color:#fff;
+    box-shadow:0 6px 16px -4px rgba(79,70,229,.5),0 18px 38px -16px rgba(79,70,229,.55),inset 0 1px 0 rgba(255,255,255,.3)}
+  .touch .tcard.primary .t-ic{background:rgba(255,255,255,.22);color:#fff}
+  .touch .tcard .t-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .touch .tcard .t-t{font-size:14px;font-weight:660;letter-spacing:-.01em}
+  .touch .tcard .t-d{font-size:11.5px;line-height:1.35;color:#7c7793}
+  .touch .tcard.primary .t-d{color:rgba(255,255,255,.82)}
+  .touch .tcard.muted{background:linear-gradient(180deg,#faf8f4,#f3efe7)}
+  .touch .tcard.muted .t-ic{background:rgba(40,30,60,.06);color:#8a8390}
+  .touch .tcard.muted .t-t{color:#5d5870}.touch .tcard.muted .t-d{color:#9a93a6}
+  .touch .tcard .t-go{margin-left:auto;flex:none;color:#b6afce;display:inline-flex;transition:transform .2s cubic-bezier(.2,0,0,1)}
+  .touch .tcard.primary .t-go{color:rgba(255,255,255,.7)}
+  .touch .tcard .t-go svg{width:16px;height:16px}
+  .touch .tcard:hover{scale:1.015;box-shadow:0 8px 18px -4px rgba(99,102,241,.28),0 22px 44px -18px rgba(76,40,130,.6)}
+  .touch .tcard:hover .t-ic{transform:scale(1.1) rotate(-5deg)}
+  .touch .tcard:hover .t-go{transform:translateX(3px)}
+  .touch .tcard:active{scale:.97}
+  .touch .tfoot{text-align:center;font-size:11px;color:#8a8076;padding:5px 0 3px}
+  @keyframes touch-in{0%{opacity:0;transform:translateY(10px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
+
   footer{max-width:1180px;margin:0 auto;padding:0 28px 60px;color:#8a83a0;font-size:12px}
 </style>
 </head>
 <body>
   <header>
     <h1>Right-click menu — design directions</h1>
-    <p class="sub">Four visual treatments of the Klavity widget context menu, same items in each.
-      Hover the rows to feel the interactions; hit <strong>Replay</strong> (or <strong>Replay all</strong>) to
-      see the entry animation — a soft spring scale-in, staggered rows and a shimmer sweep.</p>
+    <p class="sub">The Klavity widget context menu, same four items in every mockup
+      (<strong>Report a Bug</strong> · <strong>Request a Feature</strong> · <strong>Show browser menu</strong> · <strong>Powered by Klavity</strong>).
+      First the <strong>color treatments</strong> — one vertical list, four skins. Then six <strong>layout directions</strong> that
+      change the menu's <em>structure</em>, not just its color. Hover to feel the interactions; hit <strong>Replay</strong> to see the entrance.</p>
   </header>
 
   <div class="toolbar">
@@ -166,21 +348,34 @@
     <span class="hintbar">Pure HTML/CSS/JS · no build step · Lucide icons</span>
   </div>
 
+  <div class="sechead"><h2>Color treatments</h2><span class="line"></span><span class="note">same vertical list · four skins</span></div>
   <main class="grid" id="grid"></main>
+
+  <div class="sechead"><h2>Layout directions</h2><span class="line"></span><span class="note">structurally different menus</span></div>
+  <main class="grid" id="grid2"></main>
 
   <footer>Klavity · packages/core/demo/rightclick-mockups.html — pick a direction and we’ll wire it into the widget.</footer>
 
 <script>
 // ---- Lucide icons (stroke, inherit currentColor) --------------------------------
 var ICON = {
-  zap:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>',
-  lightbulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>',
-  monitor:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>',
-  sparkles:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>',
-  refresh:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>'
+  zap:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>',
+  lightbulb:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>',
+  monitor:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>',
+  sparkles:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>',
+  refresh:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>',
+  search:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+  arrowRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>'
 };
 
-// ---- The four variations --------------------------------------------------------
+// ---- Shared actions (same 3 items + the Klavity foot in every mockup) ------------
+var ITEMS = [
+  { icon:'zap',       label:'Report a Bug',      primary:true, desc:'Snap the page and tell us what broke.' },
+  { icon:'lightbulb', label:'Request a Feature', desc:"Suggest something you'd love to see." },
+  { icon:'monitor',   label:'Show browser menu', muted:true, hint:'⇧ right-click', desc:"Open your browser's own menu instead." }
+];
+
+/* ============================ Color treatments ============================ */
 var VARIANTS = [
   { cls:'v1', stage:'',     title:'1 · Beige + purple glassy', tag:'Shipped',
     desc:'The current live treatment — warm cream glass, purple accents and a frosted blur.' },
@@ -190,13 +385,6 @@ var VARIANTS = [
     desc:'Clean white, soft shadow, roomy rows and a quiet indigo dot on the primary action.' },
   { cls:'v4', stage:'dark', title:'4 · Bold gradient / magical', tag:'',
     desc:'Full purple gradient surface, white items and a gentle glow pulse — maximum delight.' }
-];
-
-// Same items everywhere.
-var ITEMS = [
-  { icon:'zap',       label:'Report a Bug',      primary:true },
-  { icon:'lightbulb', label:'Request a Feature' },
-  { icon:'monitor',   label:'Show browser menu', muted:true, hint:'⇧ right-click' }
 ];
 
 function buildMenu(cls){
@@ -220,31 +408,186 @@ function buildMenu(cls){
   return menu;
 }
 
-function mount(host, cls){
-  host.innerHTML = '';
-  host.appendChild(buildMenu(cls));
+/* ============================ Layout directions ============================ */
+// L1 · RADIAL — three actions fan out on an arc above the cursor origin.
+function buildRadial(){
+  var wrap = document.createElement('div'); wrap.className = 'surf radial'; wrap.style.background='transparent'; wrap.style.boxShadow='none'; wrap.style.backdropFilter='none';
+  var origin = document.createElement('div'); origin.className = 'origin'; wrap.appendChild(origin);
+  var angles = [-46, 0, 46]; // degrees from straight up
+  ITEMS.forEach(function(it, i){
+    var ang = angles[i], dist = 96;
+    var ray = document.createElement('div'); ray.className='ray'; ray.style.transform='rotate('+ang+'deg)'; wrap.appendChild(ray);
+    var arc = document.createElement('div'); arc.className='arc';
+    // place the arc anchor at the end of the ray
+    var rad = (ang-90) * Math.PI/180;
+    arc.style.transform = 'translate('+(Math.cos(rad)*dist)+'px,'+(Math.sin(rad)*dist)+'px)';
+    var b = document.createElement('button'); b.className='arc-btn'+(it.primary?' primary':'');
+    b.style.animationDelay = (90 + i*70) + 'ms';
+    b.innerHTML = '<span class="ic">'+ICON[it.icon]+'</span>';
+    var lbl = document.createElement('div'); lbl.className='arc-lbl'; lbl.textContent = it.label;
+    arc.appendChild(b); arc.appendChild(lbl); wrap.appendChild(arc);
+  });
+  var brand = document.createElement('div'); brand.className='rbrand';
+  brand.innerHTML = 'Powered by <strong class="brand">Klavity</strong>'; wrap.appendChild(brand);
+  return wrap;
 }
 
-// Build the cards.
-var grid = document.getElementById('grid');
-VARIANTS.forEach(function(v){
+// L2 · GRID — 2×2 tiles: three actions + a Klavity brand tile.
+function buildGrid(){
+  var g = document.createElement('div'); g.className = 'surf gridmenu';
+  var idx = 0;
+  ITEMS.forEach(function(it){
+    var t = document.createElement('button');
+    t.className = 'tile'+(it.primary?' primary':'')+(it.muted?' muted':'');
+    t.style.animationDelay = (70 + idx*60) + 'ms'; idx++;
+    t.innerHTML = '<span class="ic">'+ICON[it.icon]+'</span><span class="t">'+it.label+'</span>';
+    g.appendChild(t);
+  });
+  var brand = document.createElement('div'); brand.className='tile brandtile';
+  brand.style.animationDelay = (70 + idx*60) + 'ms';
+  brand.innerHTML = '<span class="ic">'+ICON.sparkles+'</span><span class="bm">Powered by <strong class="brand">Klavity</strong></span>';
+  g.appendChild(brand);
+  return g;
+}
+
+// L3 · COMPACT ICON DOCK — horizontal icon row, label tooltip on hover.
+function buildDock(){
+  var wrap = document.createElement('div'); wrap.className='dockwrap';
+  var dock = document.createElement('div'); dock.className='surf dock';
+  ITEMS.forEach(function(it, i){
+    var b = document.createElement('button'); b.className='dock-btn'+(it.primary?' primary':'');
+    b.style.animationDelay = (60 + i*70) + 'ms';
+    b.innerHTML = '<span class="ic">'+ICON[it.icon]+'</span><span class="dock-lbl">'+it.label+(it.hint?' · '+it.hint:'')+'</span>';
+    dock.appendChild(b);
+  });
+  wrap.appendChild(dock);
+  var brand = document.createElement('div'); brand.className='dbrand';
+  brand.innerHTML = 'Powered by <strong class="brand">Klavity</strong>'; wrap.appendChild(brand);
+  return wrap;
+}
+
+// L4 · COMMAND-PALETTE — search field on top, filterable action list.
+function buildPalette(){
+  var p = document.createElement('div'); p.className='surf palette';
+  var search = document.createElement('div'); search.className='pal-search';
+  search.innerHTML = '<span class="si">'+ICON.search+'</span>'+
+    '<input type="text" placeholder="Type a command…" aria-label="Filter actions" />'+
+    '<span class="kbd">esc</span>';
+  p.appendChild(search);
+  var list = document.createElement('div'); list.className='pal-list';
+  p.appendChild(list);
+  var foot = document.createElement('div'); foot.className='pal-foot';
+  foot.innerHTML = 'Powered by <strong class="brand">Klavity</strong>'; p.appendChild(foot);
+
+  function render(q){
+    list.innerHTML = '';
+    var ql = (q||'').trim().toLowerCase();
+    var shown = ITEMS.filter(function(it){ return !ql || it.label.toLowerCase().indexOf(ql) !== -1; });
+    if(!shown.length){ var e=document.createElement('div'); e.className='pal-empty'; e.textContent='No actions match “'+q+'”.'; list.appendChild(e); return; }
+    shown.forEach(function(it, i){
+      var r = document.createElement('button'); r.className='pal-row'+(it.primary?' primary':'')+(it.muted?' muted':'');
+      r.style.animationDelay = (40 + i*40) + 'ms';
+      r.innerHTML = '<span class="ic">'+ICON[it.icon]+'</span><span class="lbl">'+it.label+'</span>'+
+                    (it.hint?'<span class="hint">'+it.hint+'</span>':'');
+      list.appendChild(r);
+    });
+  }
+  render('');
+  search.querySelector('input').addEventListener('input', function(e){ render(e.target.value); });
+  return p;
+}
+
+// L5 · ICON-RAIL + PANEL — thin icon column, detail panel reflects the active icon.
+function buildRail(){
+  var m = document.createElement('div'); m.className='surf railmenu'; m.style.padding='0';
+  var rail = document.createElement('div'); rail.className='rail';
+  var panel = document.createElement('div'); panel.className='panel';
+  function paint(i){
+    var it = ITEMS[i];
+    panel.innerHTML =
+      '<div class="p-anim">'+
+      '<div class="p-ic">'+ICON[it.icon]+'</div>'+
+      '<h4>'+it.label+'</h4>'+
+      '<p>'+it.desc+'</p>'+
+      '</div>'+
+      '<button class="p-go">'+(it.primary?'Open composer':(it.muted?'Show menu':'Suggest it'))+ICON.arrowRight+'</button>';
+  }
+  ITEMS.forEach(function(it, i){
+    var b = document.createElement('button'); b.className='rail-btn'+(i===0?' active':'');
+    b.style.animationDelay = (60 + i*70) + 'ms';
+    b.setAttribute('aria-label', it.label);
+    b.innerHTML = ICON[it.icon];
+    b.addEventListener('mouseenter', function(){ select(i); });
+    b.addEventListener('focus', function(){ select(i); });
+    b.addEventListener('click', function(){ select(i); });
+    rail.appendChild(b);
+  });
+  function select(i){
+    rail.querySelectorAll('.rail-btn').forEach(function(el, j){ el.classList.toggle('active', j===i); });
+    paint(i);
+  }
+  m.appendChild(rail); m.appendChild(panel); paint(0);
+  return m;
+}
+
+// L6 · LARGE TOUCH CARDS — bigger cards with a one-line description each.
+function buildTouch(){
+  var t = document.createElement('div'); t.className='surf touch';
+  ITEMS.forEach(function(it, i){
+    var c = document.createElement('button'); c.className='tcard'+(it.primary?' primary':'')+(it.muted?' muted':'');
+    c.style.animationDelay = (70 + i*64) + 'ms';
+    c.innerHTML = '<span class="t-ic">'+ICON[it.icon]+'</span>'+
+      '<span class="t-body"><span class="t-t">'+it.label+'</span><span class="t-d">'+it.desc+'</span></span>'+
+      '<span class="t-go">'+ICON.arrowRight+'</span>';
+    t.appendChild(c);
+  });
+  var f = document.createElement('div'); f.className='tfoot';
+  f.innerHTML = 'Powered by <strong class="brand">Klavity</strong>'; t.appendChild(f);
+  return t;
+}
+
+var LAYOUTS = [
+  { build:buildRadial,  stage:'',     title:'1 · Radial / arc',          desc:'Actions fan out on an arc above the cursor point, each springing outward from the click origin.' },
+  { build:buildGrid,    stage:'',     title:'2 · Grid — 2×2 tiles',      desc:'Four card tiles in a 2×2 — icon over label, the brand sits in the fourth cell.' },
+  { build:buildDock,    stage:'dark', title:'3 · Compact icon dock',     desc:'A horizontal row of icon buttons; labels surface as tooltips on hover, macOS-dock style.' },
+  { build:buildPalette, stage:'',     title:'4 · Command palette',       desc:'A search field on top with a live-filterable action list — type to narrow the commands.' },
+  { build:buildRail,    stage:'',     title:'5 · Icon rail + panel',     desc:'A thin vertical icon rail beside a panel that previews the hovered action’s label + description.' },
+  { build:buildTouch,   stage:'dark', title:'6 · Large touch cards',     desc:'Bigger, finger-friendly cards, each carrying a short one-line description under the action.' }
+];
+
+/* ============================ render ============================ */
+function tag(v){ return v.tag ? ' <span style="font:600 10px ui-monospace;color:#6366f1;background:rgba(99,102,241,.12);padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">'+v.tag+'</span>' : ''; }
+
+function makeCard(v, mountFn){
   var card = document.createElement('section'); card.className = 'card';
   card.innerHTML =
     '<div class="meta">' +
-      '<div><h2>' + v.title + (v.tag ? ' <span style="font:600 10px ui-monospace;color:#6366f1;background:rgba(99,102,241,.12);padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">' + v.tag + '</span>' : '') + '</h2>' +
+      '<div><h3>' + v.title + tag(v) + '</h3>' +
       '<p class="desc">' + v.desc + '</p></div>' +
       '<button class="replay">' + ICON.refresh + 'Replay</button>' +
     '</div>' +
     '<div class="stage ' + v.stage + '"><div class="host"></div></div>';
-  grid.appendChild(card);
   var host = card.querySelector('.host');
-  mount(host, v.cls);
-  card.querySelector('.replay').addEventListener('click', function(){ mount(host, v.cls); });
+  mountFn(host);
+  card.querySelector('.replay').addEventListener('click', function(){ mountFn(host); });
+  return card;
+}
+
+// Color treatments grid
+var grid = document.getElementById('grid');
+VARIANTS.forEach(function(v){
+  grid.appendChild(makeCard(v, function(host){ host.innerHTML=''; host.appendChild(buildMenu(v.cls)); }));
+});
+
+// Layout directions grid
+var grid2 = document.getElementById('grid2');
+LAYOUTS.forEach(function(v){
+  grid2.appendChild(makeCard(v, function(host){ host.innerHTML=''; host.appendChild(v.build()); }));
 });
 
 document.getElementById('replayAll').addEventListener('click', function(){
-  var hosts = document.querySelectorAll('.host');
-  VARIANTS.forEach(function(v, i){ mount(hosts[i], v.cls); });
+  document.querySelectorAll('#grid .host').forEach(function(h, i){ h.innerHTML=''; h.appendChild(buildMenu(VARIANTS[i].cls)); });
+  document.querySelectorAll('#grid2 .host').forEach(function(h, i){ h.innerHTML=''; h.appendChild(LAYOUTS[i].build()); });
 });
 </script>
 </body>
