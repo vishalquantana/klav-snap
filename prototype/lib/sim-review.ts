@@ -21,13 +21,13 @@ import { buildRecurrenceMemory } from "./recurrence-memory"
 // Re-export everything from the pure module so callers only need one import path.
 export {
   hashObservation, decodeDataUrl, splitUrl, buildSimRunSummary,
-  obsIsNearDup, obsPassesMode,
+  obsIsNearDup, obsPassesMode, parseRegion,
   sessionCallCapped, sessionObsCapped, sessionCallCount, sessionObsCount,
   sessionSeenTexts, sessionBumpCall, sessionBumpObs,
   SESSION_CALL_CEIL, SESSION_OBS_CEIL, NEAR_DUP_THRESHOLD, SESSION_TTL_MS,
-  type SimFeedbackMode, type SimObservation, type SimReview,
+  type SimFeedbackMode, type ObsRegion, type SimObservation, type SimReview,
 } from "./sim-review-pure"
-import { hashObservation, obsIsNearDup, obsPassesMode, sessionCallCapped, sessionObsCapped, sessionObsCount, sessionBumpCall, sessionBumpObs, sessionSeenTexts, SESSION_CALL_CEIL, SESSION_OBS_CEIL } from "./sim-review-pure"
+import { hashObservation, obsIsNearDup, obsPassesMode, parseRegion, sessionCallCapped, sessionObsCapped, sessionObsCount, sessionBumpCall, sessionBumpObs, sessionSeenTexts, SESSION_CALL_CEIL, SESSION_OBS_CEIL } from "./sim-review-pure"
 import type { SimFeedbackMode, SimObservation, SimReview } from "./sim-review-pure"
 
 export type SimReactFn = (
@@ -243,6 +243,8 @@ export async function runSimReviews(opts: SimRunOptions): Promise<SimReview[]> {
         sentiment: r?.sentiment ?? null,
         quote: citation.sourceQuote,
         hash,
+        // region: parse model output; accept both "region" (new) and "box" (legacy field name).
+        region: parseRegion(r?.region ?? r?.box),
         suggestedBug: bug ?? null,
         feedbackId,
         deduped,

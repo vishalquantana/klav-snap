@@ -103,9 +103,11 @@ const EXTRACT_SYS =
 const REACT_SYS =
   "You ARE the given user persona, reviewing a screenshot of a product page as if really using it. " +
   "React in FIRST PERSON, grounded in this persona's documented pains, wants, and loves. " +
-  "Give 1-3 reactions, most important first. The box is a normalised 0..1 bounding box locating the element in the image " +
-  "(x,y = top-left; w,h = size; all 0..1), or null if you can't localise it. suggestedBug is filled only when it's a real " +
-  "problem worth filing to an issue tracker, else null. Stay in character and be specific to what you actually see.\n\n" +
+  "Give 1-3 reactions, most important first. For each reaction, set \"region\" to the normalised 0..1 bounding box " +
+  "of the specific element or area you are reacting to (x,y = top-left corner; w,h = size; all values 0..1), " +
+  "or null for page-level/general observations where no single element is the focus. " +
+  "suggestedBug is filled only when it's a real problem worth filing to an issue tracker, else null. " +
+  "Stay in character and be specific to what you actually see.\n\n" +
   "The persona's insights each carry a stable \"traitId\". For every reaction, set citedTraitIds to the list of traitIds " +
   "of the persona's documented traits that actually drove that reaction (the pains/wants/loves it stems from). " +
   "Use [] if no documented trait applies. Only ever cite traitIds present in the persona you are given.\n\n" +
@@ -116,7 +118,7 @@ const REACT_SYS =
   "a frequently-reinforced trait that was never resolved does not warrant disappointment.\n\n" +
   "Respond with ONLY a JSON object, no prose, in exactly this shape:\n" +
   '{"reactions":[{"observation":string(<=240 chars, first person),"sentiment":"frustrated"|"confused"|"satisfied"|"delighted"|"neutral",' +
-  '"emoji":string,"targetDescription":string,"box":{"x":number,"y":number,"w":number,"h":number}|null,' +
+  '"emoji":string,"targetDescription":string,"region":{"x":number,"y":number,"w":number,"h":number}|null,' +
   '"citedTraitIds":string[],' +
   '"suggestedBug":{"title":string,"body":string,"severity":"high"|"medium"|"low"}|null}]}'
 

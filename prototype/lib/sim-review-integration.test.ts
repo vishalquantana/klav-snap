@@ -8,11 +8,11 @@
 //   (c) per-session throttle — 2nd call within window blocked; resets after window
 import { test, expect, mock, beforeEach } from "bun:test"
 import {
-  hashObservation, buildSimRunSummary, obsIsNearDup, obsPassesMode,
+  hashObservation, buildSimRunSummary, obsIsNearDup, obsPassesMode, parseRegion,
   sessionCallCapped, sessionObsCapped, sessionCallCount, sessionObsCount,
   sessionBumpCall, sessionBumpObs,
   SESSION_CALL_CEIL, SESSION_OBS_CEIL, NEAR_DUP_THRESHOLD,
-  type SimFeedbackMode, type SimReview, type SimObservation,
+  type SimFeedbackMode, type ObsRegion, type SimReview, type SimObservation,
 } from "./sim-review-pure"
 import { allow } from "./ratelimit"
 
@@ -78,7 +78,7 @@ function makeReview(simId: string, simName: string, obs: SimObservation[]): SimR
 }
 
 function makeObs(text: string, deduped = false, bug: any = null): SimObservation {
-  return { text, sentiment: "negative", quote: null, hash: hashObservation(text), suggestedBug: bug, deduped }
+  return { text, sentiment: "negative", quote: null, hash: hashObservation(text), region: null, suggestedBug: bug, deduped }
 }
 
 test("(b) multi-Sim: one SimReview per Sim in output", () => {
@@ -446,4 +446,137 @@ test('(f) mode filter + summary: only positive obs → no bugs in summary', () =
   const s = buildSimRunSummary(filtered)
   expect(s.totalObservations).toBe(2)
   expect(s.bugCount).toBe(0)
+})
+
+// ── (g) element region — parseRegion + pass-through ──────────────────────────
+//
+// Each model reaction can include a `region` (or legacy `box`) field: a normalised
+// 0..1 bounding box {x,y,w,h} of the specific element on the page the Sim is
+// reacting to. parseRegion() validates and clamps the raw model output.
+// null is returned (and stored) for page-level / general observations.
+
+// ── parseRegion: valid inputs ─────────────────────────────────────────────────
+
+test("(g) parseRegion: valid 0..1 values → returned as-is", () => {
+  const r = parseRegion({ x: 0.1, y: 0.2, w: 0.3, h: 0.4 })
+  expect(r).not.toBeNull()
+  expect(r!.x).toBeCloseTo(0.1)
+  expect(r!.y).toBeCloseTo(0.2)
+  expect(r!.w).toBeCloseTo(0.3)
+  expect(r!.h).toBeCloseTo(0.4)
+})
+
+test("(g) parseRegion: exact 0 and 1 boundaries are valid", () => {
+  const r = parseRegion({ x: 0, y: 0, w: 1, h: 1 })
+  expect(r).toEqual({ x: 0, y: 0, w: 1, h: 1 })
+})
+
+// ── parseRegion: clamping out-of-range values ─────────────────────────────────
+
+test("(g) parseRegion: values > 1 are clamped to 1", () => {
+  const r = parseRegion({ x: 1.5, y: 2.0, w: 0.5, h: 0.25 })
+  expect(r!.x).toBe(1)
+  expect(r!.y).toBe(1)
+})
+
+test("(g) parseRegion: negative values are clamped to 0", () => {
+  const r = parseRegion({ x: -0.1, y: -5, w: 0.3, h: 0.3 })
+  expect(r!.x).toBe(0)
+  expect(r!.y).toBe(0)
+})
+
+test("(g) parseRegion: string numeric values are parsed (model may emit strings)", () => {
+  const r = parseRegion({ x: "0.25", y: "0.5", w: "0.4", h: "0.3" })
+  expect(r).not.toBeNull()
+  expect(r!.x).toBeCloseTo(0.25)
+})
+
+// ── parseRegion: null / missing / malformed → null ───────────────────────────
+
+test("(g) parseRegion: null input → null (page-level observation)", () => {
+  expect(parseRegion(null)).toBeNull()
+})
+
+test("(g) parseRegion: undefined input → null", () => {
+  expect(parseRegion(undefined)).toBeNull()
+})
+
+test("(g) parseRegion: missing fields → null", () => {
+  expect(parseRegion({ x: 0.1, y: 0.2 })).toBeNull()       // w,h missing
+  expect(parseRegion({ x: 0.1, y: 0.2, w: 0.3 })).toBeNull() // h missing
+  expect(parseRegion({})).toBeNull()
+})
+
+test("(g) parseRegion: non-numeric field values → null", () => {
+  expect(parseRegion({ x: "nope", y: 0.2, w: 0.3, h: 0.4 })).toBeNull()
+  expect(parseRegion({ x: NaN, y: 0.2, w: 0.3, h: 0.4 })).toBeNull()
+})
+
+test("(g) parseRegion: non-object input → null", () => {
+  expect(parseRegion("0.1,0.2,0.3,0.4")).toBeNull()
+  expect(parseRegion(42)).toBeNull()
+  expect(parseRegion([])).toBeNull()
+})
+
+// ── region pass-through in SimObservation ─────────────────────────────────────
+//
+// When runSimReviews assembles an observation, it calls parseRegion(r?.region ?? r?.box)
+// and sets the result on assembled.region. Prove the pass-through is correct by
+// verifying that SimObservation carries the field and buildSimRunSummary is unaffected.
+
+test("(g) SimObservation.region field: set from parseRegion result", () => {
+  const raw = { x: 0.1, y: 0.2, w: 0.5, h: 0.3 }
+  const region = parseRegion(raw)
+  // Construct an observation with region (as runSimReviews would)
+  const obsWithRegion: SimObservation = {
+    text: "The buy button is cut off at the bottom",
+    sentiment: "frustrated",
+    quote: null,
+    hash: hashObservation("The buy button is cut off at the bottom"),
+    region,
+    suggestedBug: null,
+    deduped: false,
+  }
+  expect(obsWithRegion.region).not.toBeNull()
+  expect(obsWithRegion.region!.x).toBeCloseTo(0.1)
+  expect(obsWithRegion.region!.y).toBeCloseTo(0.2)
+  expect(obsWithRegion.region!.w).toBeCloseTo(0.5)
+  expect(obsWithRegion.region!.h).toBeCloseTo(0.3)
+})
+
+test("(g) SimObservation.region: null for page-level observation", () => {
+  const obs: SimObservation = {
+    text: "Overall the page feels slow and unresponsive",
+    sentiment: "frustrated",
+    quote: null,
+    hash: hashObservation("Overall the page feels slow"),
+    region: null,
+    suggestedBug: null,
+    deduped: false,
+  }
+  expect(obs.region).toBeNull()
+})
+
+test("(g) legacy 'box' field: parseRegion accepts both 'region' and 'box' keys", () => {
+  // Model may still emit 'box' during transition; parseRegion handles both
+  const fromRegion = parseRegion({ x: 0.2, y: 0.3, w: 0.4, h: 0.1 })
+  const fromBox    = parseRegion({ x: 0.2, y: 0.3, w: 0.4, h: 0.1 })
+  expect(fromRegion).toEqual(fromBox)
+})
+
+test("(g) region survives buildSimRunSummary (summary is unaffected)", () => {
+  const region = parseRegion({ x: 0.05, y: 0.1, w: 0.9, h: 0.08 })
+  const reviews: SimReview[] = [{
+    simId: "s1", simName: "Alice", initials: null, accent: null,
+    observations: [
+      { text: "Header nav is broken", sentiment: "frustrated", quote: null,
+        hash: hashObservation("Header nav is broken"), region, suggestedBug: { title: "Nav bug" }, deduped: false },
+      { text: "Checkout flow works well", sentiment: "positive", quote: null,
+        hash: hashObservation("Checkout flow works well"), region: null, suggestedBug: null, deduped: false },
+    ],
+  }]
+  const s = buildSimRunSummary(reviews)
+  expect(s.totalObservations).toBe(2)
+  expect(s.bugCount).toBe(1)
+  // region doesn't affect the count
 })

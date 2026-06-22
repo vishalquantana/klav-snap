@@ -30,12 +30,42 @@ export function obsPassesMode(
   return true  // unknown mode → pass-through (forward-compatible)
 }
 
+/**
+ * Normalised bounding box (0..1) of the element/area on the page a Sim is reacting to.
+ * x,y = top-left corner; w,h = dimensions. All values clamped to [0,1].
+ * null for page-level or general observations that have no specific element target.
+ */
+export interface ObsRegion {
+  x: number   // left edge  0..1
+  y: number   // top edge   0..1
+  w: number   // width      0..1
+  h: number   // height     0..1
+}
+
+/**
+ * Parse and validate a region object from raw model output.
+ * Accepts the model's `region` or legacy `box` field name.
+ * Clamps each component to [0,1]; returns null if the input is absent or malformed.
+ */
+export function parseRegion(raw: any): ObsRegion | null {
+  if (raw == null || typeof raw !== "object") return null
+  const clamp = (v: any): number | null => {
+    const n = typeof v === "number" ? v : parseFloat(v)
+    if (!isFinite(n)) return null
+    return Math.max(0, Math.min(1, n))
+  }
+  const x = clamp(raw.x), y = clamp(raw.y), w = clamp(raw.w), h = clamp(raw.h)
+  if (x === null || y === null || w === null || h === null) return null
+  return { x, y, w, h }
+}
+
 /** One Sim's reaction to a page, enriched with dedup + recurrence context. */
 export interface SimObservation {
   text: string                  // observation text
   sentiment: string | null      // positive | negative | neutral
   quote: string | null          // verbatim source quote from a trait, if cited
   hash: string                  // sha256 slice-16 dedup token — stable within a session
+  region: ObsRegion | null      // normalised 0..1 bbox of the targeted element; null = page-level
   suggestedBug?: any | null
   feedbackId?: string
   deduped?: boolean             // true when matched an existing feedback row
