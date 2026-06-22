@@ -1,318 +1,322 @@
-# Manual Sim Trigger — Design Spec
+# Sims Live — "Customers in the Room While You Build"
 
-**Date:** 2026-06-23  
-**Status:** Building (2026-06-23) — direction confirmed: **browser-capture v1 (Option B)**. Sims jump out and analyse the page the admin is currently browsing, on demand — "customers in the room while you build." The full vision is LIVE & PERSISTENT: Sims dock bottom-right for the whole session, re-analysing on each navigate/scroll/DOM change. Trails/server-side Playwright is a separate deferred track (AutoSim). Open decisions §9 resolved by user direction; §5 Option A deferred.  
-**Branch:** feat/manual-sim-trigger-ui (UI/presence) — Dev 3 owns backend (lib/sim-review.ts), Dev 4 owns DOM/scroll watch engine, Dev 6 owns right-click menus  
-
----
-
-## 1. Problem Statement
-
-Sims are set up in the Klavity admin dashboard (Sim Studio). Today, a Sim only gets to "see" a client page when:
-
-1. **Passive auto-activation** — the Chrome extension detects the user is on a monitored URL and auto-fires `/api/sim/review`.
-2. **Ad-hoc extension trigger** — "Analyze this page" right-click in the extension, when the admin happens to be browsing the client site.
-
-Both require the **admin's browser to be open on the client page** at the moment of capture. There is no way to say from the Klavity dashboard: "Run Sim X against `https://client.com/pricing` right now" — without first navigating there.
-
-This feature closes that gap: an **explicit, on-demand Sim run triggered from the admin dashboard (or widget right-click)** against a URL the admin specifies.
+**Date:** 2026-06-23 (revised from initial brainstorm)  
+**Status:** Design locked — ready for implementation planning  
+**Supersedes:** Initial v1 proposal (server-side Playwright capture — that approach is now moved to the AutoSim/Trails track)
 
 ---
 
-## 2. Vocabulary
+## 1. The Real Vision (User-Clarified)
 
-| Term | Meaning |
-|---|---|
-| **Sim** | An AI persona (e.g. Sarah Chen, Procurement Lead). Defined in Sim Studio. |
-| **Sim review** | One run of `reactToPage(sim, screenshot, url)` — produces reactions/observations. |
-| **Sim run** | A triggered batch: N Sims × 1 URL = N reviews. Analogous to a Trails Walk. |
-| **Client site** | The external web app where the Klavity widget is embedded. May be public or auth-walled. |
-| **Dashboard trigger** | Admin presses a button in the Klavity admin UI to initiate a Sim run. |
+The initial brainstorm proposed an admin-dashboard "Run Sims" button backed by server-side Playwright to visit a URL and take a screenshot. The user clarified this is **wrong direction** — that pattern belongs to AutoSim/Trails (autonomous, unattended, its own browser).
 
----
+The actual feature is something richer:
 
-## 3. Goals
+> **"Customers in the room while you build."**
+> Right-click → Deploy Sims → they dock in the corner and react to every screen you visit, every scroll, every chatbot response, every page navigation — a live virtual customer panel running alongside your real work session.
 
-1. Admin can trigger a Sim run against any URL from the Klavity dashboard — no browser session on the client page required.
-2. Sims that are set up but never automatically activated (client site not monitored, or extension not installed by a user) can still be exercised.
-3. Results land in the same feedback / expectations spine that passive reviews produce, so insights accumulate regardless of trigger path.
-4. The feature is the missing "Run" button that makes the Sims onboarding story complete: you add Sims → you immediately test them against your site → you see what they find.
-
-**Non-goals (v1):**
-- Scheduled / cron Sim runs (fast-follow, like Trails scheduled walks).
-- Multi-page journeys (a single URL + full-page screenshot is the unit; multi-step is Trails territory).
-- Headless auth flow (auth-walled pages deferred — v1 limits to public pages or cookie injection via a future mechanism).
+This is not one-shot. It is not asynchronous. It is **persistent + event-driven** — Sims stay deployed until dismissed, re-analyzing continuously as the page changes or you navigate.
 
 ---
 
-## 4. How the Existing System Works (Grounding)
+## 2. Sims vs. AutoSim/Trails — The Critical Distinction
 
-### `POST /api/sim/review` today
+These are **two separate tracks** that must never be conflated:
 
-```
-caller (extension) → captures screenshot (captureVisibleTab / html-to-image)
-                  → POST /api/sim/review { url, screenshotDataUrl, domSig?, simIds?, projectId?, adhoc? }
-                      ↓
-server: auth gate → allowlist gate → budget gate → reactToPage() per Sim
-                  → insertFeedback() + autoCopyFeedback() + ingestSnapOrSim()
-                  → return { reviews: [...reactions] }
-```
+| | Sims (Live) | AutoSim / Trails |
+|---|---|---|
+| **Who drives the browser** | YOU — Sims ride along in your session | The server — autonomous headless Chromium |
+| **When it runs** | While you're actively browsing | On its own schedule (cron/on-demand, unattended) |
+| **Auth** | Your browser session — sees exactly what you see, including auth-walled pages | Needs login credentials injected (AutoSim will ask) |
+| **Capture** | `html-to-image` / `safeToPng` from the client's browser | Playwright `page.screenshot()` on the server |
+| **Feel** | "Virtual customers watching over your shoulder" | "Automated QA agent running overnight" |
+| **Trigger** | Right-click → Deploy Sims (manual, in-page) | Dashboard walk button / cron (remote) |
+| **Output** | Live docked panel + reactions bubbles | Trails dashboard runs + expectations auto-file |
 
-**The server never captures a screenshot.** It always receives one. This is the core gap.
-
-### Trails `POST /api/trails/:id/walk` (the template)
-
-```
-admin (dashboard "Run" button) → POST /api/trails/:id/walk
-                               ← { runId }
-server: runWalkNow()
-  → chromium.launch() (Playwright, headless-shell, already on the box)
-  → page.goto(trailUrl)
-  → run crystallized Playwright steps
-  → per-step evidence + heal/file findings
-  → verdict written to DB
-```
-
-The Trails runner **already does server-side headless Chromium capture** of external URLs (including `google.com` in the demo). This is the infrastructure to reuse.
+**The homepage promise is Sims (live).** Trails/AutoSim is the power tool for CI/overnight. Do not mix them.
 
 ---
 
-## 5. Approach Options
+## 3. UX Walkthrough — What the Feature Looks Like
 
-### Option A — Server-Side Playwright Capture (Dashboard-first)
-
-**Flow:**
-```
-Admin clicks "Run Sims" in dashboard
-  → picks: URL, which Sims (default = all), optional label
-  → POST /api/sims/run { projectId, url, simIds?, label? }
-        ↓
-server: auth + project-access gate
-  → chromium.launch() (reuse Trails infra)
-  → page.goto(url, { waitUntil: 'networkidle', timeout: 15s })
-  → page.screenshot({ fullPage: true, type: 'jpeg', quality: 80 })
-  → converts to base64 dataUrl
-  → calls existing reviewSims(projectId, { url, screenshotDataUrl, simIds })
-     (shared logic extracted from /api/sim/review)
-  → persists run record (sim_runs table: id, projectId, url, status, simIds, screenshotId, reactionsJson, startedAt, finishedAt)
-  → returns { runId }
-Admin polls GET /api/sims/runs/:id → { status, reviews }
-```
-
-**Pros:**
-- Works without the admin's browser on the client page.
-- Reuses the Playwright + Chromium stack already proven on the production box (Trails Plan G, v0.28.0).
-- Clean separation: dashboard initiates, server captures and reviews.
-- Natural "Run → see results" story identical to Trails.
-
-**Cons:**
-- Server visits external URLs (the client's production site). Needs SSRF guard (already have `safeFetch` pattern; apply same URL validation — block private IPs, localhost, internal hostnames).
-- Public pages only in v1 (no auth cookies → auth-walled pages return a login screen, which Sims will "review" unhelpfully). Admin must be aware.
-- Headless Chrome may be blocked by anti-bot protection on some client sites (Cloudflare, etc.).
-- Adds ~100MB memory pressure during the run (same concern as Trails; already solved with headless-shell).
-
-**Recommended for v1** — most valuable, aligns with user intent, natural extension of Trails architecture.
+1. You're browsing your client app (where the Klavity widget is embedded — "Powered by Klavity" footer).
+2. Right-click anywhere → widget context menu appears → new item: **"Deploy Sims ›"** → shows a submenu with your project's Sim avatars + a "Deploy all" shortcut.
+3. You click "Deploy all Sims" (or pick specific ones).
+4. A **docked panel** slides into the bottom-right corner:
+   - Shows N Sim avatars (the ksim characters with legs + emotion marks).
+   - Shows "Analysing…" spinner while the first review fires.
+   - Shows each Sim's latest reaction below their avatar (short observation + emotion glyph).
+   - "×" dismiss button in the corner.
+5. As you use the app — navigate to the next page, scroll a long feed, submit a form, get a chatbot response — **sims-watch detects the DOM/navigation change** and re-fires the review automatically. The docked panel updates in real time.
+6. Each reaction also feeds into your project's feedback spine (same as today's passive auto-review) — so what Sims surface while you're browsing accumulates in the expectations dashboard.
+7. When you're done: right-click → "Dismiss Sims" → docked panel closes, observation stops.
 
 ---
 
-### Option B — Widget Right-Click Trigger (Client-side capture, server-side review)
+## 4. Architecture
 
-**Flow:**
-```
-Widget right-click menu on client site gains new option:
-  "Ask your Sims to review this page"
-  → widget captures screenshot (existing html-to-image / safeToPng path)
-  → POST /api/sim/review { ..., adhoc: true, projectId }
-  → same server path as today
-  → results shown as reactions in the widget (same bubble UI)
-```
+Four components built in parallel by four Devs:
 
-**Pros:**
-- Zero server-side crawl; screenshot comes from the real browser session (CSS rendered, fonts loaded, auth state respected — sees auth-walled pages correctly).
-- No new infrastructure; extends the existing `KLAV_ADHOC_REVIEW` path.
-- Reactions appear inline as bubbles — feels live and immediate.
+### 4.1 `sims-live.ts` — Presence Layer (Dev2)
 
-**Cons:**
-- Requires someone (admin or test user) to be on the client page with the widget active.
-- Only available on pages where the widget is embedded — the admin can't run it against arbitrary URLs from the dashboard.
-- Not truly "manual trigger from the admin dashboard"; it's an in-page action.
-- Less discoverability (buried in the widget menu).
-
-**Good complement to Option A in a later phase**, not a standalone solution for the stated goal.
-
----
-
-### Option C — Hybrid (Dashboard provides URL, browser does capture)
-
-**Flow:**
-```
-Admin enters a URL in the dashboard
-  → dashboard opens that URL in a popup/new tab (window.open)
-  → landing page has a one-time token + listens for a "ready" message
-  → content script / injected snippet captures screenshot + sends to /api/sim/review
-  → results polled by dashboard
-```
-
-**Pros:** Handles auth-walled pages. Screenshot comes from a real browser session.
-
-**Cons:** Extremely brittle. Relies on CSP of the client site to not block the injected script. Popup blockers. Requires extension to be installed on the admin's browser. Not a clean product experience.
-
-**Rejected for v1.**
-
----
-
-## 6. Recommended Architecture: Option A + Option B as v2
-
-### v1: Dashboard "Run Sims" (Option A)
-
-**New API surface:**
-
-```
-POST /api/sims/run
-  body: { projectId, url, simIds?: string[], label?: string }
-  auth: session cookie OR bearer token
-  returns: { runId: string }
-
-GET /api/sims/runs/:runId
-  returns: { id, projectId, url, status: 'pending'|'running'|'done'|'error', 
-             sims: [...], reviews: [...reactions], screenshotId, createdAt, finishedAt, errorMsg? }
-
-GET /api/sims/runs?project=<id>&limit=20
-  returns: { runs: [...] }  — recent runs for the project
-```
-
-**New DB table:** `sim_runs`
-
-```sql
-CREATE TABLE sim_runs (
-  id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
-  url TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',  -- pending|running|done|error
-  sim_ids_json TEXT,                         -- null = all project Sims
-  screenshot_id TEXT,
-  reactions_json TEXT,                       -- full reviews array
-  label TEXT,
-  error_msg TEXT,
-  started_at INTEGER,
-  finished_at INTEGER,
-  created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
-);
-CREATE INDEX sim_runs_project ON sim_runs(project_id, created_at DESC);
-```
-
-**Server logic:** `lib/sim-runner.ts` (mirrors `lib/trails-runner.ts` structure)
-
-```
-runSimsNow(projectId, url, simIds?) → Promise<{ runId }>
-  - validates URL (SSRF guard: block private/localhost/internal)
-  - inserts sim_runs row (status=pending)
-  - fires background async task (no await; returns runId immediately)
-  - background task:
-      chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] })
-      page.goto(url, { waitUntil: 'networkidle', timeout: 15000 })
-      screenshot = page.screenshot({ fullPage: false, type: 'jpeg', quality: 80 })
-      uploadScreenshotMeta(screenshot, 'image/jpeg', 'private')
-      insertScreenshot(...)
-      runs reactToPage() for each Sim (reuse existing /api/sim/review logic, extracted to lib/sim-review.ts)
-      each review → insertFeedback + autoCopyFeedback + ingestSnapOrSim (existing pipeline)
-      updates sim_runs row (status=done, reactions_json, finished_at)
-  - concurrent safety: no mutex needed (unlike Trails' single-slot — Sims are stateless LLM calls,
-    can run multiple simultaneously; limit to 3 concurrent runs per project via a soft check)
-```
-
-**Cost accounting:** Each Sim review call goes through the existing daily budget gate (`tryConsumeReviewBudget`). A 3-Sim run against 1 URL = 3 budget slots. The run is rejected upfront if budget is at 0.
-
-**SSRF guard:**
+**Package:** `packages/sdk/src/sims-live.ts`  
+**Responsibility:** Deploy/dismiss lifecycle, docked panel UI, `window.KlavitySims` public API.
 
 ```ts
-// Reuse the safeFetch URL validation pattern already in the codebase:
-import { validateExternalUrl } from './safe-fetch'  // block: localhost, 10.x, 192.168.x, 169.254.x, etc.
+// Public API exposed on the host page
+interface KlavitySimsAPI {
+  deploy(simIds: string[], opts?: { projectId?: string }): Promise<void>
+  dismiss(): void
+  isActive(): boolean
+  onReaction(cb: (simId: string, reaction: SimReaction) => void): () => void  // returns unsub
+}
 ```
 
-**Dashboard UI** (in `prototype/public/dashboard.html` Sims section):
+**Docked panel** lives in the widget's existing shadow root (`HOST_ID`), so it inherits the shadow DOM isolation. Structure:
+- Fixed pill at bottom-right (above widget dock; z-index 2147483645).
+- N Sim avatars in a row (using `createSim()` from `@klavity/core/sim`).
+- "Analysing…" overlay while a review is in flight (spinning ring on the pill border, same pattern as the Trails indicator).
+- Per-Sim latest reaction line: emotion mark + first 60 chars of observation.
+- Dismiss `×` button calls `window.KlavitySims.dismiss()`.
 
-- "Run Sims" button on the Sims card → opens a small modal:
-  - URL input (pre-filled with the first monitored URL for the project, if any)
-  - Sim selector: checkboxes (default: all)
-  - Optional label
-  - "Run" CTA
-- After submission: shows a spinner pill "Running… [URL]" that polls `GET /api/sims/runs/:id`
-- On done: shows a collapsible "Last Run" panel inline — screenshot thumbnail + Sim reactions (same bubble-card style as the extension reactions)
-- "Run history" link → a simple list of past runs with status + date + reaction count
+**State managed here:**
+- `activeSimIds: string[]`
+- `sessionToken: string` (nanoid, reset on each deploy — server uses for per-session dedup)
+- `lastReactions: Map<simId, SimReaction>`
+- `isReviewing: boolean`
 
----
-
-### v2: Widget Right-Click (Option B, later)
-
-Add "Ask Sims to review this page" to the widget's right-click menu → uses the existing `POST /api/sim/review` with `adhoc: true`. Results appear as widget bubbles. This is a one-liner once v1 ships (wire `openReport`-style into the widget contextmenu handler). **Do not implement in v1.**
-
----
-
-## 7. Results Landing
-
-Manually-triggered Sim run results flow into the **same data pipeline** as passive reviews:
-
-1. `insertFeedback()` → feedback row with `simId` set (same as passive)
-2. `autoCopyFeedback()` → Plane/GitHub/Jira auto-copy if connector configured
-3. `ingestSnapOrSim()` → expectations spine (candidate → validated)
-4. `sim_runs.reactions_json` → dedicated run view (for quick review of "what did the Sims find in this specific run")
-
-This means manually-triggered observations **strengthen corroboration** with passive reviews and Snap reports — the same issue found by a Sim run AND a user Snap report auto-validates in the expectations spine.
+**`window.KlavitySims.deploy(simIds)`** does:
+1. Fetches the Sim profiles from `GET /api/personas?project=X` (reuses existing endpoint).
+2. Renders the docked panel.
+3. Calls `simsWatch.arm()` (sims-watch.ts).
+4. Fires the first review immediately (current page).
 
 ---
 
-## 8. Auth & Project Scoping
+### 4.2 `sims-watch.ts` — Change Detection (Dev4)
 
-- **Trigger:** session cookie or bearer token, same as all admin endpoints. `resolveProject(email, projectId)` + `projectAccess(email, projectId)` gates.
-- **No allowlist check for manually-triggered runs:** The admin explicitly supplies the URL; treating it as an adhoc run (same as `adhoc: true` in the current endpoint). The allowlist gate only blocks passive auto-reviews.
-- **Budget gate:** Applied per run. Same daily `reviewBudgetDaily` cap. A 5-Sim run against 1 URL = 5 slots.
-- **SSRF:** Server-side crawl goes through URL validation before `chromium.launch()`. Block private IP ranges, localhost, `file://`, `javascript:`, `.local` TLDs.
+**Package:** `packages/sdk/src/sims-watch.ts`  
+**Responsibility:** Detect meaningful page changes → debounce → trigger capture → call review.
 
----
+Change signals (same taxonomy as the existing `klavArmObservers` in `content.ts` — but this lives in the widget, not the extension):
 
-## 9. Open Design Decisions (User Input Required)
+| Signal | Condition |
+|---|---|
+| **Navigation** | `pushState` / `popstate` / `hashchange` |
+| **Major DOM mutation** | `MutationObserver` on `main`/`[role="main"]`/`article`/`body` — content child count or structure changed above threshold |
+| **Scroll-reveal** | `IntersectionObserver` on content blocks entering viewport |
+| **DOM sig change** | `klavContentSig()`-equivalent delta — prevents micro-mutation spam (e.g., cursor blink, timestamp tick) |
 
-### Decision 1 — Server-side Playwright capture vs. always-browser capture
+**Debounce:** 800ms trailing edge (longer than the extension's 600ms — Sims are more expensive than the passive auto-review).
 
-**The question:** Should v1 use server-side headless Chromium (Option A) to visit and screenshot the client URL, or should we require the admin's browser + extension to perform the capture?
+**On trigger:**
+```
+sims-watch fires
+  → sims-live.setReviewing(true)
+  → capture: html-to-image / safeToPng(document.body) (same as widget bug capture path)
+  → POST /api/sim/review {
+        url: location.href,
+        screenshotDataUrl,
+        domSig: computeDomSig(),
+        simIds: activeSimIds,
+        projectId,
+        adhoc: true,
+        sessionToken  ← new: per-session dedup key
+    }
+  → sims-live.setReviewing(false)
+  → sims-live.onReactions(reviews)  → update docked panel
+```
 
-- **Server-side (recommended):** works without admin being on the client page; reuses Trails Playwright infra already proven live. Limitation: public pages only (no auth sessions), may be blocked by anti-bot.
-- **Browser capture:** always accurate (real session, auth, fonts, CSS); but requires admin to be on the page → not truly "from the dashboard".
-
-**Direction needed:** Is server-side capture acceptable for v1 (public pages / marketing pages), with browser capture as a v2 enhancement for auth-walled pages? Or is auth-walled capture a v1 requirement?
-
----
-
-### Decision 2 — Single-slot concurrency vs. parallel runs
-
-**The question:** Should manual Sim runs share the Trails single-slot mutex (so a Trails walk and a Sim run can't run simultaneously on the 1GB box), or run independently?
-
-- **Share the slot:** Simple, safe, never OOM. But a 5-Sim run against 3 URLs would queue behind any in-progress Trail walk.
-- **Independent with soft cap (3 concurrent):** More flexible; Sim screenshot capture is lighter than Trails step-by-step journeys. Risk: 2 Sim runs + 1 Trail walk = 3 browsers → potential OOM on the 1GB prod box.
-
-**Direction needed:** Given the current 1GB box constraints, should all headless Chrome work (Trails + Sims) share a single global concurrency slot?
-
----
-
-### Decision 3 — Results surface (dedicated "Sim Runs" view vs. inline in feedback)
-
-**The question:** Do manually-triggered Sim run results get their own run-history view (like `/trails` for Trails), or do they simply appear inline in the existing feedback/expectations dashboard?
-
-- **Dedicated run view:** Admin can see "I ran Sims against `/pricing` on June 23 at 2pm, here's what each Sim found." Screenshot + reactions side-by-side. Natural for debugging ("why did Sarah find this?").
-- **Feedback-only:** Results fold into the existing feedback list — no separate run concept. Simpler, but harder to trace "which run produced this observation."
-- **Hybrid (recommended):** Results persist in `sim_runs` table for a run view AND flow into feedback/expectations for cumulative analysis.
-
-**Direction needed:** Should we build a "Sim Runs" section in the dashboard (similar to the Trails dashboard) in v1, or defer the run-history view and only surface results via the feedback list?
+**Arms on `window.KlavitySims.deploy()`; disarms on `dismiss()`.**  
+**Also disarms on `klavity:widget-ready` replacement** (same coexist logic as the extension).
 
 ---
 
-## 10. What We Are NOT Designing
+### 4.3 Right-Click "Deploy Sims" Menu (Dev6)
 
-- **Multi-page / multi-step Sim journeys** — that is Trails territory (Trails already does multi-page walks with intent crystallization). A Sim run is a single-shot page review, not a journey.
-- **Scheduled / cron Sim runs** — natural fast-follow once manual trigger ships (identical to Trails scheduled walks).
-- **Sim "replay" or session recording** — deferred (the rrweb capture story is Trails-specific for now).
-- **Widget trigger option (Option B)** — saved as v2 since it requires no new infrastructure.
+**File:** `packages/sdk/src/widget.ts` — extend the existing `showMenu()` context menu.
+
+Current menu items: Report a Bug · Request a Feature · Show browser menu.
+
+**New item (when Sims deployed = false):**
+```
+🧬  Deploy Sims ›     [chevron right → submenu]
+```
+Submenu shows: each project Sim as a selectable row (avatar + name + role), plus "Deploy all" shortcut at top. Checked rows = deployed Sims. "Deploy" CTA at bottom.
+
+**New item (when Sims deployed = true):**
+```
+🧬  Dismiss Sims      [no submenu, single click]
+```
+
+**Data:** Sim list is fetched lazily when the menu opens (same `GET /api/personas` call). Cached for 30s so repeated right-clicks don't hammer the server.
+
+**Token:** The widget's `getToken()` is already available for the authenticated call. No new auth surface.
+
+---
+
+### 4.4 `lib/sim-review.ts` — Backend Review Engine (Dev3)
+
+**File:** `prototype/lib/sim-review.ts`  
+**Responsibility:** Extract the core review logic from `server.ts:1895` into a reusable function, add session dedup and per-session cost cap.
+
+**Extraction:**
+```ts
+// Extracted from the POST /api/sim/review handler body
+export async function runSimReview(opts: {
+  projectId: string
+  actorEmail: string
+  url: string
+  screenshotDataUrl: string
+  domSig?: string | null
+  simIds?: string[]
+  adhoc?: boolean
+  sessionToken?: string   // ← new
+}): Promise<SimReviewResult>
+```
+
+`server.ts:1895` becomes a thin wrapper that calls `runSimReview()` after auth/gate checks.
+
+**Session dedup (new, in `lib/sim-review.ts`):**
+
+The existing `REVIEW_SEEN` map is keyed by `reviewDedupeKey(simId, urlPath, domSig)` — it prevents re-reviewing the same DOM state. For live Sims, we add a **session dimension**:
+
+```ts
+// sessionToken resets REVIEW_SEEN for THIS session's keys, not globally.
+// A new deploy() clears previous-session entries for this project.
+// Key: `${sessionToken}:${simId}:${urlPath}:${domSig}`
+```
+
+This means: if you re-deploy Sims, they'll see every page fresh (as if a new customer arrived). Within a session, the same page+domSig is only reviewed once per Sim.
+
+**Per-session cost cap (new):**
+
+```ts
+// In sim_sessions table (new, simple, 3 columns):
+// id, project_id, session_token, review_count, created_at
+// Before each review batch: check session.review_count < SESSION_REVIEW_CAP (default 20)
+// After each review: increment session.review_count
+```
+
+This caps a single live session at 20 reviews regardless of how long the user browses. The existing daily `reviewBudgetDaily` cap still applies on top.
+
+**New DB table:** `sim_sessions` (tiny — 1 row per deploy, GC'd after 24h)
+
+```sql
+CREATE TABLE sim_sessions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  session_token TEXT NOT NULL UNIQUE,
+  review_count INTEGER NOT NULL DEFAULT 0,
+  cap INTEGER NOT NULL DEFAULT 20,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
+);
+```
+
+**`POST /api/sim/review` server changes (minimal):**
+- Accepts optional `sessionToken` in body.
+- If present, creates/increments a `sim_sessions` row.
+- Blocks with `reason: 'sessionCapExhausted'` if `review_count >= cap`.
+- Shows cap-exhausted toast in the widget docked panel.
+
+---
+
+## 5. Data Flow End-to-End
+
+```
+User right-clicks → "Deploy Sims" (Dev6, widget.ts)
+  ↓
+window.KlavitySims.deploy(['sim_sc', 'sim_mw']) (Dev2, sims-live.ts)
+  → generates sessionToken = nanoid()
+  → POST /api/sim/sessions { projectId, sessionToken, cap: 20 }  ← Dev3
+  → renders docked panel
+  → simsWatch.arm()  (Dev4, sims-watch.ts)
+  → fires first review immediately
+
+Change detected (Dev4, sims-watch.ts)
+  → debounce 800ms
+  → safeToPng(document.body) → screenshotDataUrl
+  → POST /api/sim/review { url, screenshotDataUrl, domSig, simIds, projectId,
+                           adhoc: true, sessionToken }
+        ↓
+server lib/sim-review.ts (Dev3)
+  → auth gate (bearer token from widget)
+  → session cap gate (check sim_sessions row)
+  → session dedup gate (skip already-reviewed sim+url+domSig within session)
+  → daily budget gate (existing)
+  → reactToPage() × N Sims
+  → insertFeedback() + autoCopyFeedback() + ingestSnapOrSim()  (existing pipeline)
+  → return { reviews: [...reactions] }
+
+sims-live.ts receives reactions (Dev2)
+  → updates docked panel (emotion marks, observation snippets)
+  → emits reaction bubbles briefly (optional, same style as passive auto-review)
+```
+
+---
+
+## 6. Results Landing
+
+**Immediate (in-page):**
+- Docked panel updates with latest reaction per Sim.
+- Optional brief bubble overlay (same as passive auto-review bubbles — appears and fades).
+
+**Persistent (same as all other Sim reviews):**
+- `insertFeedback()` row with `simId` set — appears in the Sims feedback section of the dashboard.
+- `autoCopyFeedback()` → Plane/GitHub/Jira auto-copy.
+- `ingestSnapOrSim()` → expectations spine (candidate → validated via corroboration).
+
+Live Sims observations **strengthen the expectations spine** the same way passive auto-reviews do — a Sim finding the same issue while browsing + a user Snap report = auto-validated candidate.
+
+**No new "Sim Runs" table is needed for this feature** (the v1 proposal's `sim_runs` table was a consequence of the server-side Playwright approach; browser-capture live Sims don't need a run record separate from the feedback rows).
+
+---
+
+## 7. Dev Split
+
+| Dev | Component | Key files |
+|---|---|---|
+| **Dev2** | `sims-live.ts` — presence layer + docked panel UI + `window.KlavitySims` API | `packages/sdk/src/sims-live.ts` |
+| **Dev4** | `sims-watch.ts` — change detection + capture + review trigger | `packages/sdk/src/sims-watch.ts` |
+| **Dev6** | Right-click "Deploy Sims" menu in widget context menu | `packages/sdk/src/widget.ts` |
+| **Dev3** | `lib/sim-review.ts` extraction + session dedup + per-session cost cap + `POST /api/sim/sessions` endpoint | `prototype/lib/sim-review.ts`, `prototype/server.ts` |
+
+**Integration point:** Dev6 calls `window.KlavitySims.deploy()` (Dev2), which calls `simsWatch.arm()` (Dev4), which calls `POST /api/sim/review` (Dev3). Dev2 and Dev4 are tightly coupled; Dev3 and Dev6 are independently buildable.
+
+**Build order:** Dev3 first (backend) → Dev2+Dev4 in parallel (client libs) → Dev6 last (wires it up). Dev3 should have the new `POST /api/sim/sessions` and updated `/api/sim/review` with `sessionToken` support ready before Dev2 integrates.
+
+---
+
+## 8. What This Is NOT
+
+- **Not server-side Playwright.** The v1 proposal (server crawls the client URL headlessly) is moved to the **AutoSim track**, where it makes sense: AutoSim runs autonomously, can ask for login credentials, and uses the existing Trails Playwright infra. Live Sims = your browser, your session.
+- **Not a dashboard "Run Sims" button.** That UI surface is removed from this feature. The trigger is the widget's right-click menu, on the client site, in the flow of real work.
+- **Not a one-shot review.** The session stays active and re-fires on every meaningful change.
+- **Not multi-page journey recording.** That is Trails/AutoSim (crystallized steps, replay, heals). Live Sims react to individual page states.
+- **Not extension-first.** The widget is the v1 surface ("Powered by Klavity" — it's already on the client site). Extension deployment of Sims can follow as a v2 (`KLAV_ADHOC_REVIEW` extension path already exists; adding a persistent session mode is additive).
+
+---
+
+## 9. Open Questions (Minor)
+
+These don't block implementation but should be resolved during Dev2's work:
+
+1. **Docked panel placement:** Bottom-right, above the existing widget dock pill. Does it overlap the report widget's launcher when both are on the same page? → Yes — needs a 4px gap and z-index priority rule. Dev2 owns this.
+
+2. **Session persistence across tab navigations:** If the user opens a link in the same tab (full page reload), does the session continue? → No: `window.KlavitySims` is in-memory; full reload resets. User must re-deploy. This is correct behavior — it models a fresh customer visit.
+
+3. **Review on scroll (IntersectionObserver) vs. only on DOM change + navigation:** Scrolling is high-frequency. sims-watch.ts should use the `domSig` gate to ensure a scroll that reveals content actually changed the structural signature before triggering a review. Dev4 owns the threshold tuning.
+
+---
+
+## 10. Relationship to Other Specs
+
+| Feature | Relationship |
+|---|---|
+| `2026-06-20-klavity-os-trails-design.md` | Trails/AutoSim is the AUTONOMOUS track (server-side, scheduled, AI heals). Sims Live is the HUMAN-PRESENT track. These are architecturally sibling features, not competitors. |
+| `2026-06-21-extension-widget-modal-harmonization-design.md` | Extension and widget share `buildModal` — similarly, `sims-live.ts` + `sims-watch.ts` should be designed for potential extension adoption in v2. |
+| `2026-06-20-expectations-spine-design.md` | Live Sims reactions feed the same `ingestSnapOrSim()` hook → expectations corroboration. No changes needed to the spine. |
+| `2026-06-19-adhoc-analyze-page-design.md` | `KLAV_ADHOC_REVIEW` in the extension was the previous one-shot "Analyze this page." Live Sims supersedes the UX intent (continuous > one-shot) but the backend path (`/api/sim/review` with `adhoc:true`) is reused. |
 
 ---
 
@@ -320,9 +324,12 @@ This means manually-triggered observations **strengthen corroboration** with pas
 
 | File | Role |
 |---|---|
-| `prototype/server.ts:1895` | Existing `/api/sim/review` — logic to extract into `lib/sim-review.ts` |
-| `prototype/lib/trails-runner.ts` | Playwright orchestration to mirror for Sim capture |
-| `prototype/lib/trails.ts` | DB patterns for run table (mirror for `sim_runs`) |
-| `prototype/lib/safe-fetch.ts` | SSRF guard to reuse for the crawled URL |
-| `prototype/public/dashboard.html` | Sims card → add "Run Sims" button + modal here |
-| `prototype/public/trails.html` | Run history UI template |
+| `prototype/server.ts:1895` | `/api/sim/review` handler → Dev3 extracts into `lib/sim-review.ts` |
+| `prototype/lib/trails.ts` | Pattern reference for `sim_sessions` table design |
+| `prototype/lib/safe-fetch.ts` | SSRF guard — NOT needed for this feature (no server-side URL fetch) |
+| `packages/sdk/src/widget.ts:472` | `installRegionDrag` + context menu — Dev6 extends menu here |
+| `packages/sdk/src/widget.ts:318` | `closeMenu / dismissMenuNow / nativePending` — context menu patterns to follow |
+| `packages/extension/src/content.ts:450` | `installRegionDrag + onDragStart + shouldIgnore` — pattern reference for sims-watch.ts MutationObserver setup |
+| `packages/extension/src/content.ts:889` | `maybeActivate` + `klavArmObservers` — the change-detection loop sims-watch.ts mirrors |
+| `packages/core/src/sim.ts` | `createSim()` + `injectSimStyles()` — Dev2 uses for docked panel avatars |
+| `prototype/public/dashboard.html` | No changes to dashboard needed for v1 (results appear in existing feedback list) |
