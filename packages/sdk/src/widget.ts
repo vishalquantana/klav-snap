@@ -311,14 +311,39 @@ async function mount() {
     const s = document.createElement("style")
     s.id = "klavity-menu-anim"
     s.textContent =
+      // entrance keyframes (kept): spring scale-in for the tray, staggered rise for each card, shimmer sweep
       "@keyframes klm-in{0%{opacity:0;transform:scale(.9) translateY(-8px)}100%{opacity:1;transform:scale(1) translateY(0)}}" +
-      "@keyframes klm-row-in{0%{opacity:0;transform:translateY(7px)}100%{opacity:1;transform:translateY(0)}}" +
+      "@keyframes klm-row-in{0%{opacity:0;transform:translateY(10px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}" +
       "@keyframes klm-shine{0%{transform:translateX(-130%)}100%{transform:translateX(240%)}}" +
       ".klm-menu{animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}" +
-      ".klm-row{animation:klm-row-in .34s cubic-bezier(.16,1,.3,1) both}" +
-      ".klm-ic{display:inline-flex;align-items:center;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}" +
-      ".klm-ic svg{width:17px;height:17px;display:block}" +
-      ".klm-row:hover .klm-ic{transform:scale(1.18) rotate(-7deg)}" +
+      // ── Large touch cards (L6): icon chip + label + one-line description + arrow ──
+      ".klm-card{position:relative;display:flex;align-items:center;gap:12px;width:100%;border:0;cursor:pointer;text-align:left;padding:11px 12px;border-radius:12px;color:#2a2342;font-family:inherit;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(252,250,246,.55));box-shadow:0 1px 2px rgba(40,25,70,.06),inset 0 0 0 1px rgba(99,102,241,.08);transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s ease,background .2s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
+      ".klm-card:hover{scale:1.015;box-shadow:0 5px 14px -3px rgba(99,102,241,.3),inset 0 0 0 1px rgba(99,102,241,.16)}" +
+      ".klm-card:active{scale:.96}" +
+      ".klm-card:focus-visible{outline:2px solid #6366f1;outline-offset:2px}" +
+      ".klm-chip{flex:none;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:#5b51c9;background:rgba(99,102,241,.12);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}" +
+      ".klm-chip svg{width:20px;height:20px;display:block}" +
+      ".klm-card:hover .klm-chip{transform:scale(1.1) rotate(-5deg)}" +
+      ".klm-body{display:flex;flex-direction:column;gap:2px;min-width:0}" +
+      ".klm-t{font-size:14px;font-weight:650;letter-spacing:-.01em;line-height:1.2}" +
+      ".klm-d{font-size:11.5px;line-height:1.35;color:#7c7793;text-wrap:pretty}" +
+      ".klm-go{margin-left:auto;flex:none;color:#b6afce;display:inline-flex;transition:transform .2s cubic-bezier(.2,0,0,1)}" +
+      ".klm-go svg{width:16px;height:16px;display:block}" +
+      ".klm-card:hover .klm-go{transform:translateX(3px)}" +
+      ".klm-hint{margin-left:auto;flex:none;font-family:ui-monospace,monospace;font-size:10px;color:#9a93a6;background:rgba(40,30,60,.06);padding:3px 8px;border-radius:20px;white-space:nowrap}" +
+      // primary = Report a Bug (brand purple)
+      ".klm-card.primary{background:linear-gradient(160deg,#6d6bf3,#5b51d8);color:#fff;box-shadow:0 6px 16px -4px rgba(79,70,229,.45),inset 0 1px 0 rgba(255,255,255,.3)}" +
+      ".klm-card.primary:hover{box-shadow:0 9px 22px -4px rgba(79,70,229,.55),inset 0 1px 0 rgba(255,255,255,.35)}" +
+      ".klm-card.primary .klm-chip{background:rgba(255,255,255,.22);color:#fff}" +
+      ".klm-card.primary .klm-d{color:rgba(255,255,255,.85)}" +
+      ".klm-card.primary .klm-go{color:rgba(255,255,255,.72)}" +
+      // muted = Show browser menu (warm beige)
+      ".klm-card.muted{background:linear-gradient(180deg,rgba(250,248,244,.62),rgba(243,236,225,.5))}" +
+      ".klm-card.muted .klm-chip{background:rgba(40,30,60,.06);color:#8a8390}" +
+      ".klm-card.muted .klm-t{color:#5d5870}.klm-card.muted .klm-d{color:#9a93a6}" +
+      // footer wordmark
+      ".klm-foot{text-align:center;font-size:11px;color:#8a8076;padding:7px 0 4px;border:0;background:transparent;width:100%;cursor:pointer;font-family:inherit;border-radius:8px;transition:color .18s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
+      ".klm-foot:hover{color:#5b51c9}.klm-foot:focus-visible{outline:2px solid #6366f1;outline-offset:2px}" +
       ".klm-shine{position:absolute;top:0;left:0;width:42%;height:100%;pointer-events:none;background:linear-gradient(105deg,transparent,rgba(255,255,255,.6),transparent);transform:translateX(-130%);animation:klm-shine 1s ease-out .15s both}"
     root.appendChild(s)
   }
@@ -342,46 +367,43 @@ async function mount() {
     // Warm cream "glass" surface with a soft Klavity-purple glow at the top, a layered
     // purple-tinted shadow, and a frosted backdrop. (Plain backdrop blur — not liquid-glass
     // refraction, which doesn't compose in Chrome.)
-    menu.style.cssText = "position:fixed;z-index:2147483647;min-width:248px;border-radius:14px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:top left;" +
+    menu.style.cssText = "position:fixed;z-index:2147483647;width:300px;border-radius:20px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:top left;padding:8px;display:flex;flex-direction:column;gap:7px;box-sizing:border-box;" +
       "background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.18), rgba(139,92,246,0) 55%), linear-gradient(180deg, rgba(250,247,240,.95), rgba(243,236,225,.96));" +
       "border:1px solid rgba(255,255,255,.55);" +
       "box-shadow:0 24px 60px -12px rgba(76,40,130,.32), 0 8px 22px rgba(99,102,241,.16), 0 1.5px 4px rgba(25,20,15,.10), inset 0 1px 0 rgba(255,255,255,.75);" +
       "-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);" +
       "left:" + x + "px;top:" + y + "px"
-    // One-pass shimmer sweep across the surface as the menu appears.
-    const shine = document.createElement("div"); shine.className = "klm-shine"; menu.appendChild(shine)
+    // Lucide arrow-right (no such icon in our set → inline) for each card's affordance.
+    const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>'
     let idx = 0
-    const row = (iconName: string, text: string, opts: { primary?: boolean; muted?: boolean; hint?: string; last?: boolean; onClick: () => void }) => {
+    // Each action is a large touch CARD: icon chip + label + one-line description + arrow (or the ⇧ hint).
+    const card = (iconName: string, label: string, desc: string, opts: { primary?: boolean; muted?: boolean; hint?: string; onClick: () => void }) => {
       const b = document.createElement("button")
-      b.className = "klm-row"
-      const baseBg = opts.primary ? "rgba(99,102,241,.10)" : "transparent"
-      const baseColor = opts.muted ? "#8a8076" : "#19140f"
-      const icColor = opts.primary ? "#6366f1" : (opts.muted ? "#9a9088" : "#6b5fd6")
-      b.style.cssText = "position:relative;display:flex;align-items:center;gap:11px;width:100%;padding:11px 15px;border:0;" +
-        (opts.last ? "" : "border-bottom:1px solid rgba(99,102,241,.09);") +
-        "background:" + baseBg + ";color:" + baseColor + ";font-size:13.5px;font-weight:" + (opts.primary ? "600" : "450") + ";cursor:pointer;text-align:left;line-height:1.15;transition:background .18s ease,color .18s ease;" +
-        (opts.primary ? "box-shadow:inset 3px 0 0 #6366f1;" : "") +
-        "animation-delay:" + (70 + idx * 45) + "ms"
+      b.className = "klm-card" + (opts.primary ? " primary" : "") + (opts.muted ? " muted" : "")
+      b.style.animationDelay = (70 + idx * 64) + "ms"
       idx++
-      b.innerHTML = "<span class=\"klm-ic\" style=\"color:" + icColor + "\">" + icon(iconName) + "</span><span>" + text + "</span>"
-      if (opts.hint) { const h = document.createElement("span"); h.textContent = opts.hint; h.style.cssText = "margin-left:auto;font-family:ui-monospace,monospace;font-size:10.5px;color:#a59a8c"; b.appendChild(h) }
-      b.addEventListener("mouseenter", () => { b.style.background = opts.primary ? "rgba(99,102,241,.18)" : "rgba(139,92,246,.12)"; b.style.color = "#4f46e5" })
-      b.addEventListener("mouseleave", () => { b.style.background = baseBg; b.style.color = baseColor })
+      const right = opts.hint
+        ? '<span class="klm-hint">' + opts.hint + '</span>'
+        : '<span class="klm-go">' + ARROW + '</span>'
+      b.innerHTML =
+        '<span class="klm-chip">' + icon(iconName) + '</span>' +
+        '<span class="klm-body"><span class="klm-t">' + label + '</span><span class="klm-d">' + desc + '</span></span>' +
+        right
       b.addEventListener("click", () => { closeMenu(); opts.onClick() })
       return b
     }
-    menu.appendChild(row("zap", "Report a Bug", { primary: true, onClick: () => openReport("bug") }))
-    menu.appendChild(row("lightbulb", "Request a Feature", { onClick: () => openReport("feature") }))
-    menu.appendChild(row("monitor", "Show browser menu", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
+    menu.appendChild(card("zap", "Report a Bug", "Snap the page and tell us what broke.", { primary: true, onClick: () => openReport("bug") }))
+    menu.appendChild(card("lightbulb", "Request a Feature", "Suggest something you'd love to see.", { onClick: () => openReport("feature") }))
+    menu.appendChild(card("monitor", "Show browser menu", "Open your browser's own menu instead.", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
     // "Powered by Klavity" footer — gradient wordmark, opens the marketing site in a new tab
     const footer = document.createElement("button")
-    footer.className = "klm-row"
-    footer.style.cssText = "position:relative;display:block;width:100%;padding:9px 15px;border:0;background:rgba(231,225,214,.55);color:#776c5d;font-family:system-ui,-apple-system,sans-serif;font-size:11.5px;font-weight:450;cursor:pointer;text-align:center;line-height:1.15;border-top:1px solid rgba(99,102,241,.10);transition:background .18s ease,color .18s ease;animation-delay:" + (70 + idx * 45) + "ms"
+    footer.className = "klm-foot"
+    footer.style.animationDelay = (70 + idx * 64) + "ms"
     footer.innerHTML = "Powered by <strong style=\"background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;font-weight:700\">Klavity</strong>"
-    footer.addEventListener("mouseenter", () => { footer.style.background = "rgba(139,92,246,.14)"; footer.style.color = "#4f46e5" })
-    footer.addEventListener("mouseleave", () => { footer.style.background = "rgba(231,225,214,.55)"; footer.style.color = "#776c5d" })
     footer.addEventListener("click", () => { closeMenu(); window.open("https://klavity.quantana.top", "_blank", "noopener,noreferrer") })
     menu.appendChild(footer)
+    // One-pass shimmer sweep — appended LAST so it sweeps OVER the opaque cards (pointer-events:none).
+    const shine = document.createElement("div"); shine.className = "klm-shine"; menu.appendChild(shine)
     root.appendChild(menu)
     requestAnimationFrame(() => {
       const r = menu.getBoundingClientRect()
