@@ -372,9 +372,14 @@ function showCtxMenu(x: number, y: number) {
     return btn
   }
 
+  // Pick the best project for an ad-hoc Sim review: prefer a monitored-URL match (so the Sim
+  // already knows this page), fall back to the first configured project, or null if not signed in.
+  const simsProject = klavMatchProject(location.href) ?? (klavConfig?.projects?.length ? klavConfig.projects[0] : null)
+
   const actions: Array<{ icon: string; color: string; label: string; run: () => void }> = [
     { icon: icon('bug', { size: 16 }), color: '#E94F37', label: 'Report a Bug', run: () => openModal('bug') },
     { icon: icon('lightbulb', { size: 16 }), color: '#F4A93C', label: 'Request a Feature', run: () => openModal('feature') },
+    ...(simsProject ? [{ icon: icon('dna', { size: 16 }), color: '#8b5cf6', label: 'Ask Sims to review this', run: () => void klavRunAdhoc(simsProject.id) }] : []),
     { icon: icon('clipboard-list', { size: 16 }), color: '#8A837A', label: 'View submissions', run: () => { chrome.runtime.sendMessage({ kind: 'OPEN_TRACKER_URL' } satisfies BackgroundMessage).catch(() => {}) } },
   ]
   actions.forEach((a) => {
