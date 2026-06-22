@@ -1140,6 +1140,48 @@ export async function listFeedback(projectId: string, opts: { withTicketOnly?: b
   return r.rows.map(rowToFeedback)
 }
 
+// ── Sim Profile: a Sim's own feedback, annotated with its TRIAGE OUTCOME ──
+// Maps the feedback lifecycle status onto a coarse triage verdict the profile page shows so the
+// user can watch a Sim "get better": confirmed (a human accepted it as a real bug — a "yes"),
+// dismissed (triaged as not-a-bug — a "no"), or pending (still in the triage queue).
+export type SimTriageOutcome = "confirmed" | "dismissed" | "pending"
+export function triageOutcome(status: string | null | undefined): SimTriageOutcome {
+  const s = String(status || "new")
+  if (s === "dismissed") return "dismissed"
+  if (s === "new") return "pending"
+  return "confirmed" // open | in_progress | done — accepted into the bug pipeline
+}
+
+export type SimFeedbackRow = {
+  id: string; title: string; observation: string | null; sentiment: string | null
+  severity: string | null; urlPath: string | null; sourceQuote: string | null
+  status: string; outcome: SimTriageOutcome; createdAt: number
+}
+// All feedback a given Sim has filed, newest-first (uses fb_sim_idx), each tagged with its triage outcome.
+export async function listFeedbackForSim(projectId: string, simId: string): Promise<SimFeedbackRow[]> {
+  const r = await db!.execute({
+    sql: `SELECT id, observation, sentiment, severity, url_path, suggested_bug_json, source_quote, status, created_at
+          FROM feedback WHERE project_id=? AND sim_id=? ORDER BY created_at DESC LIMIT 200`,
+    args: [projectId, simId],
+  })
+  return r.rows.map((x: any) => {
+    let title = ""
+    try { title = String(JSON.parse(x.suggested_bug_json || "{}")?.title || "") } catch { title = "" }
+    if (!title) title = x.observation != null ? String(x.observation).slice(0, 80) : "Observation"
+    return {
+      id: String(x.id), title,
+      observation: x.observation != null ? String(x.observation) : null,
+      sentiment: x.sentiment != null ? String(x.sentiment) : null,
+      severity: x.severity != null ? String(x.severity) : null,
+      urlPath: x.url_path != null ? String(x.url_path) : null,
+      sourceQuote: x.source_quote != null ? String(x.source_quote) : null,
+      status: String(x.status || "new"),
+      outcome: triageOutcome(x.status),
+      createdAt: Number(x.created_at),
+    }
+  })
+}
+
 export async function findFeedbackByIssueKey(projectId: string, issueKey: string): Promise<{ id: string } | null> {
   if (!issueKey) return null
   const r = await db!.execute({

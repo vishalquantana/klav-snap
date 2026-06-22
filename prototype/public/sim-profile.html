@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>(function(){try{var t=localStorage.getItem('klav-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sim · Klavity</title>
+<link rel="stylesheet" href="/fonts/fonts.css" />
+<script src="/icons.generated.js"></script>
+<style>
+:root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
+--display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+[data-theme="dark"]{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;--indigo:#8b8bf5;--indigo-deep:#6366f1;--amber:#e8a24a;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height:100vh}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(80% 50% at 50% -5%,rgba(139,139,245,.08),transparent 60%)}
+a{color:inherit;text-decoration:none}
+.bar{position:sticky;top:0;z-index:10;backdrop-filter:blur(12px);background:var(--ink-2);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1040px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em}
+.brand .spark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--indigo-deep),#a78bfa)}
+.back{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--paper-dim);cursor:pointer}
+.back:hover{color:var(--paper)}
+.right{margin-left:auto}
+.wrap{max-width:1040px;margin:0 auto;padding:28px 24px 80px}
+.muted{color:var(--paper-faint)}
+.mono{font-family:var(--mono)}
+
+/* persona hero */
+.hero{display:flex;gap:20px;align-items:flex-start;margin-bottom:14px}
+.hero .av{width:72px;height:72px;border-radius:18px;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:26px;color:#fff}
+.hero h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02em;line-height:1.05}
+.hero .role{color:var(--paper-dim);font-size:15px;margin-top:4px}
+.hero .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pill{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;padding:4px 9px;border-radius:20px;background:var(--ink-3);color:var(--paper-dim)}
+.pill.client{background:rgba(99,102,241,.14);color:var(--indigo)}
+.pill.internal{background:rgba(217,131,36,.14);color:var(--amber)}
+.summary{font-size:15px;color:var(--paper-dim);line-height:1.55;margin:6px 0 30px}
+
+/* layout */
+.cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:26px}
+@media(max-width:820px){.cols{grid-template-columns:1fr;gap:22px}.bar-in,.wrap{max-width:none}}
+.sec{margin-bottom:30px}
+.sec-h{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--paper-faint);display:flex;align-items:center;gap:8px;margin-bottom:13px}
+.sec-h .ct{margin-left:auto;color:var(--paper-faint)}
+.card{background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+.empty{color:var(--paper-faint);font-size:13.5px;padding:14px 2px;font-style:italic}
+
+/* traits = the persona prompt config */
+.trait{display:flex;gap:11px;padding:12px 0;border-top:1px solid var(--line)}
+.trait:first-child{border-top:none}
+.trait .k{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;height:fit-content;flex:none;margin-top:2px}
+.k.pain{background:rgba(219,39,119,.13);color:var(--rose)}
+.k.want{background:rgba(217,131,36,.14);color:var(--amber)}
+.k.love{background:rgba(15,157,107,.14);color:var(--green)}
+.trait .tb{min-width:0}
+.trait .tt{font-size:14px;font-weight:600;line-height:1.4}
+.trait .tq{font-size:12.5px;color:var(--paper-dim);font-style:italic;margin-top:4px;line-height:1.45}
+.trait .ts{font-family:var(--mono);font-size:10px;color:var(--paper-faint);margin-top:5px}
+
+/* feedback w/ triage outcome */
+.fb{padding:13px 0;border-top:1px solid var(--line)}
+.fb:first-child{border-top:none}
+.fb-top{display:flex;align-items:flex-start;gap:10px}
+.fb-t{font-size:14px;font-weight:600;line-height:1.4;flex:1;min-width:0}
+.oc{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:20px;flex:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.oc.confirmed{background:rgba(15,157,107,.15);color:var(--green)}
+.oc.dismissed{background:var(--ink-3);color:var(--paper-faint)}
+.oc.pending{background:rgba(217,131,36,.15);color:var(--amber)}
+.fb-o{font-size:13px;color:var(--paper-dim);margin-top:6px;line-height:1.5}
+.fb-q{font-size:12.5px;color:var(--paper-dim);font-style:italic;border-left:2px solid var(--line);padding-left:10px;margin-top:7px;line-height:1.45}
+.fb-m{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--paper-faint)}
+.fb-m .tag{font-family:var(--mono);font-size:10px;background:var(--ink-3);padding:2px 7px;border-radius:5px;color:var(--paper-dim)}
+.tag.sev-high{color:var(--rose)} .tag.sev-medium{color:var(--amber)}
+.outsum{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}
+
+/* transcripts */
+.tx{padding:12px 0;border-top:1px solid var(--line)}
+.tx:first-child{border-top:none}
+.tx-h{display:flex;align-items:center;gap:10px;cursor:pointer}
+.tx-t{font-size:14px;font-weight:600;flex:1;min-width:0}
+.tx-d{font-family:var(--mono);font-size:10px;color:var(--paper-faint);flex:none}
+.tx-body{margin-top:9px;font-size:12.5px;color:var(--paper-dim);line-height:1.55;white-space:pre-wrap;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 12px;max-height:300px;overflow:auto}
+.loading{color:var(--paper-faint);font-size:14px;padding:40px 0;text-align:center}
+.err{color:var(--rose);font-size:14px;padding:30px 2px}
+</style>
+</head>
+<body>
+<div class="bar"><div class="bar-in">
+  <a class="brand" href="/dashboard"><span class="spark"></span>Klavity</a>
+  <a class="back" id="backLink" href="/dashboard"></a>
+  <div class="right"></div>
+</div></div>
+
+<div class="wrap" id="root">
+  <div class="loading">Loading Sim…</div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const COLORS = ["#6366f1","#e8a24a","#10b981","#ec4899","#06b6d4","#8b5cf6"]
+const col = (s) => COLORS[[...String(s||"")].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length]
+const initials = (e) => String(e||"").slice(0,2).toUpperCase()
+const esc = (s) => String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))
+const safeAccent = (v, fb) => /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(String(v||"")) ? String(v) : fb
+const fmtDate = (ts) => ts ? new Date(Number(ts)).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) : ""
+
+// /sim/<id> + ?project=<pid>
+const SIM_ID = decodeURIComponent((location.pathname.match(/^\/sim\/([^/]+)/) || [,""])[1] || "")
+const PROJECT_ID = new URLSearchParams(location.search).get("project") || ""
+const pq = (p) => PROJECT_ID ? p + (p.includes("?") ? "&" : "?") + "project=" + encodeURIComponent(PROJECT_ID) : p
+
+const OUTCOME = {
+  confirmed: { label: "Confirmed", icon: "check" },
+  dismissed: { label: "Dismissed", icon: "x" },
+  pending:   { label: "In triage", icon: "clock" },
+}
+const ic = (name) => (window.kicon ? kicon(name, { size: 13 }) : "")
+
+document.querySelector('.brand .spark').innerHTML = ic('zap')
+$("backLink").innerHTML = ic('chevron-left') + " Dashboard"
+$("backLink").setAttribute("href", PROJECT_ID ? "/dashboard?project=" + encodeURIComponent(PROJECT_ID) : "/dashboard")
+
+function traitsCard(traits) {
+  if (!traits.length) return `<div class="card"><div class="empty">No traits configured yet — this Sim's persona has no extracted pains/wants/loves.</div></div>`
+  return `<div class="card">` + traits.map(t => `
+    <div class="trait">
+      <span class="k ${["pain","want","love"].includes(t.kind)?t.kind:"pain"}">${esc(t.kind||"trait")}</span>
+      <div class="tb">
+        <div class="tt">${esc(t.text)}</div>
+        ${t.srcQuote ? `<div class="tq">“${esc(t.srcQuote)}”</div>` : ``}
+        ${(t.srcSpeaker||t.strength>1) ? `<div class="ts">${t.srcSpeaker?esc(t.srcSpeaker):""}${(t.srcSpeaker&&t.strength>1)?" · ":""}${t.strength>1?("reinforced ×"+t.strength):""}</div>` : ``}
+      </div>
+    </div>`).join("") + `</div>`
+}
+
+function feedbackCard(feedback) {
+  if (!feedback.length) return `<div class="card"><div class="empty">This Sim hasn't filed any feedback yet.</div></div>`
+  const counts = feedback.reduce((a,f)=>{a[f.outcome]=(a[f.outcome]||0)+1;return a},{})
+  const sum = ["confirmed","dismissed","pending"].filter(k=>counts[k]).map(k =>
+    `<span class="oc ${k}">${ic(OUTCOME[k].icon)} ${counts[k]} ${esc(OUTCOME[k].label.toLowerCase())}</span>`).join("")
+  return `<div class="outsum">${sum}</div><div class="card">` + feedback.map(f => {
+    const o = OUTCOME[f.outcome] || OUTCOME.pending
+    return `
+    <div class="fb">
+      <div class="fb-top">
+        <div class="fb-t">${esc(f.title)}</div>
+        <span class="oc ${esc(f.outcome)}">${ic(o.icon)} ${esc(o.label)}</span>
+      </div>
+      ${f.observation && f.observation!==f.title ? `<div class="fb-o">${esc(f.observation)}</div>` : ``}
+      ${f.sourceQuote ? `<div class="fb-q">“${esc(f.sourceQuote)}”</div>` : ``}
+      <div class="fb-m">
+        ${f.severity ? `<span class="tag sev-${esc(f.severity)}">${esc(f.severity)}</span>` : ``}
+        ${f.sentiment ? `<span class="tag">${esc(f.sentiment)}</span>` : ``}
+        ${f.urlPath ? `<span class="tag">${esc(f.urlPath)}</span>` : ``}
+        <span>${esc(fmtDate(f.createdAt))}</span>
+      </div>
+    </div>`
+  }).join("") + `</div>`
+}
+
+function transcriptsCard(transcripts) {
+  if (!transcripts.length) return `<div class="card"><div class="empty">No source transcript on record — this Sim wasn't seeded from a customer call.</div></div>`
+  return `<div class="card">` + transcripts.map(t => `
+    <div class="tx" data-tx="${esc(t.id)}">
+      <div class="tx-h" onclick="toggleTx('${esc(t.id)}')">
+        <span style="color:var(--indigo)">${ic('file-text')}</span>
+        <div class="tx-t">${esc(t.title||"Untitled call")}</div>
+        <div class="tx-d">${esc(fmtDate(t.sourceDate))}</div>
+        <span class="tx-caret" style="color:var(--paper-faint)">${ic('chevron-down')}</span>
+      </div>
+    </div>`).join("") + `</div>`
+}
+
+async function toggleTx(id) {
+  const row = document.querySelector('.tx[data-tx="'+id.replace(/"/g,'')+'"]')
+  if (!row) return
+  const open = row.querySelector('.tx-body')
+  if (open) { open.remove(); return }
+  const body = document.createElement('div'); body.className = 'tx-body'; body.textContent = "Loading…"
+  row.appendChild(body)
+  try {
+    const r = await fetch(pq('/api/transcripts/' + encodeURIComponent(id)))
+    if (!r.ok) { body.textContent = "Couldn't load this transcript."; return }
+    const d = await r.json()
+    body.textContent = d.rawText || "(empty transcript)"
+  } catch { body.textContent = "Couldn't load this transcript." }
+}
+
+async function load() {
+  if (!SIM_ID) { $("root").innerHTML = `<div class="err">No Sim specified.</div>`; return }
+  let data
+  try {
+    const r = await fetch(pq('/api/sims/' + encodeURIComponent(SIM_ID) + '/profile'))
+    if (r.status === 401) { location.href = "/login"; return }
+    if (r.status === 404) { $("root").innerHTML = `<div class="err">Sim not found in this project.</div>`; return }
+    if (!r.ok) { $("root").innerHTML = `<div class="err">Couldn't load this Sim.</div>`; return }
+    data = await r.json()
+  } catch { $("root").innerHTML = `<div class="err">Couldn't load this Sim.</div>`; return }
+
+  const s = data.sim || {}
+  const type = s.type === "internal" ? "internal" : "client"
+  document.title = (s.name || "Sim") + " · Klavity"
+  const insights = Array.isArray(s.insights) ? s.insights : []
+
+  $("root").innerHTML = `
+    <div class="hero">
+      <div class="av" style="background:${safeAccent(s.accent, col(s.name))}">${esc(s.initials || initials(s.name))}</div>
+      <div>
+        <h1>${esc(s.name || "Sim")}</h1>
+        <div class="role">${esc(s.role || "")}</div>
+        <div class="meta">
+          <span class="pill ${type}">${type}</span>
+          ${typeof s.traitCount === "number" ? `<span class="pill">${s.traitCount} trait${s.traitCount===1?"":"s"}</span>` : ``}
+          <span class="pill">${(data.feedback||[]).length} report${(data.feedback||[]).length===1?"":"s"}</span>
+        </div>
+      </div>
+    </div>
+    ${s.summary ? `<div class="summary">${esc(s.summary)}</div>` : `<div style="height:18px"></div>`}
+
+    <div class="cols">
+      <div>
+        <div class="sec">
+          <div class="sec-h">${ic('dna')} Persona &amp; trait config <span class="ct mono">${(data.traits||[]).length}</span></div>
+          ${insights.length ? `<div class="card" style="margin-bottom:10px">${insights.map(i=>`<div class="trait"><span class="k ${["pain","want","love"].includes(i.kind)?i.kind:"pain"}">${esc(i.kind||"note")}</span><div class="tb"><div class="tt">${esc(i.text)}</div>${i.quote?`<div class="tq">“${esc(i.quote)}”</div>`:``}</div></div>`).join("")}</div>` : ``}
+          ${traitsCard(data.traits || [])}
+        </div>
+        <div class="sec">
+          <div class="sec-h">${ic('file-text')} Source transcripts <span class="ct mono">${(data.transcripts||[]).length}</span></div>
+          ${transcriptsCard(data.transcripts || [])}
+        </div>
+      </div>
+      <div>
+        <div class="sec">
+          <div class="sec-h">${ic('bug')} Feedback &amp; triage outcomes <span class="ct mono">${(data.feedback||[]).length}</span></div>
+          ${feedbackCard(data.feedback || [])}
+        </div>
+      </div>
+    </div>`
+}
+window.toggleTx = toggleTx
+load()
+</script>
+</body>
+</html>

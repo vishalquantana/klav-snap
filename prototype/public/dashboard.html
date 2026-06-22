@@ -1667,9 +1667,11 @@ function renderSims(admin) {
   }
   const pid = curProjId()
   $("sims").innerHTML = `<div class="sims">` + sims.map(s => {
+    // Clicking a Sim opens its read-only Profile page (persona + triaged feedback + source calls),
+    // NOT the Sim Studio editor. Studio is still reachable from inside the profile / other entry points.
     const href = pid
-      ? "/app?project=" + encodeURIComponent(pid) + "&sim=" + encodeURIComponent(s.id)
-      : "/app?sim=" + encodeURIComponent(s.id)
+      ? "/sim/" + encodeURIComponent(s.id) + "?project=" + encodeURIComponent(pid)
+      : "/sim/" + encodeURIComponent(s.id)
     return `
     <a class="sim" href="${esc(href)}">
       <div class="av" style="background:${safeAccent(s.accent, col(s.name))}">${esc(s.initials||initials(s.name))}</div>

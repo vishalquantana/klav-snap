@@ -1,5 +1,5 @@
 // Klavity app server (Bun). Marketing on /, demo + dashboard behind email-OTP login.
-import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, recordWidgetPing, latestWidgetPing, setFeedbackContactEmail, exportUserData, eraseUser, computeDashboardInsights, listTriageFeedback } from "./lib/db"
+import { initDb, db, createOtp, verifyOtp, upsertUser, createSession, getSession, deleteSession, ensureAccount, setAccountDomain, membershipsFor, hasAnyMembership, membersOf, roleIn, getIntegration, setIntegration, listPersonas, upsertPersona, deletePersona, insertPersonaEdit, listPersonaEdits, insertScreenshot, insertFeedback, insertActivity, updateFeedbackTracker, listActivity, listFeedback, dashboardCounts, projectAccess, listProjects, createProject, renameProject, projectById, membersOfProject, addProjectMember, insertTranscript, listTranscripts, listTraits, listTraitEvents, insertTrait, updateTrait, insertTraitEvent, logTraitEdit, hasReconcileRun, markReconcileRun, rebuildInsightsJson, ensureTraitsSeeded, listMonitoredUrls, addMonitoredUrl, setMonitoredUrlEnabled, setMonitoredUrlPattern, removeMonitoredUrl, getExtensionTokenEmail, getExtensionTokenInfo, issueExtensionToken, matchMonitored, getConsent, setConsent, getReviewMode, setReviewMode, tryConsumeReviewBudget, reviewGate, reviewDedupeKey, reviewDay, screenshotById, recordAiCall, opsTotals, opsDaily, opsByProject, opsByTypeModel, opsRecentCalls, opsTodaySpend, getModelWeights, setModelWeights, listConnectors, getConnectorById, createConnector, updateConnector, removeConnector, listAutoCopyConnectors, updateFeedbackMeta, feedbackById, addTicketExport, listTicketExports, exportsForFeedbackIds, findExportByExternalKey, getRecentlyResolvedTraits, type RecentlyResolvedTrait, transcriptById, sourceTranscriptsForSim, originAllowedForProject, findFeedbackByIssueKey, listRecentFeedbackForDedup, bumpFeedbackRecurrence, DEFAULT_AI_CALL_EST_USD, tryReserveDailySpend, reconcileDailySpend, getProjectModalConfig, setProjectModalConfig, isAccountPro, getWidgetConfig, getWidgetNotifyEmail, setWidgetConfig, recordWidgetPing, latestWidgetPing, setFeedbackContactEmail, exportUserData, eraseUser, computeDashboardInsights, listTriageFeedback, listFeedbackForSim } from "./lib/db"
 import { issueKeyFor, chooseDedup } from "./lib/dedup"
 import { getConnector, listConnectorTypes, type TicketPayload, type TicketAttachment } from "./lib/connectors/index"
 import { inboundSupported, verifyGithubSignature, verifyLinearSignature, extractExternalKey, mapExternalStatus } from "./lib/connectors/inbound"
@@ -2251,6 +2251,26 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       try { return json({ simId: sim.id, transcripts: await sourceTranscriptsForSim(sim.id, projST.id) }) }
       catch (e: any) { return json(oops(e, "transcripts"), 500) }
     }
+    // ── Sim Profile aggregate: persona + traits + feedback(w/ triage outcome) + source transcripts ──
+    // One round-trip for the /sim/:id page. Reuses the same helpers Sim Studio uses; the Sim must
+    // belong to the caller's resolved project (no cross-tenant IDOR — same guard as the trait routes).
+    const simProfileMatch = path.match(/^\/api\/sims\/([^/]+)\/profile$/)
+    if (req.method === "GET" && simProfileMatch) {
+      const meSP = (await sessionEmail(req)) || (await bearerEmail(req))
+      if (!meSP) return json({ error: "Sign in to continue." }, 401)
+      const projSP = await resolveProject(meSP, url.searchParams.get("project"))
+      if (!projSP) return json({ error: "No project." }, 400)
+      const sim = (await listPersonas(projSP.id)).find(p => p.id === simProfileMatch[1])
+      if (!sim) return json({ error: "Not found" }, 404)
+      try {
+        const [traits, feedback, transcripts] = await Promise.all([
+          listTraits(sim.id, { activeOnly: true }),
+          listFeedbackForSim(projSP.id, sim.id),
+          sourceTranscriptsForSim(sim.id, projSP.id),
+        ])
+        return json({ sim, traits, feedback, transcripts })
+      } catch (e: any) { return json(oops(e, "profile"), 500) }
+    }
     // ── One transcript's raw text — project-scoped, read-only ──
     const txMatch = path.match(/^\/api\/transcripts\/([^/]+)$/)
     if (req.method === "GET" && txMatch) {
@@ -2316,6 +2336,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       return redirect("/opsadmin")
     }
     if (req.method === "GET" && path === "/app") return me ? file(PUB + "/index.html") : redirect("/login")
+    // Sim Profile page — clicking a Sim row in the dashboard opens /sim/:id (read-only persona +
+    // its triaged feedback + the calls that seeded it). The id is read client-side from the path.
+    if (req.method === "GET" && /^\/sim\/[^/]+$/.test(path)) return me ? file(PUB + "/sim-profile.html") : redirect("/login")
     if (req.method === "GET" && path === "/onboarding") {
       // The onboarding wizard is the signup flow for new users (email → OTP → name project → add URL →
       // install extension → pick Sims, inline). ensureAccount gives every verified user a default
