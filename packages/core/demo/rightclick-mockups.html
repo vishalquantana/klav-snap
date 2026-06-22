@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klavity · Right-click menu — design mockups</title>
+<style>
+  :root{
+    --indigo:#6366f1; --indigo-deep:#4f46e5; --violet:#8b5cf6; --violet-soft:#a78bfa;
+    --cream:#f5efe4; --paper:#19140f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:#241d33;
+    min-height:100vh;
+    background:
+      radial-gradient(70rem 50rem at 12% 0%, #ece6fb 0%, transparent 55%),
+      radial-gradient(60rem 50rem at 92% 18%, #e4ecf9 0%, transparent 55%),
+      radial-gradient(60rem 50rem at 50% 110%, #f7efe2 0%, transparent 55%),
+      linear-gradient(160deg,#f6f2ec,#efe9f6);
+  }
+  header{max-width:1180px;margin:0 auto;padding:48px 28px 8px}
+  h1{font-size:30px;font-weight:680;letter-spacing:-.02em;margin:0 0 8px}
+  .sub{color:#6b6480;font-size:15px;max-width:640px;line-height:1.5;margin:0}
+  .toolbar{max-width:1180px;margin:20px auto 0;padding:0 28px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .btn{appearance:none;border:1px solid rgba(99,102,241,.30);background:#fff;color:var(--indigo-deep);
+    font:600 13px system-ui;padding:9px 16px;border-radius:10px;cursor:pointer;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .btn:hover{background:var(--indigo-deep);color:#fff;border-color:var(--indigo-deep)}
+  .hintbar{color:#8a83a0;font-size:12.5px}
+
+  .grid{max-width:1180px;margin:26px auto 80px;padding:0 28px;
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px}
+  @media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+  .card{border-radius:20px;padding:22px 22px 26px;position:relative;overflow:hidden;
+    border:1px solid rgba(40,30,60,.08);background:rgba(255,255,255,.5);backdrop-filter:blur(4px);
+    box-shadow:0 10px 30px -16px rgba(40,25,70,.30)}
+  .card .meta{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+  .card h2{font-size:16px;font-weight:660;margin:0 0 3px;letter-spacing:-.01em}
+  .card .desc{font-size:12.5px;color:#73708a;line-height:1.45;margin:0;max-width:300px}
+  .replay{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(99,102,241,.28);
+    background:#fff;color:var(--indigo-deep);font:600 11.5px system-ui;padding:6px 11px;border-radius:9px;cursor:pointer;transition:.15s}
+  .replay:hover{background:var(--indigo);color:#fff;border-color:var(--indigo)}
+  .replay svg{width:13px;height:13px}
+  /* the stage each menu sits on — a representative page swatch behind the glass */
+  .stage{height:300px;border-radius:14px;display:grid;place-items:center;position:relative;overflow:hidden;
+    background:
+      linear-gradient(115deg,#fbfaf7 0 33%,#eef1f7 33% 66%,#f3eef8 66%);}
+  .stage.dark{background:linear-gradient(125deg,#16121f,#241b34 55%,#101019)}
+  .stage::before{content:"";position:absolute;inset:0;opacity:.5;
+    background-image:linear-gradient(rgba(120,110,150,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(120,110,150,.10) 1px,transparent 1px);
+    background-size:26px 26px}
+  .stage.dark::before{background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)}
+
+  /* ============================ shared menu skeleton ============================ */
+  .menu{position:relative;min-width:248px;border-radius:14px;overflow:hidden;
+    font-family:system-ui,-apple-system,sans-serif;transform-origin:top left}
+  .menu.animate{animation:klm-in .36s cubic-bezier(.34,1.56,.64,1) both}
+  .row{position:relative;display:flex;align-items:center;gap:11px;width:100%;padding:11px 15px;border:0;background:transparent;
+    cursor:pointer;text-align:left;line-height:1.15;font-size:13.5px;font-weight:450;
+    transition:background .18s ease,color .18s ease}
+  .menu.animate .row,.menu.animate .foot{animation:klm-row .36s cubic-bezier(.16,1,.3,1) both}
+  .row.primary{font-weight:600}
+  .ic{display:inline-flex;align-items:center;transition:transform .2s cubic-bezier(.34,1.56,.64,1)}
+  .ic svg{width:17px;height:17px;display:block}
+  .row:hover .ic{transform:scale(1.16) rotate(-7deg)}
+  .lbl{flex:0 1 auto}
+  .hint{margin-left:auto;font-family:ui-monospace,monospace;font-size:10.5px;opacity:.8}
+  .foot{position:relative;display:block;width:100%;padding:9px 15px;border:0;cursor:pointer;
+    font-family:system-ui,sans-serif;font-size:11.5px;font-weight:450;text-align:center;line-height:1.15;
+    transition:background .18s ease,color .18s ease}
+  .shine{position:absolute;top:0;left:0;width:42%;height:100%;pointer-events:none;border-radius:inherit;
+    background:linear-gradient(105deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-130%)}
+  .menu.animate .shine{animation:klm-shine 1.05s ease-out .16s both}
+
+  @keyframes klm-in{0%{opacity:0;transform:scale(.9) translateY(-8px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+  @keyframes klm-row{0%{opacity:0;transform:translateY(7px)}100%{opacity:1;transform:translateY(0)}}
+  @keyframes klm-shine{0%{transform:translateX(-130%)}100%{transform:translateX(240%)}}
+  @keyframes klm-glow{0%,100%{box-shadow:0 24px 60px -10px rgba(124,58,237,.55),0 4px 16px rgba(124,58,237,.35)}50%{box-shadow:0 30px 70px -8px rgba(168,85,247,.72),0 6px 22px rgba(168,85,247,.5)}}
+
+  /* ===================== V1 · beige + purple glassy (shipped) ===================== */
+  .v1{
+    background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.18), rgba(139,92,246,0) 55%),
+      linear-gradient(180deg, rgba(250,247,240,.95), rgba(243,236,225,.96));
+    border:1px solid rgba(255,255,255,.55);color:#19140f;
+    box-shadow:0 24px 60px -12px rgba(76,40,130,.32),0 8px 22px rgba(99,102,241,.16),0 1.5px 4px rgba(25,20,15,.10),inset 0 1px 0 rgba(255,255,255,.75);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
+  .v1 .row{border-bottom:1px solid rgba(99,102,241,.09);color:#19140f}
+  .v1 .row.primary{background:rgba(99,102,241,.10);box-shadow:inset 3px 0 0 #6366f1}
+  .v1 .row.muted{color:#8a8076}
+  .v1 .ic{color:#6b5fd6}.v1 .row.primary .ic{color:#6366f1}.v1 .row.muted .ic{color:#9a9088}
+  .v1 .hint{color:#a59a8c}
+  .v1 .row:hover{background:rgba(139,92,246,.12);color:#4f46e5}
+  .v1 .row.primary:hover{background:rgba(99,102,241,.18)}
+  .v1 .foot{background:rgba(231,225,214,.55);color:#776c5d;border-top:1px solid rgba(99,102,241,.10)}
+  .v1 .foot:hover{background:rgba(139,92,246,.14);color:#4f46e5}
+  .v1 .brand{background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;font-weight:700}
+
+  /* ===================== V2 · darker premium glass ===================== */
+  .v2{
+    background:radial-gradient(135% 90% at 50% -14%, rgba(139,92,246,.30), rgba(139,92,246,0) 55%),
+      linear-gradient(180deg, rgba(32,26,44,.84), rgba(20,16,28,.88));
+    border:1px solid rgba(255,255,255,.10);color:#ece9f5;
+    box-shadow:0 28px 70px -14px rgba(8,4,18,.70),0 8px 26px rgba(124,58,237,.28),inset 0 1px 0 rgba(255,255,255,.12);
+    -webkit-backdrop-filter:blur(22px) saturate(165%);backdrop-filter:blur(22px) saturate(165%)}
+  .v2 .row{border-bottom:1px solid rgba(255,255,255,.06);color:#ece9f5}
+  .v2 .row.primary{background:rgba(139,92,246,.20);box-shadow:inset 3px 0 0 #a78bfa}
+  .v2 .row.muted{color:#9a93ad}
+  .v2 .ic{color:#b9a8f5}.v2 .row.primary .ic{color:#c4b5fd}.v2 .row.muted .ic{color:#8b829e}
+  .v2 .hint{color:#857a9c}
+  .v2 .row:hover{background:rgba(139,92,246,.26);color:#fff}
+  .v2 .foot{background:rgba(255,255,255,.04);color:#9a93ad;border-top:1px solid rgba(255,255,255,.07)}
+  .v2 .foot:hover{background:rgba(139,92,246,.18);color:#fff}
+  .v2 .brand{background:linear-gradient(135deg,#a78bfa,#c4b5fd);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;font-weight:700}
+
+  /* ===================== V3 · minimal light / airy ===================== */
+  .v3{
+    background:#ffffff;border:1px solid rgba(30,25,45,.08);color:#1f1d2b;border-radius:16px;
+    box-shadow:0 12px 34px -16px rgba(30,20,55,.26),0 1px 2px rgba(30,20,55,.06)}
+  .v3 .row{padding:13px 17px;color:#3a3650;font-weight:500;border-bottom:1px solid rgba(30,25,45,.05)}
+  .v3 .row.primary{color:#1f1d2b;font-weight:600}
+  .v3 .row.primary::before{content:"";position:absolute;left:8px;top:50%;width:5px;height:5px;border-radius:50%;
+    transform:translateY(-50%);background:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.16)}
+  .v3 .row.muted{color:#9794a8;font-size:12.5px}
+  .v3 .ic{color:#8d8aa0}.v3 .row.primary .ic{color:#6366f1}.v3 .row.muted .ic{color:#b3b0c2}
+  .v3 .hint{color:#b3b0c2}
+  .v3 .row:hover{background:rgba(99,102,241,.07);color:#4f46e5}
+  .v3 .foot{background:#fbfafd;color:#9794a8;border-top:1px solid rgba(30,25,45,.06)}
+  .v3 .foot:hover{background:rgba(99,102,241,.06);color:#4f46e5}
+  .v3 .brand{color:#6366f1;font-weight:700}
+
+  /* ===================== V4 · bold gradient / magical ===================== */
+  .v4{
+    background:linear-gradient(150deg,#6d28d9 0%,#7c3aed 48%,#a855f7 100%);
+    border:1px solid rgba(255,255,255,.22);color:#fff;
+    box-shadow:0 24px 60px -10px rgba(124,58,237,.55),0 4px 16px rgba(124,58,237,.35),inset 0 1px 0 rgba(255,255,255,.30)}
+  .v4.animate{animation:klm-in .36s cubic-bezier(.34,1.56,.64,1) both, klm-glow 3.2s ease-in-out 1.1s infinite}
+  .v4::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,.28), transparent 60%)}
+  .v4 .row{border-bottom:1px solid rgba(255,255,255,.14);color:#fff}
+  .v4 .row.primary{background:rgba(255,255,255,.17);box-shadow:inset 3px 0 0 #fff}
+  .v4 .row.muted{color:rgba(255,255,255,.74)}
+  .v4 .ic{color:#f1e9ff}.v4 .row.primary .ic{color:#fff}.v4 .row.muted .ic{color:rgba(255,255,255,.7)}
+  .v4 .hint{color:rgba(255,255,255,.7)}
+  .v4 .row:hover{background:rgba(255,255,255,.24);color:#fff}
+  .v4 .foot{background:rgba(20,6,40,.20);color:rgba(255,255,255,.82);border-top:1px solid rgba(255,255,255,.16)}
+  .v4 .foot:hover{background:rgba(20,6,40,.34);color:#fff}
+  .v4 .shine{background:linear-gradient(105deg,transparent,rgba(255,255,255,.75),transparent)}
+  .v4 .brand{background:linear-gradient(135deg,#fff,#e9d8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;font-weight:800}
+
+  footer{max-width:1180px;margin:0 auto;padding:0 28px 60px;color:#8a83a0;font-size:12px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Right-click menu — design directions</h1>
+    <p class="sub">Four visual treatments of the Klavity widget context menu, same items in each.
+      Hover the rows to feel the interactions; hit <strong>Replay</strong> (or <strong>Replay all</strong>) to
+      see the entry animation — a soft spring scale-in, staggered rows and a shimmer sweep.</p>
+  </header>
+
+  <div class="toolbar">
+    <button class="btn" id="replayAll">↻ Replay all animations</button>
+    <span class="hintbar">Pure HTML/CSS/JS · no build step · Lucide icons</span>
+  </div>
+
+  <main class="grid" id="grid"></main>
+
+  <footer>Klavity · packages/core/demo/rightclick-mockups.html — pick a direction and we’ll wire it into the widget.</footer>
+
+<script>
+// ---- Lucide icons (stroke, inherit currentColor) --------------------------------
+var ICON = {
+  zap:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>',
+  lightbulb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>',
+  monitor:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>',
+  sparkles:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>',
+  refresh:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>'
+};
+
+// ---- The four variations --------------------------------------------------------
+var VARIANTS = [
+  { cls:'v1', stage:'',     title:'1 · Beige + purple glassy', tag:'Shipped',
+    desc:'The current live treatment — warm cream glass, purple accents and a frosted blur.' },
+  { cls:'v2', stage:'dark', title:'2 · Dark premium glass', tag:'',
+    desc:'Smoked translucent glass with a violet top glow — sleek over dark or busy pages.' },
+  { cls:'v3', stage:'',     title:'3 · Minimal light / airy', tag:'',
+    desc:'Clean white, soft shadow, roomy rows and a quiet indigo dot on the primary action.' },
+  { cls:'v4', stage:'dark', title:'4 · Bold gradient / magical', tag:'',
+    desc:'Full purple gradient surface, white items and a gentle glow pulse — maximum delight.' }
+];
+
+// Same items everywhere.
+var ITEMS = [
+  { icon:'zap',       label:'Report a Bug',      primary:true },
+  { icon:'lightbulb', label:'Request a Feature' },
+  { icon:'monitor',   label:'Show browser menu', muted:true, hint:'⇧ right-click' }
+];
+
+function buildMenu(cls){
+  var menu = document.createElement('div');
+  menu.className = 'menu animate ' + cls;
+  var shine = document.createElement('div'); shine.className = 'shine'; menu.appendChild(shine);
+  var idx = 0;
+  ITEMS.forEach(function(it){
+    var b = document.createElement('button');
+    b.className = 'row' + (it.primary ? ' primary' : '') + (it.muted ? ' muted' : '');
+    b.style.animationDelay = (70 + idx * 48) + 'ms'; idx++;
+    b.innerHTML = '<span class="ic">' + ICON[it.icon] + '</span><span class="lbl">' + it.label + '</span>' +
+                  (it.hint ? '<span class="hint">' + it.hint + '</span>' : '');
+    menu.appendChild(b);
+  });
+  var foot = document.createElement('button');
+  foot.className = 'foot';
+  foot.style.animationDelay = (70 + idx * 48) + 'ms';
+  foot.innerHTML = 'Powered by <strong class="brand">Klavity</strong>';
+  menu.appendChild(foot);
+  return menu;
+}
+
+function mount(host, cls){
+  host.innerHTML = '';
+  host.appendChild(buildMenu(cls));
+}
+
+// Build the cards.
+var grid = document.getElementById('grid');
+VARIANTS.forEach(function(v){
+  var card = document.createElement('section'); card.className = 'card';
+  card.innerHTML =
+    '<div class="meta">' +
+      '<div><h2>' + v.title + (v.tag ? ' <span style="font:600 10px ui-monospace;color:#6366f1;background:rgba(99,102,241,.12);padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:4px">' + v.tag + '</span>' : '') + '</h2>' +
+      '<p class="desc">' + v.desc + '</p></div>' +
+      '<button class="replay">' + ICON.refresh + 'Replay</button>' +
+    '</div>' +
+    '<div class="stage ' + v.stage + '"><div class="host"></div></div>';
+  grid.appendChild(card);
+  var host = card.querySelector('.host');
+  mount(host, v.cls);
+  card.querySelector('.replay').addEventListener('click', function(){ mount(host, v.cls); });
+});
+
+document.getElementById('replayAll').addEventListener('click', function(){
+  var hosts = document.querySelectorAll('.host');
+  VARIANTS.forEach(function(v, i){ mount(hosts[i], v.cls); });
+});
+</script>
+</body>
+</html>
