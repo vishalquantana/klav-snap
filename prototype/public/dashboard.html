@@ -1169,7 +1169,16 @@ const kbar = {
 // Generic SWR section runner: paint cached data instantly (if any), then revalidate
 // with the progress bar showing, applying + re-caching fresh data when it lands.
 // `fetcher` returns the payload (or null to skip caching); `apply` renders it.
-async function swrSection(cacheKey, fetcher, apply) {
+//
+// CONTRACT (read this before adding a caller): pass `host` — the element (or its id) whose
+// loading skeleton this section owns. swrSection then GUARANTEES the skeleton is always cleared:
+//   • success → `apply` paints the data over it;
+//   • throw / empty / cold-miss (apply never ran, or threw — both swallowed here) → swrSection
+//     itself replaces any leftover `.sk` in `host` with a "couldn't load" state.
+// Because the guarantee lives HERE, callers must NOT hand-roll their own post-call `.sk` fallback.
+// (Every section that forgot that per-caller fallback — counts, triage — is exactly how we shipped
+// the "skeleton shimmers forever" regressions. Centralizing it makes that class impossible.)
+async function swrSection(cacheKey, fetcher, apply, host) {
   const cached = swrRead(cacheKey)
   if (cached != null) { try { apply(cached) } catch (e) {} }
   kbar.start()
@@ -1177,7 +1186,35 @@ async function swrSection(cacheKey, fetcher, apply) {
     const data = await fetcher()
     if (data != null) { try { apply(data) } catch (e) {} ; swrWrite(cacheKey, data) }
   } catch (e) {
-  } finally { kbar.done() }
+  } finally {
+    kbar.done()
+    // Central guarantee: whatever happened above, never leave this section on a stuck skeleton.
+    const el = typeof host === "string" ? $(host) : host
+    if (el && el.querySelector && el.querySelector(".sk")) {
+      el.innerHTML = emptyState("", "Couldn't load — try refreshing.", "")
+    }
+  }
+}
+
+// The complete set of loading-skeleton hosts on the page (stat tiles + every list/feed). Centralizing
+// the list means a NEW section is one entry away from the same guarantee — and clearStuckSkeletons()
+// is the single safety net that runs after every render pass and on the cold-error path, so no section
+// can be left shimmering regardless of which renderer was skipped or threw.
+const SKELETON_HOSTS = ["stFeedback", "stSims", "stTeam", "stTickets", "saying", "sims", "members", "tickets", "ticketsKanban", "activity", "triageList"]
+function clearStuckSkeletons(msg) {
+  for (const id of SKELETON_HOSTS) {
+    const el = $(id)
+    if (!el || !el.querySelector || !el.querySelector(".sk")) continue
+    // Stat tiles hold a <span class="sk sk-num"> and read as a number → resolve to a dash; the
+    // list/feed hosts hold .sk-card rows → resolve to a graceful empty/couldn't-load state.
+    if (el.querySelector(".sk-num")) el.textContent = "—"
+    else el.innerHTML = emptyState("", msg || "Couldn't load — try refreshing.", "")
+  }
+}
+// Run one section renderer in isolation: log a failure but never let it abort the render pass.
+// (Paired with clearStuckSkeletons() so a renderer that throws still gets its skeleton resolved.)
+function safeRender(label, fn) {
+  try { fn() } catch (e) { console.error("dashboard render failed: " + label, e) }
 }
 
 // Dashboard payload is cached per resolved project id; a "last" pointer lets the
@@ -1211,8 +1248,9 @@ async function load() {
     // Keep whatever we painted from cache; only surface the error on a true cold miss.
     if (state === null) {
       $("lead").textContent = "Couldn't load your project. Try refreshing."
-      // No cache + failed fetch → the stat skeletons would shimmer forever; resolve them to a dash.
-      ;["stFeedback", "stSims", "stTeam", "stTickets"].forEach(id => { const e = $(id); if (e) e.textContent = "—" })
+      // No cache + failed fetch → render() never runs, so EVERY section skeleton (stat tiles AND
+      // the sims/saying/tickets/kanban/activity feeds) would shimmer forever. Clear them all.
+      clearStuckSkeletons()
     }
     return
   }
@@ -1272,18 +1310,16 @@ function tgSent(t) {
 }
 async function renderTriage() {
   const pid = curProjId(); if (!pid) return
+  // The 4th arg (host) hands swrSection the skeleton it owns — swrSection now guarantees that
+  // skeleton is always cleared (success → apply; throw/empty/cold-miss → couldn't-load state), so
+  // this caller no longer needs its own post-call `.sk` fallback. renderTriageItems is the real
+  // renderer (the old renderTriageFilters()/renderTriageList() names never existed).
   await swrSection(
     "triage:" + pid,
     async () => { const r = await fetch("/api/projects/" + encodeURIComponent(pid) + "/triage"); if (!r.ok) return null; return await r.json() },
-    // renderTriageItems is the actual renderer; the old renderTriageFilters()/renderTriageList()
-    // names don't exist, so this apply() used to throw (swallowed by swrSection) and the skeleton
-    // never got replaced. renderTriageItems() paints the items, or the empty-state when none.
     (d) => { _triageItems = (d && d.triage) || []; renderTriageItems(_triageItems) },
+    "triageList",
   )
-  // Graceful fallback: on a failed fetch with no cache, apply() never ran and the skeleton would
-  // shimmer forever — replace it with a clear "couldn't load" state so it ALWAYS resolves.
-  const host = $("triageList")
-  if (host && host.querySelector(".sk")) host.innerHTML = emptyState("", "Couldn't load triage items — try refreshing.", "")
 }
 function renderTriageItems(items) {
   const host = $("triageList"); if (!host) return
@@ -1346,15 +1382,21 @@ function render(fromCache) {
     ? `You're ${admin ? "an <b>Admin</b>" : "a <b>User</b>"} of <b>${esc(active.name)}</b>.`
     : "Create your first Sim to get started."
 
-  renderSwitcher()
-  renderChecklist()
-  renderStats()
-  renderSaying()
-  renderSims(admin)
-  renderMembers(admin)
-  renderTickets()
-  renderActivity()
-  linkProjects()
+  // Isolate every section renderer: a throw in one (e.g. a future markup/selector drift) must NOT
+  // abort the rest — otherwise one broken section stalls every later section's skeleton AND skips
+  // mountReportWidget()/the cache write back in load(). Each runs independently; clearStuckSkeletons()
+  // below is the backstop that resolves the skeleton of whichever renderer did throw.
+  safeRender("switcher", renderSwitcher)
+  safeRender("checklist", renderChecklist)
+  safeRender("stats", renderStats)
+  safeRender("saying", renderSaying)
+  safeRender("sims", () => renderSims(admin))
+  safeRender("members", () => renderMembers(admin))
+  safeRender("tickets", renderTickets)
+  safeRender("activity", renderActivity)
+  safeRender("linkProjects", linkProjects)
+  // Backstop: if any renderer above threw, its skeleton is still up — resolve it gracefully.
+  clearStuckSkeletons()
 
   // role-gated controls
   $("newSimBtn").classList.toggle("hide", !admin)
