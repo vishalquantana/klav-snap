@@ -1149,14 +1149,25 @@ async function refreshAll() {
   }
 }
 
-// Triage view: paint the last-cached queue for this project instantly (SWR), then
-// revalidate in the background with the progress bar and re-cache when fresh.
+// Triage view: paint the last-cached queue for this project INSTANTLY (SWR + top
+// progress bar), then revalidate and re-cache. Sentiment filter chips + screenshot
+// thumbnails render client-side over the fetched items — no re-fetch on filter change.
+let _triageItems = []
+let _triageSentiment = "all"
+const TG_SENTIMENTS = [["all", "All"], ["frustrated", "Frustrated"], ["confused", "Confused"], ["satisfied", "Satisfied"], ["neutral", "Neutral"]]
+// Bucket every reaction into one of the four filter groups (delighted → satisfied; unknown → neutral).
+function tgSent(t) {
+  const s = (t.sentiment || "").toLowerCase()
+  if (s === "delighted") return "satisfied"
+  if (s === "frustrated" || s === "confused" || s === "satisfied") return s
+  return "neutral"
+}
 async function renderTriage() {
   const pid = curProjId(); if (!pid) return
   await swrSection(
     "triage:" + pid,
     async () => { const r = await fetch("/api/projects/" + encodeURIComponent(pid) + "/triage"); if (!r.ok) return null; return await r.json() },
-    (d) => renderTriageItems((d && d.triage) || []),
+    (d) => { _triageItems = (d && d.triage) || []; renderTriageFilters(); renderTriageList() },
   )
 }
 function renderTriageItems(items) {
