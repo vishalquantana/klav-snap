@@ -590,10 +590,18 @@ function mountRegionOverlay(
 }
 
 async function fileToDataUrl(file: File): Promise<string> {
-  if (file.type === 'image/heic' || file.name.endsWith('.heic') || file.name.endsWith('.heif')) {
-    const heic2any = (await import('heic2any')).default
-    const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 }) as Blob
-    return blobToDataUrl(blob)
+  if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.endsWith('.heic') || file.name.endsWith('.heif')) {
+    // HEIC→JPEG conversion uses heic2any (libheif compiled to WASM). Its Emscripten/embind glue calls
+    // new Function() at module-eval, which strict-CSP customer sites (script-src without 'unsafe-eval')
+    // block with an EvalError — that previously crashed the whole widget on mount. So heic2any is NOT
+    // bundled into the embeddable widget IIFE (externalized in vite.widget.config.ts); the extension,
+    // which runs outside customer CSP, still bundles it. When it's unavailable OR conversion/CSP fails,
+    // degrade gracefully to uploading the raw file rather than throwing.
+    try {
+      const heic2any = (await import('heic2any')).default
+      const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 }) as Blob
+      return blobToDataUrl(blob)
+    } catch { /* heic2any absent (widget) or conversion failed — fall back to the raw file */ }
   }
   return blobToDataUrl(file)
 }
