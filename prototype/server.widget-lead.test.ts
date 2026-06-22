@@ -15,6 +15,10 @@ const TEST_SECRET = Buffer.from(new Uint8Array(32).fill(42)).toString("base64")
 
 // Seed via raw client — never import shared db module (avoids module-singleton contamination).
 const rawClient = createClient({ url: "file:" + srvDbFile })
+// SQLITE_BUSY guard: the spawned server and this rawClient write the same file: DB concurrently;
+// WAL + a 5s busy_timeout make writers WAIT for the lock instead of erroring under CI contention.
+await rawClient.execute("PRAGMA journal_mode=WAL")
+await rawClient.execute("PRAGMA busy_timeout=5000")
 async function rawExec(sql: string, args: any[] = []) {
   await rawClient.execute({ sql, args })
 }

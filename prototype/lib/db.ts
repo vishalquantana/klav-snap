@@ -14,11 +14,23 @@ export let db: Client | null = url ? createClient({ url, authToken }) : null
 // its tests run against an isolated database. Never called in production.
 export function reconnectDb(dbUrl: string, token?: string): Client {
   db = createClient({ url: dbUrl, authToken: token })
+  void tuneFileDb(db, dbUrl)
   return db
+}
+
+// For file:-backed libSQL (tests, local), make concurrent writers WAIT on the write lock instead
+// of throwing `SQLITE_BUSY: database is locked`, and use WAL so readers never block writers. The
+// test harness has a spawned server AND the test's rawClient writing the SAME file concurrently;
+// under CI contention SQLite returns BUSY without this. No-op on remote Turso (libsql:// / https://).
+export async function tuneFileDb(c: Client, dbUrl?: string | null): Promise<void> {
+  if (!dbUrl || !dbUrl.startsWith("file:")) return
+  await c.execute("PRAGMA journal_mode=WAL").catch(() => {})
+  await c.execute("PRAGMA busy_timeout=5000").catch(() => {})
 }
 
 export async function initDb() {
   if (!db) { console.warn("⚠  No TURSO_DATABASE_URL — login is disabled."); return }
+  await tuneFileDb(db, url)
   await applySchema(db)
   await migrateV2(db)
   // additive (idempotent): accounts.domain — added after the P2 migration, so existing prod
