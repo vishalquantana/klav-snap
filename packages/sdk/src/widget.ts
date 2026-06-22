@@ -3,6 +3,7 @@ import { createSim, injectSimStyles, emotionFromSentiment } from "@klavity/core/
 import { safeToPng } from "./capture"
 import { buildModal, installRegionDrag } from "@klavity/core/modal"
 import { cropDataUrl, type Rect } from "@klavity/core/crop"
+import { planScrollStitch, clampCaptureHeight } from "./sharp-capture"
 import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
@@ -55,6 +56,102 @@ function buildWidgetContext(): ReportContext {
 if (typeof window !== "undefined") {
   const w = window as any
   w.Klavity = { ...(w.Klavity || {}), identify, setMetadata, mount }
+}
+
+// ── Sharp capture (getDisplayMedia real-pixel scroll-stitch) ─────────────────────────────────────────
+// The widget's equivalent of the extension's captureVisibleTab / GoFullPage: getDisplayMedia grabs the
+// ACTUAL tab pixels, so every image — including cross-origin ones html-to-image can't fetch under CORS/CSP
+// — is captured, with ONE permission prompt. We then scroll the page a viewport at a time, grab a frame
+// from the live stream at each stop, and stitch the frames onto one tall canvas (devicePixelRatio-aware,
+// last frame bottom-aligned/overdrawn, fixed/sticky elements hidden after the top frame so they don't
+// repeat, scroll restored). Feature-detected — absent on iOS Safari, where the modal hides the Sharp
+// button and users fall back to the html-to-image "Full Page".
+function sharpCaptureSupported(): boolean {
+  return typeof navigator !== "undefined" && !!navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === "function"
+}
+const _raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
+const _sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+const STREAM_SETTLE_MS = 180 // let the live stream catch up to a new scroll position before grabbing a frame
+
+// Hide every position:fixed / position:sticky element (except our own host) via visibility:hidden — keeps
+// layout so the stitched frames stay aligned. Records prior values for restore.
+function hideFixedSticky(out: Array<{ el: HTMLElement; v: string }>) {
+  if (!document.body) return
+  const all = document.body.getElementsByTagName("*")
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i] as HTMLElement
+    if (!el || el.id === HOST_ID) continue
+    let pos = ""
+    try { pos = getComputedStyle(el).position } catch { continue }
+    if (pos === "fixed" || pos === "sticky") {
+      out.push({ el, v: el.style.visibility })
+      el.style.visibility = "hidden"
+    }
+  }
+}
+
+async function captureSharpFullPage(): Promise<string> {
+  // getDisplayMedia MUST run first (preserves the click's user gesture); it throws if the user cancels the
+  // picker — the modal catches that and restores the composer.
+  const stream: MediaStream = await (navigator.mediaDevices as any).getDisplayMedia({
+    video: { frameRate: 30 },
+    audio: false,
+    preferCurrentTab: true, // Chrome: pre-select the current tab in the picker (ignored elsewhere)
+  })
+
+  const widgetHost = document.getElementById(HOST_ID)
+  const prevHostDisplay = widgetHost ? widgetHost.style.display : ""
+  const hiddenFixed: Array<{ el: HTMLElement; v: string }> = []
+  const origX = window.scrollX, origY = window.scrollY
+
+  try {
+    const video = document.createElement("video")
+    video.srcObject = stream
+    video.muted = true
+    ;(video as any).playsInline = true
+    try { await video.play() } catch { /* play() may reject silently; frames still arrive */ }
+
+    const deadline = Date.now() + 3000
+    while ((video.videoWidth === 0 || video.videoHeight === 0) && Date.now() < deadline) await _sleep(50)
+    if (!video.videoWidth || !video.videoHeight) throw new Error("sharp capture: no video frame")
+
+    const vw = Math.max(1, window.innerWidth)
+    const vh = Math.max(1, window.innerHeight)
+    // Browsers may downscale a large tab capture, so derive the true scale from the stream, not just DPR.
+    const scale = video.videoWidth / vw
+
+    const docH = Math.max(
+      document.documentElement.scrollHeight, document.documentElement.offsetHeight,
+      document.body ? document.body.scrollHeight : 0, document.body ? document.body.offsetHeight : 0,
+    )
+    const fullH = clampCaptureHeight(docH, scale)
+
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(vw * scale)
+    canvas.height = Math.round(fullH * scale)
+    const ctx = canvas.getContext("2d")
+    if (!ctx) throw new Error("sharp capture: no 2d context")
+
+    // Hide OUR floating launcher for every frame (the composer is already hidden by the modal).
+    if (widgetHost) widgetHost.style.display = "none"
+
+    const stops = planScrollStitch(fullH, vh)
+    const drawW = Math.round(vw * scale), drawH = Math.round(vh * scale)
+    for (let i = 0; i < stops.length; i++) {
+      window.scrollTo(0, stops[i])
+      await _raf(); await _raf(); await _sleep(STREAM_SETTLE_MS)
+      ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, Math.round(stops[i] * scale), drawW, drawH)
+      // After the TOP frame, hide fixed/sticky so they don't repeat; the next stop's settle lets the
+      // stream reflect the change before that frame is drawn.
+      if (i === 0 && stops.length > 1) hideFixedSticky(hiddenFixed)
+    }
+    return canvas.toDataURL("image/png")
+  } finally {
+    for (const h of hiddenFixed) h.el.style.visibility = h.v
+    if (widgetHost) widgetHost.style.display = prevHostDisplay
+    window.scrollTo(origX, origY)
+    try { stream.getTracks().forEach((t) => t.stop()) } catch { /* noop */ }
+  }
 }
 
 async function mount() {
@@ -167,6 +264,10 @@ async function mount() {
       autoCaptureOnOpen: !opts?.initialShot,
       onCaptureFull: async () => safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }),
       onRegionCapture: async (rect) => cropDataUrl(await safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
+      // Sharp capture: real tab pixels via getDisplayMedia (no CORS issues, captures cross-origin images) +
+      // scroll-stitch to a full-page image. Feature-detected — undefined on iOS Safari (no getDisplayMedia),
+      // where the modal hides the Sharp button and users fall back to the html-to-image "Full Page" above.
+      onCaptureSharp: sharpCaptureSupported() ? () => captureSharpFullPage() : undefined,
       requireEmail,
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },

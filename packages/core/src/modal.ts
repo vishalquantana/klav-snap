@@ -26,6 +26,11 @@ export interface SuccessCopy {
 export interface ModalCallbacks {
   onCaptureFull: () => Promise<string>
   onRegionCapture?: (rect: { x: number; y: number; w: number; h: number }) => Promise<string>
+  // Optional "sharp" real-pixel capture (the widget's getDisplayMedia scroll-stitch — captures cross-origin
+  // images with no CORS issues). When provided, a "Sharp" button is rendered; the modal hides itself during
+  // the capture so the composer isn't in the shot. Feature-detected by the host (absent on iOS Safari →
+  // button hidden → users fall back to the html-to-image "Full Page").
+  onCaptureSharp?: () => Promise<string>
   onSubmit: (payload: {
     type: ReportType
     description: string
@@ -154,6 +159,7 @@ export function buildModal(
     <div class="klavity-page">${icon('map-pin')} ${typeof window !== 'undefined' ? escHtml(window.location.pathname) : ''}</div>
     <div class="klavity-strip" id="klavity-strip"></div>
     <div class="klavity-actions">
+      ${callbacks.onCaptureSharp ? `<button id="klavity-sharp" title="Pixel-perfect capture of the whole page (incl. cross-origin images)">${icon('sparkles')} Sharp</button>` : ''}
       <button id="klavity-full">${icon('camera')} Full Page</button>
       <button id="klavity-upload">${icon('image')} Upload</button>
       ${callbacks.onRegionCapture ? `<button id="klavity-region">${icon('scissors')} Region</button>` : ''}
@@ -303,6 +309,22 @@ export function buildModal(
   modal.querySelector('#klavity-full')!.addEventListener('click', async () => {
     try { addScreenshot(await callbacks.onCaptureFull()) } catch { /* ignore */ }
   })
+  // Sharp capture (real-pixel getDisplayMedia scroll-stitch) — only when the host provides it.
+  const sharpBtn = modal.querySelector('#klavity-sharp') as HTMLButtonElement | null
+  if (sharpBtn && callbacks.onCaptureSharp) {
+    sharpBtn.addEventListener('click', async () => {
+      // Hide the composer so it isn't in the captured pixels. onCaptureSharp calls getDisplayMedia as its
+      // first step, so the click's user gesture (required by the permission prompt) is preserved.
+      host.style.display = 'none'
+      const orig = sharpBtn.textContent
+      sharpBtn.textContent = 'Capturing…'
+      try {
+        const shot = await callbacks.onCaptureSharp!()
+        if (shot) addScreenshot(shot)
+      } catch { /* user cancelled the share prompt, or capture failed — just restore */ }
+      finally { host.style.display = ''; sharpBtn.textContent = orig }
+    })
+  }
   modal.querySelector('#klavity-upload')!.addEventListener('click', () => {
     (modal.querySelector('#klavity-file') as HTMLInputElement).click()
   })
