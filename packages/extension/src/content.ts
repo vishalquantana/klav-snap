@@ -294,22 +294,54 @@ function showNativeHint(x: number, y: number) {
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250) }, 2400)
 }
 
+// Scoped keyframes for the magical context menu — kept in sync with the in-page widget
+// (packages/sdk/src/widget.ts). Injected once into the page head (this menu isn't in a
+// shadow root, so we id-guard and use klm-* prefixed names to avoid host-page collisions).
+function ensureCtxMenuStyle() {
+  if (document.getElementById('klavity-ctxmenu-anim')) return
+  const s = document.createElement('style')
+  s.id = 'klavity-ctxmenu-anim'
+  s.textContent =
+    '@keyframes klm-in{0%{opacity:0;transform:scale(.9) translateY(-8px)}100%{opacity:1;transform:scale(1) translateY(0)}}' +
+    '@keyframes klm-row-in{0%{opacity:0;transform:translateY(7px)}100%{opacity:1;transform:translateY(0)}}' +
+    '@keyframes klm-shine{0%{transform:translateX(-130%)}100%{transform:translateX(240%)}}' +
+    '.klm-menu{animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}' +
+    '.klm-row{animation:klm-row-in .34s cubic-bezier(.16,1,.3,1) both}' +
+    '.klm-ic{transition:transform .2s cubic-bezier(.34,1.56,.64,1)}' +
+    '.klm-row:hover .klm-ic{transform:scale(1.18) rotate(-7deg)}' +
+    '.klm-shine{position:absolute;top:0;left:0;width:42%;height:100%;pointer-events:none;background:linear-gradient(105deg,transparent,rgba(255,255,255,.6),transparent);transform:translateX(-130%);animation:klm-shine 1s ease-out .15s both;border-radius:inherit}'
+  document.head.appendChild(s)
+}
+
 function showCtxMenu(x: number, y: number) {
   closeCtxMenu()
+  ensureCtxMenuStyle()
 
   const menu = document.createElement('div')
   ctxMenuEl = menu
-  menu.style.cssText = 'position:fixed;z-index:2147483647;background:#fff;border-radius:13px;box-shadow:0 12px 40px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.10);min-width:236px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;border:1px solid rgba(0,0,0,.08);padding:6px;'
+  menu.className = 'klm-menu'
+  // Warm cream "glass" surface with a soft Klavity-purple top glow + layered purple shadow,
+  // matching the in-page widget menu. (Plain backdrop blur — not liquid-glass refraction.)
+  menu.style.cssText = 'position:fixed;z-index:2147483647;min-width:236px;border-radius:14px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;padding:6px;transform-origin:top left;' +
+    'background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.18), rgba(139,92,246,0) 55%), linear-gradient(180deg, rgba(250,247,240,.96), rgba(243,236,225,.97));' +
+    'border:1px solid rgba(255,255,255,.55);' +
+    'box-shadow:0 24px 60px -12px rgba(76,40,130,.32),0 8px 22px rgba(99,102,241,.16),0 1.5px 4px rgba(25,20,15,.10),inset 0 1px 0 rgba(255,255,255,.75);' +
+    '-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);'
   menu.style.left = `${x}px`
   menu.style.top = `${y}px`
+  const shine = document.createElement('div'); shine.className = 'klm-shine'; menu.appendChild(shine)
+  let rowIdx = 0
 
   // One consistent row builder: a fixed-width icon box so every label lines up,
   // uniform padding/gap/size, rounded hover. `muted` styles the footer affordance.
   const makeRow = (icon: string, iconColor: string, label: string, opts: { muted?: boolean; hint?: string } = {}) => {
     const btn = document.createElement('button')
+    btn.className = 'klm-row'
     const muted = !!opts.muted
-    btn.style.cssText = `display:flex;align-items:center;gap:11px;width:100%;padding:9px 12px;background:transparent;border:none;border-radius:8px;cursor:pointer;text-align:left;color:${muted ? '#8a8a90' : '#1f1f1f'};font-size:${muted ? '12.5px' : '14.5px'};font-weight:${muted ? '400' : '500'};line-height:1;`
+    btn.style.cssText = `position:relative;display:flex;align-items:center;gap:11px;width:100%;padding:9px 12px;background:transparent;border:none;border-radius:9px;cursor:pointer;text-align:left;color:${muted ? '#8a8076' : '#19140f'};font-size:${muted ? '12.5px' : '14.5px'};font-weight:${muted ? '450' : '500'};line-height:1;transition:background .18s ease,color .18s ease;animation-delay:${70 + rowIdx * 45}ms;`
+    rowIdx++
     const ic = document.createElement('span')
+    ic.className = 'klm-ic'
     ic.style.cssText = `display:grid;place-items:center;width:18px;height:18px;flex-shrink:0;color:${iconColor};`
     ic.innerHTML = icon
     const lab = document.createElement('span')
@@ -319,11 +351,11 @@ function showCtxMenu(x: number, y: number) {
     if (opts.hint) {
       const h = document.createElement('span')
       h.textContent = opts.hint
-      h.style.cssText = 'font-family:ui-monospace,monospace;font-size:11px;color:#a3a3ab;flex-shrink:0;'
+      h.style.cssText = 'font-family:ui-monospace,monospace;font-size:11px;color:#a59a8c;flex-shrink:0;'
       btn.append(h)
     }
-    btn.addEventListener('mouseenter', () => { btn.style.background = muted ? '#f4f4f6' : '#f2f2f4' })
-    btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent' })
+    btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(139,92,246,.12)'; btn.style.color = '#4f46e5' })
+    btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; btn.style.color = muted ? '#8a8076' : '#19140f' })
     return btn
   }
 
@@ -340,7 +372,7 @@ function showCtxMenu(x: number, y: number) {
 
   // single divider, then the browser-menu affordance as an aligned footer row
   const divider = document.createElement('div')
-  divider.style.cssText = 'height:1px;background:#ececec;margin:6px 8px;'
+  divider.style.cssText = 'height:1px;background:rgba(99,102,241,.12);margin:6px 8px;'
   menu.appendChild(divider)
 
   const winIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>`
@@ -357,8 +389,10 @@ function showCtxMenu(x: number, y: number) {
 
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect()
-    if (r.right > window.innerWidth - 8) menu.style.left = `${x - r.width}px`
-    if (r.bottom > window.innerHeight - 8) menu.style.top = `${y - r.height}px`
+    let ox = 'left', oy = 'top'
+    if (r.right > window.innerWidth - 8) { menu.style.left = `${x - r.width}px`; ox = 'right' }
+    if (r.bottom > window.innerHeight - 8) { menu.style.top = `${y - r.height}px`; oy = 'bottom' }
+    menu.style.transformOrigin = `${oy} ${ox}`   // grow from the corner nearest the cursor
   })
 
   const onOutside = (e: MouseEvent) => {
