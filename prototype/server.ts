@@ -37,6 +37,7 @@ import { WalkBusyError } from "./lib/trails-browser"
 import { seedDemoTrails } from "./lib/trails-demo-seed"
 import { listExpectations, getExpectation, setExpectationStatus, setExpectationEnforced } from "./lib/expectations-db"
 import { validateAssertionDraft } from "./lib/assertion-spec"
+import { buildRecurrenceMemory } from "./lib/recurrence-memory"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -1527,6 +1528,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // Runs whether or not a tracker is connected, so the dashboard always gets a row.
         let feedbackId: string | null = null
         let citation: Awaited<ReturnType<typeof resolveCitations>> | null = null
+        let recurrenceMem: any = null // populated on dedup hits so callers know the issue recurred
         if (db) {
           try {
             // Actor: Bearer (extension) or cookie session (studio). Resolve to a real project
@@ -1601,6 +1603,10 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               if (dedupedInto) {
                 await bumpFeedbackRecurrence(dedupedInto, Date.now())
                 feedbackId = dedupedInto
+                // Build recurrence memory so callers know this is a recurring issue and who originally
+                // filed it (the "cited virtual customer" — a Sim persona or a previous human reporter).
+                try { recurrenceMem = await buildRecurrenceMemory(db!, dedupedInto, projectId) }
+                catch (e: any) { console.warn("[recurrence-memory] build skipped:", e?.message || e) }
               } else {
                 feedbackId = await insertFeedback({
                   projectId, simId, actorEmail: actor, urlHost, urlPath, sourceReferrer: sourceReferrer || null,
@@ -1656,7 +1662,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // Legacy direct-Plane mode: if the caller provided Plane creds directly (no session),
         // still attempt the Plane push for backward-compat with the extension's direct mode.
         if (!planeConnected) {
-          return wjson({ id: feedbackId ?? "", saved: true })
+          return wjson({ id: feedbackId ?? "", saved: true, ...(recurrenceMem ? { recurrence: recurrenceMem } : {}) })
         }
 
         // R8: append the Sim citation line to the issue body when this feedback cites a trait.
@@ -1708,6 +1714,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // Omit jira_key when Plane gives no sequence_id, so the extension's `?? id` fallback fires.
           ...(seq ? { jira_key: seq } : {}),
           issue_url: issueUrl,
+          ...(recurrenceMem ? { recurrence: recurrenceMem } : {}),
         })
       } catch (e: any) {
         return json(oops(e, "feedback"), 500)
@@ -2474,6 +2481,16 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         return json({ expectations: await listExpectations(db!, projE.id, status) })
       }
 
+      // GET /api/expectations/:id — fetch a single expectation with full source_refs (enriched).
+      // Returns the expectation row; callers can cross-reference source IDs against /api/feedback.
+      const singleExpMatch = path.match(/^\/api\/expectations\/([^/]+)$/)
+      if (req.method === "GET" && singleExpMatch && !singleExpMatch[1].includes("/")) {
+        const expId = singleExpMatch[1]
+        const exp = await getExpectation(db!, expId)
+        if (!exp || exp.projectId !== projE.id) return json({ error: "not found" }, 404)
+        return json({ expectation: exp })
+      }
+
       // POST /api/expectations/:id/enforce — draft an assertion (calls LLM). Persists nothing.
       const enforceMatch = path.match(/^\/api\/expectations\/([^/]+)\/enforce$/)
       if (req.method === "POST" && enforceMatch) {
@@ -2856,11 +2873,12 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
       // ── Ticket management: PATCH /api/feedback/:id and POST /api/feedback/:id/export ──
       // Resolve the feedback's project via feedbackById across accessible projects.
-      const feedbackIdMatch = path.match(/^\/api\/feedback\/([^/]+?)(\/export|\/replay)?$/)
+      const feedbackIdMatch = path.match(/^\/api\/feedback\/([^/]+?)(\/export|\/replay|\/memory)?$/)
       if (feedbackIdMatch) {
         const fid = feedbackIdMatch[1]
         const isExport = feedbackIdMatch[2] === "/export"
         const isReplay = feedbackIdMatch[2] === "/replay"
+        const isMemory = feedbackIdMatch[2] === "/memory"
 
         // Resolve which project this feedback belongs to and check the caller has access.
         let fbRow: any = null
@@ -2881,6 +2899,16 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           const replay = await getFeedbackReplay(fbRow.projectId, fid)
           if (!replay) return json({ error: "No replay for this report." }, 404)
           return json({ feedbackId: fid, events: replay.events, nEvents: replay.nEvents, trimmed: replay.trimmed, createdAt: replay.createdAt })
+        }
+
+        // GET /api/feedback/:id/memory — recurring-issue memory: how many times this issue has been
+        // seen, when, and who originally filed it (the "cited virtual customer" — a Sim persona or a
+        // previous human reporter). Useful for the dashboard to surface "4th occurrence" context.
+        if (req.method === "GET" && isMemory) {
+          if (!db) return json({ error: "Database unavailable." }, 503)
+          const memory = await buildRecurrenceMemory(db, fid, fbRow.projectId).catch(() => null)
+          if (!memory) return json({ error: "No recurrence memory for this report." }, 404)
+          return json({ memory })
         }
 
         // PATCH /api/feedback/:id — any project member may edit status/assignee/notes/severity
