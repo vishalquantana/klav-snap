@@ -506,6 +506,20 @@ function timingSafeStrEqual(a: string, b: string): boolean {
   return diff === 0
 }
 function file(path: string) { return new Response(Bun.file(path)) }
+// Serve the dashboard with the app version injected into its sidebar-footer placeholder
+// (__APP_VERSION__). Sourced from package.json — the orchestrator's single version stamp —
+// so we never hardcode it. Read+patched once and cached; the prod box restarts on deploy,
+// so the cached value refreshes once per release.
+let DASHBOARD_HTML: string | null = null
+async function dashboardPage(): Promise<Response> {
+  if (DASHBOARD_HTML === null) {
+    let version = ""
+    try { version = String((await Bun.file(import.meta.dir + "/../package.json").json())?.version || "") } catch { /* fall back to empty */ }
+    const raw = await Bun.file(PUB + "/dashboard.html").text()
+    DASHBOARD_HTML = raw.replaceAll("__APP_VERSION__", version)
+  }
+  return new Response(DASHBOARD_HTML, { headers: { "content-type": "text/html; charset=utf-8" } })
+}
 function redirect(loc: string, headers: Record<string, string> = {}) { return new Response(null, { status: 302, headers: { Location: loc, ...headers } }) }
 function fmtUsd(n: number): string { return "$" + (Number(n) || 0).toFixed(4) }
 function renderOpsAdmin(d: {
@@ -2281,7 +2295,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     const me = await sessionEmail(req)
     const needLogin = () => (req.method === "GET" ? redirect("/login") : json({ error: "Sign in to continue." }, 401))
 
-    if (req.method === "GET" && path === "/dashboard") return me ? file(PUB + "/dashboard.html") : redirect("/login")
+    if (req.method === "GET" && path === "/dashboard") return me ? await dashboardPage() : redirect("/login")
     if (req.method === "GET" && path === "/trails") return me ? file(PUB + "/trails.html") : redirect("/login")
     // Plan G — served demo fixtures the seeded demo Trails walk against (public, non-sensitive HTML).
     // Sanitized: reject path traversal; serve only from PUB/trails-demo. No auth (a Walk hits these

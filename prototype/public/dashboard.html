@@ -35,6 +35,8 @@ a{color:inherit;text-decoration:none}
 .side .nv.active{background:var(--ink-3);color:var(--paper);border-color:var(--line)}
 .side .nv .ic{font-size:16px;width:20px;text-align:center;flex:none}
 .side .nv .ct{margin-left:auto;font-size:11px;color:var(--paper-faint);font-family:var(--mono)}
+/* app version pinned to the sidebar footer (bottom-left); margin-top:auto pushes it below the nav */
+.side-version{margin-top:auto;padding:12px 11px 2px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--paper-faint);user-select:text}
 .content{flex:1 1 auto;min-width:0}
 /* view switching — show only blocks tagged for the active view */
 body[data-view="overview"] [data-view]:not([data-view~="overview"]),
@@ -48,6 +50,7 @@ body[data-view="settings"] [data-view]:not([data-view~="settings"]){display:none
   .side .brand{display:none}
   .side .nv{width:auto;white-space:nowrap}
   .side .nv .ct{display:none}
+  .side-version{display:none}
   .bar-in,.wrap{margin-left:0}
   .wrap{padding:18px 16px 50px;max-width:none}
 }
@@ -599,6 +602,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <button class="nv" data-go="triage"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>Triage <span class="ct" id="navTriageCount"></span></button>
     <button class="nv" data-go="team"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></svg></span>Team <span class="ct" id="navTeamCount"></span></button>
     <button class="nv" data-go="settings"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg></span>Settings</button>
+    <!-- App version pinned to the sidebar footer. The placeholder below is replaced
+         server-side when /dashboard is served (sourced from package.json) — never hardcode. -->
+    <div class="side-version" aria-label="Software version">v__APP_VERSION__</div>
   </aside>
   <div class="content">
   <div class="head">
