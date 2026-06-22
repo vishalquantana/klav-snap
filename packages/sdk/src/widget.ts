@@ -288,6 +288,9 @@ async function mount() {
       // where the modal hides the Sharp button and users fall back to the html-to-image "Full Page" above.
       onCaptureSharp: sharpCaptureSupported() ? () => captureSharpFullPage() : undefined,
       requireEmail,
+      // Pre-compress each screenshot as soon as it's captured (runs while the user types their
+      // description). By submit time the Promise is settled → zero compression delay before upload.
+      compressImage: compressScreenshot,
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, referrer: document.referrer || "", screenshots: p.screenshots,

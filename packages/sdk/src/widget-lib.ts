@@ -98,6 +98,8 @@ function dataUrlToBlob(dataUrl: string): Blob {
 export async function compressScreenshot(dataUrl: string, opts: { maxWidth?: number; quality?: number } = {}): Promise<string> {
   const maxWidth = opts.maxWidth ?? 2000
   const quality = opts.quality ?? 0.82
+  // Already a JPEG (e.g. pre-compressed by the modal on capture) — skip re-encoding entirely.
+  if (dataUrl.startsWith("data:image/jpeg")) return dataUrl
   if (typeof document === "undefined" || !dataUrl.startsWith("data:image/")) return dataUrl
   try {
     const img = await new Promise<HTMLImageElement>((res, rej) => {

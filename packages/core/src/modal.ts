@@ -41,6 +41,11 @@ export interface ModalCallbacks {
     // "A valid email is required to submit." Undefined when no email field was shown.
     reporterEmail?: string
   }) => Promise<{ issueKey: string; issueUrl: string }>
+  // Optional image pre-processor called immediately when a screenshot is added (e.g. PNG→JPEG
+  // compression). By submit time the promise is already resolved, so the upload starts with zero
+  // compression delay. The host passes compressScreenshot here; the extension omits it (its SW
+  // handles compression separately).
+  compressImage?: (dataUrl: string) => Promise<string>
   // When true, the compose screen shows a REQUIRED email field and blocks submit until it's valid.
   // Used by the embeddable widget on third-party sites when the project's report gate is "email",
   // so an end-user can file a ticket without a Klavity account. Default false → extension/authed
@@ -79,6 +84,10 @@ export function buildModal(
   document.body.appendChild(host)
 
   let screenshots: string[] = []
+  // Parallel array: each entry is the resolved (compressed) version of screenshots[i].
+  // Pre-compression is kicked off immediately when a screenshot is added, so by the time the user
+  // clicks Submit the Promise is already settled and the upload can start without delay.
+  let screenshotCompressed: Promise<string>[] = []
   // Upload guards (Dev 6 audit #4): cap how many images can be attached and how big each may be.
   const MAX_IMAGES = 5
   const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10 MB per image
@@ -249,7 +258,7 @@ export function buildModal(
       rm.className = 'klavity-rm'
       rm.textContent = '×'
       rm.title = 'Remove'
-      rm.addEventListener('click', (e) => { e.stopPropagation(); screenshots.splice(i, 1); updateStrip() })
+      rm.addEventListener('click', (e) => { e.stopPropagation(); screenshots.splice(i, 1); screenshotCompressed.splice(i, 1); updateStrip() })
       const mk = document.createElement('button')
       mk.className = 'klavity-mk'
       mk.innerHTML = icon('pencil', { size: 13 })
@@ -276,6 +285,8 @@ export function buildModal(
     if (screenshots.length >= MAX_IMAGES) { showError(`You can attach up to ${MAX_IMAGES} images.`); return }
     clearError()
     screenshots.push(dataUrl)
+    // Kick off compression immediately — by submit time the Promise is settled (user was typing).
+    screenshotCompressed.push(callbacks.compressImage ? callbacks.compressImage(dataUrl) : Promise.resolve(dataUrl))
     updateStrip()
   }
 
@@ -387,7 +398,11 @@ export function buildModal(
     const finishProgress = () => { if (fill) { fill.style.transition = 'width .25s ease'; fill.style.width = '100%' } }
     const resetProgress = () => { if (progress && fill) { progress.classList.remove('show'); fill.style.transition = 'none'; fill.style.width = '0' } }
     try {
-      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots], annotations: annotationsByIndex[0] ?? null, reporterEmail: remail?.value.trim() || undefined })
+      // Await pre-compressed screenshots (kicked off at capture time). For a user who typed for a few
+      // seconds, these Promises are already settled — zero wait. Falls back to the raw dataUrl when
+      // compressImage is not provided (e.g. extension path).
+      const finalScreenshots = await Promise.all(screenshotCompressed)
+      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: finalScreenshots, annotations: annotationsByIndex[0] ?? null, reporterEmail: remail?.value.trim() || undefined })
       finishProgress()
       if (callbacks.success) {
         // Mode-aware lead/CTA screen rendered THROUGH the existing themed modal — no auto-close;
