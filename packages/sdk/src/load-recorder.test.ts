@@ -4,14 +4,14 @@ import { resolveRecorderUrl, injectRecorderScript, __resetRecorderLoaderForTests
 describe("resolveRecorderUrl", () => {
   it("resolves the vendor path against the cross-origin backend, not the host page", () => {
     expect(resolveRecorderUrl("https://klavity.quantana.top"))
-      .toBe("https://klavity.quantana.top/vendor/rrweb-record.min.js")
+      .toBe("https://klavity.quantana.top/vendor/klv-buffer.min.js")
   })
   it("tolerates a trailing slash on backendUrl (no double slash)", () => {
     expect(resolveRecorderUrl("https://klavity.quantana.top/"))
-      .toBe("https://klavity.quantana.top/vendor/rrweb-record.min.js")
+      .toBe("https://klavity.quantana.top/vendor/klv-buffer.min.js")
   })
   it("handles empty backendUrl without throwing", () => {
-    expect(resolveRecorderUrl("")).toBe("/vendor/rrweb-record.min.js")
+    expect(resolveRecorderUrl("")).toBe("/vendor/klv-buffer.min.js")
   })
 })
 
@@ -55,7 +55,7 @@ describe("injectRecorderScript", () => {
     const g = await injectRecorderScript("https://b.example")
     expect(g).toBe(fake)
     expect(appended.length).toBe(1)
-    expect(appended[0].src).toBe("https://b.example/vendor/rrweb-record.min.js")
+    expect(appended[0].src).toBe("https://b.example/vendor/klv-buffer.min.js")
   })
 
   it("resolves null when the script loads but exposes no record fn", async () => {

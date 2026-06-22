@@ -2796,9 +2796,9 @@ var __replayState = { player: null, loaded: false }
 function __loadRrwebPlayer() {
   if (__replayState.loaded) return Promise.resolve()
   return new Promise(function(resolve, reject){
-    var css = document.createElement("link"); css.rel = "stylesheet"; css.href = "/vendor/rrweb-player.css"
+    var css = document.createElement("link"); css.rel = "stylesheet"; css.href = "/vendor/klv-view.css"
     document.head.appendChild(css)
-    var s = document.createElement("script"); s.src = "/vendor/rrweb-player.umd.min.js"
+    var s = document.createElement("script"); s.src = "/vendor/klv-view.min.js"
     s.onload = function(){ __replayState.loaded = true; resolve() }
     s.onerror = function(){ reject(new Error("Failed to load the replay player.")) }
     document.head.appendChild(s)
