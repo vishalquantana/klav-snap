@@ -200,7 +200,7 @@ export function buildModal(
        Hover/focus/tap reveals the explainer; the (i) stopPropagations so it NEVER triggers the one-click
        capture. Generous full-height hit zone (~34×40) at the right edge so the rest of the button stays a
        one-tap Sharp. Shadow-as-border popover, theme-aware; press scale(0.96), accent hover, focus ring. ── */
-    #klavity-sharp{position:relative;flex:1.4;padding-right:30px;}
+    #klavity-sharp{position:relative;flex:1.4;padding-left:30px;padding-right:30px;}
     .klavity-info-wrap{position:absolute;top:0;right:0;bottom:0;width:34px;display:inline-flex;align-items:center;justify-content:center;}
     .klavity-info{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:var(--kl-muted);cursor:help;transition:transform .15s cubic-bezier(.34,1.56,.64,1),color .15s ease,background .15s ease;}
     .klavity-info:hover{color:var(--kl-accent);background:color-mix(in srgb,var(--kl-accent) 16%,transparent);}
@@ -227,7 +227,7 @@ export function buildModal(
     <div class="klavity-page">${icon('map-pin')} ${typeof window !== 'undefined' ? escHtml(window.location.pathname) : ''}</div>
     <div class="klavity-strip" id="klavity-strip"></div>
     <div class="klavity-actions">
-      ${callbacks.onCaptureSharp ? `<button id="klavity-sharp" title="Sharp — pixel-perfect full page, captures every image. Shares this tab (asks permission)."><span class="kl-cap-ic">${icon('sparkles')}</span><span class="kl-sharp-label">Sharp</span><span class="klavity-info-wrap"><span id="klavity-sharp-info" class="klavity-info" role="button" tabindex="0" title="What does Sharp do?" aria-label="What does Sharp do?"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span><span class="klavity-info-pop" role="tooltip">Sharp grabs the <b>whole page — every image, pixel-perfect</b> using your browser's screen-share. Your browser will ask you to <b>share this tab</b>.</span></span></button>` : ''}
+      ${callbacks.onCaptureSharp ? `<button id="klavity-sharp" title="Screen — pixel-perfect full page, every image. Shares this tab (asks permission)."><span class="kl-cap-ic">${icon('monitor')}</span><span class="kl-sharp-label">Screen</span><span class="klavity-info-wrap"><span id="klavity-sharp-info" class="klavity-info" role="button" tabindex="0" title="What does Screen do?" aria-label="What does Screen do?"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span><span class="klavity-info-pop" role="tooltip">Screen grabs the <b>whole page — every image, pixel-perfect</b> using your browser's screen-share. Your browser will ask you to <b>share this tab</b>.</span></span></button>` : ''}
       <button id="klavity-full" title="Full Page — instant capture; may miss some cross-origin images"><span class="kl-cap-ic">${icon('camera')}</span>Full Page</button>
       <button id="klavity-upload"><span class="kl-cap-ic">${icon('image')}</span>Upload</button>
       ${callbacks.onRegionCapture ? `<button id="klavity-region"><span class="kl-cap-ic">${icon('scissors')}</span>Region</button>` : ''}
