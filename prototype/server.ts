@@ -499,6 +499,7 @@ function isWidgetCorsPath(path: string): boolean {
   switch (path) {
     case "/api/widget/ping":
     case "/api/widget/lead":
+    case "/api/widget/sims":
     case "/api/feedback":
     case "/api/consent":
     case "/api/sim/review":
@@ -1195,6 +1196,26 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       if (!host) host = "(unknown)"
       try { await recordWidgetPing(projectId, host) } catch (e: any) { console.error("widget ping (non-fatal):", e?.message || e) }
       return wjson({ ok: true })
+    }
+
+    // ── /api/widget/sims — anonymous, project-scoped, CORS-gated: returns minimal Sim descriptors
+    // (id, name, initials, accent) so the embedded widget can populate the Deploy / Select-Sims menu
+    // without an authenticated session. No persona internals (insights, traits, summary) are returned.
+    // Rate-limited per source IP; unknown project → 404 (project_id is already in the widget script tag
+    // so this doesn't leak existence beyond what the embedding site already reveals).
+    if (req.method === "GET" && path === "/api/widget/sims") {
+      if (!rlAllow(`wsims:ip:${clientIp(req, server)}`, 60, 60_000)) return wjson({ error: "rate limited" }, 429)
+      const projectId = String(url.searchParams.get("project") || "")
+      if (!projectId) return wjson({ error: "project required" }, 400)
+      const proj = await projectById(projectId)
+      if (!proj) return wjson({ error: "not found" }, 404)
+      const personas = await listPersonas(projectId)
+      const sims = personas.map((p) => ({
+        id: p.id, name: p.name,
+        initials: p.initials ?? null,
+        accent: p.accent ?? null,
+      }))
+      return wjson({ sims })
     }
 
     // ── inbound two-way status sync (G4): external tracker → Klavity ticket ──

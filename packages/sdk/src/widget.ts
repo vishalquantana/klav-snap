@@ -437,9 +437,9 @@ async function mount() {
       menu.appendChild(status)
       let personas: Array<{ id: string; name: string; role?: string }> = []
       try {
-        const r = await api("/api/personas?project=" + encodeURIComponent(cfg.projectId))
+        const r = await fetch(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
         if (!r.ok) throw new Error()
-        personas = ((await r.json()).personas || []) as typeof personas
+        personas = ((await r.json()).sims || []) as typeof personas
       } catch {
         status.innerHTML = "Couldn't load Sims."
         return
@@ -586,16 +586,16 @@ async function mount() {
   }
 
   // Deploy the named Sims (or "all") + boot the watch engine for continuous page monitoring.
-  // Fetches the project's personas so deploy() receives a non-empty sims descriptor array.
+  // Uses the anonymous /api/widget/sims endpoint so this works on client sites with no admin auth.
   async function deployAndWatch(simIds: string[] | 'all') {
     _simsWatchCtrl?.stop()
     _simsWatchCtrl = null
     let sims: Array<{ id: string; name: string; initials?: string; accent?: string }> = []
     try {
-      const r = await api("/api/personas?project=" + encodeURIComponent(cfg.projectId))
+      const r = await fetch(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
       if (r.ok) {
         const data = await r.json().catch(() => ({}))
-        sims = Array.isArray(data.personas) ? data.personas : []
+        sims = Array.isArray(data.sims) ? data.sims : []
       }
     } catch { /* non-fatal: empty dock is guarded in sims-live.ts */ }
     ;(window as any).KlavitySims?.deploy?.(simIds, sims)

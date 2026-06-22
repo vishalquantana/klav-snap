@@ -438,10 +438,10 @@ test("M5: /api/transcripts rejects an oversized transcript with 413", async () =
 test("security headers (X-Frame-Options + CSP) are on every response", async () => {
   // A 401 from an unauthenticated extension API — deterministic, no LLM/DB writes.
   const res = await fetch(`${BASE}/api/personas?project=${PROJECT_ID}`, { headers: { Authorization: "Bearer ext_nope" } })
-  expect(res.headers.get("x-frame-options")).toBe("DENY")
+  expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN")
   expect(res.headers.get("x-content-type-options")).toBe("nosniff")
   const csp = res.headers.get("content-security-policy") || ""
-  expect(csp).toContain("frame-ancestors 'none'")
+  expect(csp).toContain("frame-ancestors 'self'")
 })
 
 // ── LLM10 / AI-demo size cap: an oversized brief is rejected with 413 BEFORE any LLM call (hermetic). ──

@@ -64,6 +64,12 @@ await rawExec(`INSERT INTO project_members (id, project_id, email, project_role,
 // Session
 await rawExec(`INSERT INTO sessions (id, email, created_at, expires_at) VALUES (?, ?, ?, ?)`, [ADMIN_SID, ADMIN_EMAIL, NOW, NOW + 86400_000])
 
+// Two Sims for the widget sims tests (sensitive fields intentionally set to verify they are NOT returned)
+await rawExec(`INSERT INTO personas (id, project_id, name, role, type, initials, accent, summary, insights_json, avatar, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [`sim_w1_${ts}`, PROJECT_ID, "Alex", "End User", "client", "AX", "#6366f1", "SECRET summary", "[{\"sensitive\":true}]", null, NOW, NOW])
+await rawExec(`INSERT INTO personas (id, project_id, name, role, type, initials, accent, summary, insights_json, avatar, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [`sim_w2_${ts}`, PROJECT_ID, "Jordan", "Power User", "client", "JO", "#ec4899", null, null, null, NOW, NOW])
+
 // One enabled monitored URL: app.acme.com/*
 await rawExec(`INSERT INTO monitored_urls (id, project_id, url_pattern, enabled, created_at) VALUES (?, ?, ?, ?, ?)`, [`mu_w_${ts}`, PROJECT_ID, "app.acme.com/*", 1, NOW])
 
@@ -234,4 +240,68 @@ test("POST /api/sim/review gate-failure carries CORS header (error-CORS regressi
   expect(r.status).not.toBe(200)
   // CORS header must be present on the error response so cross-origin browsers can read it.
   expect(r.headers.get("access-control-allow-origin")).toBe("*")
+})
+
+// ── /api/widget/sims — anonymous Sim descriptor endpoint ─────────────────────
+// These tests verify the fix for "Deploy all Sims → empty dock" on client sites.
+// The embedded widget cannot use the auth-gated /api/personas; this anonymous
+// endpoint returns the minimal descriptors needed to populate the deploy menu.
+
+test("OPTIONS /api/widget/sims preflight reflects the request Origin", async () => {
+  const r = await fetch(base + "/api/widget/sims", {
+    method: "OPTIONS",
+    headers: { origin: X_ORIGIN, "access-control-request-method": "GET" },
+  })
+  expect(r.status).toBe(204)
+  expect(r.headers.get("access-control-allow-origin")).toBe(X_ORIGIN)
+  expect((r.headers.get("vary") || "")).toContain("Origin")
+})
+
+test("GET /api/widget/sims returns 400 when project param is missing", async () => {
+  const r = await fetch(base + "/api/widget/sims")
+  expect(r.status).toBe(400)
+})
+
+test("GET /api/widget/sims returns 404 for an unknown project", async () => {
+  const r = await fetch(base + "/api/widget/sims?project=nonexistent_project_xyz")
+  expect(r.status).toBe(404)
+})
+
+test("GET /api/widget/sims returns sims for a valid project — no auth required", async () => {
+  const r = await fetch(base + "/api/widget/sims?project=" + projectId)
+  expect(r.status).toBe(200)
+  // CORS must be present so cross-origin widget JS can read the response.
+  expect(r.headers.get("access-control-allow-origin")).toBeTruthy()
+  const j = await r.json()
+  expect(Array.isArray(j.sims)).toBe(true)
+  expect(j.sims.length).toBe(2)
+  const names = j.sims.map((s: any) => s.name).sort()
+  expect(names).toEqual(["Alex", "Jordan"])
+})
+
+test("GET /api/widget/sims returns only id/name/initials/accent — no sensitive fields", async () => {
+  const r = await fetch(base + "/api/widget/sims?project=" + projectId)
+  expect(r.status).toBe(200)
+  const j = await r.json()
+  const alex = j.sims.find((s: any) => s.name === "Alex")
+  expect(alex).toBeDefined()
+  // Allowed minimal fields
+  expect(alex.id).toBeTruthy()
+  expect(alex.name).toBe("Alex")
+  expect(alex.initials).toBe("AX")
+  expect(alex.accent).toBe("#6366f1")
+  // Sensitive internals must NOT be present
+  expect(alex.summary).toBeUndefined()
+  expect(alex.insights_json).toBeUndefined()
+  expect(alex.role).toBeUndefined()
+  expect(alex.avatar).toBeUndefined()
+})
+
+test("GET /api/widget/sims with reflected Origin CORS on real response", async () => {
+  const r = await fetch(base + "/api/widget/sims?project=" + projectId, {
+    headers: { origin: X_ORIGIN },
+  })
+  expect(r.status).toBe(200)
+  expect(r.headers.get("access-control-allow-origin")).toBe(X_ORIGIN)
+  expect((r.headers.get("vary") || "")).toContain("Origin")
 })
