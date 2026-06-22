@@ -40,14 +40,22 @@ const TICKETS: Curated[] = [
     title: "[Klavity] Dashboard loading & empty states feel cold and slow",
     priority: "medium", status: "fixed",
     body: "Synthesized from ~10 dogfooding Sim observations on /dashboard. The dashboard felt slow to load, the \"Loading your project…\" copy and empty placeholder boxes read as cold/uninviting, and the empty states lacked clarity about what would appear and why. Fixed in v0.39.100 (faster load, warmer empty states, clearer guidance).\n\nSource: Klavity dogfooding.",
-    match: r => inProj(r, CONNECTOR_PROJECT) && (has(r.urlPath, "dashboard") || has(r.observation, "dashboard", "loading your project", "empty state", "placeholder", "uninviting", "cold", "slow")),
+    // Dashboard-context AND a complaint signal — most /dashboard Sim observations are positive/neutral
+    // ("fantastic", "delighted"); we only synthesize the ones expressing the cold/slow/empty problem.
+    match: r => inProj(r, CONNECTOR_PROJECT)
+      && (has(r.urlPath, "dashboard") || has(r.observation, "dashboard"))
+      && has(r.observation, "load", "loading", "empty", "cold", "slow", "uninviting", "placeholder", "blank", "nothing here", "sluggish", "spinner", "wait", "dull", "boring"),
   },
   {
     slug: "klavity-single-ticket-layout",
     title: "[Klavity] Single-ticket page layout was redundant",
     priority: "low", status: "fixed",
     body: "The single-ticket page repeated the title and showed a stray \"satisfied\" label; the layout was reorganized to title-on-top, image-left, details-right. Fixed in v0.39.100.\n\nSource: Klavity dogfooding.",
-    match: r => inProj(r, CONNECTOR_PROJECT) && has(r.observation, "ticket", "redundant", "repeated", "satisfied", "single ticket", "title repeat"),
+    // Specific to the single-ticket PAGE layout — require ticket-page context AND a layout signal
+    // ("ticket"/"satisfied" alone appear in tons of generic Sim observations).
+    match: r => inProj(r, CONNECTOR_PROJECT)
+      && has(r.observation, "single ticket", "ticket page", "ticket view", "ticket detail", "single-ticket")
+      && has(r.observation, "redundant", "repeat", "title", "layout", "reorganiz", "duplicat"),
   },
   {
     slug: "bigidea-widget-upload-progress",
@@ -109,11 +117,12 @@ async function planeGetAll(base: string, token: string): Promise<any[]> {
 
 export async function runCuratedBackfill(client: Client, log: (s: string) => void = console.log) {
   // 1) Load the qbuilder Plane connector (config + decrypted token).
+  // project_id is stored as the full id (proj_32948ecf-a7bb-…); CONNECTOR_PROJECT is a stable prefix.
   const cRows = (await client.execute({
-    sql: "SELECT id, config FROM connectors WHERE project_id=? AND type='plane' AND enabled=1 ORDER BY created_at ASC LIMIT 1",
-    args: [CONNECTOR_PROJECT],
+    sql: "SELECT id, project_id, config FROM connectors WHERE project_id LIKE ? AND type='plane' AND enabled=1 ORDER BY created_at ASC LIMIT 1",
+    args: [CONNECTOR_PROJECT + "%"],
   })).rows
-  if (!cRows.length) throw new Error(`No enabled Plane connector on ${CONNECTOR_PROJECT}`)
+  if (!cRows.length) throw new Error(`No enabled Plane connector on ${CONNECTOR_PROJECT}*`)
   const connectorId = String(cRows[0].id)
   const cfg = JSON.parse(String(cRows[0].config) || "{}")
   for (const k of ["token", "inbound_secret"]) if (cfg[k]) { try { cfg[k] = await decryptSecret(cfg[k]) } catch { cfg[k] = "" } }
@@ -195,6 +204,15 @@ if (import.meta.main) {
   const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL
   if (!url) { console.error("No TURSO_DATABASE_URL in env"); process.exit(1) }
   const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN || undefined })
+  if (process.env.BACKFILL_DIAG === "1") {
+    console.log("=== CONNECTORS ===")
+    for (const x of (await client.execute("SELECT id, project_id, type, name, enabled, auto_copy FROM connectors")).rows)
+      console.log(`${x.id}\tproj=${x.project_id}\t${x.type}\ten=${x.enabled} auto=${x.auto_copy}\t${x.name}`)
+    console.log("\n=== FEEDBACK BY PROJECT (total / observation-rows / null-plane-key) ===")
+    for (const x of (await client.execute("SELECT project_id, COUNT(*) n, SUM(CASE WHEN observation IS NOT NULL AND observation<>'' THEN 1 ELSE 0 END) obs, SUM(CASE WHEN (plane_issue_key IS NULL OR plane_issue_key='') THEN 1 ELSE 0 END) nullkey FROM feedback GROUP BY project_id ORDER BY n DESC")).rows)
+      console.log(`${x.project_id}\ttotal=${x.n}\tobs=${x.obs}\tnullkey=${x.nullkey}`)
+    process.exit(0)
+  }
   const { results, unmatched } = await runCuratedBackfill(client)
   console.log(`\n=== ${DRY ? "DRY RUN — no changes" : "LIVE"} ===`)
   for (const r of results) console.log(`${r.key}\t${r.created ? "created" : (DRY ? "would-create" : "reused")}\t${r.rows.length} rows\t${r.title}`)
