@@ -37,12 +37,69 @@ describe("installRegionDrag", () => {
     h.destroy()
   })
 
-  it("a plain right-click (no drag) does NOT capture and does NOT suppress the menu", () => {
+  it("a plain right-click (no drag) does NOT capture and does NOT suppress the menu after release", () => {
     const onRegion = vi.fn()
     const h = installRegionDrag({ onRegion })
     down(50, 50); up(52, 51) // moved < threshold (6)
     expect(onRegion).not.toHaveBeenCalled()
-    expect(h.suppressNextMenu()).toBe(false) // → host still shows its context menu
+    // After mouseup pressing=false — host's contextmenu event can fire and show its menu.
+    expect(h.suppressNextMenu()).toBe(false)
+    h.destroy()
+  })
+
+  it("suppressNextMenu() returns true WHILE right button is held (pressing), false after release", () => {
+    const h = installRegionDrag({ onRegion: vi.fn() })
+    down(50, 50)
+    // contextmenu fires synchronously with mousedown on macOS — must be suppressed while pressing
+    expect(h.suppressNextMenu()).toBe(true)
+    up(52, 51) // release without drag
+    expect(h.suppressNextMenu()).toBe(false)
+    h.destroy()
+  })
+
+  it("onRightDown fires on every right mousedown (both plain clicks and drags), NOT on left clicks", () => {
+    const onRightDown = vi.fn()
+    const h = installRegionDrag({ onRegion: vi.fn(), onRightDown })
+    // plain right-click
+    down(50, 50); up(52, 51)
+    expect(onRightDown).toHaveBeenCalledTimes(1)
+    // right-click-drag
+    down(100, 100); move(110, 110); up(200, 200)
+    expect(onRightDown).toHaveBeenCalledTimes(2)
+    // left click — should NOT fire
+    document.dispatchEvent(new MouseEvent("mousedown", { button: 0, clientX: 0, clientY: 0, bubbles: true }))
+    expect(onRightDown).toHaveBeenCalledTimes(2)
+    h.destroy()
+  })
+
+  it("onRightDown does NOT fire when shouldIgnore() is true or isOwnTarget() is true", () => {
+    const onRightDown = vi.fn()
+    const hA = installRegionDrag({ onRegion: vi.fn(), onRightDown, shouldIgnore: () => true })
+    down(10, 10); up(10, 10)
+    expect(onRightDown).not.toHaveBeenCalled()
+    hA.destroy()
+
+    const onRightDown2 = vi.fn()
+    const hB = installRegionDrag({ onRegion: vi.fn(), onRightDown: onRightDown2, isOwnTarget: () => true })
+    down(10, 10); up(10, 10)
+    expect(onRightDown2).not.toHaveBeenCalled()
+    hB.destroy()
+  })
+
+  it("onPlainRightClick fires on mouseup when no drag, with the release coordinates", () => {
+    const onPlainRightClick = vi.fn()
+    const h = installRegionDrag({ onRegion: vi.fn(), onPlainRightClick })
+    down(50, 50); up(53, 52) // < threshold (6) → plain click
+    expect(onPlainRightClick).toHaveBeenCalledTimes(1)
+    expect(onPlainRightClick).toHaveBeenCalledWith(53, 52)
+    h.destroy()
+  })
+
+  it("onPlainRightClick does NOT fire when a drag occurred", () => {
+    const onPlainRightClick = vi.fn()
+    const h = installRegionDrag({ onRegion: vi.fn(), onPlainRightClick })
+    down(100, 100); move(110, 110); up(200, 200)
+    expect(onPlainRightClick).not.toHaveBeenCalled()
     h.destroy()
   })
 

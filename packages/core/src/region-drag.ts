@@ -4,13 +4,15 @@
 //
 // Shared by the in-page widget (packages/sdk) and the browser extension (packages/extension) so the
 // gesture behaves identically across both surfaces — only the capture mechanism differs (the host owns
-// onRegion). A plain right-click (no drag) is left untouched so the existing context menu still shows;
-// the host's contextmenu handler calls suppressNextMenu() to skip its menu when a drag just happened.
+// onRegion). A plain right-click (no drag) shows the host's context menu via onPlainRightClick (on
+// mouseup) rather than in the contextmenu event, because suppressNextMenu() returns true while the
+// right button is held — allowing the host to close any existing menu at mousedown via onRightDown
+// without a new menu immediately opening again.
 
 import type { Rect } from "./crop"
 
 export interface RegionDragHandle {
-  /** True when a drag just occurred (or is mid-drag) → the host should NOT show its context menu. */
+  /** True while the right button is held OR a drag just occurred → the host must NOT show its context menu. */
   suppressNextMenu(): boolean
   /** Remove all listeners + any visible selection rectangle. */
   destroy(): void
@@ -22,6 +24,14 @@ export interface RegionDragOptions {
   /** Called ONCE the moment a drag-select actually begins (movement passes the threshold). The host uses
    *  this to dismiss its context menu immediately so only the selection rectangle shows. */
   onDragStart?: () => void
+  /** Called immediately on every right mousedown (after guard checks pass). The host uses this to close
+   *  any open context menu before a potential drag, preventing the old menu from lingering during the
+   *  drag-select overlay. Fires for both plain right-clicks and right-click-drags. */
+  onRightDown?: () => void
+  /** Called on mouseup when the right button was released with NO drag (a plain right-click). The host
+   *  shows its context menu here instead of in the contextmenu event, because suppressNextMenu() returns
+   *  true while pressing and the contextmenu event is fired before we know intent. */
+  onPlainRightClick?: (x: number, y: number) => void
   /** Ignore presses whose target is the host's own UI (launcher/menu/composer/overlay). */
   isOwnTarget?: (e: MouseEvent) => boolean
   /** Skip the gesture entirely right now (e.g. the extension yields when the in-page widget is present). */
@@ -58,6 +68,7 @@ export function installRegionDrag(opts: RegionDragOptions): RegionDragHandle {
     if (e.button !== 2 || e.shiftKey) return                 // only plain right-button starts a region
     if (opts.shouldIgnore?.()) return
     if (opts.isOwnTarget?.(e)) return                        // don't hijack right-clicks on our own UI
+    opts.onRightDown?.()  // dismiss any open menu immediately — before we know if this is a click or drag
     pressing = true
     didDrag = false
     startX = e.clientX
@@ -96,6 +107,10 @@ export function installRegionDrag(opts: RegionDragOptions): RegionDragHandle {
       justDragged = true
       setTimeout(() => { justDragged = false }, 400)
       opts.onRegion(r)
+    } else if (!didDrag) {
+      // Plain right-click: the contextmenu event was suppressed (pressing was true), so the host shows
+      // its menu here on release instead.
+      opts.onPlainRightClick?.(e.clientX, e.clientY)
     }
   }
 
@@ -106,8 +121,9 @@ export function installRegionDrag(opts: RegionDragOptions): RegionDragHandle {
   document.addEventListener("mouseup", onUp, true)
 
   return {
-    // didDrag covers a contextmenu that fires BEFORE mouseup; justDragged covers one AFTER it.
-    suppressNextMenu: () => didDrag || justDragged,
+    // pressing: contextmenu fired synchronously with mousedown on macOS — suppress until mouseup so no
+    // new menu flashes during a potential drag. didDrag: mid-drag. justDragged: post-drag window.
+    suppressNextMenu: () => pressing || didDrag || justDragged,
     destroy() {
       document.removeEventListener("mousedown", onDown, true)
       document.removeEventListener("mousemove", onMove, true)

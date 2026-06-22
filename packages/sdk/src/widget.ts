@@ -469,18 +469,28 @@ async function mount() {
     } catch { /* fall back to an empty composer */ }
     openReport("bug", shot ? { initialShot: shot } : undefined)
   }
+  let reportArmed = true
   const regionDrag = installRegionDrag({
     isOwnTarget: onOwnUi,
-    mount: root,                       // draw the selection rectangle inside the widget's shadow root
-    onDragStart: dismissMenuNow,       // dismiss the context menu the instant a drag-select starts (no fade)
+    mount: root,                        // draw the selection rectangle inside the widget's shadow root
+    shouldIgnore: () => nativePending,  // skip pressing when next click is for the native menu
+    onRightDown: dismissMenuNow,        // close any open menu immediately at mousedown
+    onDragStart: dismissMenuNow,        // safety: also dismiss if menu reappeared before threshold
+    onPlainRightClick: (x, y) => {
+      // suppressNextMenu() is true while pressing, so contextmenu is suppressed; show menu here on mouseup.
+      if (!reportArmed) return
+      reportArmed = false
+      setTimeout(() => { reportArmed = true }, 400)
+      showMenu(x, y)
+    },
     onRegion: (rect) => { void captureRegionAndOpen(rect) },
   })
 
-  let reportArmed = true
   document.addEventListener("contextmenu", (e) => {
     if (e.shiftKey || nativePending) { nativePending = false; return }  // pass through to native menu
-    if (regionDrag.suppressNextMenu()) { e.preventDefault(); return }   // a region drag just happened — no menu
+    if (regionDrag.suppressNextMenu()) { e.preventDefault(); return }   // pressing or drag — suppress
     if (onOwnUi(e)) return
+    // Keyboard contextmenu (no preceding mousedown) — pressing is false, show menu immediately.
     e.preventDefault()
     if (!reportArmed) return
     reportArmed = false

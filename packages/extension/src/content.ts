@@ -446,10 +446,18 @@ function handleContextMenu(e: MouseEvent) {
 
 // Right-click + DRAG to select a region → capture JUST that area → open the composer with it as the
 // default (first), zoomed-in screenshot. Shares the gesture with the in-page widget (@klavity/core).
-// Yields when the in-page widget is present (it owns reporting) or a composer is already open.
+// Yields when the in-page widget is present (it owns reporting), a composer is already open, or the
+// next right-click is meant for the native browser menu (nativeMenuPending).
 const regionDrag = installRegionDrag({
-  shouldIgnore: () => widgetPresent() || !!modalCtrl,
-  onDragStart: closeCtxMenu, // dismiss the context menu the instant a drag-select starts
+  shouldIgnore: () => widgetPresent() || !!modalCtrl || nativeMenuPending,
+  onRightDown: closeCtxMenu,    // close any open menu immediately at mousedown — prevents old menu lingering
+  onDragStart: closeCtxMenu,    // safety: also dismiss if menu somehow reappeared before threshold
+  onPlainRightClick: (x, y) => {
+    // suppressNextMenu() is true while pressing, so contextmenu is suppressed; show the menu here on mouseup.
+    if (!isContextValid()) { showToast('Extension reloaded. Please refresh the page.'); return }
+    if (widgetPresent()) return
+    showCtxMenu(x, y)
+  },
   onRegion: async (rect) => {
     let shot = ''
     try { shot = await onRegionCapture(rect) } catch { /* open empty so the user can retry */ }
