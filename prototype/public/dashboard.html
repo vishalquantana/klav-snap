@@ -785,7 +785,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
   <!-- Triage banner — shown in overview when needsTriage > 0 -->
   <a class="triage-banner hide" id="triageBanner" data-view="overview" href="#triage">
-    <span class="tb-ic">🛎️</span>
+    <span class="tb-ic" data-ki="bell"></span>
     <span class="tb-txt"><b id="triageCount">0</b> items need triage — review and accept them as bugs or dismiss them</span>
     <span class="tb-go">Review →</span>
   </a>
@@ -830,7 +830,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
     <!-- Triage inbox -->
     <div class="card full" data-view="triage">
-      <h2 style="display:flex;align-items:center;gap:8px">🛎️ Triage <span class="h-tag">accept as a bug or dismiss</span></h2>
+      <h2 style="display:flex;align-items:center;gap:8px"><span data-ki="bell"></span> Triage <span class="h-tag">accept as a bug or dismiss</span></h2>
       <div class="tg-filters" id="triageFilters"></div>
       <div id="triageList"><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div></div>
     </div>
@@ -1026,20 +1026,20 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
             <label class="wp-toggle"><input type="checkbox" id="wp-thanks-toggle"> Show thank-you</label>
           </div>
           <div class="wp-stage">
-            <div class="wp-launcher">💬 Report a bug</div>
+            <div class="wp-launcher"><span data-ki="message-circle"></span> Report a bug</div>
             <div class="wp-modal" id="wp-root">
               <div id="wp-body">
                 <div class="wp-row">
-                  <button class="wp-tab wp-tab-on">🐛 Bug</button>
-                  <button class="wp-tab">💡 Feature</button>
+                  <button class="wp-tab wp-tab-on"><span data-ki="bug"></span> Bug</button>
+                  <button class="wp-tab"><span data-ki="lightbulb"></span> Feature</button>
                 </div>
-                <div class="wp-page">📍 /your/page</div>
-                <div class="wp-strip"><span>📷 screenshot</span></div>
+                <div class="wp-page"><span data-ki="map-pin"></span> /your/page</div>
+                <div class="wp-strip"><span><span data-ki="camera"></span> screenshot</span></div>
                 <div class="wp-desc">Describe the bug…</div>
                 <button class="wp-submit">Submit</button>
               </div>
               <div id="wp-thanks" class="wp-thanks-screen" style="display:none">
-                <div class="wp-thanks-msg" id="wp-thanks-msg">✓ Filed as KLAV-123</div>
+                <div class="wp-thanks-msg" id="wp-thanks-msg">&check; Filed as KLAV-123</div>
                 <a class="wp-cta" id="wp-cta" style="display:none">Get Klavity for your product →</a>
               </div>
               <div class="wp-pb">Powered by Klavity</div>
@@ -1345,14 +1345,14 @@ async function renderTriage() {
 }
 function renderTriageItems(items) {
   const host = $("triageList"); if (!host) return
-  if (!items.length) { host.innerHTML = emptyState("✅", "Nothing to triage — you're all caught up.", ""); return }
+  if (!items.length) { host.innerHTML = emptyState(kicon('check-circle',{size:32}), "Nothing to triage — you're all caught up.", ""); return }
   host.innerHTML = items.map(t => `
     <div class="tg-row ${sevRailClass(t.severity)}" data-id="${esc(String(t.id))}">
-      ${t.screenshotId ? `<div class="tg-shot" data-shot="${esc(String(t.screenshotId))}" title="Open screenshot"><div class="tg-shot-ph">⛶</div></div>` : ""}
+      ${t.screenshotId ? `<div class="tg-shot" data-shot="${esc(String(t.screenshotId))}" title="Open screenshot"><div class="tg-shot-ph">${kicon('image',{size:16})}</div></div>` : ""}
       <div class="tg-b">
         <div class="fx-t">${esc(t.title || "Untitled report")}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}</div>
         ${t.sourceQuote ? `<div class="fx-q">"${esc(t.sourceQuote)}"</div>` : (t.observation ? `<div class="fx-q">${esc(t.observation)}</div>` : "")}
-        <div class="fx-m">${t.urlPath ? `<span class="fx-area">${esc(t.urlPath)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span>🤖 ${esc(t.simName)}</span>` : ""}${t.createdAt ? `<span class="muted">${esc(ago(t.createdAt))}</span>` : ""}</div>
+        <div class="fx-m">${t.urlPath ? `<span class="fx-area">${esc(t.urlPath)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span>${kicon('bot',{size:14})} ${esc(t.simName)}</span>` : ""}${t.createdAt ? `<span class="muted">${esc(ago(t.createdAt))}</span>` : ""}</div>
       </div>
       <div class="tg-actions">
         <select class="tg-sev">${["high","medium","low"].map(s => `<option value="${s}"${s===(t.severity||"low")?" selected":""}>${s}</option>`).join("")}</select>
@@ -1527,7 +1527,7 @@ $("embedCopy") && ($("embedCopy").onclick = () => {
 })
 $("embedCopyAI") && ($("embedCopyAI").onclick = () => {
   const pid = curProjId(); if (!pid) return
-  klavCopy(cspFixPrompt(pid), $("embedCopyAI"), "Copied for AI ✓")
+  klavCopy(cspFixPrompt(pid), $("embedCopyAI"), "Copied for AI \u2713")
 })
 $("checklistDismiss") && ($("checklistDismiss").onclick = () => {
   try { sessionStorage.setItem("klavChecklistDismissed", "1") } catch (e) {}
@@ -1607,14 +1607,14 @@ function renderFixNext() {
   })
   const top = open.slice(0, 5)
   if (!top.length) {
-    host.innerHTML = emptyState("✅", "No open issues right now — your Sims are happy.", "")
+    host.innerHTML = emptyState(kicon('check-circle',{size:32}), "No open issues right now — your Sims are happy.", "")
   } else {
     host.innerHTML = top.map(t => `
       <div class="fxrow ${sevRailClass(t.severity)}" data-id="${esc(String(t.id))}">
         <div class="fx-b">
           <div class="fx-t">${esc(t.title || "Untitled report")}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}</div>
           ${t.sourceQuote ? `<div class="fx-q">“${esc(t.sourceQuote)}”</div>` : ""}
-          <div class="fx-m">${t.urlPath ? `<span class="fx-area">${esc(t.urlPath)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span>🤖 ${esc(t.simName)}</span>` : ""}</div>
+          <div class="fx-m">${t.urlPath ? `<span class="fx-area">${esc(t.urlPath)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span>${kicon('bot',{size:14})} ${esc(t.simName)}</span>` : ""}</div>
         </div>
         <span class="fx-go">›</span>
       </div>`).join("")
@@ -2188,7 +2188,7 @@ function openSingleTicket(id) {
     head.innerHTML = `<span class="single-rail sv-${sv}"></span>
       <div class="single-h-b">
         <div class="single-title">${esc(t.title || "Untitled report")}</div>
-        <div class="single-meta">${statusPillHtml(t.status)}${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? ("🤖 " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
+        <div class="single-meta">${statusPillHtml(t.status)}${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? (kicon('bot',{size:11}) + " " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
       </div>`
   }
   renderHead()
@@ -2743,7 +2743,7 @@ function renderConnectorFields(type, editConfig) {
   const g = INBOUND_GUIDE[type]
   const webhookUrl = `${location.origin}/api/connectors/${type}/webhook`
   const syncPanel = g ? `<div class="sync-panel">
-    <div class="sync-h">🔄 Two-way status sync <span class="muted" style="font-weight:400;font-size:11px">— optional</span></div>
+    <div class="sync-h">${kicon('refresh-cw',{size:15})} Two-way status sync <span class="muted" style="font-weight:400;font-size:11px">— optional</span></div>
     <div class="sync-sub">When a ${esc(g.name)} issue's status changes, the linked Klavity ticket updates automatically. Paste this webhook URL into ${esc(g.name)}:</div>
     <div class="sync-url"><code id="syncUrl">${esc(webhookUrl)}</code>
       <button type="button" class="btn btn-ghost btn-sm" id="syncUrlCopy">Copy</button></div>
@@ -2896,7 +2896,7 @@ function renderWidgetPreview() {
   }
   const vars = computePreviewVars(cfg)
   for (const k in vars) root.style.setProperty(k, vars[k])
-  const ty = ($("kl-thankyou") && $("kl-thankyou").value.trim()) || "✓ Filed as KLAV-123"
+  const ty = ($("kl-thankyou") && $("kl-thankyou").value.trim()) || "\u2713 Filed as KLAV-123"
   const msgEl = $("wp-thanks-msg"); if (msgEl) msgEl.textContent = ty
   const mode = $("kl-mode") ? $("kl-mode").value : "support"
   const cta = $("wp-cta")
@@ -2932,7 +2932,7 @@ async function loadAppearance() {
     const ecBtn = $("appearanceEmbedCopy")
     if (ecBtn) ecBtn.onclick = () => { const pid = curProjId(); if (!pid) return; klavCopy(embedSnippet(pid), ecBtn) }
     const ecAI = $("appearanceEmbedCopyAI")
-    if (ecAI) ecAI.onclick = () => { const pid = curProjId(); if (!pid) return; klavCopy(cspFixPrompt(pid), ecAI, "Copied for AI ✓") }
+    if (ecAI) ecAI.onclick = () => { const pid = curProjId(); if (!pid) return; klavCopy(cspFixPrompt(pid), ecAI, "Copied for AI \u2713") }
     $("kl-save-appearance").addEventListener("click", async function () {
       const isPro = !!($("kl-pro-note") && $("kl-pro-note").dataset.pro === "1")
       const body = { theme: sel.value, thankYou: $("kl-thankyou").value, mode: $("kl-mode").value, cta_url: $("kl-cta").value.trim(), report_gate: $("kl-report-gate") ? $("kl-report-gate").value : "email" }
@@ -3277,5 +3277,6 @@ load()
   };
 })();
 </script>
+<script>(function(){document.querySelectorAll('[data-ki]').forEach(function(e){try{e.innerHTML=kicon(e.getAttribute('data-ki'));}catch(x){}})})();</script>
 </body>
 </html>

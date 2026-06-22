@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<script src="/icons.generated.js"></script>
 <style>
 :root{
   --ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;
@@ -172,25 +173,25 @@ textarea.ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,24
     <div class="rl-h">Pick a door</div>
 
     <button class="door on" data-scr="a">
-      <div class="dt"><span class="gl">✍️</span>Describe a user</div>
+      <div class="dt"><span class="gl" data-ki="pencil"></span>Describe a user</div>
       <div class="dd">Type one sentence. We invent a believable Sim from it.</div>
       <div class="meter"><span class="bars"><i class="f"></i><i class="f"></i><i></i><i></i></span><span class="lab">~10s · no transcript</span></div>
     </button>
 
     <button class="door" data-scr="b">
-      <div class="dt"><span class="gl">🃏</span>Pick a starter Sim</div>
+      <div class="dt"><span class="gl" data-ki="users"></span>Pick a starter Sim</div>
       <div class="dd">Choose from ready-made personas. Zero typing. Edit later.</div>
       <div class="meter"><span class="bars"><i class="f"></i><i></i><i></i><i></i></span><span class="lab">~5s · fastest</span></div>
     </button>
 
     <button class="door" data-scr="c">
-      <div class="dt"><span class="gl">🔮</span>Suggest from your URL</div>
+      <div class="dt"><span class="gl" data-ki="sparkles"></span>Suggest from your URL</div>
       <div class="dd">Point us at your product — we propose who uses it.</div>
       <div class="meter"><span class="bars"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></span><span class="lab">~15s · most magic</span></div>
     </button>
 
     <button class="door" data-scr="d">
-      <div class="dt"><span class="gl">🎙️</span>From a real call</div>
+      <div class="dt"><span class="gl" data-ki="mic"></span>From a real call</div>
       <div class="dd">Paste a transcript — extract Sims grounded in real words.</div>
       <div class="meter"><span class="bars"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></span><span class="lab">richest · needs a call</span></div>
     </button>
@@ -214,7 +215,7 @@ textarea.ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,24
       <!-- ===== A · describe ===== -->
       <section class="scr show" id="scr-a">
         <div class="scr-head">
-          <span class="tag">⚡ ~10 seconds · nothing to install</span>
+          <span class="tag"><span data-ki="zap"></span> ~10 seconds · nothing to install</span>
           <h2>Describe a user. We’ll bring them to life.</h2>
           <p>One plain sentence about who uses your product. We turn it into a Sim with a name, a role, and three things they’ll care about.</p>
         </div>
@@ -230,7 +231,7 @@ textarea.ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,24
       <!-- ===== B · starter gallery ===== -->
       <section class="scr" id="scr-b">
         <div class="scr-head">
-          <span class="tag">🃏 fastest · zero typing</span>
+          <span class="tag"><span data-ki="users"></span> fastest · zero typing</span>
           <h2>Start from a Sim. Tune it whenever.</h2>
           <p>Hand-built starter personas that fit most products. Tick the ones that feel like your users and add them in one go — you can rename and re-shape them later.</p>
         </div>
@@ -245,7 +246,7 @@ textarea.ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,24
       <!-- ===== C · from URL ===== -->
       <section class="scr" id="scr-c">
         <div class="scr-head">
-          <span class="tag">🔮 ~15 seconds · AI-suggested</span>
+          <span class="tag"><span data-ki="sparkles"></span> ~15 seconds · AI-suggested</span>
           <h2>Point us at your product. We’ll suggest who uses it.</h2>
           <p>We read your public pages and propose a starting cast of Sims. Keep the ones that ring true, drop the rest.</p>
         </div>
@@ -260,7 +261,7 @@ textarea.ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,24
       <!-- ===== D · transcript ===== -->
       <section class="scr" id="scr-d">
         <div class="scr-head">
-          <span class="tag">🎙️ richest · grounded in real words</span>
+          <span class="tag"><span data-ki="mic"></span> richest · grounded in real words</span>
           <h2>Paste a customer call. Get Sims who quote it.</h2>
           <p>Drop in a sales or support transcript. We pull out each distinct person, with the exact lines that reveal what they’re chasing.</p>
         </div>
@@ -295,10 +296,10 @@ Maria: And onboarding a new hire takes me a full afternoon of screen-shares.</te
     <div class="matrix" aria-hidden="true">
       <span class="axl ax-x1">low effort</span><span class="axl ax-x2">high effort</span>
       <span class="axl ax-y1">richer Sim</span><span class="axl ax-y2">rougher Sim</span>
-      <span class="node" style="left:24%;bottom:34%"><span class="nb" style="background:var(--indigo)">🃏</span>Starter</span>
-      <span class="node" style="left:38%;bottom:52%"><span class="nb" style="background:var(--violet)">✍️</span>Describe</span>
-      <span class="node" style="left:60%;bottom:70%"><span class="nb" style="background:var(--teal)">🔮</span>URL</span>
-      <span class="node" style="left:82%;bottom:86%"><span class="nb" style="background:var(--amber)">🎙️</span>Call</span>
+      <span class="node" style="left:24%;bottom:34%"><span class="nb" style="background:var(--indigo)" data-ki="users"></span>Starter</span>
+      <span class="node" style="left:38%;bottom:52%"><span class="nb" style="background:var(--violet)" data-ki="pencil"></span>Describe</span>
+      <span class="node" style="left:60%;bottom:70%"><span class="nb" style="background:var(--teal)" data-ki="sparkles"></span>URL</span>
+      <span class="node" style="left:82%;bottom:86%"><span class="nb" style="background:var(--amber)" data-ki="mic"></span>Call</span>
     </div>
   </div>
 </div>
@@ -310,9 +311,9 @@ const ACCENTS=['#6366f1','#d98324','#db2777','#0f9d6b','#0ea5a4','#8b5cf6'];
 const initials=n=>n.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 function simCard(s,opts){
   opts=opts||{};
-  const ins=s.insights.map(i=>`<div class="in ${i.kind}"><span class="ic">${i.kind==='pain'?'▾':i.kind==='want'?'★':'♥'}</span><span class="qt">${i.text} <em>“${i.quote}”</em></span></div>`).join('');
+  const ins=s.insights.map(i=>`<div class=”in ${i.kind}”><span class=”ic”>${i.kind==='pain'?'▾':i.kind==='want'?kicon('star',{size:12}):kicon('heart',{size:12})}</span><span class=”qt”>${i.text} <em>”${i.quote}”</em></span></div>`).join('');
   const foot = opts.pick
-    ? `<div class="sim-foot"><span class="kind">${s.type||'client'}</span><span class="checkpill">✓</span></div>`
+    ? `<div class=”sim-foot”><span class=”kind”>${s.type||'client'}</span><span class=”checkpill”>\u2713</span></div>`
     : `<div class="sim-foot"><button class="btn btn-indigo btn-sm" onclick="addOne(this,'${s.accent}','${(s.name||'').replace(/'/g,"")}')">＋ Add this Sim</button><button class="btn btn-ghost btn-sm" onclick="this.closest('.sim').style.opacity=.4">Skip</button></div>`;
   return `<div class="sim ${opts.pick?'pick':''}" ${opts.pick?`data-acc="${s.accent}" data-nm="${s.name}"`:''}>
     <div class="sim-top"><div class="av" style="background:linear-gradient(135deg,${s.accent},${shade(s.accent)})">${initials(s.name)}</div>
@@ -365,7 +366,7 @@ function starterRender(){document.getElementById('starterGrid').innerHTML=STARTE
 let starterSel=new Set();
 function toggleStarter(i,el){el.classList.toggle('sel');if(el.classList.contains('sel'))starterSel.add(i);else starterSel.delete(i);document.getElementById('starterN').textContent=starterSel.size;}
 function clearStarters(){starterSel.clear();document.getElementById('starterN').textContent=0;document.querySelectorAll('#starterGrid .sim').forEach(s=>s.classList.remove('sel'));}
-function addStarters(){if(!starterSel.size){toast('Pick at least one Sim first','#574f45','✓');return;}toast(`Added ${starterSel.size} Sim${starterSel.size>1?'s':''} to WALI`,'#6366f1','✓');clearStarters();}
+function addStarters(){if(!starterSel.size){toast('Pick at least one Sim first','#574f45','\u2713');return;}toast(`Added ${starterSel.size} Sim${starterSel.size>1?'s':''} to WALI`,'#6366f1','\u2713');clearStarters();}
 function genUrl(){
   const out=document.getElementById('urlOut');
   out.innerHTML='<div class="think"><span class="spin"></span>Reading app.acme.com…</div><div class="simwrap"><div class="sk"></div><div class="sk"></div></div>';
@@ -379,8 +380,8 @@ function genTx(){
     out.querySelectorAll('.sim').forEach(s=>s.classList.add('sel'));
     document.getElementById('txN').textContent=TXSIMS.length;bar.style.display='flex'; },1000);
 }
-function addTx(){toast(`Added ${TXSIMS.length} Sims from the call`,'#0ea5a4','✓');}
-function addOne(btn,acc,nm){btn.textContent='✓ Added';btn.style.filter='grayscale(.3)';toast('Added '+(nm||'Sim')+' to WALI',acc,initials(nm||'S'));}
+function addTx(){toast(`Added ${TXSIMS.length} Sims from the call`,'#0ea5a4','\u2713');}
+function addOne(btn,acc,nm){btn.textContent='\u2713 Added';btn.style.filter='grayscale(.3)';toast('Added '+(nm||'Sim')+' to WALI',acc,initials(nm||'S'));}
 
 /* toast */
 let tT;function toast(msg,acc,ini){const t=document.getElementById('toast');t.innerHTML=`<span class="av" style="background:linear-gradient(135deg,${acc},${shade(acc)})">${ini}</span>${msg}`;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
@@ -394,5 +395,6 @@ document.querySelectorAll('.door').forEach(d=>d.addEventListener('click',()=>{
 
 chipsHtml();starterRender();
 </script>
+<script>(function(){document.querySelectorAll('[data-ki]').forEach(function(e){var s=e.getAttribute('data-ki-s');try{e.innerHTML=kicon(e.getAttribute('data-ki'),s?{size:+s}:undefined);}catch(x){}})})();</script>
 </body>
 </html>

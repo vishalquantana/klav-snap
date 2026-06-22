@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<script src="/icons.generated.js"></script>
 <style>
 :root{
   --ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;
@@ -121,11 +122,11 @@ textarea.ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,24
 
 <div class="wrap">
   <div class="card">
-    <div class="card-h"><span class="em">🧬</span>YOUR SIMS</div>
+    <div class="card-h"><span class="em" data-ki="dna"></span>YOUR SIMS</div>
 
     <!-- PRIMARY: describe a user -->
     <div class="hero">
-      <span class="glyph">🧬</span>
+      <span class="glyph" data-ki="dna" data-ki-s="30"></span>
       <h1>Bring your first Sim to life</h1>
       <p>A Sim is an AI user that reacts to your pages and files what bugs them. <b>Describe one in a sentence</b> — we’ll do the rest.</p>
     </div>
@@ -143,7 +144,7 @@ textarea.ta:focus{border-color:var(--indigo);box-shadow:0 0 0 4px rgba(99,102,24
     <div class="orbar">OR</div>
     <details class="alt">
       <summary>
-        <span class="ag">🎙️</span>
+        <span class="ag" data-ki="mic" data-ki-s="20"></span>
         <span><span class="at">Have a customer call?</span><span class="ad">Paste a transcript — get Sims grounded in real quotes.</span></span>
         <span class="pill">most realistic</span>
         <span class="caret">›</span>
@@ -167,7 +168,7 @@ Devin (Analyst): I basically live in the filters. I'd pay for saved views — I 
 const initials=n=>n.replace(/\(.*?\)/g,'').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 function shade(hex){const n=parseInt(hex.slice(1),16);let r=Math.max(0,(n>>16)-26),g=Math.max(0,((n>>8)&255)-20),b=Math.max(0,(n&255)-30);return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);}
 function simCard(s,btns){
-  const ins=s.insights.map(i=>`<div class="in ${i.kind}"><span class="ic">${i.kind==='pain'?'▾':i.kind==='want'?'★':'♥'}</span><span class="qt">${i.text} <em>“${i.quote}”</em></span></div>`).join('');
+  const ins=s.insights.map(i=>`<div class=”in ${i.kind}”><span class=”ic”>${i.kind==='pain'?'▾':i.kind==='want'?kicon('star',{size:12}):kicon('heart',{size:12})}</span><span class=”qt”>${i.text} <em>”${i.quote}”</em></span></div>`).join('');
   return `<div class="sim">
     <div class="sim-top"><div class="av" style="background:linear-gradient(135deg,${s.accent},${shade(s.accent)})">${initials(s.name)}</div>
       <div class="sim-id"><div class="nm">${s.name}</div><div class="rl">${s.role}</div></div>
@@ -204,8 +205,9 @@ function genTx(){
     + `<button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="addAll()">Add both Sims</button>`; },950);
 }
 function add(acc,nm){toast('Added '+nm+' to WALI',acc,initials(nm));}
-function addAll(){toast('Added 2 Sims from the call','#0ea5a4','✓');}
+function addAll(){toast('Added 2 Sims from the call','#0ea5a4','\u2713');}
 let tT;function toast(msg,acc,ini){const t=document.getElementById('toast');t.innerHTML=`<span class="av" style="background:linear-gradient(135deg,${acc},${shade(acc)})">${ini}</span>${msg}`;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
 </script>
+<script>(function(){document.querySelectorAll('[data-ki]').forEach(function(e){var s=e.getAttribute('data-ki-s');try{e.innerHTML=kicon(e.getAttribute('data-ki'),s?{size:+s}:undefined);}catch(x){}})})();</script>
 </body>
 </html>

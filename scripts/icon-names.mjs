@@ -20,4 +20,6 @@ export const ICON_NAMES = [
   'hand', 'footprints', 'satellite',
   // Added for intro-reel media controls (fix: convert ▶/⏸/↻ glyphs)
   'play', 'pause', 'rotate-cw',
+  // Added for icon-guard-enforce: remaining emoji → Lucide (KLAVITYKLA-13)
+  'bell', 'refresh-cw', 'bot', 'star',
 ];

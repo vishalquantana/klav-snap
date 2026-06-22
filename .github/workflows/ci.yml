@@ -35,12 +35,8 @@ jobs:
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      # Report-only for now: this branch's scope is fully clean, but concurrent
-      # feature branches still carry emoji (e.g. sims-first-run-final.html, the
-      # dashboard widget-preview). Flip to enforcing (drop --report) once the whole
-      # tree is clean across all integrated branches.
-      - name: Emoji guard (report-only)
-        run: node scripts/check-no-emoji.mjs --report
+      - name: Emoji guard
+        run: node scripts/check-no-emoji.mjs
 
       - name: Build
         run: pnpm -r build
