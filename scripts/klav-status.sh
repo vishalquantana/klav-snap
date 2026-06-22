@@ -5,8 +5,8 @@
 # scrolled above the input box and false-reported idle.
 CMUX=/Applications/cmux.app/Contents/Resources/bin/cmux
 WS=workspace:2
-name_for() { case "$1" in 176) echo "Dev 1";; 177) echo "Dev 2";; 189) echo "Dev 3";; 183) echo "Dev 4";; 188) echo "Dev 5";; esac; }
-for n in 176 177 189 183 188; do
+name_for() { case "$1" in 176) echo "Dev 1";; 177) echo "Dev 2";; 189) echo "Dev 3";; 183) echo "Dev 4";; 188) echo "Dev 5";; 207) echo "Dev 6";; esac; }
+for n in 176 177 189 183 188 207; do
   sid="surface:$n"
   scr="$("$CMUX" read-screen --surface "$sid" --lines 24 2>/dev/null)"
   # one confirming re-read to avoid a mid-transition false IDLE/PARKED
