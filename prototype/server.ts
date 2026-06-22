@@ -930,6 +930,13 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     }
     if (req.method === "GET" && path === "/kit.css") return new Response(Bun.file(SITE + "/kit.css"), { headers: { "content-type": "text/css; charset=utf-8" } })
     if (req.method === "GET" && path === "/kit.js") return new Response(Bun.file(SITE + "/kit.js"), { headers: { "content-type": "text/javascript; charset=utf-8" } })
+    // ── generated icon bundle (Lucide SVGs, from scripts/gen-icons.mjs) ──
+    // EVERY served page does <script src="/icons.generated.js"> and calls kicon()/window.KLAV_ICONS.
+    // Serve the prototype/public copy: it is a strict superset (same icon data PLUS the self-contained
+    // window.kicon() helper), so it satisfies both the app pages (which don't load kit.js) and the site
+    // pages (which read window.KLAV_ICONS via kit.js). Without this route the script 404s and every page
+    // throws "kicon is not defined".
+    if (req.method === "GET" && path === "/icons.generated.js") return new Response(Bun.file(PUB + "/icons.generated.js"), { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600" } })
     // ── self-hosted fonts (replaces Google Fonts CDN; same-origin under default-src 'self') ──
     if (req.method === "GET" && path === "/fonts/fonts.css") return new Response(Bun.file(SITE + "/fonts/fonts.css"), { headers: { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=31536000, immutable" } })
     // ── shared design tokens (canonical token set, sourced from the dashboard) ──
