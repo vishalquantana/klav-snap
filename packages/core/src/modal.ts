@@ -94,14 +94,14 @@ export function buildModal(
     @keyframes kl-genie-out{from{opacity:1;transform:translateY(0) scaleX(1) scaleY(1)}to{opacity:0;transform:translateY(180px) scaleX(.04) scaleY(.06)}}
     @keyframes kl-ov{from{opacity:0}to{opacity:1}}
     .klavity-overlay{position:fixed;inset:0;background:var(--kl-overlay);display:flex;align-items:center;justify-content:center;pointer-events:all;animation:kl-ov .3s ease both;}
-    .klavity-modal{background:var(--kl-glow,transparent),var(--kl-bg);color:var(--kl-fg);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:0 0 0 1px var(--kl-border),var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
+    .klavity-modal{position:relative;background:var(--kl-glow,transparent),var(--kl-bg);color:var(--kl-fg);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:0 0 0 1px var(--kl-border),var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-font-smoothing:antialiased;-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
     /* Staggered content reveal — the genie scales the panel in while its rows softly rise + fade so it feels
        alive (not a flat box). Subtle; zeroed under prefers-reduced-motion below. */
     @keyframes kl-rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
     .klavity-modal>.klavity-toggle,.klavity-modal>.klavity-page,.klavity-modal>.klavity-strip,.klavity-modal>.klavity-actions,.klavity-modal>textarea.klavity-desc,.klavity-modal>input.klavity-remail,.klavity-modal>.klavity-submit{animation:kl-rise .5s cubic-bezier(.16,1,.3,1) both;}
     .klavity-modal>.klavity-toggle{animation-delay:.05s}.klavity-modal>.klavity-page{animation-delay:.09s}.klavity-modal>.klavity-strip{animation-delay:.12s}.klavity-modal>.klavity-actions{animation-delay:.15s}.klavity-modal>textarea.klavity-desc{animation-delay:.18s}.klavity-modal>input.klavity-remail{animation-delay:.21s}.klavity-modal>.klavity-submit{animation-delay:.23s}
     .klavity-modal.kl-closing{animation:kl-genie-out .5s cubic-bezier(.55,0,.85,.25) both;}
-    .klavity-toggle{display:flex;gap:8px;margin-bottom:16px;}
+    .klavity-toggle{display:flex;gap:8px;margin-bottom:16px;padding-right:34px;}
     .klavity-toggle button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:600;background:var(--kl-chip);color:var(--kl-fg);}
     .klavity-toggle .bug.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
     .klavity-toggle .feat.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
@@ -169,8 +169,16 @@ export function buildModal(
     /* Thumbnail action badges (X remove, pencil edit) — pop on hover, press in */
     .klavity-rm:hover,.klavity-mk:hover{transform:var(--kl-bhover);box-shadow:0 3px 9px rgba(0,0,0,.42);}
     .klavity-rm:active,.klavity-mk:active{transform:var(--kl-bpress);}
+    /* Close (×) — top-right corner; same lift+accent / press / focus feel as the rest. 30px visible button
+       with a ::after pseudo extending the hit area to ≥40×40 (sits in the reserved toggle padding, so it
+       never overlaps the Bug/Feature buttons). */
+    .klavity-x{position:absolute;top:14px;right:14px;z-index:3;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0;background:transparent;color:var(--kl-muted);border:none;border-radius:9px;cursor:pointer;transition:transform .15s cubic-bezier(.34,1.56,.64,1),background .15s ease,color .15s ease;will-change:transform;}
+    .klavity-x svg{display:block;}
+    .klavity-x::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;}
+    .klavity-x:hover{transform:var(--kl-lift);color:var(--kl-accent);background:color-mix(in srgb,var(--kl-accent) 14%,transparent);}
+    .klavity-x:active{transform:var(--kl-press);}
     /* Keyboard accessibility — visible focus ring on every control */
-    .klavity-toggle button:focus-visible,.klavity-actions button:focus-visible,.klavity-submit:focus-visible,.klavity-lead button:focus-visible,.klavity-cta:focus-visible,.klavity-rm:focus-visible,.klavity-mk:focus-visible{outline:2px solid var(--kl-accent);outline-offset:2px;}
+    .klavity-toggle button:focus-visible,.klavity-actions button:focus-visible,.klavity-submit:focus-visible,.klavity-lead button:focus-visible,.klavity-cta:focus-visible,.klavity-rm:focus-visible,.klavity-mk:focus-visible,.klavity-x:focus-visible{outline:2px solid var(--kl-accent);outline-offset:2px;}
     /* ── Sharp (i) info: the info affordance lives ON the Sharp button (right side), NOT a separate button.
        Hover/focus/tap reveals the explainer; the (i) stopPropagations so it NEVER triggers the one-click
        capture. Generous full-height hit zone (~34×40) at the right edge so the rest of the button stays a
@@ -194,6 +202,7 @@ export function buildModal(
   const modal = document.createElement('div')
   modal.className = 'klavity-modal'
   modal.innerHTML = `
+    <button class="klavity-x" id="klavity-x" type="button" aria-label="Close" title="Close (Esc)">${icon('x', { size: 16 })}</button>
     <div class="klavity-toggle">
       <button class="bug ${initialType === 'bug' ? 'active' : ''}"><span class="kl-cap-ic">${icon('bug')}</span>Bug</button>
       <button class="feat ${initialType === 'feature' ? 'active' : ''}"><span class="kl-cap-ic">${icon('lightbulb')}</span>Feature</button>
@@ -342,6 +351,7 @@ export function buildModal(
   desc.addEventListener('input', refreshSubmit)
   remail?.addEventListener('input', refreshSubmit)
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+  modal.querySelector('#klavity-x')?.addEventListener('click', () => close())
 
   // Re-entrancy guard (Dev 6 audit #3): block double-click / cross-firing while a capture OR submit is in
   // flight. `lockComposer(true)` disables every capture button (Sharp/Full Page/Upload/Region) and Submit;
@@ -551,11 +561,15 @@ export function buildModal(
       // the editor is built with inline styles and has no access to the modal's class CSS.
       const cstyle = document.createElement('style')
       cstyle.textContent =
-        '.kl-edtb button{transition:transform .12s cubic-bezier(.34,1.56,.64,1),background .15s ease;}' +
+        '.kl-edtb button{transition:transform .15s cubic-bezier(.34,1.56,.64,1),background .15s ease;will-change:transform;}' +
+        // Hover lift + brighten — parity with the composer/right-click-menu buttons (was press-only here).
+        '.kl-edtb button:hover{transform:translateY(-1px) scale(1.02);background:#45475a;}' +
+        '.kl-edtb button[data-color]:hover{transform:scale(1.14);background:initial;}' +
         '.kl-edtb button:active{transform:scale(.96);}' +
         '.kl-edtb button:focus-visible{outline:2px solid #89b4fa;outline-offset:2px;}' +
         '.kl-edtb .kl-zb{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 9px;background:#313244;color:#cdd6f4;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:600;line-height:1;}' +
-        '.kl-edtb .kl-zb:hover{background:#45475a;}'
+        '.kl-edtb .kl-zb:hover{background:#45475a;}' +
+        '@media (prefers-reduced-motion:reduce){.kl-edtb button{transition:none;}.kl-edtb button:hover,.kl-edtb button:active,.kl-edtb button[data-color]:hover{transform:none;}}'
       editor.append(cstyle, toolbar, scroller)
       shadowRoot.appendChild(editor)
 
