@@ -1860,7 +1860,9 @@ const STATUS_LABELS = { open: "Open", in_progress: "In Progress", done: "Done" }
 // Build the shared expandable detail panel for a ticket. onChange(field, value) is
 // called after a successful save so each view (overview list / kanban) can refresh
 // its own summary element. Returns the wired detailEl.
-function buildTktDetail(t, admin, onChange) {
+// isSingle=true: called from the single-ticket view, which already renders title/severity/sim/url·date
+// in its .single-head — so skip those from .tkt-context to avoid duplication.
+function buildTktDetail(t, admin, onChange, isSingle = false) {
   const ticketId = t.id
   const exports = t.exports || []
   const legacyBadge = (!exports.length && t.planeIssueUrl)
@@ -1892,14 +1894,22 @@ function buildTktDetail(t, admin, onChange) {
          <button class="btn btn-ghost btn-sm copy-btn">Copy to…</button>`
       : ""
 
+    // In single-ticket view the header already shows: title, severity, simName, url·date.
+    // Derive what the context block should render to avoid repeating those fields.
+    const _showObs = t.observation && (!isSingle || t.observation.trim() !== (t.title || "").trim())
+    const _showSevChip = !isSingle && t.severity
+    const _showSimChip = !isSingle && t.simName
+    const _showMetaLine = !isSingle
+    const _hasContext = _showObs || t.suggestedBug || t.sourceQuote || t.screenshotId
+      || (_showSevChip || t.sentiment || _showSimChip)
     detailEl.innerHTML = `
-      ${(t.observation || t.suggestedBug || t.sourceQuote || t.screenshotId) ? `
+      ${_hasContext ? `
       <div class="tkt-context">
-        ${t.observation ? `<div class="tkt-obs">${esc(t.observation)}</div>` : ""}
-        ${(t.severity || t.sentiment || t.simName) ? `<div class="tkt-chips">${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
+        ${_showObs ? `<div class="tkt-obs">${esc(t.observation)}</div>` : ""}
+        ${(_showSevChip || t.sentiment || _showSimChip) ? `<div class="tkt-chips">${_showSevChip ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${_showSimChip ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
         ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">${kicon('bug')} ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
         ${t.sourceQuote ? `<div class="tkt-prov">"${esc(t.sourceQuote)}"${t.sourceDate ? ` · raised ${esc(ago(t.sourceDate))}` : ""}</div>` : ""}
-        <div class="tkt-meta-line muted">${(t.urlHost || t.urlPath) ? esc((t.urlHost || "") + (t.urlPath || "")) : ""}${((t.urlHost || t.urlPath) && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>
+        ${_showMetaLine ? `<div class="tkt-meta-line muted">${(t.urlHost || t.urlPath) ? esc((t.urlHost || "") + (t.urlPath || "")) : ""}${((t.urlHost || t.urlPath) && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>` : ""}
         ${t.sourceReferrer ? `<div class="tkt-meta-line muted">Referred from: ${esc(t.sourceReferrer)}</div>` : ""}
         ${t.screenshotId ? `<div class="tkt-shot" data-shot="${esc(t.screenshotId)}"><div class="muted" style="font-size:12px">Loading screenshot…</div></div>` : ""}
       </div>` : ""}
@@ -2106,19 +2116,9 @@ function openSingleTicket(id) {
   }
   renderHead()
   single.appendChild(head)
-  const detailEl = buildTktDetail(t, admin, () => { renderHead(); renderTicketsKanban() })
+  const detailEl = buildTktDetail(t, admin, () => { renderHead(); renderTicketsKanban() }, true)
   detailEl.classList.add("show")
   if (t.screenshotId) detailEl.classList.add("single-has-shot")   // enables the image-left grid
-  // De-dupe the body against .single-head (which already shows title, severity, Sim, url·date):
-  const dupObs = detailEl.querySelector(".tkt-obs")
-  if (dupObs && dupObs.textContent.trim() === (t.title || "").trim()) dupObs.remove()   // repeated title
-  const dupChips = detailEl.querySelector(".tkt-chips")
-  if (dupChips) {                                   // keep only the sentiment chip; drop dup severity/Sim
-    dupChips.querySelectorAll(".chip").forEach(c => { if (!/\bs-[a-z]/.test(c.className)) c.remove() })
-    if (!dupChips.querySelector(".chip")) dupChips.remove()
-  }
-  const dupMeta = detailEl.querySelector(".tkt-context > .tkt-meta-line")   // url·date already in header
-  if (dupMeta) dupMeta.remove()
   single.appendChild(detailEl)
   loadTktShot(detailEl, t.annotations)
   if (board) board.classList.add("hide")
