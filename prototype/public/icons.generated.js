@@ -54,6 +54,17 @@ window.KLAV_ICONS = {
   "rotate-cw": "<path d=\"M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8\" /> <path d=\"M21 3v5h-5\" />"
 };
 (function(){
+  // Baseline-align inline icons app-wide: one .icon rule covers both hardcoded
+  // class="icon" SVGs (e.g. nav) and kicon() output. Injected once on load so
+  // every prototype page that loads this file is fixed without per-page CSS.
+  try {
+    if (typeof document !== "undefined" && !document.getElementById("klav-icon-align")) {
+      var _st = document.createElement("style");
+      _st.id = "klav-icon-align";
+      _st.textContent = ".icon{vertical-align:-0.125em}";
+      (document.head || document.documentElement).appendChild(_st);
+    }
+  } catch (e) {}
   function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
   window.kicon = function(name, opts){
     opts = opts || {};
@@ -64,7 +75,7 @@ window.KLAV_ICONS = {
     var a11y = opts.label ? "role=\"img\"" : "aria-hidden=\"true\"";
     var title = opts.label ? "<title>" + esc(opts.label) + "</title>" : "";
     return "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"" + cls + "\" width=\"" + size + "\" height=\"" + size +
-      "\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" " +
+      "\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"vertical-align:-0.125em\" " +
       a11y + ">" + title + body + "</svg>";
   };
 })();
