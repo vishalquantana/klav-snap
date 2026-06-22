@@ -10,51 +10,538 @@ top entry here, and every `package.json` (`/`, `core`, `extension`, `sdk`) plus
 the extension `manifest.json` always move together. See the PRD's _Versioning_
 section for the bump rules.
 
-## [0.40.0] — 2026-06-21
+> Entries from the top down to the first hand-written version are auto-generated
+> from the merge-train integration history by `scripts/gen-changelog.sh`
+> (one entry per shipped version, titled from its feature branch). Re-run that
+> script to refresh after new versions ship.
 
-### Added
-- **Keyboard shortcuts in screenshot markup mode.** While annotating a captured screenshot you can now switch tools without reaching for the toolbar: **P** Pen, **R** Rectangle, **C** Circle, **A** Arrow, **T** Text, plus **U** / **⌘**(or **Ctrl**)**+Z** to undo and **Esc** to cancel. The active tool is now highlighted on the toolbar (it never was before), and each tool button shows its shortcut key as a hint and tooltip. Shortcuts are suppressed while you're typing into a text annotation so letters land as text. Lives in the shared `buildModal` annotator, so the in-page widget and the extension get it together. `packages/core/src/modal.ts`.
-- **Circle (ellipse) annotation tool.** New `circle` shape — drag a bounding box to draw an axis-aligned ellipse, same as the rectangle tool. Added to the `Shape` union and rendered via `ctx.ellipse`. `packages/core/src/types.ts`, `packages/core/src/annotator.ts`.
+## [0.39.109] — 2026-06-22
 
-### Fixed
-- **Esc now always cancels the markup editor.** The cancel-on-Escape handler was registered with `{ once: true }`, so it removed itself after the *first* keystroke of any kind — after that, Esc no longer closed the annotator. It's now a stable handler torn down only when the editor closes. `packages/core/src/modal.ts`.
+### Shipped
+- **Fix triage stuck** (`feat/fix-triage-stuck`)
+
+## [0.39.108] — 2026-06-22
+
+### Shipped
+- **Dashboard counts fast** (`feat/dashboard-counts-fast`)
+
+## [0.39.107] — 2026-06-22
+
+### Shipped
+- **Project dropdown in navbar** (`feat/project-dropdown-in-navbar`)
+
+## [0.39.106] — 2026-06-22
+
+### Shipped
+- **Dashboard card viewall** (`feat/dashboard-card-viewall`)
+
+## [0.39.105] — 2026-06-22
+
+### Shipped
+- **Widget menu width position** (`feat/widget-menu-width-position`)
+
+## [0.39.104] — 2026-06-22
+
+### Shipped
+- **Plane backfill** (`feat/plane-backfill`)
+
+## [0.39.103] — 2026-06-22
+
+### Shipped
+- **Widget polish feedback** (`feat/widget-polish-feedback`)
+
+## [0.39.102] — 2026-06-22
+
+### Shipped
+- **Plane backfill** (`feat/plane-backfill`)
+
+## [0.39.101] — 2026-06-22
+
+### Shipped
+- **Widget submit progress drag** (`feat/widget-submit-progress-drag`)
+
+## [0.39.100] — 2026-06-22
+
+### Shipped
+- **Fix dashboard reports** (`feat/fix-dashboard-reports`)
+
+## [0.39.99] — 2026-06-22
+
+### Shipped
+- **Fix plane autocopy** (`feat/fix-plane-autocopy`)
+
+## [0.39.98] — 2026-06-22
+
+### Shipped
+- **Annotate tall scroll** (`feat/annotate-tall-scroll`)
+
+## [0.39.97] — 2026-06-22
+
+### Shipped
+- **Widget menu large cards** (`feat/widget-menu-large-cards`)
+
+## [0.39.96] — 2026-06-22
+
+### Shipped
+- **Sharp capture clarity** (`feat/sharp-capture-clarity`)
+
+## [0.39.95] — 2026-06-22
+
+### Shipped
+- **Rightclick layouts** (`feat/rightclick-layouts`)
+
+## [0.39.94] — 2026-06-22
+
+### Shipped
+- **Polish modal** (`feat/polish-modal`)
+
+## [0.39.93] — 2026-06-22
+
+### Shipped
+- **Polish dashboard** (`feat/polish-dashboard`)
+
+## [0.39.92] — 2026-06-22
+
+### Shipped
+- **Publish mockups** (`feat/publish-mockups`)
+
+## [0.39.91] — 2026-06-22
+
+### Shipped
+- **Polish marketing** (`feat/polish-marketing`)
+
+## [0.39.90] — 2026-06-22
+
+### Shipped
+- **Widget sharp capture** (`feat/widget-sharp-capture`)
+
+## [0.39.89] — 2026-06-22
+
+### Shipped
+- **Modal microanimations** (`feat/modal-microanimations`)
+
+## [0.39.88] — 2026-06-22
+
+### Shipped
+- **Button microanimations** (`feat/button-microanimations`)
+
+## [0.39.87] — 2026-06-22
+
+### Shipped
+- **Rightclick drag region** (`feat/rightclick-drag-region`)
+
+## [0.39.86] — 2026-06-22
+
+### Shipped
+- **Rightclick drag region** (`feat/rightclick-drag-region`)
+
+## [0.39.85] — 2026-06-22
+
+### Shipped
+- **Extension fullpage capture** (`feat/extension-fullpage-capture`)
+
+## [0.39.84] — 2026-06-22
+
+### Shipped
+- **Rightclick mockups** (`feat/rightclick-mockups`)
+
+## [0.39.83] — 2026-06-22
+
+### Shipped
+- **Fix feedback 400** (`feat/fix-feedback-400`)
+
+## [0.39.82] — 2026-06-22
+
+### Shipped
+- **Magical rightclick menu** (`feat/magical-rightclick-menu`)
+
+## [0.39.81] — 2026-06-22
+
+### Shipped
+- **Widget capture resilient** (`feat/widget-capture-resilient`)
+
+## [0.39.80] — 2026-06-22
+
+### Shipped
+- **Fix unstyled buttons** (`feat/fix-unstyled-buttons`)
+
+## [0.39.79] — 2026-06-22
+
+### Shipped
+- **Screenshots phase2** (`feat/screenshots-phase2`)
+
+## [0.39.78] — 2026-06-22
+
+### Shipped
+- **Widget single cta** (`feat/widget-single-cta`)
+
+## [0.39.77] — 2026-06-22
+
+### Shipped
+- **Dedupe project picker** (`feat/dedupe-project-picker`)
+
+## [0.39.76] — 2026-06-22
+
+### Shipped
+- **Marketing home perf** (`feat/marketing-home-perf`)
+
+## [0.39.75] — 2026-06-22
+
+### Shipped
+- **Widget csp eval** (`feat/widget-csp-eval`)
+
+## [0.39.74] — 2026-06-22
+
+### Shipped
+- **Widget cors** (`feat/widget-cors`)
+
+## [0.39.73] — 2026-06-22
+
+### Shipped
+- **Icon alignment fix** (`feat/icon-alignment-fix`)
+
+## [0.39.72] — 2026-06-22
+
+### Shipped
+- **Sidebar version** (`feat/sidebar-version`)
+
+## [0.39.71] — 2026-06-22
+
+### Shipped
+- **Widget report button fix** (`feat/widget-report-button-fix`)
+
+## [0.39.70] — 2026-06-22
+
+### Shipped
+- **Sim profile page** (`feat/sim-profile-page`)
+
+## [0.39.69] — 2026-06-22
+
+### Shipped
+- **Project picker navbar** (`feat/project-picker-navbar`)
+
+## [0.39.68] — 2026-06-22
+
+### Shipped
+- **Project picker navbar** (`feat/project-picker-navbar`)
+
+## [0.39.67] — 2026-06-22
+
+### Shipped
+- **Dashboard cache** (`feat/dashboard-cache`)
+
+## [0.39.66] — 2026-06-22
+
+### Shipped
+- **Widget source site** (`feat/widget-source-site`)
+
+## [0.39.65] — 2026-06-22
+
+### Shipped
+- **Dashboard cache** (`feat/dashboard-cache`)
+
+## [0.39.64] — 2026-06-22
+
+### Shipped
+- **Triage screenshot filter** (`feat/triage-screenshot-filter`)
+
+## [0.39.63] — 2026-06-22
+
+### Shipped
+- **Project dropdown left** (`feat/project-dropdown-left`)
+
+## [0.39.62] — 2026-06-22
+
+### Shipped
+- **Dashboard cache** (`feat/dashboard-cache`)
+
+## [0.39.61] — 2026-06-22
+
+### Shipped
+- **Extension link** (`feat/extension-link`)
+- **Widget csp imgsrc** (`feat/widget-csp-imgsrc`)
+
+## [0.39.60] — 2026-06-22
+
+### Shipped
+- **Icons route 404** (`feat/icons-route-404`)
+
+## [0.39.59] — 2026-06-22
+
+### Shipped
+- **Blog cannot reproduce** (`feat/blog-cannot-reproduce`)
+
+## [0.39.58] — 2026-06-21
+
+### Shipped
+- **Audit merge damage** (`feat/audit-merge-damage`)
+
+## [0.39.57] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.56] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.55] — 2026-06-21
+
+### Shipped
+- **Audit merge damage** (`feat/audit-merge-damage`)
+
+## [0.39.54] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.53] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.52] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.51] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.50] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.49] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.48] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.47] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.46] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.45] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.44] — 2026-06-21
+
+### Shipped
+- **Clickable stat cards** (`feat/clickable-stat-cards`)
+
+## [0.39.43] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.42] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.41] — 2026-06-21
+
+### Shipped
+- **Widget bundle hotfix** (`feat/widget-bundle-hotfix`)
+
+## [0.39.40] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.39] — 2026-06-21
+
+### Shipped
+- **Widget bundle hotfix** (`feat/widget-bundle-hotfix`)
+
+## [0.39.38] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.37] — 2026-06-21
+
+### Shipped
+- **Clickable stat cards** (`feat/clickable-stat-cards`)
+
+## [0.39.36] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.35] — 2026-06-21
+
+### Shipped
+- **Feedback triage** (`feat/feedback-triage`)
+
+## [0.39.34] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.33] — 2026-06-21
+
+### Shipped
+- **Widget bundle hotfix** (`feat/widget-bundle-hotfix`)
+
+## [0.39.32] — 2026-06-21
+
+### Shipped
+- **Analyze page fix** (`feat/analyze-page-fix`)
+
+## [0.39.31] — 2026-06-21
+
+### Shipped
+- **Analyze page fix** (`feat/analyze-page-fix`)
+
+## [0.39.30] — 2026-06-21
+
+### Shipped
+- **Widget bundle hotfix** (`feat/widget-bundle-hotfix`)
+
+## [0.39.29] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.28] — 2026-06-21
+
+### Shipped
+- **Widget resend** (`feat/widget-resend`)
+
+## [0.39.27] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.26] — 2026-06-21
+
+### Shipped
+- **Tickets graft** (`feat/tickets-graft`)
+
+## [0.39.25] — 2026-06-21
+
+### Shipped
+- **Widget resend** (`feat/widget-resend`)
+
+## [0.39.24] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.23] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.22] — 2026-06-21
+
+### Shipped
+- **Appearance fields layout** (`feat/appearance-fields-layout`)
+
+## [0.39.21] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.20] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.19] — 2026-06-21
+
+### Shipped
+- **Resolve citations perf** (`feat/resolve-citations-perf`)
+
+## [0.39.18] — 2026-06-21
+
+### Shipped
+- **Widget csp helper** (`feat/widget-csp-helper`)
+
+## [0.39.17] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.16] — 2026-06-21
+
+### Shipped
+- **Widget csp helper** (`feat/widget-csp-helper`)
+
+## [0.39.15] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.14] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.13] — 2026-06-21
+
+### Shipped
+- **Extension feedback dedup** (`feat/extension-feedback-dedup`)
+
+## [0.39.12] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.11] — 2026-06-21
+
+### Shipped
+- **Tickets graft** (`feat/tickets-graft`)
+
+## [0.39.10] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.9] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.8] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
+
+## [0.39.7] — 2026-06-21
+
+### Shipped
+- **Markup shortcuts** (`feat/markup-shortcuts`)
+
+## [0.39.6] — 2026-06-21
+
+### Shipped
+- **Icons not emojis** (`feat/icons-not-emojis`)
 
 ## [0.39.5] — 2026-06-21
 
-### Added
-- **Two-way status sync is now self-serve** (KLAVITYKLA-7 / G4). The inbound webhook receiver (external tracker → linked Klavity ticket status) already existed and was deployed; this surfaces the setup. The connector editor now shows a **"🔄 Two-way status sync"** panel for inbound-capable trackers (GitHub / Plane / Jira / Linear): the copyable webhook URL, per-connector setup steps, the provider-state → Klavity-status mapping, and a reminder to match the Inbound Webhook Secret. Hidden for the outbound-only generic `webhook`. New doc `docs/connectors-two-way-sync.md`. `prototype/public/dashboard.html`.
-## [0.40.0] — 2026-06-21
-
-### Added
-- **Settings now shows the widget embed code, a live preview, and how to install the extension.** The Report-widget-appearance card gained three things: (1) the copy-paste **embed snippet** for the active project with a Copy button (previously only in the zero-state onboarding checklist); (2) a **live preview** — a themed report-modal mock that re-renders instantly as you change theme / custom colours / thank-you message / widget mode, with a "Show thank-you" toggle and lead-gen CTA reflected. Its palette is ported verbatim from `packages/core/src/modal-theme.ts` so it matches the production modal exactly; (3) a compact **"install the browser extension"** card linking to `/onboarding`. Dashboard-only — `prototype/public/dashboard.html`.
-### Changed
-- **Design standard: icons, not emojis.** Every emoji in user-facing UI has been
-  replaced with inline [Lucide](https://lucide.dev) outline SVG icons (`stroke="currentColor"`,
-  themeable, crisp at any size) across the marketing site, dashboard/app pages
-  (`prototype/public`), the embeddable widget/SDK, the shared report modal, and the
-  browser extension. Semantic emoji were converted too: mood reactions
-  (love/neutral/frustrated/confused) and status (✓/✗) now use accessible icons
-  (`role="img"` + `<title>`); decorative icons are `aria-hidden`. Native context-menu
-  titles, console output, and other plain-text-only sinks had their emoji stripped to
-  clean text (SVG can't render there).
-
-### Added
-- **Centralized icon system.** A single source of truth in `@klavity/core`
-  (`icons.ts` + a generated map built from `lucide-static`, a dev-only dependency, so
-  the shipped widget bundle stays dependency-free). Consumers: `icon()` (core/extension),
-  `KlavityKit.icon()` (marketing site), and a self-contained `kicon()` for
-  `prototype/public` pages. Adding an icon is a one-line edit to `scripts/icon-names.mjs`
-  + `pnpm gen:icons`.
-- **Emoji CI guard.** `scripts/check-no-emoji.mjs` (run in CI via the `build-test` job
-  and locally with `pnpm check:emoji`) fails on any emoji in user-facing source, keeping
-  the standard enforced going forward. Binary assets, generated maps, tests, and keycap
-  glyphs (⌘⇧) are excluded; an inline `emoji-ok` comment allows rare deliberate cases.
-
-### Fixed
-- **Security:** escaped `window.location.pathname` before it is written to the report
-  modal's `innerHTML` (`packages/core/src/modal.ts`), and escaped server/user-derived
-  values (`r.msg`, `issueKey`, `issueUrl`, error messages) in the extension options
-  page's result rendering — both reflected-XSS surfaces surfaced during the icon sweep.
+### Shipped
+- **G4 sync setup ui** (`feat/g4-sync-setup-ui`)
+- **Settings widget preview** (`feat/settings-widget-preview`)
+- **Tickets graft** (`feat/tickets-graft`)
 
 ## [0.39.4] — 2026-06-21
 
