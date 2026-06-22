@@ -243,6 +243,22 @@ async function mount() {
     })
   }
 
+  // ── Sim-deploy state + issue counter (declared before any code that references them) ──
+  // Re-entrancy guard: double-clicking the launcher / a menu card must not stack two composers. We keep a
+  // reference to the open one and treat it as "open" only while its shadow host is still in the DOM (the
+  // modal removes its host on close), so a normal re-open after closing still works.
+  let composer: ModalController | null = null
+  // Track deployed Sims so the context menu can show their icons without a fetch.
+  let _deployedSims: Array<{ id: string; name: string; initials?: string; accent?: string }> = []
+  // Cumulative count of observations returned by boot + watch-engine reviews.
+  let _issueCount = 0
+  let _issueBadge: HTMLElement | null = null
+  function updateIssueCounter() {
+    if (!_issueBadge) return
+    _issueBadge.textContent = String(_issueCount)
+    _issueBadge.style.display = _issueCount > 0 ? "flex" : "none"
+  }
+
   const reportBtn = document.createElement("button")
   reportBtn.innerHTML = `${icon('bug')} Report a bug`
   reportBtn.title = "Klavity is active on this page — right-click anywhere or click here to report"
@@ -266,20 +282,6 @@ async function mount() {
   issueBadge.setAttribute("aria-hidden", "true")
   reportBtn.appendChild(issueBadge)
   _issueBadge = issueBadge
-  // Re-entrancy guard: double-clicking the launcher / a menu card must not stack two composers. We keep a
-  // reference to the open one and treat it as "open" only while its shadow host is still in the DOM (the
-  // modal removes its host on close), so a normal re-open after closing still works.
-  let composer: ModalController | null = null
-  // Track deployed Sims so the context menu can show their icons without a fetch.
-  let _deployedSims: Array<{ id: string; name: string; initials?: string; accent?: string }> = []
-  // Cumulative count of observations returned by boot + watch-engine reviews.
-  let _issueCount = 0
-  let _issueBadge: HTMLElement | null = null
-  function updateIssueCounter() {
-    if (!_issueBadge) return
-    _issueBadge.textContent = String(_issueCount)
-    _issueBadge.style.display = _issueCount > 0 ? "flex" : "none"
-  }
   function openReport(type: "bug" | "feature" = "bug", opts?: { initialShot?: string }) {
     if (composer && (composer.shadowRoot.host as HTMLElement | null)?.isConnected) return
     const identified = firstParty || !!getToken()  // already known to Klavity (own page session, or signed-in widget)
