@@ -9,9 +9,9 @@
 <link rel="stylesheet" href="/fonts/fonts.css" />
 <script src="/icons.generated.js"></script>
 <style>
-:root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#8a8076;--indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
+:root{--ink:#f5f3ee;--ink-2:#ffffff;--ink-3:#efeae0;--paper:#19140f;--paper-dim:#574f45;--paper-faint:#706560;--indigo:#6366f1;--indigo-deep:#4f46e5;--amber:#d98324;--rose:#db2777;--green:#0f9d6b;--line:rgba(25,20,15,.12);
 --display:'Fraunces',serif;--body:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
-[data-theme="dark"]{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#776c5d;--indigo:#8b8bf5;--indigo-deep:#6366f1;--amber:#e8a24a;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11)}
+[data-theme="dark"]{--ink:#0c0a08;--ink-2:#15110d;--ink-3:#1e1813;--paper:#f3ece1;--paper-dim:#b3a896;--paper-faint:#9b8f7e;--indigo:#8b8bf5;--indigo-deep:#6366f1;--amber:#e8a24a;--rose:#e8849a;--green:#9fd6a0;--line:rgba(243,236,225,.11)}
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 body{background:var(--ink);color:var(--paper);font-family:var(--body);min-height:100vh}
@@ -479,7 +479,7 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .kl-wstatus{display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:12px;border:1px solid var(--line);background:var(--ink-2);font-size:13px;line-height:1.45;margin-bottom:16px}
 .kl-wstatus-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--paper-faint)}
 .kl-wstatus-text{color:var(--paper-dim)}
-.kl-wstatus-text b{color:var(--ink);font-weight:600}
+.kl-wstatus-text b{color:var(--paper);font-weight:600}
 .kl-wstatus-active{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.08)}
 .kl-wstatus-active .kl-wstatus-dot{background:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,.18)}
 .kl-wstatus-idle{border-color:rgba(217,131,36,.4);background:rgba(217,131,36,.08)}
@@ -668,14 +668,14 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .wp-row{display:flex;gap:6px;margin-bottom:10px}
 .wp-tab{flex:1;border:none;border-radius:6px;padding:6px;font-size:12px;font-weight:600;background:var(--kl-chip,#f4f4f7);color:var(--kl-fg,#1d1d24);cursor:default}
 .wp-tab-on{background:var(--kl-accent2,#f59e0b);color:var(--kl-on-accent,#fff)}
-.wp-page{font-size:11px;color:var(--kl-muted,#8a8a96);margin-bottom:8px}
-.wp-strip{min-height:44px;border:1px dashed var(--kl-border,#e6e6ec);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--kl-muted,#8a8a96);margin-bottom:10px}
-.wp-desc{background:var(--kl-input-bg,#fafafb);border:1px solid var(--kl-border,#e6e6ec);border-radius:6px;padding:9px;font-size:12px;color:var(--kl-muted,#8a8a96);min-height:46px;margin-bottom:10px}
+.wp-page{font-size:11px;color:var(--kl-muted,#6c6c79);margin-bottom:8px}
+.wp-strip{min-height:44px;border:1px dashed var(--kl-border,#e6e6ec);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--kl-muted,#6c6c79);margin-bottom:10px}
+.wp-desc{background:var(--kl-input-bg,#fafafb);border:1px solid var(--kl-border,#e6e6ec);border-radius:6px;padding:9px;font-size:12px;color:var(--kl-muted,#6c6c79);min-height:46px;margin-bottom:10px}
 .wp-submit{width:100%;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;background:var(--kl-accent,#5b5bf0);color:var(--kl-on-accent,#fff);cursor:default}
 .wp-thanks-screen{text-align:center;padding:18px 6px}
 .wp-thanks-msg{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--kl-fg,#1d1d24)}
 .wp-cta{display:inline-block;text-decoration:none;background:var(--kl-accent,#5b5bf0);color:var(--kl-on-accent,#fff);border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700}
-.wp-pb{text-align:center;font-size:9px;color:var(--kl-muted,#8a8a96);margin-top:10px}
+.wp-pb{text-align:center;font-size:9px;color:var(--kl-muted,#6c6c79);margin-top:10px}
 .wp-ext{margin-top:18px;padding-top:16px;border-top:1px solid var(--line,#e6e6ec)}
 .wp-ext-t{font-weight:700;font-size:14px}
 @media (min-width:760px){.wp-config-preview{display:flex;gap:20px;flex-wrap:wrap}.wp-config{flex:1;min-width:300px}}
@@ -2875,7 +2875,7 @@ $("connSaveNew") && ($("connSaveNew").onclick = async () => {
 //    VERBATIM mirror of packages/core/src/modal-theme.ts (THEMES + luminance + themeCss). The static
 //    dashboard page has no build step to import that module, so keep this copy in sync by hand. ──
 const PREVIEW_THEMES = {
-  light: { '--kl-overlay':'rgba(20,20,40,.28)','--kl-bg':'#ffffff','--kl-fg':'#1d1d24','--kl-muted':'#8a8a96','--kl-border':'#e6e6ec','--kl-chip':'#f4f4f7','--kl-input-bg':'#fafafb','--kl-accent':'#5b5bf0','--kl-on-accent':'#fff','--kl-accent2':'#f59e0b','--kl-radius':'16px','--kl-shadow':'0 24px 60px rgba(20,20,40,.18)','--kl-backdrop':'none' },
+  light: { '--kl-overlay':'rgba(20,20,40,.28)','--kl-bg':'#ffffff','--kl-fg':'#1d1d24','--kl-muted':'#6c6c79','--kl-border':'#e6e6ec','--kl-chip':'#f4f4f7','--kl-input-bg':'#fafafb','--kl-accent':'#5b5bf0','--kl-on-accent':'#fff','--kl-accent2':'#f59e0b','--kl-radius':'16px','--kl-shadow':'0 24px 60px rgba(20,20,40,.18)','--kl-backdrop':'none' },
   dark: { '--kl-overlay':'rgba(0,0,0,.5)','--kl-bg':'#1e1e2e','--kl-fg':'#cdd6f4','--kl-muted':'#a6adc8','--kl-border':'#45475a','--kl-chip':'#313244','--kl-input-bg':'#181825','--kl-accent':'#89b4fa','--kl-on-accent':'#1e1e2e','--kl-accent2':'#fab387','--kl-radius':'12px','--kl-shadow':'0 20px 60px rgba(0,0,0,.5)','--kl-backdrop':'none' },
   glass: { '--kl-overlay':'rgba(10,10,18,.25)','--kl-bg':'rgba(255,255,255,.14)','--kl-fg':'#fff','--kl-muted':'rgba(255,255,255,.7)','--kl-border':'rgba(255,255,255,.28)','--kl-chip':'rgba(255,255,255,.16)','--kl-input-bg':'rgba(255,255,255,.10)','--kl-accent':'rgba(255,255,255,.92)','--kl-on-accent':'#15121d','--kl-accent2':'rgba(255,255,255,.55)','--kl-radius':'22px','--kl-shadow':'0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25)','--kl-backdrop':'blur(22px) saturate(180%)' },
   neon: { '--kl-overlay':'rgba(8,4,20,.55)','--kl-bg':'#0e0b1e','--kl-fg':'#f4f0ff','--kl-muted':'#a99fd6','--kl-border':'#3a2d6b','--kl-chip':'#1c1640','--kl-input-bg':'#140f2c','--kl-accent':'#ff2d95','--kl-on-accent':'#fff','--kl-accent2':'#15e0ff','--kl-radius':'14px','--kl-shadow':'0 0 0 1px rgba(255,45,149,.4), 0 24px 70px rgba(255,45,149,.25)','--kl-backdrop':'none' },
@@ -2898,7 +2898,7 @@ function computePreviewVars(cfg) {
       base['--kl-bg'] = cfg.background
       const dark = previewLuminance(cfg.background) < 140
       base['--kl-fg'] = dark ? '#f4f4f7' : '#1d1d24'
-      base['--kl-muted'] = dark ? 'rgba(255,255,255,.6)' : '#8a8a96'
+      base['--kl-muted'] = dark ? 'rgba(255,255,255,.6)' : '#6c6c79'
       base['--kl-border'] = dark ? 'rgba(255,255,255,.16)' : '#e6e6ec'
       base['--kl-chip'] = dark ? 'rgba(255,255,255,.08)' : '#f4f4f7'
       base['--kl-input-bg'] = dark ? 'rgba(255,255,255,.05)' : '#fafafb'

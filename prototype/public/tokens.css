@@ -26,7 +26,7 @@
      --paper-faint = muted / labels / meta */
   --paper:#19140f;
   --paper-dim:#574f45;
-  --paper-faint:#8a8076;
+  --paper-faint:#706560; /* was #8a8076 — darkened to 5.65:1 on white (WCAG AA) */
 
   /* ── Hairlines / dividers ──────────────────────────────────────────────
      --line   = standard 1px border
@@ -85,7 +85,7 @@
   --ink-4:#26201a;
   --paper:#f3ece1;
   --paper-dim:#b3a896;
-  --paper-faint:#776c5d;
+  --paper-faint:#9b8f7e; /* was #776c5d — lightened to 5.92:1 on dark bg (WCAG AA) */
   --line:rgba(243,236,225,.11);
   --line-2:rgba(243,236,225,.17);
   --indigo:#8b8bf5;
