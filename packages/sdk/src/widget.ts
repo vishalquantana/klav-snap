@@ -253,6 +253,7 @@ async function mount() {
     a.textContent =
       "@keyframes kl-active-pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}" +
       ".kl-active-dot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#22c55e;border:2px solid #fff;animation:kl-active-pulse 2.2s ease-out infinite;}" +
+      ".kl-issue-badge{position:absolute;top:-7px;left:-7px;min-width:17px;height:17px;border-radius:9px;background:#ef4444;color:#fff;font-size:9.5px;font-weight:700;padding:0 4px;display:none;align-items:center;justify-content:center;border:2px solid #fff;font-family:system-ui,sans-serif;line-height:1;}" +
       "@media (prefers-reduced-motion: reduce){.kl-active-dot{animation:none}}"
     root.appendChild(a)
   }
@@ -260,10 +261,25 @@ async function mount() {
   activeDot.className = "kl-active-dot"
   activeDot.setAttribute("aria-hidden", "true")
   reportBtn.appendChild(activeDot)
+  const issueBadge = document.createElement("span")
+  issueBadge.className = "kl-issue-badge"
+  issueBadge.setAttribute("aria-hidden", "true")
+  reportBtn.appendChild(issueBadge)
+  _issueBadge = issueBadge
   // Re-entrancy guard: double-clicking the launcher / a menu card must not stack two composers. We keep a
   // reference to the open one and treat it as "open" only while its shadow host is still in the DOM (the
   // modal removes its host on close), so a normal re-open after closing still works.
   let composer: ModalController | null = null
+  // Track deployed Sims so the context menu can show their icons without a fetch.
+  let _deployedSims: Array<{ id: string; name: string; initials?: string; accent?: string }> = []
+  // Cumulative count of observations returned by boot + watch-engine reviews.
+  let _issueCount = 0
+  let _issueBadge: HTMLElement | null = null
+  function updateIssueCounter() {
+    if (!_issueBadge) return
+    _issueBadge.textContent = String(_issueCount)
+    _issueBadge.style.display = _issueCount > 0 ? "flex" : "none"
+  }
   function openReport(type: "bug" | "feature" = "bug", opts?: { initialShot?: string }) {
     if (composer && (composer.shadowRoot.host as HTMLElement | null)?.isConnected) return
     const identified = firstParty || !!getToken()  // already known to Klavity (own page session, or signed-in widget)
@@ -342,27 +358,27 @@ async function mount() {
     const s = document.createElement("style")
     s.id = "klavity-menu-anim"
     s.textContent =
-      // entrance keyframes (kept): spring scale-in for the tray, staggered rise for each card, shimmer sweep
-      "@keyframes klm-in{0%{opacity:0;transform:scale(.9) translateY(8px)}100%{opacity:1;transform:scale(1) translateY(0)}}" +
-      "@keyframes klm-row-in{0%{opacity:0;transform:translateY(10px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}" +
+      // entrance keyframes: spring scale-in from top-left (cursor anchor)
+      "@keyframes klm-in{0%{opacity:0;transform:scale(.9) translateY(-6px)}100%{opacity:1;transform:scale(1) translateY(0)}}" +
+      "@keyframes klm-row-in{0%{opacity:0;transform:translateY(8px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}" +
       "@keyframes klm-shine{0%{transform:translateX(-130%)}100%{transform:translateX(240%)}}" +
       "@keyframes klm-spin{to{transform:rotate(360deg)}}" +
       ".klm-menu{animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}" +
-      // ── Large touch cards (L6): icon chip + label + one-line description + arrow ──
-      ".klm-card{position:relative;display:flex;align-items:center;gap:12px;width:100%;border:0;cursor:pointer;text-align:left;padding:11px 12px;border-radius:12px;color:#2a2342;font-family:inherit;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(252,250,246,.55));box-shadow:0 1px 2px rgba(40,25,70,.06),inset 0 0 0 1px rgba(99,102,241,.08);transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s ease,background .2s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
+      // ── Compact touch cards: icon chip + label + optional desc + arrow ──
+      ".klm-card{position:relative;display:flex;align-items:center;gap:10px;width:100%;border:0;cursor:pointer;text-align:left;padding:7px 10px;border-radius:10px;color:#2a2342;font-family:inherit;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(252,250,246,.55));box-shadow:0 1px 2px rgba(40,25,70,.06),inset 0 0 0 1px rgba(99,102,241,.08);transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s ease,background .2s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
       ".klm-card:hover{scale:1.015;box-shadow:0 5px 14px -3px rgba(99,102,241,.3),inset 0 0 0 1px rgba(99,102,241,.16)}" +
       ".klm-card:active{scale:.96}" +
       ".klm-card:focus-visible{outline:2px solid #6366f1;outline-offset:2px}" +
-      ".klm-chip{flex:none;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:#5b51c9;background:rgba(99,102,241,.12);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}" +
-      ".klm-chip svg{width:20px;height:20px;display:block}" +
+      ".klm-chip{flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#5b51c9;background:rgba(99,102,241,.12);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}" +
+      ".klm-chip svg{width:17px;height:17px;display:block}" +
       ".klm-card:hover .klm-chip{transform:scale(1.1) rotate(-5deg)}" +
-      ".klm-body{display:flex;flex-direction:column;gap:2px;min-width:0}" +
-      ".klm-t{font-size:14px;font-weight:650;letter-spacing:-.01em;line-height:1.2}" +
-      ".klm-d{font-size:11.5px;line-height:1.35;color:#7c7793;text-wrap:pretty}" +
+      ".klm-body{display:flex;flex-direction:column;gap:1px;min-width:0}" +
+      ".klm-t{font-size:13px;font-weight:650;letter-spacing:-.01em;line-height:1.2}" +
+      ".klm-d{font-size:11px;line-height:1.3;color:#7c7793;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
       ".klm-go{margin-left:auto;flex:none;color:#b6afce;display:inline-flex;transition:transform .2s cubic-bezier(.2,0,0,1)}" +
-      ".klm-go svg{width:16px;height:16px;display:block}" +
+      ".klm-go svg{width:14px;height:14px;display:block}" +
       ".klm-card:hover .klm-go{transform:translateX(3px)}" +
-      ".klm-hint{margin-left:auto;flex:none;font-family:ui-monospace,monospace;font-size:10px;color:#9a93a6;background:rgba(40,30,60,.06);padding:3px 8px;border-radius:20px;white-space:nowrap}" +
+      ".klm-hint{margin-left:auto;flex:none;font-family:ui-monospace,monospace;font-size:10px;color:#9a93a6;background:rgba(40,30,60,.06);padding:2px 7px;border-radius:20px;white-space:nowrap}" +
       // primary = Report a Bug (brand purple)
       ".klm-card.primary{background:linear-gradient(160deg,#6d6bf3,#5b51d8);color:#fff;box-shadow:0 6px 16px -4px rgba(79,70,229,.45),inset 0 1px 0 rgba(255,255,255,.3)}" +
       ".klm-card.primary:hover{box-shadow:0 9px 22px -4px rgba(79,70,229,.55),inset 0 1px 0 rgba(255,255,255,.35)}" +
@@ -373,8 +389,15 @@ async function mount() {
       ".klm-card.muted{background:linear-gradient(180deg,rgba(250,248,244,.62),rgba(243,236,225,.5))}" +
       ".klm-card.muted .klm-chip{background:rgba(40,30,60,.06);color:#8a8390}" +
       ".klm-card.muted .klm-t{color:#5d5870}.klm-card.muted .klm-d{color:#9a93a6}" +
+      // Sim icons row at the top of the menu
+      ".klm-sims-row{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 4px;gap:6px;min-height:30px}" +
+      ".klm-sims-chips{display:flex;align-items:center;gap:0}" +
+      ".klm-sim-chip{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;border:1.5px solid rgba(255,255,255,.65);margin-left:-3px}" +
+      ".klm-sims-chips .klm-sim-chip:first-child{margin-left:0}" +
+      ".klm-issue-pill{font-size:10px;font-weight:650;color:#ef4444;background:rgba(239,68,68,.1);border-radius:20px;padding:2px 7px;white-space:nowrap;margin-left:auto}" +
+      ".klm-sims-label{font-size:10.5px;color:#9a93a6;margin-left:6px;white-space:nowrap}" +
       // footer wordmark
-      ".klm-foot{text-align:center;font-size:11px;color:#8a8076;padding:7px 0 4px;border:0;background:transparent;width:100%;cursor:pointer;font-family:inherit;border-radius:8px;transition:color .18s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
+      ".klm-foot{text-align:center;font-size:11px;color:#8a8076;padding:4px 0 2px;border:0;background:transparent;width:100%;cursor:pointer;font-family:inherit;border-radius:8px;transition:color .18s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
       ".klm-foot:hover{color:#5b51c9}.klm-foot:focus-visible{outline:2px solid #6366f1;outline-offset:2px}" +
       ".klm-shine{position:absolute;top:0;left:0;width:42%;height:100%;pointer-events:none;background:linear-gradient(105deg,transparent,rgba(255,255,255,.6),transparent);transform:translateX(-130%);animation:klm-shine 1s ease-out .15s both}"
     root.appendChild(s)
@@ -399,16 +422,18 @@ async function mount() {
     // Warm cream "glass" surface with a soft Klavity-purple glow at the top, a layered
     // purple-tinted shadow, and a frosted backdrop. (Plain backdrop blur — not liquid-glass
     // refraction, which doesn't compose in Chrome.)
-    menu.style.cssText = "position:fixed;z-index:2147483647;width:240px;max-width:calc(100vw - 16px);border-radius:20px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:bottom right;padding:8px;display:flex;flex-direction:column;gap:7px;box-sizing:border-box;" +
+    menu.style.cssText = "position:fixed;z-index:2147483647;width:240px;max-width:calc(100vw - 16px);border-radius:18px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:top left;padding:6px;display:flex;flex-direction:column;gap:5px;box-sizing:border-box;" +
       "background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.18), rgba(139,92,246,0) 55%), linear-gradient(180deg, rgba(250,247,240,.95), rgba(243,236,225,.96));" +
       "border:1px solid rgba(255,255,255,.55);" +
       "box-shadow:0 24px 60px -12px rgba(76,40,130,.32), 0 8px 22px rgba(99,102,241,.16), 0 1.5px 4px rgba(25,20,15,.10), inset 0 1px 0 rgba(255,255,255,.75);" +
       "-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);" +
-      "right:18px;bottom:74px"
+      // Cursor-based: left/top set after append (clamped in rAF); start at click position
+      "left:" + x + "px;top:" + y + "px"
     // Lucide arrow-right (no such icon in our set → inline) for each card's affordance.
     const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>'
     let idx = 0
-    // Each action is a large touch CARD: icon chip + label + one-line description + arrow (or the ⇧ hint).
+    // Each action is a compact CARD: icon chip + label + optional desc + arrow/hint.
+    // Pass desc="" to render a label-only card (no description line — keeps menu short).
     const card = (iconName: string, label: string, desc: string, opts: { primary?: boolean; muted?: boolean; hint?: string; onClick: () => void }) => {
       const b = document.createElement("button")
       b.className = "klm-card" + (opts.primary ? " primary" : "") + (opts.muted ? " muted" : "")
@@ -419,10 +444,52 @@ async function mount() {
         : '<span class="klm-go">' + ARROW + '</span>'
       b.innerHTML =
         '<span class="klm-chip">' + icon(iconName) + '</span>' +
-        '<span class="klm-body"><span class="klm-t">' + label + '</span><span class="klm-d">' + desc + '</span></span>' +
-        right
+        '<span class="klm-body"><span class="klm-t">' + label + '</span>' +
+        (desc ? '<span class="klm-d">' + desc + '</span>' : '') +
+        '</span>' + right
       b.addEventListener("click", () => { closeMenu(); opts.onClick() })
       return b
+    }
+    // ── Sim icons row: shows deployed Sims (or available Sims fetched async) + issue count ──
+    const simsRow = document.createElement("div")
+    simsRow.className = "klm-sims-row"
+    const simsChips = document.createElement("div")
+    simsChips.className = "klm-sims-chips"
+    simsRow.appendChild(simsChips)
+    if (_issueCount > 0) {
+      const pill = document.createElement("span")
+      pill.className = "klm-issue-pill"
+      pill.textContent = _issueCount + " issue" + (_issueCount > 1 ? "s" : "")
+      simsRow.appendChild(pill)
+    }
+    menu.appendChild(simsRow)
+    function renderSimChips(sims: Array<{ id: string; name: string; initials?: string; accent?: string }>) {
+      simsChips.innerHTML = ""
+      sims.slice(0, 6).forEach((s, i) => {
+        const chip = document.createElement("span")
+        chip.className = "klm-sim-chip"
+        chip.title = s.name
+        chip.style.background = s.accent || "#6366f1"
+        chip.style.zIndex = String(10 - i)
+        chip.textContent = (s.initials || s.name.slice(0, 2)).toUpperCase()
+        simsChips.appendChild(chip)
+      })
+      // "N Sims active" label after chips
+      if (sims.length > 0 && !simsRow.querySelector(".klm-sims-label")) {
+        const lbl = document.createElement("span")
+        lbl.className = "klm-sims-label"
+        lbl.textContent = sims.length + " Sim" + (sims.length > 1 ? "s" : "")
+        simsChips.after(lbl)
+      }
+    }
+    if (_deployedSims.length > 0) {
+      renderSimChips(_deployedSims)
+    } else {
+      // Fetch available Sims async and populate; silent on failure
+      fetch(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (Array.isArray(d?.sims) && d.sims.length) renderSimChips(d.sims) })
+        .catch(() => {})
     }
     // ── Inline Sim picker — replaces menu content in-place, async fetch of /api/personas ──
     const showSimPicker = async () => {
@@ -503,7 +570,7 @@ async function mount() {
     }
     menu.appendChild(card("users", "Deploy all Sims", "Have every Sim jump in and analyze this page.", { onClick: () => { closeMenu(); void deployAndWatch("all") } }))
     menu.appendChild(card("sparkles", "Select Sims…", "Choose which Sims jump into action.", { onClick: () => { void showSimPicker() } }))
-    menu.appendChild(card("monitor", "Show browser menu", "Open your browser's own menu instead.", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
+    menu.appendChild(card("monitor", "Browser menu", "", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
     // "Powered by Klavity" footer — gradient wordmark, opens the marketing site in a new tab
     const footer = document.createElement("button")
     footer.className = "klm-foot"
@@ -514,8 +581,14 @@ async function mount() {
     // One-pass shimmer sweep — appended LAST so it sweeps OVER the opaque cards (pointer-events:none).
     const shine = document.createElement("div"); shine.className = "klm-shine"; menu.appendChild(shine)
     root.appendChild(menu)
-    // Fixed bottom-right anchor — aligns with the launcher button (right:18px, bottom:18px + ~48px button).
-    // CSS right/bottom keep the menu in viewport on all screen sizes; no JS clamping needed.
+    // Cursor-anchored: clamp to viewport so the menu never bleeds off-screen.
+    // Runs in rAF so getBoundingClientRect reflects the rendered size.
+    requestAnimationFrame(() => {
+      const vw = window.innerWidth, vh = window.innerHeight
+      const r = menu.getBoundingClientRect()
+      if (r.right > vw - 8) menu.style.left = Math.max(8, x - r.width) + "px"
+      if (r.bottom > vh - 8) menu.style.top = Math.max(8, y - r.height) + "px"
+    })
     const onOutside = (ev: MouseEvent) => { const p = (ev.composedPath?.() || []) as HTMLElement[]; if (!p.includes(menu)) { closeMenu(); document.removeEventListener("mousedown", onOutside) } }
     const onEsc = (ev: KeyboardEvent) => { if (ev.key === "Escape") { closeMenu(); document.removeEventListener("keydown", onEsc, true) } }
     setTimeout(() => { document.addEventListener("mousedown", onOutside); document.addEventListener("keydown", onEsc, true) }, 0)
@@ -585,7 +658,7 @@ async function mount() {
     return r
   }
 
-  // Deploy the named Sims (or "all") + boot the watch engine for continuous page monitoring.
+  // Deploy the named Sims (or "all") + boot the watch engine + fire an IMMEDIATE review.
   // Uses the anonymous /api/widget/sims endpoint so this works on client sites with no admin auth.
   async function deployAndWatch(simIds: string[] | 'all') {
     _simsWatchCtrl?.stop()
@@ -598,15 +671,52 @@ async function mount() {
         sims = Array.isArray(data.sims) ? data.sims : []
       }
     } catch { /* non-fatal: empty dock is guarded in sims-live.ts */ }
+    _deployedSims = sims
     ;(window as any).KlavitySims?.deploy?.(simIds, sims)
-    // Boot the watch engine to monitor scroll / navigation / DOM mutations.
+    // Boot the watch engine for continuous monitoring (scroll / navigation / mutations).
     _simsWatchCtrl = startSimsWatch({
       backendUrl: cfg.backendUrl,
       projectId: cfg.projectId,
       simIds: simIds === 'all' ? undefined : simIds,
-      captureViewport: () => safeToPng(document.body, { skipFonts: true }),
+      captureViewport: () => safeToPng(document.body, { skipFonts: true, filter: (n) => (n as HTMLElement).id !== HOST_ID }),
       bearerToken: getToken() || undefined,
     })
+    // BOOT: fire an immediate review so Sims react to the current page right away (not only on next scroll).
+    void bootReview(simIds)
+  }
+
+  // Capture the current viewport and POST to /api/sim/review immediately.
+  // This is the "boot" review triggered right after Deploy — no waiting for scroll or mutation.
+  async function bootReview(simIds: string[] | 'all') {
+    try {
+      const shot = await Promise.race([
+        safeToPng(document.body, { skipFonts: true, filter: (n) => (n as HTMLElement).id !== HOST_ID }),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("capture timeout")), 10_000)),
+      ])
+      const body: Record<string, unknown> = {
+        url: location.href,
+        screenshotDataUrl: shot,
+        domSig: null,
+        adhoc: true,
+        projectId: cfg.projectId,
+      }
+      if (simIds !== 'all') body.simIds = simIds
+      const headers: Record<string, string> = { 'content-type': 'application/json' }
+      if (getToken()) headers.authorization = `Bearer ${getToken()}`
+      const res = await fetch(cfg.backendUrl + '/api/sim/review', {
+        method: 'POST', headers, credentials: 'include', body: JSON.stringify(body),
+      })
+      if (!res.ok) return
+      const data = await res.json().catch(() => ({}))
+      if (!data?.ok || !Array.isArray(data.reviews)) return
+      const kl = (window as any).KlavitySims
+      for (const review of data.reviews) {
+        const reactions: unknown[] = Array.isArray(review.reactions) ? review.reactions : []
+        _issueCount += reactions.length
+        try { kl?.renderFeedback?.(review.simId, review.simName ?? '', reactions) } catch { /* never break page */ }
+      }
+      updateIssueCounter()
+    } catch { /* non-fatal: boot review is best-effort */ }
   }
 
   function openConnect() {

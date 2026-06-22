@@ -26,8 +26,8 @@ describe('icon()', () => {
     expect(s).toContain('width="24"');
     expect(s).toContain('class="icon big"');
   });
-  it('throws on unknown name', () => {
+  it('returns empty string for unknown name (fail-soft)', () => {
     // @ts-expect-error invalid name
-    expect(() => icon('not-a-real-icon')).toThrow();
+    expect(icon('not-a-real-icon')).toBe('');
   });
 });
