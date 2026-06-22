@@ -3,16 +3,21 @@
 //
 // Observes three signals on the current page:
 //   1. Scroll (debounced ~700ms) — user explored a new viewport region
-//   2. Navigation (history pushState/replaceState + popstate) — SPA route changed
+//   2. Navigation (history pushState/replaceState + popstate + hashchange) — SPA route changed
 //   3. Significant DOM mutation (MutationObserver, debounced ~800ms) — a panel/dialog/
 //      major content block appeared (e.g. chatbot sidebar, modal, article swap)
 //
 // On each meaningful change: computes a lightweight viewport hash, skips if recently reviewed
-// or hash unchanged, captures the viewport, POSTs to /api/sim/review, and for each returned
-// Sim review calls window.KlavitySims?.renderFeedback(...) (Dev 2's UI layer).
+// or hash unchanged (THROTTLE), captures the viewport, POSTs to /api/sim/review, and for
+// each returned Sim review calls window.KlavitySims?.renderFeedback(...) (Dev 2's UI layer).
 //
-// COST GUARD: minIntervalMs (default 30s) + seenHashes Set prevent duplicate AI calls on
-// every tiny scroll or repeated mutation wave.
+// COST GUARDS (continuous AI calls cost money):
+//   minIntervalMs (default 30s) — hard floor between successive /api/sim/review calls
+//   seenHashes Set — skip when the viewport fingerprint matches a hash already reviewed
+//   mutationEpoch — bumped on each significant mutation batch so in-place content swaps
+//     (same URL / docHeight) always produce a fresh hash and aren't wrongly skipped
+//   busy flag — blocks concurrent calls while a review is in flight
+//   capture timeout (10s) — prevents a hung captureViewport() from locking busy=true
 //
 // Pure helpers (djb2, computeContentHash, shouldSkipReview, isSignificantNode,
 // hasSignificantMutations) are exported for unit testing; DOM wiring is a thin shim.
@@ -29,11 +34,15 @@ export function djb2(s: string): number {
 }
 
 /**
- * Lightweight fingerprint of the current viewport state. Used client-side to skip unchanged
- * views AND as the `domSig` sent to the server for per-Sim deduplication.
+ * Lightweight fingerprint of the current viewport state. Used both client-side (seenHashes
+ * dedup) and as the `domSig` sent to the server for per-Sim deduplication.
  *
- * scrollY is bucketed to 50px so minor scroll drift (e.g. sticky header collapse) doesn't
- * produce a new hash — only navigating to a genuinely different viewport area does.
+ * scrollY is bucketed to 50px so minor scroll drift (sticky-header collapse, etc.) doesn't
+ * produce a new hash — only a genuinely different viewport area does.
+ *
+ * epoch is incremented by the mutation observer each time significant new content is added.
+ * Including it in the hash guarantees that in-place content swaps (same URL/docHeight/scroll
+ * but new DOM subtree) are never wrongly skipped by the seenHashes check.
  */
 export function computeContentHash(
   scrollY: number,
@@ -42,15 +51,21 @@ export function computeContentHash(
   viewportH: number,
   title: string,
   urlPath: string,
+  epoch = 0,
 ): string {
   const bucket = Math.round(scrollY / 50) * 50
-  return djb2(`${bucket}:${docHeight}:${viewportW}x${viewportH}:${urlPath}:${title.slice(0, 80)}`).toString(36)
+  return djb2(
+    `${bucket}:${docHeight}:${viewportW}x${viewportH}:${urlPath}:${title.slice(0, 80)}:e${epoch}`,
+  ).toString(36)
 }
 
 /**
  * Returns true when a review should be skipped because:
  *   – less than minIntervalMs has elapsed since the last review (throttle), OR
  *   – this exact hash was already reviewed this session (content unchanged).
+ * Both checks are independent — the throttle protects against rapid bursts even when the
+ * hash is fresh, and the seenHash check blocks revisiting identical viewport states after the
+ * throttle window has passed.
  */
 export function shouldSkipReview(
   hash: string,
@@ -65,20 +80,18 @@ export function shouldSkipReview(
 
 /**
  * True when an added DOM node qualifies as "significant new content":
- *   – a semantic landmark with role=dialog/main/complementary/…, OR
- *   – a class matching common panel/modal/chat/drawer patterns, OR
- *   – a large visible footprint (≥ 100 × 100 px).
+ *   – a semantic landmark with role=dialog/main/complementary/…
+ *   – a class matching common panel/modal/chat/drawer patterns
+ *   – a large visible footprint (≥ 100 × 100 px)
  * Ignores metadata nodes (script/style/meta/link) and invisible tiny elements.
  */
 export function isSignificantNode(el: Element): boolean {
   const tag = el.tagName?.toUpperCase() ?? ''
   if (['SCRIPT', 'STYLE', 'META', 'LINK', 'HEAD', 'NOSCRIPT'].includes(tag)) return false
 
-  // ARIA landmark roles that unambiguously signal important content.
   const role = el.getAttribute?.('role') ?? ''
   if (['dialog', 'main', 'complementary', 'banner', 'navigation', 'feed', 'log'].includes(role)) return true
 
-  // Common panel / modal / messaging class-name patterns (case-insensitive substring scan).
   const cls = el.className
   if (typeof cls === 'string' && cls) {
     if (/(modal|dialog|drawer|panel|sidebar|chat|message|overlay|sheet|toast|alert|notification|feed|article)/i.test(cls)) return true
@@ -89,7 +102,6 @@ export function isSignificantNode(el: Element): boolean {
     const r = (el as HTMLElement).getBoundingClientRect()
     return r.width >= 100 && r.height >= 100
   }
-  // Headless / test environment: use offsetHeight/offsetWidth if available.
   const h = (el as HTMLElement).offsetHeight ?? 0
   const w = (el as HTMLElement).offsetWidth ?? 0
   return h >= 100 && w >= 100
@@ -115,6 +127,9 @@ const DEFAULT_MIN_INTERVAL_MS = 30_000   // 30s between AI review calls
 const DEFAULT_SCROLL_DEBOUNCE_MS = 700
 const DEFAULT_MUTATION_DEBOUNCE_MS = 800
 const MAX_SEEN_HASHES = 200              // cap the client-side dedup set (memory guard)
+const CAPTURE_TIMEOUT_MS = 10_000       // abort a hung captureViewport() after 10s
+
+type TriggerKind = 'scroll' | 'navigation' | 'mutation'
 
 export interface SimsWatchOptions {
   /** Base URL of the Klavity backend, e.g. "https://klavity.quantana.top". */
@@ -140,18 +155,19 @@ export interface SimsWatchOptions {
 }
 
 export interface SimsWatchController {
-  /** Tear down all listeners, timers, and observers. Safe to call multiple times. */
+  /** Tear down all listeners, timers, observers, and abort any in-flight request. */
   stop: () => void
 }
 
 /**
  * Start the Live Sims change-detection engine.
  *
- * Wires scroll, navigation (pushState/replaceState/popstate), and MutationObserver signals;
- * debounces each to avoid hammering the AI; then drives the capture → /api/sim/review →
- * window.KlavitySims.renderFeedback pipeline.
+ * Wires scroll, navigation (pushState/replaceState/popstate/hashchange), and MutationObserver
+ * signals; debounces and throttles each to avoid flooding the AI; then drives the
+ * capture → /api/sim/review → window.KlavitySims.renderFeedback pipeline.
  *
- * Returns a controller with `stop()` to remove all listeners and restore patched history methods.
+ * Returns a controller with `stop()` that removes all listeners, restores patched history
+ * methods, disconnects the observer, and aborts any in-flight fetch.
  */
 export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
   const minInterval = opts.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS
@@ -160,12 +176,17 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
 
   let stopped = false
   let busy = false
+  // lastReviewAt=0 means "never reviewed"; Date.now() >> minInterval so the first trigger runs.
   let lastReviewAt = 0
   const seenHashes = new Set<string>()
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  // Incremented on each significant mutation batch so in-place DOM swaps produce a fresh hash.
+  let mutationEpoch = 0
+  // AbortController for the current in-flight fetch; aborted by stop().
+  let fetchAbort: AbortController | null = null
 
   // ── Core review pipeline ─────────────────────────────────────────────────────────────────
-  async function runReview(): Promise<void> {
+  async function runReview(trigger: TriggerKind): Promise<void> {
     if (stopped || busy) return
 
     const scrollY = typeof window !== 'undefined' ? (window.scrollY ?? 0) : 0
@@ -178,14 +199,18 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
     const viewportW = typeof window !== 'undefined' ? (window.innerWidth ?? 0) : 0
     const viewportH = typeof window !== 'undefined' ? (window.innerHeight ?? 0) : 0
     const title = typeof document !== 'undefined' ? (document.title ?? '') : ''
-    const urlPath = typeof location !== 'undefined' ? location.pathname + location.search : ''
+    const urlPath = typeof location !== 'undefined' ? location.pathname + location.search + location.hash : ''
 
-    const hash = computeContentHash(scrollY, docHeight, viewportW, viewportH, title, urlPath)
+    // Mutation triggers include the current epoch in the hash so a content swap at the same
+    // scroll position / URL always produces a fresh hash and isn't wrongly skipped.
+    const epoch = trigger === 'mutation' ? mutationEpoch : 0
+    const hash = computeContentHash(scrollY, docHeight, viewportW, viewportH, title, urlPath, epoch)
+
     if (shouldSkipReview(hash, seenHashes, lastReviewAt, Date.now(), minInterval)) return
 
     busy = true
     lastReviewAt = Date.now()
-    // Optimistically mark seen — removed on capture/network error so the next change can retry.
+    // Optimistically mark seen — un-marked on capture / network error so the next change retries.
     seenHashes.add(hash)
     if (seenHashes.size > MAX_SEEN_HASHES) {
       const oldest = seenHashes.values().next().value
@@ -193,8 +218,17 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
     }
 
     try {
-      const screenshotDataUrl = await opts.captureViewport()
+      // Race captureViewport against a timeout so a hung capture never locks busy=true.
+      const screenshotDataUrl = await Promise.race([
+        opts.captureViewport(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('sims-watch: capture timeout')), CAPTURE_TIMEOUT_MS),
+        ),
+      ])
       if (stopped) { busy = false; return }
+
+      const ac = new AbortController()
+      fetchAbort = ac
 
       const body: Record<string, unknown> = {
         url: typeof location !== 'undefined' ? location.href : '',
@@ -212,10 +246,22 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
         method: 'POST',
         headers,
         credentials: 'include',
+        signal: ac.signal,
         body: JSON.stringify(body),
       })
+      fetchAbort = null
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: { ok: boolean; reviews?: Array<{ simId: string; simName: string; initials?: string; accent?: string; reactions: unknown[] }> } = await res.json()
+
+      const data: {
+        ok: boolean
+        reviews?: Array<{
+          simId: string
+          simName: string
+          initials?: string
+          accent?: string
+          reactions: unknown[]
+        }>
+      } = await res.json()
       if (!data?.ok || !Array.isArray(data.reviews)) { busy = false; return }
 
       // Deliver each Sim review to Dev 2's presence UI layer (sims-live.ts).
@@ -226,8 +272,10 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
           kl?.renderFeedback?.(review.simId, review.simName ?? '', review.reactions ?? [])
         } catch { /* UI errors must never break the watch loop */ }
       }
-    } catch {
-      // Capture or network failed — un-mark the hash so the next change triggers a fresh attempt.
+    } catch (e) {
+      // AbortError = intentional teardown via stop(); don't retry or log.
+      if (e instanceof Error && e.name === 'AbortError') { busy = false; return }
+      // Capture timeout or network error — un-mark the hash so the next signal can retry.
       seenHashes.delete(hash)
     } finally {
       busy = false
@@ -235,31 +283,35 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
   }
 
   // ── Shared debounce ──────────────────────────────────────────────────────────────────────
-  // A single timer is shared across all signal types: any new signal resets it. Navigation
-  // signals use delayMs=0 so they preempt a pending scroll/mutation timer and run ASAP.
-  function schedule(delayMs: number): void {
+  // A single timer shared across all signal types. Any new signal resets it.
+  // Navigation signals use delayMs=0 to preempt a pending scroll/mutation timer.
+  function schedule(trigger: TriggerKind, delayMs: number): void {
     if (stopped) return
     if (debounceTimer !== null) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => {
       debounceTimer = null
-      void runReview()
+      void runReview(trigger)
     }, delayMs)
   }
 
   // ── Scroll listener ──────────────────────────────────────────────────────────────────────
-  const onScroll = (): void => schedule(scrollDebounce)
+  const onScroll = (): void => schedule('scroll', scrollDebounce)
 
   // ── MutationObserver ─────────────────────────────────────────────────────────────────────
   let observer: MutationObserver | null = null
   if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' && document.body) {
     observer = new MutationObserver((mutations) => {
-      if (hasSignificantMutations(mutations)) schedule(mutationDebounce)
+      if (hasSignificantMutations(mutations)) {
+        mutationEpoch++  // bump epoch so in-place swaps produce a fresh hash
+        schedule('mutation', mutationDebounce)
+      }
     })
     observer.observe(document.body, { childList: true, subtree: true })
   }
 
-  // ── Navigation: patch pushState / replaceState; listen for popstate ──────────────────────
-  // history.pushState and .replaceState don't fire native events, so we wrap them.
+  // ── Navigation: pushState / replaceState / popstate / hashchange ─────────────────────────
+  // pushState and replaceState don't fire native events so we wrap them.
+  // hashchange covers #fragment SPA routers that don't use the History API.
   type HistoryMethod = typeof history.pushState
   const origPush: HistoryMethod = typeof history !== 'undefined'
     ? history.pushState.bind(history)
@@ -271,36 +323,47 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
   if (typeof history !== 'undefined') {
     history.pushState = function (state: unknown, unused: string, url?: string | URL | null) {
       origPush(state, unused, url)
-      schedule(0) // navigation = clear the queue; run as soon as the new route renders
+      schedule('navigation', 0)
     }
     history.replaceState = function (state: unknown, unused: string, url?: string | URL | null) {
       origReplace(state, unused, url)
-      schedule(0)
+      schedule('navigation', 0)
     }
   }
 
-  const onPopState = (): void => schedule(0)
+  const onPopState = (): void => schedule('navigation', 0)
+  const onHashChange = (): void => schedule('navigation', 0)
 
   if (typeof window !== 'undefined') {
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('popstate', onPopState)
+    window.addEventListener('hashchange', onHashChange)
   }
 
-  // ── Stop / cleanup ───────────────────────────────────────────────────────────────────────
+  // ── Stop / full teardown ─────────────────────────────────────────────────────────────────
   function stop(): void {
     if (stopped) return
     stopped = true
+    // Cancel any pending debounce timer.
     if (debounceTimer !== null) { clearTimeout(debounceTimer); debounceTimer = null }
+    // Abort any in-flight fetch request immediately.
+    fetchAbort?.abort()
+    fetchAbort = null
+    // Disconnect the mutation observer.
     observer?.disconnect()
     observer = null
+    // Remove all window event listeners.
     if (typeof window !== 'undefined') {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('hashchange', onHashChange)
     }
+    // Restore patched history methods.
     if (typeof history !== 'undefined') {
       history.pushState = origPush
       history.replaceState = origReplace
     }
+    // Release memory.
     seenHashes.clear()
   }
 
