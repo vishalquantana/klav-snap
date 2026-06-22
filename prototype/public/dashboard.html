@@ -60,9 +60,16 @@ body[data-view="settings"] [data-view]:not([data-view~="settings"]){display:none
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:28px}
 h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02em;margin-bottom:4px}
 .lead{color:var(--paper-dim);font-size:15px}
-/* project switcher cluster — sits top-left as an eyebrow above the page title */
+/* project switcher cluster — its home is the top navbar (.bar) as the left item */
 .proj-pick{margin-bottom:12px}
 .proj-pick .newproj{margin-top:0}
+/* In the top navbar bar: inline, vertically centred, sized to fit the 60px-tall header */
+.bar .proj-pick{margin-bottom:0;min-width:0}
+.bar .proj-pick .msg{display:none}            /* no room for the inline status line in the bar */
+.bar .proj-select{padding:7px 32px 7px 12px;font-size:13.5px;max-width:230px;text-overflow:ellipsis;transition:border-color var(--mi-dur,.15s) var(--mi-ease,ease)}
+.bar .proj-select:hover{border-color:var(--indigo)}
+.bar .newproj input{min-width:150px;padding:7px 11px;font-size:13px}
+@media(max-width:560px){.bar .switcher .sw-lbl{display:none}.bar .proj-select{max-width:150px}}
 .switcher{display:flex;align-items:center;gap:8px}
 .switcher .sw-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint)}
 .proj-select{appearance:none;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 34px 9px 13px;color:var(--paper);font-family:var(--body);font-weight:600;font-size:14px;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
@@ -670,6 +677,21 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 <body data-view="overview">
 <div class="bar"><div class="bar-in">
   <span class="ws hide" id="wsName"></span>
+  <!-- Project switcher lives in the top navbar as the LEFT item (not floating in content).
+       #projSwitcher and #newProj are a swap-pair (the "＋ New project…" option hides one and
+       shows the other in the same slot); JS (onchange/load, openNewProject) toggles by ID. -->
+  <div class="proj-pick">
+    <div class="switcher" id="projSwitcher">
+      <span class="sw-lbl">Project</span>
+      <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
+    </div>
+    <div class="newproj hide" id="newProj">
+      <input id="newProjName" type="text" placeholder="New project name" maxlength="60" />
+      <button class="btn btn-indigo btn-sm" id="newProjCreate">Create</button>
+      <button class="btn btn-ghost btn-sm" id="newProjCancel">Cancel</button>
+    </div>
+    <div class="msg" id="newProjMsg"></div>
+  </div>
   <div class="right">
     <button class="nav-icon" id="themeToggle" type="button" aria-label="Toggle dark mode"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></button>
     <span class="who" id="who"></span>
@@ -692,21 +714,6 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <div class="content">
   <div class="head">
     <div>
-      <!-- Project switcher: the single picker, pinned top-left as an eyebrow above the title.
-           #projSwitcher and #newProj are a swap-pair (the "＋ New project…" option hides one and
-           shows the other in the same slot); JS (onchange/load, openNewProject) toggles by ID. -->
-      <div class="proj-pick">
-        <div class="switcher" id="projSwitcher">
-          <span class="sw-lbl">Project</span>
-          <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
-        </div>
-        <div class="newproj hide" id="newProj">
-          <input id="newProjName" type="text" placeholder="New project name" maxlength="60" />
-          <button class="btn btn-indigo btn-sm" id="newProjCreate">Create</button>
-          <button class="btn btn-ghost btn-sm" id="newProjCancel">Cancel</button>
-        </div>
-        <div class="msg" id="newProjMsg"></div>
-      </div>
       <h1 id="hello">Dashboard</h1>
       <p class="lead" id="lead">Gathering what your Sims have been finding…</p>
     </div>
