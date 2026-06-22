@@ -32,7 +32,7 @@ export interface LiveSimDescriptor {
 }
 
 export interface LiveObservation {
-  observation: string
+  text: string                        // observation text (matches SimObservation.text from server)
   sentiment?: string | null
   severity?: string | null
   suggestedBug?: { title?: string } | null
@@ -299,6 +299,7 @@ function ensureHost(): ShadowRoot {
 // ── Deploy ────────────────────────────────────────────────────────────────────
 
 function deploy(simIds: string[] | 'all', sims: LiveSimDescriptor[] = []): void {
+  if (typeof document === 'undefined') return  // SSR / Node — no-op
   undeploy()
 
   const shadow = ensureHost()
@@ -335,6 +336,12 @@ function deploy(simIds: string[] | 'all', sims: LiveSimDescriptor[] = []): void 
   const visibleSims = simIds === 'all'
     ? sims
     : sims.filter((s) => (simIds as string[]).includes(s.id))
+
+  if (visibleSims.length === 0) {
+    console.warn('[KlavitySims] deploy() called with an empty sims list — dock not mounted. Pass sims descriptors as the second argument.')
+    undeploy()
+    return
+  }
 
   // Cap at 8 visible Sims; wrap-reverse CSS handles the 2-row stacking
   const shown = visibleSims.slice(0, 8)
@@ -373,7 +380,10 @@ function deploy(simIds: string[] | 'all', sims: LiveSimDescriptor[] = []): void 
 function renderFeedback(simId: string, simName: string, observations: LiveObservation[]): void {
   if (!dockEl || !shadowRoot) return
   const slot = simSlots.get(simId)
-  if (!slot) return
+  if (!slot) {
+    console.warn(`[KlavitySims] renderFeedback: simId "${simId}" not in dock — deploy() first or check simId matches.`)
+    return
+  }
 
   // Dismiss any existing bubble for this Sim before showing a new one
   slot.clearBubble?.()
@@ -389,7 +399,7 @@ function renderFeedback(simId: string, simName: string, observations: LiveObserv
     announcer.textContent = ''
     // Toggling forces a re-announcement if the same Sim fires again
     requestAnimationFrame(() => {
-      announcer.textContent = `${simName}: ${first.observation || ''}${extraCount > 0 ? ` (and ${extraCount} more)` : ''}`
+      announcer.textContent = `${simName}: ${first.text || ''}${extraCount > 0 ? ` (and ${extraCount} more)` : ''}`
     })
   }
 
@@ -428,7 +438,7 @@ function renderFeedback(simId: string, simName: string, observations: LiveObserv
   // Observation text — textContent only (XSS guard on LLM output)
   const obsEl = document.createElement('div')
   obsEl.className = 'ksl-b-obs'
-  obsEl.textContent = first.observation || ''
+  obsEl.textContent = first.text || ''
 
   bubble.appendChild(closeBtn)
   bubble.appendChild(tag)
@@ -492,9 +502,10 @@ export const SimsLive: KlavitySimsAPI = { deploy, renderFeedback, undeploy }
  * Called by the widget/extension bootstrap after loading this module.
  */
 export function installKlavitySims(): void {
+  if (typeof window === 'undefined') return  // SSR / Node / service-worker — no-op
   if ((window as any).KlavitySims) return
   ;(window as any).KlavitySims = SimsLive
 }
 
-// Auto-install when loaded as a side-effecting module
-installKlavitySims()
+// Auto-install when loaded as a side-effecting module (browser only)
+if (typeof window !== 'undefined') installKlavitySims()

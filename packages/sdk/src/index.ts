@@ -147,4 +147,6 @@ if (typeof window !== 'undefined') {
   (window as unknown as Record<string, unknown>).KlavitySnap = { init, openModal, identify, setMetadata }
 }
 
+export { SimsLive, SimsLive as KlavitySims, installKlavitySims, type KlavitySimsAPI, type LiveObservation, type LiveSimDescriptor } from './sims-live'
+
 export default { init, openModal, identify, setMetadata }

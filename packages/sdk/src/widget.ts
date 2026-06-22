@@ -10,6 +10,8 @@ import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, succes
 import { icon } from "@klavity/core/icons"
 import { startReplayRecording, type ReplayController } from "./replay-recorder"
 import { injectRecorderScript } from "./load-recorder"
+import "./sims-live"  // side-effecting: auto-installs window.KlavitySims on load
+import { startSimsWatch, type SimsWatchController } from "./sims-watch"
 
 const HOST_ID = "klavity-widget-host"
 const TOKEN_KEY = "klavity_widget_token"
@@ -153,6 +155,9 @@ async function captureSharpFullPage(): Promise<string> {
     try { stream.getTracks().forEach((t) => t.stop()) } catch { /* noop */ }
   }
 }
+
+// Active watch-engine controller — torn down when Sims are undeployed.
+let _simsWatchCtrl: SimsWatchController | null = null
 
 async function mount() {
   const cfg = parseScriptConfig(currentScript())
@@ -464,7 +469,7 @@ async function mount() {
         confirmBtn.textContent = n > 0 ? `Deploy ${n} Sim${n > 1 ? "s" : ""} →` : "Select a Sim first"
         confirmBtn.style.opacity = n > 0 ? "1" : ".45"
       }
-      confirmBtn.addEventListener("click", () => { if (!sel.size) return; closeMenu(); ;(window as any).KlavitySims?.deploy?.([...sel]) })
+      confirmBtn.addEventListener("click", () => { if (!sel.size) return; closeMenu(); void deployAndWatch([...sel]) })
       // Sim rows — scrollable list
       const list = document.createElement("div")
       list.style.cssText = "display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto"
@@ -492,7 +497,11 @@ async function mount() {
     }
     menu.appendChild(card("zap", "Report a Bug", "Snap the page and tell us what broke.", { primary: true, onClick: () => openReport("bug") }))
     menu.appendChild(card("lightbulb", "Request a Feature", "Suggest something you'd love to see.", { onClick: () => openReport("feature") }))
-    menu.appendChild(card("users", "Deploy all Sims", "Have every Sim jump in and analyze this page.", { onClick: () => { closeMenu(); ;(window as any).KlavitySims?.deploy?.("all") } }))
+    // Sims live review — only shown to authenticated team members (token present).
+    if (getToken()) {
+      menu.appendChild(card("dna", "Ask Sims to review this", "Get instant in-character reactions from your AI personas.", { onClick: () => void runReview() }))
+    }
+    menu.appendChild(card("users", "Deploy all Sims", "Have every Sim jump in and analyze this page.", { onClick: () => { closeMenu(); void deployAndWatch("all") } }))
     menu.appendChild(card("sparkles", "Select Sims…", "Choose which Sims jump into action.", { onClick: () => { void showSimPicker() } }))
     menu.appendChild(card("monitor", "Show browser menu", "Open your browser's own menu instead.", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
     // "Powered by Klavity" footer — gradient wordmark, opens the marketing site in a new tab
@@ -576,6 +585,30 @@ async function mount() {
     return r
   }
 
+  // Deploy the named Sims (or "all") + boot the watch engine for continuous page monitoring.
+  // Fetches the project's personas so deploy() receives a non-empty sims descriptor array.
+  async function deployAndWatch(simIds: string[] | 'all') {
+    _simsWatchCtrl?.stop()
+    _simsWatchCtrl = null
+    let sims: Array<{ id: string; name: string; initials?: string; accent?: string }> = []
+    try {
+      const r = await api("/api/personas?project=" + encodeURIComponent(cfg.projectId))
+      if (r.ok) {
+        const data = await r.json().catch(() => ({}))
+        sims = Array.isArray(data.personas) ? data.personas : []
+      }
+    } catch { /* non-fatal: empty dock is guarded in sims-live.ts */ }
+    ;(window as any).KlavitySims?.deploy?.(simIds, sims)
+    // Boot the watch engine to monitor scroll / navigation / DOM mutations.
+    _simsWatchCtrl = startSimsWatch({
+      backendUrl: cfg.backendUrl,
+      projectId: cfg.projectId,
+      simIds: simIds === 'all' ? undefined : simIds,
+      captureViewport: () => safeToPng(document.body, { skipFonts: true }),
+      bearerToken: getToken() || undefined,
+    })
+  }
+
   function openConnect() {
     const u = cfg.backendUrl + "/widget-connect?project=" + encodeURIComponent(cfg.projectId)
       + "&origin=" + encodeURIComponent(location.origin)
@@ -639,10 +672,10 @@ async function mount() {
     btn.disabled = false; btn.textContent = orig
     if (r.status === 401) { clearToken(); dock.innerHTML = ""; return }  // token expired → drop the Sims dock; never show a bare Connect CTA
     if (!j.ok) { banner(gateMessage(j.reason || "")); return }
-    for (const rev of (j.reviews || [])) for (const re of (rev.reactions || [])) {
-      renderBubble(rev.simName, rev.accent || "#6366f1", re.observation, re.sentiment)
+    for (const rev of (j.reviews || [])) for (const re of (rev.observations || [])) {
+      renderBubble(rev.simName, rev.accent || "#6366f1", re.text, re.sentiment)
     }
-    if (!(j.reviews || []).some((x: any) => (x.reactions || []).length)) banner("Your Sims had nothing to flag here.")
+    if (!(j.reviews || []).some((x: any) => (x.observations || []).length)) banner("Your Sims had nothing to flag here.")
   }
 
   function renderBubble(name: string, accent: string, observation: string, sentiment: string) {

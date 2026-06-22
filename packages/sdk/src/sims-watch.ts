@@ -251,25 +251,15 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
       })
       fetchAbort = null
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-      const data: {
-        ok: boolean
-        reviews?: Array<{
-          simId: string
-          simName: string
-          initials?: string
-          accent?: string
-          reactions: unknown[]
-        }>
-      } = await res.json()
+      const data: { ok: boolean; reviews?: Array<{ simId: string; simName: string; initials?: string; accent?: string; observations: unknown[] }> } = await res.json()
       if (!data?.ok || !Array.isArray(data.reviews)) { busy = false; return }
 
-      // Deliver each Sim review to Dev 2's presence UI layer (sims-live.ts).
+      // Deliver each Sim review to the presence UI layer (sims-live.ts / window.KlavitySims).
       const kl = typeof window !== 'undefined' ? (window as any).KlavitySims : null
       for (const review of data.reviews) {
         if (!review?.simId) continue
         try {
-          kl?.renderFeedback?.(review.simId, review.simName ?? '', review.reactions ?? [])
+          kl?.renderFeedback?.(review.simId, review.simName ?? '', review.observations ?? [])
         } catch { /* UI errors must never break the watch loop */ }
       }
     } catch (e) {
