@@ -1209,7 +1209,11 @@ async function load() {
   finally { kbar.done() }
   if (!data || data.error) {
     // Keep whatever we painted from cache; only surface the error on a true cold miss.
-    if (state === null) $("lead").textContent = "Couldn't load your project. Try refreshing."
+    if (state === null) {
+      $("lead").textContent = "Couldn't load your project. Try refreshing."
+      // No cache + failed fetch → the stat skeletons would shimmer forever; resolve them to a dash.
+      ;["stFeedback", "stSims", "stTeam", "stTickets"].forEach(id => { const e = $(id); if (e) e.textContent = "—" })
+    }
     return
   }
   // SWR step 3 — swap in fresh data, re-render (with sub-loaders), and re-cache.
@@ -1471,6 +1475,13 @@ function renderStats() {
   const ins = (state && state.insights) || {}
   const sev = ins.openBySeverity || { high: 0, medium: 0, low: 0, none: 0 }
   const setT = (id, v) => { const e = $(id); if (e) e.textContent = v }
+  // Overview metric cards — populate the 4 stat numbers (this paints instantly from the
+  // SWR-cached state on repeat loads). Always resolve to a value so the skeleton placeholder
+  // is replaced even when a count is missing/null: a dash, never an endless shimmer.
+  setT("stFeedback", c.feedback != null ? c.feedback : "—")
+  setT("stSims", (state && state.sims || []).length)
+  setT("stTeam", (state && state.members || []).length)
+  setT("stTickets", c.tickets != null ? c.tickets : "—")
   const sevEl = $("kpiSev")
   if (sevEl) sevEl.innerHTML =
     `<div class="sg hi" data-sev="high" role="button" tabindex="0" title="View critical issues"><b>${sev.high || 0}</b><span>Critical</span></div>` +

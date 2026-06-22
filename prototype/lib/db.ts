@@ -110,6 +110,9 @@ export async function applySchema(c: Client) {
      )`,
     `CREATE INDEX IF NOT EXISTS fb_proj_idx ON feedback (project_id, created_at)`,
     `CREATE INDEX IF NOT EXISTS fb_sim_idx ON feedback (sim_id, created_at)`,
+    // Partial index for the "Tickets filed" count — only rows that reached the tracker, so the
+    // dashboardCounts tickets COUNT is an index range-scan over a small subset, not the full table.
+    `CREATE INDEX IF NOT EXISTS fb_proj_plane_idx ON feedback (project_id) WHERE plane_issue_key IS NOT NULL`,
     `CREATE TABLE IF NOT EXISTS activity_events (
        id TEXT PRIMARY KEY,
        project_id TEXT NOT NULL,
@@ -1224,17 +1227,21 @@ export async function bumpFeedbackRecurrence(id: string, atMs: number): Promise<
 }
 
 // Cheap headline counts for the dashboard (indexed scans).
-export async function dashboardCounts(projectId: string): Promise<{ feedback: number; tickets: number; activity: number }> {
-  const [fb, tk, ev] = await Promise.all([
-    db!.execute({ sql: "SELECT COUNT(*) AS n FROM feedback WHERE project_id=?", args: [projectId] }),
-    db!.execute({ sql: "SELECT COUNT(*) AS n FROM feedback WHERE project_id=? AND plane_issue_key IS NOT NULL", args: [projectId] }),
-    db!.execute({ sql: "SELECT COUNT(*) AS n FROM activity_events WHERE project_id=?", args: [projectId] }),
+// Overview metric counts. All three are indexed COUNT(*)s scoped to one project:
+//   feedback → fb_proj_idx(project_id,…); tickets → fb_proj_plane_idx (partial, plane_issue_key
+//   NOT NULL); activity → evt_proj_idx(project_id,…). Resilient by design: a single slow/failing
+//   count resolves to `null` (rendered as "—" client-side) instead of rejecting and taking the
+//   whole /api/dashboard payload down with it — a decorative number must never break the page.
+export async function dashboardCounts(projectId: string): Promise<{ feedback: number | null; tickets: number | null; activity: number | null }> {
+  const q = (sql: string) => db!.execute({ sql, args: [projectId] })
+  const settled = await Promise.allSettled([
+    q("SELECT COUNT(*) AS n FROM feedback WHERE project_id=?"),
+    q("SELECT COUNT(*) AS n FROM feedback WHERE project_id=? AND plane_issue_key IS NOT NULL"),
+    q("SELECT COUNT(*) AS n FROM activity_events WHERE project_id=?"),
   ])
-  return {
-    feedback: Number((fb.rows[0] as any).n),
-    tickets: Number((tk.rows[0] as any).n),
-    activity: Number((ev.rows[0] as any).n),
-  }
+  const num = (s: PromiseSettledResult<any>): number | null =>
+    s.status === "fulfilled" ? Number((s.value.rows[0] as any).n) : null
+  return { feedback: num(settled[0]), tickets: num(settled[1]), activity: num(settled[2]) }
 }
 
 // ── AI-call ledger (/opsadmin) ── one row per OpenRouter call; reads are global (not project-scoped).
