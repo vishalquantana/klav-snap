@@ -990,12 +990,12 @@ const CSP = [
   "media-src 'self' blob: data:",
   "worker-src 'self' blob:",
   "connect-src 'self' https:",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
   "base-uri 'self'",
   "object-src 'none'",
 ].join("; ")
 const SEC_HEADERS: Record<string, string> = {
-  "X-Frame-Options": "DENY",
+  "X-Frame-Options": "SAMEORIGIN",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Content-Security-Policy": CSP,
