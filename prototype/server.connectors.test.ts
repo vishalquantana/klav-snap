@@ -396,3 +396,62 @@ test("auto-copy fires exactly once when filing feedback (no double-export)", asy
     recv.stop(true)
   }
 }, 10000)
+
+// ── Auto-copy to PLANE writes plane_issue_key/url back onto the feedback row ─────
+// Regression for the pipeline bug: connector auto-copy created the Plane issue + a ticket_exports
+// row, but never called updateFeedbackTracker, so feedback.plane_issue_key stayed NULL and the
+// dashboard never showed the report as filed. A fake Plane API returns {id, sequence_id}; after
+// filing feedback we assert (a) a ticket_exports ok row and (b) the row's plane_issue_key/url are set.
+test("auto-copy to Plane backfills feedback.plane_issue_key + plane_issue_url", async () => {
+  let hits = 0
+  const plane = Bun.serve({
+    port: 0,
+    fetch() { hits++; return new Response(JSON.stringify({ id: "issue-uuid-1", sequence_id: 207 }), { status: 201, headers: { "content-type": "application/json" } }) },
+  })
+  try {
+    const host = `http://localhost:${plane.port}`
+    // An enabled auto_copy PLANE connector pointed at the fake Plane API (token is a secret field →
+    // encrypted on store, decrypted by the auto-copy hook).
+    const cr = await api("POST", `/api/projects/${PROJECT_ID}/connectors`, {
+      type: "plane", name: "AutoCopy Plane",
+      config: { host, workspace: "qbuilder", project_id: "05ea72ad", token: "secret-token" },
+      autoCopy: true,
+    }, ADMIN_SID)
+    expect(cr.status).toBe(201)
+    const cid = (await cr.json()).connector.id
+
+    // File a feedback → triggers the fire-and-forget auto-copy hook.
+    const fd = new FormData()
+    fd.set("description", `plane writeback ${ts}`)
+    fd.set("project_id", PROJECT_ID)
+    const fr = await fetch(`${BASE}/api/feedback`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ADMIN_SID}`, cookie: authCookie(ADMIN_SID) },
+      body: fd,
+    })
+    expect(fr.ok).toBe(true)
+
+    // Wait for the export row to land (≤4s).
+    const exRows = async () =>
+      (await rawClient.execute({ sql: "SELECT status, external_key, feedback_id FROM ticket_exports WHERE connector_id=?", args: [cid] })).rows
+    for (let i = 0; i < 80 && (await exRows()).length === 0; i++) await new Promise((r) => setTimeout(r, 50))
+    const landed = await exRows()
+    expect(landed.length).toBe(1)
+    expect(String(landed[0].status)).toBe("ok")
+    expect(String(landed[0].external_key)).toBe("207")
+    expect(hits).toBe(1)
+
+    // THE FIX: the feedback row now carries the Plane key/url (was NULL before).
+    const fid = String(landed[0].feedback_id)
+    let fb: any
+    for (let i = 0; i < 40; i++) {
+      fb = (await rawClient.execute({ sql: "SELECT plane_issue_key, plane_issue_url FROM feedback WHERE id=?", args: [fid] })).rows[0]
+      if (fb && fb.plane_issue_key) break
+      await new Promise((r) => setTimeout(r, 50))
+    }
+    expect(String(fb?.plane_issue_key)).toBe("207")
+    expect(String(fb?.plane_issue_url || "")).toContain("/projects/05ea72ad/")
+  } finally {
+    plane.stop(true)
+  }
+}, 12000)

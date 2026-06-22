@@ -857,6 +857,67 @@ const TRANSCRIPT_PER_PROJECT = 60      // per project / hour
 const AUTOCOPY_WINDOW = 60 * 60 * 1000
 const AUTOCOPY_PER_PROJECT = 60
 
+// Auto-copy a freshly-filed feedback row to every enabled auto-copy connector on its project.
+// Fire-and-forget: never blocks the response, never throws. SHARED by BOTH feedback sources —
+// manual/widget reports (POST /api/feedback) and Sim-generated observations (the review run) — so
+// observations export too, not only manual reports. On a successful Plane export it also writes
+// plane_issue_key/url back onto the feedback row (this writeback was missing, so exports succeeded
+// but the row stayed plane_issue_key=NULL and the dashboard never showed it as filed).
+function autoCopyFeedback(feedbackId: string, projectId: string, actor: string | null): void {
+  void (async () => {
+    try {
+      const connectors = await listAutoCopyConnectors(projectId)
+      if (!connectors.length) return
+      // M6/ASI: bound auto-filed tickets per project so a burst of feedback can't flood the tracker.
+      if (!rlAllow(`autocopy:${projectId}`, AUTOCOPY_PER_PROJECT, AUTOCOPY_WINDOW)) {
+        console.warn(`auto-copy rate cap hit for project ${projectId} — skipping`)
+        return
+      }
+      // Build the SAME rich payload the manual export uses, once, from the persisted row.
+      const fb = await feedbackById(projectId, feedbackId)
+      if (!fb) return
+      const simName = await resolveSimName(projectId, fb.simId)
+      const ticketPayload = await feedbackToTicketPayload(fb, { id: projectId }, simName)
+      let trackerWritten = !!fb.planeIssueKey   // don't overwrite a key set manually / by a prior export
+      for (const c of connectors) {
+        const adapter = getConnector(c.type)
+        if (!adapter) continue
+        // Decrypt secret fields.
+        const cfg: Record<string, string> = { ...c.config }
+        for (const f of adapter.fields) {
+          if (f.secret && c.config[f.key]) {
+            try { cfg[f.key] = await decryptSecret(c.config[f.key]) } catch { cfg[f.key] = "" }
+          }
+        }
+        try {
+          const result = await adapter.createIssue(ticketPayload, cfg)
+          await addTicketExport({
+            feedbackId, projectId, connectorId: c.id,
+            type: c.type, externalKey: result.externalKey, externalUrl: result.externalUrl,
+            status: "ok", error: null, createdBy: actor,
+          })
+          // Plane is the primary tracker (feedback.plane_issue_*). Backfill it so /dashboard shows
+          // the row as filed — this is the bit that was missing for connector auto-copy.
+          if (c.type === "plane" && !trackerWritten) {
+            try {
+              await updateFeedbackTracker(feedbackId, result.externalKey || null, result.externalUrl || null)
+              trackerWritten = true
+            } catch (e: any) { console.warn("auto-copy tracker writeback failed (non-fatal):", e?.message || e) }
+          }
+        } catch (e: any) {
+          await addTicketExport({
+            feedbackId, projectId, connectorId: c.id,
+            type: c.type, externalKey: null, externalUrl: null,
+            status: "failed", error: e?.message || "auto-copy failed", createdBy: actor,
+          })
+        }
+      }
+    } catch (err: any) {
+      console.error("auto-copy hook (non-fatal):", err?.message || err)
+    }
+  })().catch((err: any) => console.error("auto-copy hook outer (non-fatal):", err?.message || err))
+}
+
 // Anonymous feedback rate limits (per hour). Per-IP guards a single abuser; per-project caps the
 // total anonymous intake for one project so a leaked project_id can't be used to flood a tenant.
 const FEEDBACK_ANON_WINDOW = 60 * 60 * 1000
@@ -1582,61 +1643,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                 catch (re: any) { console.warn("feedback replay save (non-fatal):", re?.message || re) }
               }
 
-              // ── auto-copy hook: fire-and-forget, never blocks the response ──
-              // For each enabled auto-copy connector in this project, push the ticket.
-              // Mirrors the recordAiCall fire-and-forget pattern.
-              if (feedbackId && !dedupedInto) {
-                const autoCopyFbId = feedbackId
-                const autoCopyProjectId = projectId
-                const autoCopyObservation = observation
-                const autoCopyActor = actor
-                void (async () => {
-                  try {
-                    const autoCopyConnectors = await listAutoCopyConnectors(autoCopyProjectId)
-                    if (!autoCopyConnectors.length) return
-                    // M6/ASI: bound auto-filed tickets per project so a burst of feedback (or injected
-                    // AI content) can't flood the external tracker. Over the cap, skip auto-copy for this
-                    // item (it's still persisted in our ledger and can be exported manually).
-                    if (!rlAllow(`autocopy:${autoCopyProjectId}`, AUTOCOPY_PER_PROJECT, AUTOCOPY_WINDOW)) {
-                      console.warn(`auto-copy rate cap hit for project ${autoCopyProjectId} — skipping`)
-                      return
-                    }
-                    // Build the SAME rich payload the manual export uses (incl. resolved Sim name),
-                    // once, from the persisted row — so auto-copied and manually-copied tickets match.
-                    const autoCopyFb = await feedbackById(autoCopyProjectId, autoCopyFbId)
-                    if (!autoCopyFb) return
-                    const autoCopySimName = await resolveSimName(autoCopyProjectId, autoCopyFb.simId)
-                    const ticketPayload = await feedbackToTicketPayload(autoCopyFb, { id: autoCopyProjectId }, autoCopySimName)
-                    for (const c of autoCopyConnectors) {
-                      const adapter = getConnector(c.type)
-                      if (!adapter) continue
-                      // Decrypt secret fields
-                      const cfg: Record<string, string> = { ...c.config }
-                      for (const f of adapter.fields) {
-                        if (f.secret && c.config[f.key]) {
-                          try { cfg[f.key] = await decryptSecret(c.config[f.key]) } catch { cfg[f.key] = "" }
-                        }
-                      }
-                      try {
-                        const result = await adapter.createIssue(ticketPayload, cfg)
-                        await addTicketExport({
-                          feedbackId: autoCopyFbId, projectId: autoCopyProjectId, connectorId: c.id,
-                          type: c.type, externalKey: result.externalKey, externalUrl: result.externalUrl,
-                          status: "ok", error: null, createdBy: autoCopyActor,
-                        })
-                      } catch (e: any) {
-                        await addTicketExport({
-                          feedbackId: autoCopyFbId, projectId: autoCopyProjectId, connectorId: c.id,
-                          type: c.type, externalKey: null, externalUrl: null,
-                          status: "failed", error: e?.message || "auto-copy failed", createdBy: autoCopyActor,
-                        })
-                      }
-                    }
-                  } catch (err: any) {
-                    console.error("auto-copy hook (non-fatal):", err?.message || err)
-                  }
-                })().catch((err: any) => console.error("auto-copy hook outer (non-fatal):", err?.message || err))
-              }
+              // ── auto-copy hook (shared with the Sim review path) ──
+              if (feedbackId && !dedupedInto) autoCopyFeedback(feedbackId, projectId, actor)
             }
           } catch (persistErr: any) {
             console.error("feedback persistence (non-fatal):", persistErr?.message || persistErr)
@@ -2052,6 +2060,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               ? { citedTraitIds: citation.citedTraitIds, sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate, sourceQuoteVerified: citation.sourceQuoteVerified, recurrence: citation.recurrence }
               : null
             r.feedbackId = feedbackId
+            // Auto-copy Sim-generated observations to the project's tracker too (previously only
+            // manual/widget reports auto-copied → Sim feedback never reached Plane). New rows only.
+            if (feedbackId && !dedupedInto) autoCopyFeedback(feedbackId, projectId, meR)
             // ── expectations spine ingest: best-effort, fires on both deduped and new branches ──
             if (bug && feedbackId && db) {
               await ingestSnapOrSim(db, {
