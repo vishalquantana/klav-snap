@@ -91,41 +91,44 @@ export function buildModal(
     @keyframes kl-genie-out{from{opacity:1;transform:translateY(0) scaleX(1) scaleY(1)}to{opacity:0;transform:translateY(180px) scaleX(.04) scaleY(.06)}}
     @keyframes kl-ov{from{opacity:0}to{opacity:1}}
     .klavity-overlay{position:fixed;inset:0;background:var(--kl-overlay);display:flex;align-items:center;justify-content:center;pointer-events:all;animation:kl-ov .3s ease both;}
-    .klavity-modal{background:var(--kl-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
+    .klavity-modal{background:var(--kl-bg);color:var(--kl-fg);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:0 0 0 1px var(--kl-border),var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
     .klavity-modal.kl-closing{animation:kl-genie-out .5s cubic-bezier(.55,0,.85,.25) both;}
     .klavity-toggle{display:flex;gap:8px;margin-bottom:16px;}
-    .klavity-toggle button{flex:1;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:14px;font-weight:600;background:var(--kl-chip);color:var(--kl-fg);}
+    .klavity-toggle button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:600;background:var(--kl-chip);color:var(--kl-fg);}
     .klavity-toggle .bug.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
     .klavity-toggle .feat.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
     .klavity-page{font-size:12px;color:var(--kl-muted);margin-bottom:12px;}
     .klavity-strip{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;min-height:64px;}
     .klavity-thumb{position:relative;flex-shrink:0;}
-    .klavity-thumb img{height:72px;width:104px;object-fit:cover;object-position:top center;background:var(--kl-chip);display:block;border-radius:4px;border:1px solid var(--kl-border);cursor:pointer;transition:filter .12s;}
+    .klavity-thumb img{height:72px;width:104px;object-fit:cover;object-position:top center;background:var(--kl-chip);display:block;border-radius:8px;outline:1px solid var(--kl-img-outline);outline-offset:-1px;cursor:pointer;transition:filter .12s;}
     .klavity-thumb img:hover{filter:brightness(.85);}
     .klavity-rm{position:absolute;top:4px;right:4px;z-index:2;background:var(--kl-accent2);color:var(--kl-on-accent);border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);}
     .klavity-mk{position:absolute;bottom:4px;right:4px;z-index:2;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);}
+    /* Extend the 22px badges to a ≥40px hit area without enlarging the visible button. The top (X) and
+       bottom (pencil) pseudo-areas don't overlap each other; the pencil shares the image's markup action. */
+    .klavity-rm::after,.klavity-mk::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;}
     .klavity-actions{display:flex;gap:8px;margin-bottom:12px;}
-    .klavity-actions button{flex:1;padding:8px;background:var(--kl-chip);color:var(--kl-fg);border:none;border-radius:6px;cursor:pointer;font-size:12px;}
-    .klavity-counter{font-size:11px;color:var(--kl-muted);margin-bottom:8px;}
-    textarea.klavity-desc{width:100%;min-height:100px;resize:vertical;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:6px;padding:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
-    input.klavity-remail{width:100%;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:6px;padding:10px;font-size:14px;margin-bottom:10px;box-sizing:border-box;}
-    .klavity-submit{width:100%;padding:12px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
+    .klavity-actions button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:var(--kl-chip);color:var(--kl-fg);border:none;border-radius:8px;cursor:pointer;font-size:12px;}
+    .klavity-counter{font-size:11px;color:var(--kl-muted);margin-bottom:8px;font-variant-numeric:tabular-nums;}
+    textarea.klavity-desc{width:100%;min-height:100px;resize:vertical;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:8px;padding:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
+    input.klavity-remail{width:100%;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:8px;padding:10px;font-size:14px;margin-bottom:10px;box-sizing:border-box;}
+    .klavity-submit{width:100%;min-height:40px;padding:12px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;}
     .klavity-submit:disabled{opacity:.5;cursor:not-allowed;}
     .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
     .klavity-success h2{margin:0 0 8px;font-size:18px;color:var(--kl-fg);}
     .klavity-success p{margin:0 0 16px;font-size:14px;color:var(--kl-muted);line-height:1.4;}
     .klavity-lead{display:flex;gap:8px;margin-bottom:12px;}
-    .klavity-lead input{flex:1;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:6px;padding:9px 10px;font-size:14px;box-sizing:border-box;}
-    .klavity-lead button{padding:9px 14px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .klavity-lead input{flex:1;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:8px;padding:9px 10px;font-size:14px;box-sizing:border-box;}
+    .klavity-lead button{min-height:40px;padding:9px 14px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
     .klavity-lead button:disabled{opacity:.5;cursor:not-allowed;}
     .klavity-thanks{font-size:13px;color:var(--kl-fg);margin-bottom:12px;}
-    .klavity-cta{display:inline-block;padding:10px 16px;background:var(--kl-accent);color:var(--kl-on-accent);border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:12px;}
+    .klavity-cta{display:inline-block;padding:10px 16px;background:var(--kl-accent);color:var(--kl-on-accent);border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:12px;}
     .klavity-pb{text-align:center;font-size:10px;color:var(--kl-muted);margin-top:12px;}
     .klavity-pb a{color:var(--kl-muted);text-decoration:none;}
     /* ── Button micro-interactions — subtle hover lift/scale + press, Klavity-accent on hover, focus
        rings. Same feel as the right-click menu + dashboard buttons. Transform amounts are CSS vars so
        prefers-reduced-motion can zero them (below). color-mix degrades gracefully if unsupported. ── */
-    .klavity-modal{--kl-lift:translateY(-1px) scale(1.02);--kl-press:scale(.97);--kl-bhover:scale(1.12);--kl-bpress:scale(.92);}
+    .klavity-modal{--kl-lift:translateY(-1px) scale(1.02);--kl-press:scale(.96);--kl-bhover:scale(1.12);--kl-bpress:scale(.96);}
     .klavity-toggle button,.klavity-actions button,.klavity-submit,.klavity-lead button,.klavity-cta{transition:transform .15s cubic-bezier(.34,1.56,.64,1),background .15s ease,box-shadow .15s ease,color .15s ease,filter .15s ease;will-change:transform;}
     .klavity-rm,.klavity-mk{transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease;will-change:transform;}
     /* Bug/Feature toggle — lift + soft accent glow (keeps the active chip's highlight intact) */

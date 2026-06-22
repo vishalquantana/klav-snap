@@ -69,6 +69,12 @@ export function themeCss(config: ModalConfig): string {
     }
   }
   if (c.font) base['--kl-font'] = c.font
+  // Image-outline color (make-interfaces-feel-better): a subtle 1px separator on screenshot thumbnails.
+  // MUST be pure black on light surfaces / pure white on dark — never a tinted neutral (tints read as dirt
+  // on the image edge). Derived per theme; glass/liquid/dark/neon are dark surfaces (white fg).
+  const darkSurface = c.theme === 'dark' || c.theme === 'neon' || c.theme === 'glass' || c.theme === 'liquid'
+    || (c.theme === 'custom' && !!c.background && luminance(c.background) < 140)
+  base['--kl-img-outline'] = darkSurface ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'
   const vars = Object.entries(base).map(([k, v]) => `${k}:${v};`).join('')
   return `:host{${vars}}`
 }
