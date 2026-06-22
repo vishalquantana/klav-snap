@@ -543,6 +543,20 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .tg-row .tg-b{flex:1;min-width:0}
 .tg-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
 .tg-sev{font-size:12px;padding:4px 6px}
+/* triage filter chips + screenshot thumbnail (feat/triage-screenshot-filter) */
+.tg-filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.tg-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:20px;border:1px solid var(--line);background:var(--ink);color:var(--paper-dim);font-family:var(--body);font-weight:600;font-size:12.5px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.tg-chip:hover{border-color:var(--paper-faint)}
+.tg-chip .tg-chip-n{font-family:var(--mono);font-size:10px;color:var(--paper-faint);background:var(--ink-3);border-radius:20px;padding:1px 6px}
+.tg-chip.on{background:var(--ink-2);border-color:var(--line);color:var(--paper)}
+.tg-chip.on .tg-chip-n{color:var(--paper-dim)}
+.tg-chip.s-frustrated.on{border-color:var(--rose);color:var(--rose)}
+.tg-chip.s-frustrated.on .tg-chip-n{background:rgba(219,39,119,.14);color:var(--rose)}
+.tg-chip.s-satisfied.on{border-color:var(--green);color:var(--green)}
+.tg-shot{flex:none;width:96px;height:62px;border-radius:8px;border:1px solid var(--line);overflow:hidden;background:var(--ink-3);display:grid;place-items:center;cursor:pointer}
+.tg-shot img{width:100%;height:100%;object-fit:cover;display:block}
+.tg-shot-ph{color:var(--paper-faint);font-size:16px}
+@media(max-width:640px){.tg-row{flex-wrap:wrap}.tg-shot{width:100%;height:120px}}
 </style>
 </head>
 <body data-view="overview">
@@ -687,6 +701,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <!-- Triage inbox -->
     <div class="card full" data-view="triage">
       <h2 style="display:flex;align-items:center;gap:8px">🛎️ Triage <span class="h-tag">accept as a bug or dismiss</span></h2>
+      <div class="tg-filters" id="triageFilters"></div>
       <div id="triageList"><div class="sk sk-row"></div></div>
     </div>
 
@@ -1057,15 +1072,47 @@ async function refreshAll() {
   if (data.active && data.active.id) writeDashCache(data.active.id, data)   // keep cache fresh after triage actions
 }
 
-// Triage view: fetch the triage queue for the current project and render accept/dismiss rows.
+// Triage view: fetch the queue once, then render filter chips + accept/dismiss rows (with a
+// screenshot thumbnail). Sentiment filtering is client-side over the fetched items — no re-fetch.
+let _triageItems = []
+let _triageSentiment = "all"
+const TG_SENTIMENTS = [["all", "All"], ["frustrated", "Frustrated"], ["confused", "Confused"], ["satisfied", "Satisfied"], ["neutral", "Neutral"]]
+// Bucket every reaction into one of the four filter groups (delighted → satisfied; unknown → neutral).
+function tgSent(t) {
+  const s = (t.sentiment || "").toLowerCase()
+  if (s === "delighted") return "satisfied"
+  if (s === "frustrated" || s === "confused" || s === "satisfied") return s
+  return "neutral"
+}
 async function renderTriage() {
   const host = $("triageList"); if (!host) return
   const pid = curProjId(); if (!pid) return
   let items = []
   try { const r = await fetch("/api/projects/" + encodeURIComponent(pid) + "/triage"); const d = await r.json(); items = d.triage || [] } catch (e) {}
-  if (!items.length) { host.innerHTML = emptyState("✅", "Nothing to triage — you're all caught up.", ""); return }
+  _triageItems = items
+  renderTriageFilters()
+  renderTriageList()
+}
+function renderTriageFilters() {
+  const el = $("triageFilters"); if (!el) return
+  const counts = { all: _triageItems.length, frustrated: 0, confused: 0, satisfied: 0, neutral: 0 }
+  _triageItems.forEach(t => { counts[tgSent(t)]++ })
+  el.innerHTML = TG_SENTIMENTS.map(([k, label]) =>
+    `<button class="tg-chip s-${k}${k === _triageSentiment ? " on" : ""}" data-sent="${k}" type="button">${label}<span class="tg-chip-n">${counts[k] || 0}</span></button>`
+  ).join("")
+  el.querySelectorAll(".tg-chip").forEach(b => b.addEventListener("click", () => {
+    _triageSentiment = b.getAttribute("data-sent")
+    renderTriageFilters(); renderTriageList()
+  }))
+}
+function renderTriageList() {
+  const host = $("triageList"); if (!host) return
+  if (!_triageItems.length) { host.innerHTML = emptyState("✅", "Nothing to triage — you're all caught up.", ""); return }
+  const items = _triageSentiment === "all" ? _triageItems : _triageItems.filter(t => tgSent(t) === _triageSentiment)
+  if (!items.length) { host.innerHTML = `<div class="muted" style="padding:20px;text-align:center">No ${esc(_triageSentiment)} items in the queue.</div>`; return }
   host.innerHTML = items.map(t => `
     <div class="tg-row ${sevRailClass(t.severity)}" data-id="${esc(String(t.id))}">
+      ${t.screenshotId ? `<div class="tg-shot" data-shot="${esc(String(t.screenshotId))}" title="Open screenshot"><div class="tg-shot-ph">⛶</div></div>` : ""}
       <div class="tg-b">
         <div class="fx-t">${esc(t.title || "Untitled report")}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}</div>
         ${t.sourceQuote ? `<div class="fx-q">"${esc(t.sourceQuote)}"</div>` : (t.observation ? `<div class="fx-q">${esc(t.observation)}</div>` : "")}
@@ -1086,6 +1133,24 @@ async function renderTriage() {
     }
     row.querySelector(".tg-accept").addEventListener("click", () => patch({ status: "open", severity: row.querySelector(".tg-sev").value }))
     row.querySelector(".tg-dismiss").addEventListener("click", () => patch({ status: "dismissed" }))
+  })
+  loadTriageShots(host)
+}
+// Lazy-load each thumbnail via the same short-lived signed link the Tickets view uses; click opens full size.
+function loadTriageShots(host) {
+  host.querySelectorAll(".tg-shot[data-shot]").forEach(async box => {
+    if (box.getAttribute("data-loaded")) return
+    box.setAttribute("data-loaded", "1")
+    const id = box.getAttribute("data-shot")
+    try {
+      const r = await fetch("/api/screenshots/" + encodeURIComponent(id))
+      const d = await r.json().catch(() => ({}))
+      if (d.url) {
+        const img = document.createElement("img"); img.src = d.url; img.alt = "Sim screenshot"; img.loading = "lazy"
+        box.innerHTML = ""; box.appendChild(img)
+        box.addEventListener("click", () => window.open(d.url, "_blank", "noopener"))
+      } else { box.innerHTML = `<div class="tg-shot-ph" title="${esc(d.error || "unavailable")}">—</div>`; box.style.cursor = "default" }
+    } catch { box.innerHTML = `<div class="tg-shot-ph">!</div>`; box.style.cursor = "default" }
   })
 }
 
