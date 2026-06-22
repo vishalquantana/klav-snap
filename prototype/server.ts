@@ -482,6 +482,49 @@ const WIDGET_CORS: Record<string, string> = {
   "access-control-max-age": "600",
 }
 
+// ── Cross-origin widget CORS ──────────────────────────────────────────────────
+// The embeddable widget runs on the CUSTOMER's own domain (e.g. bigidea.quantana.top) and calls
+// these PUBLIC, project-scoped endpoints cross-origin. Without CORS the browser blocks every call,
+// so the widget is dead on every customer site (works only same-origin on klavity.quantana.top).
+// These endpoints are public + project_id/widget-token-scoped — NEVER add any authed/admin/dashboard
+// path here. We REFLECT the request Origin (safer than "*", and required if a caller ever sends
+// credentials) and emit it from a single chokepoint (withWidgetCors) so coverage can't be silently
+// reverted by a stale-base merge that drops a per-handler header.
+function isWidgetCorsPath(path: string): boolean {
+  switch (path) {
+    case "/api/widget/ping":
+    case "/api/widget/lead":
+    case "/api/feedback":
+    case "/api/consent":
+    case "/api/sim/review":
+    case "/api/personas":
+      return true
+  }
+  if (path.startsWith("/api/personas/")) return true
+  return /^\/api\/projects\/[^/]+\/config$/.test(path)
+}
+function widgetCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin")
+  return {
+    "access-control-allow-origin": origin || "*",
+    "vary": "Origin",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "authorization, content-type",
+    "access-control-max-age": "600",
+  }
+}
+// Single chokepoint: attach reflected-Origin CORS to EVERY response on a widget path (success,
+// 4xx, 401, even a 302) and to the /api/ OPTIONS preflight — so the widget can always read the
+// reply cross-origin regardless of which handler produced it.
+function withWidgetCors(req: Request, res: Response): Response {
+  try {
+    const path = new URL(req.url).pathname
+    const apply = req.method === "OPTIONS" ? path.startsWith("/api/") : isWidgetCorsPath(path)
+    if (apply) for (const [k, v] of Object.entries(widgetCorsHeaders(req))) res.headers.set(k, v)
+  } catch { /* immutable headers / bad url — skip */ }
+  return res
+}
+
 function json(body: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } })
 }
@@ -887,9 +930,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     const url = new URL(req.url)
     const path = url.pathname
 
-    // ── CORS preflight for cross-origin widget calls ──
+    // ── CORS preflight for cross-origin widget calls (reflect Origin) ──
     if (req.method === "OPTIONS" && path.startsWith("/api/")) {
-      return new Response(null, { status: 204, headers: WIDGET_CORS })
+      return new Response(null, { status: 204, headers: widgetCorsHeaders(req) })
     }
 
     // ── favicon ──
@@ -3283,7 +3326,7 @@ Bun.serve({
   async fetch(req, server) {
     // Establish per-request context (for F5 token-project binding) and apply security headers to every
     // response from a single chokepoint.
-    return reqCtx.run({}, async () => withSecurityHeaders(await handle(req, server)))
+    return reqCtx.run({}, async () => withWidgetCors(req, withSecurityHeaders(await handle(req, server))))
   },
 })
 

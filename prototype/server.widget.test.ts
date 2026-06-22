@@ -118,6 +118,38 @@ test("OPTIONS /api/sim/review returns 204 with permissive CORS", async () => {
   expect((r.headers.get("access-control-allow-headers") || "").toLowerCase()).toContain("authorization")
 })
 
+// ── Cross-origin widget CORS: reflect the request Origin ──────────────────────
+// Regression for the bug where the widget on a customer domain (e.g. bigidea.quantana.top)
+// got "No Access-Control-Allow-Origin header" on /api/widget/ping (preflight) and
+// /api/projects/:id/config. With an Origin header present we must REFLECT it (not just "*").
+const X_ORIGIN = "https://bigidea.quantana.top"
+
+test("OPTIONS /api/widget/ping preflight reflects the request Origin", async () => {
+  const r = await fetch(base + "/api/widget/ping", {
+    method: "OPTIONS",
+    headers: { origin: X_ORIGIN, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
+  })
+  expect(r.status).toBe(204)
+  expect(r.headers.get("access-control-allow-origin")).toBe(X_ORIGIN)
+  expect((r.headers.get("vary") || "")).toContain("Origin")
+  expect((r.headers.get("access-control-allow-methods") || "").toUpperCase()).toContain("POST")
+})
+
+test("GET /api/projects/:id/config reflects the request Origin (widget config fetch)", async () => {
+  const r = await fetch(base + "/api/projects/" + projectId + "/config", { headers: { origin: X_ORIGIN } })
+  expect(r.status).toBe(200)
+  expect(r.headers.get("access-control-allow-origin")).toBe(X_ORIGIN)
+})
+
+test("POST /api/widget/ping real response carries the reflected Origin", async () => {
+  const r = await fetch(base + "/api/widget/ping", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: X_ORIGIN },
+    body: JSON.stringify({ project_id: projectId }),
+  })
+  expect(r.headers.get("access-control-allow-origin")).toBe(X_ORIGIN)
+})
+
 test("POST /api/widget/token rejects when not signed in", async () => {
   const r = await fetch(base + "/api/widget/token", {
     method: "POST", headers: { "content-type": "application/json" },
