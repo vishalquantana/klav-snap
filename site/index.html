@@ -23,11 +23,22 @@
 <meta name="twitter:description" content="Real customer calls become AI personas that review your product and file the bugs they find — straight to your tracker." />
 <meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg" />
 
-<link rel="stylesheet" href="/fonts/fonts.css" />
+<!-- Preload the two fonts that paint the hero (LCP) so they fetch in parallel with CSS, not after it.
+     @font-face rules are inlined in the critical <style> below (no render-blocking fonts.css request). -->
+<link rel="preload" href="/fonts/fraunces-300-900-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/hanken-grotesk-300-800-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
 
-<!-- Shared marketing kit (scoped to the product-arc section on this page) -->
-<link rel="stylesheet" href="/kit.css" />
-<script src="/icons.generated.js"></script>
+<!-- Shared marketing kit = the below-the-fold product-arc components. Above-the-fold is fully styled by
+     the inlined critical CSS, so kit.css loads non-render-blocking, then upgrades to a stylesheet. -->
+<link rel="preload" href="/kit.css" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+<noscript><link rel="stylesheet" href="/kit.css" /></noscript>
+
+<!-- Only the 8 icons this page renders (theme toggle + the self-review tour), inlined to drop a
+     render-blocking request and ~9KB of unused icon JS from the critical path. /icons.generated.js
+     is still served for the app pages; this page no longer depends on it. -->
+<script>window.KLAV_ICONS={"moon":"<path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401\" />","sun":"<circle cx=\"12\" cy=\"12\" r=\"4\" /> <path d=\"M12 2v2\" /> <path d=\"M12 20v2\" /> <path d=\"m4.93 4.93 1.41 1.41\" /> <path d=\"m17.66 17.66 1.41 1.41\" /> <path d=\"M2 12h2\" /> <path d=\"M20 12h2\" /> <path d=\"m6.34 17.66-1.41 1.41\" /> <path d=\"m19.07 4.93-1.41 1.41\" />","eye":"<path d=\"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />","heart":"<path d=\"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z\" />","meh":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <line x1=\"8\" x2=\"16\" y1=\"15\" y2=\"15\" /> <line x1=\"9\" x2=\"9.01\" y1=\"9\" y2=\"9\" /> <line x1=\"15\" x2=\"15.01\" y1=\"9\" y2=\"9\" />","angry":"<path d=\"M16 16s-1.5-2-4-2-4 2-4 2\" /> <path d=\"M7.5 8 10 9\" /> <path d=\"m14 9 2.5-1\" /> <path d=\"M9 10h.01\" /> <path d=\"M15 10h.01\" /> <circle cx=\"12\" cy=\"12\" r=\"10\" />","frown":"<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M16 16s-1.5-2-4-2-4 2-4 2\" /> <line x1=\"9\" x2=\"9.01\" y1=\"9\" y2=\"9\" /> <line x1=\"15\" x2=\"15.01\" y1=\"9\" y2=\"9\" />","mouse-pointer-2":"<path d=\"M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z\" />"};</script>
+
+<!-- Shared scroll-reveal helper — non-critical, deferred. -->
 <script src="/kit.js" defer></script>
 
 <!-- Structured data: Organization + SoftwareApplication + BreadcrumbList -->
@@ -44,6 +55,26 @@
 ]}
 </script>
 <style>
+/* Self-hosted @font-face (inlined from /fonts/fonts.css to remove a render-blocking request).
+   font-display:swap → text paints immediately in a fallback, swapping when the webfont arrives. */
+@font-face{font-family:'Fraunces';font-style:italic;font-weight:300 700;font-display:swap;src:url(/fonts/fraunces-300-700-italic-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Fraunces';font-style:italic;font-weight:300 700;font-display:swap;src:url(/fonts/fraunces-300-700-italic-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:300 900;font-display:swap;src:url(/fonts/fraunces-300-900-normal-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Fraunces';font-style:normal;font-weight:300 900;font-display:swap;src:url(/fonts/fraunces-300-900-normal-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:300 800;font-display:swap;src:url(/fonts/hanken-grotesk-300-800-normal-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:300 800;font-display:swap;src:url(/fonts/hanken-grotesk-300-800-normal-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/jetbrains-mono-400-normal-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/jetbrains-mono-400-normal-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/jetbrains-mono-500-normal-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/jetbrains-mono-500-normal-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/jetbrains-mono-700-normal-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:700;font-display:swap;src:url(/fonts/jetbrains-mono-700-normal-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/* Critical kit.css shell rules that style above-the-fold but live only in the (now-deferred) kit.css.
+   .skip-link MUST be inlined — unstyled it would flash a visible link at the top and shift layout. */
+.skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--paper);color:var(--ink);padding:10px 16px;border-radius:0 0 8px 0;font-weight:600}
+.skip-link:focus{left:0}
+.icon{display:inline-block;width:1em;height:1em;vertical-align:-0.125em;flex:none;stroke:currentColor}
+.icon[width]{width:auto;height:auto}
 :root{
   /* ── LIGHT (default) ── */
   --ink:#f5f3ee;        /* app background */
@@ -771,7 +802,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 <footer>
   <div class="wrap foot">
-    <a class="brand" href="/" style="font-size:18px"><img class="spark" src="/favicon.svg" alt="Klavity" width="24" height="24" style="width:24px;height:24px" />Klavity</a>
+    <a class="brand" href="/" style="font-size:18px"><img class="spark" src="/favicon.svg" alt="Klavity" width="24" height="24" loading="lazy" decoding="async" style="width:24px;height:24px" />Klavity</a>
     <a href="#how">How it works</a><a href="/snap">Snap</a><a href="/sims">Sims</a><a href="/autosim">AutoSim</a><a href="#cta">Early access</a>
     <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub</a>
     <a href="/privacy">Privacy</a>
