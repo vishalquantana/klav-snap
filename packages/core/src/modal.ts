@@ -117,7 +117,27 @@ export function buildModal(
     .klavity-cta{display:inline-block;padding:10px 16px;background:var(--kl-accent);color:var(--kl-on-accent);border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;margin-bottom:12px;}
     .klavity-pb{text-align:center;font-size:10px;color:var(--kl-muted);margin-top:12px;}
     .klavity-pb a{color:var(--kl-muted);text-decoration:none;}
-    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing{animation-duration:.01ms;}}
+    /* ── Button micro-interactions — subtle hover lift/scale + press, Klavity-accent on hover, focus
+       rings. Same feel as the right-click menu + dashboard buttons. Transform amounts are CSS vars so
+       prefers-reduced-motion can zero them (below). color-mix degrades gracefully if unsupported. ── */
+    .klavity-modal{--kl-lift:translateY(-1px) scale(1.02);--kl-press:scale(.97);--kl-bhover:scale(1.12);--kl-bpress:scale(.92);}
+    .klavity-toggle button,.klavity-actions button,.klavity-submit,.klavity-lead button,.klavity-cta{transition:transform .15s cubic-bezier(.34,1.56,.64,1),background .15s ease,box-shadow .15s ease,color .15s ease,filter .15s ease;will-change:transform;}
+    .klavity-rm,.klavity-mk{transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s ease;will-change:transform;}
+    /* Bug/Feature toggle — lift + soft accent glow (keeps the active chip's highlight intact) */
+    .klavity-toggle button:hover{transform:var(--kl-lift);box-shadow:0 4px 12px color-mix(in srgb,var(--kl-accent) 20%,transparent);}
+    .klavity-toggle button:active{transform:var(--kl-press);}
+    /* Full Page / Upload / Region — lift + accent tint + accent text */
+    .klavity-actions button:hover{transform:var(--kl-lift);color:var(--kl-accent);background:color-mix(in srgb,var(--kl-chip) 80%,var(--kl-accent) 20%);box-shadow:0 5px 14px color-mix(in srgb,var(--kl-accent) 22%,transparent);}
+    .klavity-actions button:active{transform:var(--kl-press);}
+    /* Submit + lead submit + CTA (accent buttons) — lift + brighten + accent-tinted glow */
+    .klavity-submit:hover:not(:disabled),.klavity-lead button:hover:not(:disabled),.klavity-cta:hover{transform:var(--kl-lift);filter:brightness(1.05);box-shadow:0 8px 22px color-mix(in srgb,var(--kl-accent) 45%,transparent);}
+    .klavity-submit:active:not(:disabled),.klavity-lead button:active:not(:disabled),.klavity-cta:active{transform:var(--kl-press);}
+    /* Thumbnail action badges (X remove, pencil edit) — pop on hover, press in */
+    .klavity-rm:hover,.klavity-mk:hover{transform:var(--kl-bhover);box-shadow:0 3px 9px rgba(0,0,0,.42);}
+    .klavity-rm:active,.klavity-mk:active{transform:var(--kl-bpress);}
+    /* Keyboard accessibility — visible focus ring on every control */
+    .klavity-toggle button:focus-visible,.klavity-actions button:focus-visible,.klavity-submit:focus-visible,.klavity-lead button:focus-visible,.klavity-cta:focus-visible,.klavity-rm:focus-visible,.klavity-mk:focus-visible{outline:2px solid var(--kl-accent);outline-offset:2px;}
+    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing{animation-duration:.01ms;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}}
   `
   shadowRoot.appendChild(style)
 
