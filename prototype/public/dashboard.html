@@ -430,6 +430,65 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .nav-icon{width:34px;height:34px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--paper-dim);cursor:pointer;font-size:15px;line-height:1;display:grid;place-items:center;transition:border-color .2s,color .2s,transform .12s}
 .nav-icon:hover{border-color:var(--indigo);color:var(--paper)}
 .nav-icon:active{transform:translateY(1px)}
+
+/* ───────────────────────── Micro-interaction system ─────────────────────────
+   ONE tasteful hover/press language across every clickable element, echoing the
+   right-click menu: a subtle hover lift + soft purple-tinted shadow, a quick
+   press (scale-down), smooth eased transitions, and the Klavity purple accent.
+   Driven by shared tokens so it reads as a deliberate design language. Layout +
+   base colors are untouched; focus-visible (below) is preserved and the
+   prefers-reduced-motion guard (below) neutralises every transition. */
+:root{
+  --mi-ease:cubic-bezier(.2,.7,.3,1);
+  --mi-dur:.15s; --mi-press-dur:.08s;
+  --mi-lift:translateY(-1px) scale(1.02);   /* control tier: buttons/toggles/icons */
+  --mi-lift-card:translateY(-2px);          /* surface tier: clickable cards/rows  */
+  --mi-press:scale(.97);
+  --mi-shadow:0 6px 18px -8px rgba(99,102,241,.40);
+  --mi-shadow-card:0 12px 28px -14px rgba(76,40,130,.42);
+  --mi-accent:var(--indigo);
+}
+/* Canonical reusable class — add `.mi` to any new clickable element for the same feel. */
+.mi{transition:transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease)}
+.mi:hover{transform:var(--mi-lift);box-shadow:var(--mi-shadow)}
+.mi:active{transform:var(--mi-press);transition-duration:var(--mi-press-dur)}
+
+/* Buttons — primary & secondary */
+.btn{transition:transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease),border-color var(--mi-dur) var(--mi-ease),filter var(--mi-dur) var(--mi-ease)}
+.btn:hover{transform:var(--mi-lift);box-shadow:var(--mi-shadow)}
+.btn-indigo:hover{filter:brightness(1.04) saturate(1.04)}
+.btn-ghost:hover{border-color:var(--mi-accent);color:var(--paper)}
+.btn:active{transform:var(--mi-press);transition-duration:var(--mi-press-dur);box-shadow:none}
+
+/* Sidebar nav items — lift + a purple left-accent bar (matches the menu's primary row) */
+.side .nv{transition:background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),border-color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease)}
+.side .nv:hover{background:var(--ink-3);color:var(--paper);transform:translateY(-1px);box-shadow:inset 2px 0 0 var(--mi-accent),0 5px 16px -10px rgba(99,102,241,.55)}
+.side .nv.active{box-shadow:inset 2px 0 0 var(--mi-accent)}
+.side .nv:active{transform:scale(.985);transition-duration:var(--mi-press-dur)}
+
+/* Round icon buttons (theme toggle …) */
+.nav-icon{transition:border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease)}
+.nav-icon:hover{border-color:var(--mi-accent);color:var(--paper);transform:var(--mi-lift);box-shadow:var(--mi-shadow)}
+.nav-icon:active{transform:var(--mi-press);transition-duration:var(--mi-press-dur)}
+
+/* Segmented + pill toggles. Seg buttons sit inside overflow:hidden, so they only
+   press inward (a scale-up would clip); pills get the purple accent + press. */
+.seg button{transition:background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease)}
+.seg button:active,.sm-seg button:active{transform:scale(.94);transition-duration:var(--mi-press-dur)}
+.tog{transition:border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease)}
+.tog:hover{border-color:var(--mi-accent);color:var(--paper)}
+.tog:active{transform:scale(.95);transition-duration:var(--mi-press-dur)}
+
+/* Small affordance buttons — purple-accent border on hover + quick press */
+.copy-ai-icon,.tkt-back,.sm-chip{transition:border-color var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease)}
+.copy-ai-icon:hover,.tkt-back:hover,.sm-chip:hover{border-color:var(--mi-accent)}
+.copy-ai-icon:active,.tkt-back:active,.sm-chip:active{transform:var(--mi-press);transition-duration:var(--mi-press-dur)}
+
+/* Clickable cards / rows — surface tier: gentle lift, purple-tinted border, soft shadow */
+.fxrow,.row-tkt,.kb-card,.kpi-click{transition:border-color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease)}
+.fxrow:hover,.row-tkt:hover,.kb-card:hover,.kpi-click:hover{transform:var(--mi-lift-card);border-color:var(--indigo-soft);box-shadow:var(--mi-shadow-card)}
+.fxrow:active,.row-tkt:active,.kb-card:active,.kpi-click:active{transform:translateY(-1px) scale(.995);transition-duration:var(--mi-press-dur)}
+
 /* ── a11y: visible focus + reduced-motion (a11y audit fix) ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
