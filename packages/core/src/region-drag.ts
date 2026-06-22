@@ -19,6 +19,9 @@ export interface RegionDragHandle {
 export interface RegionDragOptions {
   /** Called on a valid drag-release with the selected viewport rect. */
   onRegion: (rect: Rect) => void
+  /** Called ONCE the moment a drag-select actually begins (movement passes the threshold). The host uses
+   *  this to dismiss its context menu immediately so only the selection rectangle shows. */
+  onDragStart?: () => void
   /** Ignore presses whose target is the host's own UI (launcher/menu/composer/overlay). */
   isOwnTarget?: (e: MouseEvent) => boolean
   /** Skip the gesture entirely right now (e.g. the extension yields when the in-page widget is present). */
@@ -63,8 +66,11 @@ export function installRegionDrag(opts: RegionDragOptions): RegionDragHandle {
 
   function onMove(e: MouseEvent) {
     if (!pressing) return
-    if (!didDrag && Math.abs(e.clientX - startX) < threshold && Math.abs(e.clientY - startY) < threshold) return
-    didDrag = true
+    if (!didDrag) {
+      if (Math.abs(e.clientX - startX) < threshold && Math.abs(e.clientY - startY) < threshold) return
+      didDrag = true
+      opts.onDragStart?.()  // drag has begun → host dismisses its menu so only the selection shows
+    }
     const r = rectFrom(e.clientX, e.clientY)
     if (!rectEl) {
       rectEl = document.createElement("div")

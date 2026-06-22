@@ -441,6 +441,7 @@ function handleContextMenu(e: MouseEvent) {
 // Yields when the in-page widget is present (it owns reporting) or a composer is already open.
 const regionDrag = installRegionDrag({
   shouldIgnore: () => widgetPresent() || !!modalCtrl,
+  onDragStart: closeCtxMenu, // dismiss the context menu the instant a drag-select starts
   onRegion: async (rect) => {
     let shot = ''
     try { shot = await onRegionCapture(rect) } catch { /* open empty so the user can retry */ }

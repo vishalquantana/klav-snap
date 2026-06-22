@@ -6,7 +6,7 @@ import { cropDataUrl, type Rect } from "@klavity/core/crop"
 import { planScrollStitch, clampCaptureHeight } from "./sharp-capture"
 import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
-import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
+import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy, compressScreenshot } from "./widget-lib"
 import { icon } from "@klavity/core/icons"
 import { startReplayRecording, type ReplayController } from "./replay-recorder"
 import { injectRecorderScript } from "./load-recorder"
@@ -304,6 +304,9 @@ async function mount() {
     requestAnimationFrame(() => { m.style.opacity = "0"; m.style.transform = "scale(.95) translateY(-4px)" })
     setTimeout(() => m.remove(), 150)
   }
+  // Instant dismissal (no fade) — used when a region drag-select begins so the menu can't linger over the
+  // selection. Removes any live OR mid-fade menu, regardless of whether closeMenu already nulled menuEl.
+  const dismissMenuNow = () => { menuEl = null; root.querySelectorAll(".klm-menu").forEach((m) => (m as HTMLElement).remove()) }
   // Scoped keyframes for the magical context menu (entrance spring, item stagger, shimmer
   // sweep, icon hover wiggle). Injected once into the widget's shadow root.
   function ensureMenuStyle() {
@@ -438,6 +441,7 @@ async function mount() {
   const regionDrag = installRegionDrag({
     isOwnTarget: onOwnUi,
     mount: root,                       // draw the selection rectangle inside the widget's shadow root
+    onDragStart: dismissMenuNow,       // dismiss the context menu the instant a drag-select starts (no fade)
     onRegion: (rect) => { void captureRegionAndOpen(rect) },
   })
 
@@ -578,12 +582,15 @@ export async function submitFeedback(
   cfg: { backendUrl: string; projectId: string; firstParty: boolean; token: string },
   payload: { type: "bug" | "feature"; description: string; pageUrl: string; referrer?: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any; reporterEmail?: string },
 ): Promise<{ issueKey: string; issueUrl: string }> {
+  // Compress screenshots (PNG → JPEG, downscale very wide ones) so the upload is fast. Best-effort,
+  // parallel; each falls back to its original on failure.
+  const screenshots = await Promise.all(payload.screenshots.map((s) => compressScreenshot(s)))
   const fd = buildFeedbackForm({
     description: `[${payload.type}] ${payload.description}`,
     pageUrl: payload.pageUrl,
     referrer: payload.referrer,
     projectId: cfg.projectId,
-    screenshots: payload.screenshots,
+    screenshots,
     context: payload.context,
     replayEvents: payload.replayEvents,
   })

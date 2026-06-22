@@ -114,6 +114,11 @@ export function buildModal(
     input.klavity-remail{width:100%;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:8px;padding:10px;font-size:14px;margin-bottom:10px;box-sizing:border-box;}
     .klavity-submit{width:100%;min-height:40px;padding:12px;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;}
     .klavity-submit:disabled{opacity:.5;cursor:not-allowed;}
+    /* Upload progress under Submit — collapsed until a submit is in flight; the fill is animated toward 90%
+       over ~10s and snapped to 100% when the request resolves (fetch can't report real upload %). */
+    .klavity-progress{height:5px;border-radius:999px;background:var(--kl-chip);overflow:hidden;opacity:0;max-height:0;margin-top:0;transition:opacity .2s ease,max-height .2s ease,margin-top .2s ease;}
+    .klavity-progress.show{opacity:1;max-height:5px;margin-top:10px;}
+    .klavity-progress-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,color-mix(in srgb,var(--kl-accent) 65%,#fff),var(--kl-accent));}
     .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
     .klavity-success h2{margin:0 0 8px;font-size:18px;color:var(--kl-fg);}
     .klavity-success p{margin:0 0 16px;font-size:14px;color:var(--kl-muted);line-height:1.4;}
@@ -182,6 +187,7 @@ export function buildModal(
     <textarea class="klavity-desc" id="klavity-desc" placeholder="Describe the bug..."></textarea>
     ${callbacks.requireEmail ? '<input type="email" class="klavity-remail" id="klavity-remail" placeholder="your@email.com" autocomplete="email">' : ''}
     <button class="klavity-submit" id="klavity-submit" disabled>Submit</button>
+    <div class="klavity-progress" id="klavity-progress" role="progressbar" aria-label="Uploading report"><div class="klavity-progress-fill" id="klavity-progress-fill"></div></div>
   `
 
   overlay.appendChild(modal)
@@ -282,11 +288,25 @@ export function buildModal(
   submitBtn.addEventListener('click', async () => {
     const description = desc.value.trim()
     submitBtn.disabled = true
-    submitBtn.textContent = 'Filing...'
+    submitBtn.textContent = 'Uploading…'
     const errEl = shadowRoot.getElementById('klavity-err')!
     errEl.style.display = 'none'
+    // Upload progress: fetch can't report real upload %, so animate an estimated bar toward 90% over ~10s
+    // and snap to 100% only when the request resolves — it never falsely reads complete early.
+    const progress = shadowRoot.getElementById('klavity-progress') as HTMLElement | null
+    const fill = shadowRoot.getElementById('klavity-progress-fill') as HTMLElement | null
+    if (progress && fill) {
+      progress.classList.add('show')
+      fill.style.transition = 'none'; fill.style.width = '8%'
+      void fill.offsetWidth // reflow so the next transition animates
+      fill.style.transition = 'width 10s cubic-bezier(.05,.7,.2,1)'
+      requestAnimationFrame(() => { fill.style.width = '90%' })
+    }
+    const finishProgress = () => { if (fill) { fill.style.transition = 'width .25s ease'; fill.style.width = '100%' } }
+    const resetProgress = () => { if (progress && fill) { progress.classList.remove('show'); fill.style.transition = 'none'; fill.style.width = '0' } }
     try {
       const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots], annotations: annotationsByIndex[0] ?? null, reporterEmail: remail?.value.trim() || undefined })
+      finishProgress()
       if (callbacks.success) {
         // Mode-aware lead/CTA screen rendered THROUGH the existing themed modal — no auto-close;
         // the user must interact (submit email or click the CTA, or dismiss via overlay/esc).
@@ -310,6 +330,7 @@ export function buildModal(
         setTimeout(close, cfg.thankYou ? 2600 : 1500)
       }
     } catch (err) {
+      resetProgress()
       errEl.textContent = (err as Error).message
       errEl.style.display = 'block'
       submitBtn.disabled = false

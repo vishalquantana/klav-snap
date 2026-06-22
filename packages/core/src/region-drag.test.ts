@@ -17,6 +17,18 @@ describe("installRegionDrag", () => {
     h.destroy()
   })
 
+  it("fires onDragStart ONCE when the drag begins (so the host can dismiss its menu), not on a plain click", () => {
+    const onDragStart = vi.fn()
+    const h = installRegionDrag({ onRegion: vi.fn(), onDragStart })
+    // plain right-click (no movement past threshold) → no drag start
+    down(50, 50); up(52, 51)
+    expect(onDragStart).not.toHaveBeenCalled()
+    // a real drag → onDragStart fires exactly once, on the first qualifying move
+    down(100, 100); move(108, 108); move(160, 160); up(160, 160)
+    expect(onDragStart).toHaveBeenCalledTimes(1)
+    h.destroy()
+  })
+
   it("normalizes a drag made up-and-to-the-left", () => {
     const onRegion = vi.fn()
     const h = installRegionDrag({ onRegion })

@@ -90,6 +90,40 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
+// Shrink a screenshot before upload so submits aren't slow: re-encode PNG → JPEG (typically 5–10× smaller)
+// and downscale anything wider than maxWidth (retina/Sharp captures) — height is preserved so tall full-page
+// captures stay readable. Best-effort: on any failure, or if the result isn't actually smaller, the
+// original data URL is returned unchanged. The clean image is what's uploaded; annotations travel as a
+// separate structured overlay, so re-encoding never affects the markup.
+export async function compressScreenshot(dataUrl: string, opts: { maxWidth?: number; quality?: number } = {}): Promise<string> {
+  const maxWidth = opts.maxWidth ?? 2000
+  const quality = opts.quality ?? 0.82
+  if (typeof document === "undefined" || !dataUrl.startsWith("data:image/")) return dataUrl
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image()
+      i.onload = () => res(i)
+      i.onerror = rej
+      i.src = dataUrl
+    })
+    const nw = img.naturalWidth, nh = img.naturalHeight
+    if (!nw || !nh) return dataUrl
+    const scale = nw > maxWidth ? maxWidth / nw : 1
+    const w = Math.round(nw * scale), h = Math.round(nh * scale)
+    const canvas = document.createElement("canvas")
+    canvas.width = w; canvas.height = h
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return dataUrl
+    ctx.fillStyle = "#fff" // opaque matte (screenshots are opaque; JPEG has no alpha)
+    ctx.fillRect(0, 0, w, h)
+    ctx.drawImage(img, 0, 0, w, h)
+    const out = canvas.toDataURL("image/jpeg", quality)
+    return out.length < dataUrl.length ? out : dataUrl
+  } catch {
+    return dataUrl
+  }
+}
+
 export function buildFeedbackForm(input: { description: string; pageUrl: string; referrer?: string; projectId: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any }): FormData {
   const fd = new FormData()
   fd.set("description", input.description)
