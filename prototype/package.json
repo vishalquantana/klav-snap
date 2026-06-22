@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run server.ts"
+    "start": "bun run server.ts",
+    "smoke": "bun run scripts/smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
