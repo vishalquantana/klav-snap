@@ -23,7 +23,9 @@ const fontStr = (v: unknown): string | undefined => {
 
 // CSS-variable palettes per built-in theme (ported from packages/core/demo/popup-themes.html).
 const THEMES: Record<Exclude<ModalTheme, 'custom'>, Record<string, string>> = {
-  light: { '--kl-overlay': 'rgba(20,20,40,.28)', '--kl-bg': '#ffffff', '--kl-fg': '#1d1d24', '--kl-muted': '#8a8a96', '--kl-border': '#e6e6ec', '--kl-chip': '#f4f4f7', '--kl-input-bg': '#fafafb', '--kl-accent': '#5b5bf0', '--kl-on-accent': '#fff', '--kl-accent2': '#f59e0b', '--kl-radius': '16px', '--kl-shadow': '0 24px 60px rgba(20,20,40,.18)', '--kl-backdrop': 'none' },
+  // Default = warm cream (matches the marketing home --ink #f5f3ee), not a dull stark white. The modal sits
+  // a touch lighter than the page so it reads as a raised warm panel; chips/inputs/border are warm-tinted to match.
+  light: { '--kl-overlay': 'rgba(28,22,40,.30)', '--kl-bg': '#faf7f1', '--kl-fg': '#1d1a17', '--kl-muted': '#8a8276', '--kl-border': '#e9e1d4', '--kl-chip': '#f1ece1', '--kl-input-bg': '#fffdf8', '--kl-accent': '#5b5bf0', '--kl-on-accent': '#fff', '--kl-accent2': '#f59e0b', '--kl-radius': '16px', '--kl-shadow': '0 24px 60px rgba(40,28,70,.20)', '--kl-backdrop': 'none' },
   dark: { '--kl-overlay': 'rgba(0,0,0,.5)', '--kl-bg': '#1e1e2e', '--kl-fg': '#cdd6f4', '--kl-muted': '#a6adc8', '--kl-border': '#45475a', '--kl-chip': '#313244', '--kl-input-bg': '#181825', '--kl-accent': '#89b4fa', '--kl-on-accent': '#1e1e2e', '--kl-accent2': '#fab387', '--kl-radius': '12px', '--kl-shadow': '0 20px 60px rgba(0,0,0,.5)', '--kl-backdrop': 'none' },
   glass: { '--kl-overlay': 'rgba(10,10,18,.25)', '--kl-bg': 'rgba(255,255,255,.14)', '--kl-fg': '#fff', '--kl-muted': 'rgba(255,255,255,.7)', '--kl-border': 'rgba(255,255,255,.28)', '--kl-chip': 'rgba(255,255,255,.16)', '--kl-input-bg': 'rgba(255,255,255,.10)', '--kl-accent': 'rgba(255,255,255,.92)', '--kl-on-accent': '#15121d', '--kl-accent2': 'rgba(255,255,255,.55)', '--kl-radius': '22px', '--kl-shadow': '0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25)', '--kl-backdrop': 'blur(22px) saturate(180%)' },
   neon: { '--kl-overlay': 'rgba(8,4,20,.55)', '--kl-bg': '#0e0b1e', '--kl-fg': '#f4f0ff', '--kl-muted': '#a99fd6', '--kl-border': '#3a2d6b', '--kl-chip': '#1c1640', '--kl-input-bg': '#140f2c', '--kl-accent': '#ff2d95', '--kl-on-accent': '#fff', '--kl-accent2': '#15e0ff', '--kl-radius': '14px', '--kl-shadow': '0 0 0 1px rgba(255,45,149,.4), 0 24px 70px rgba(255,45,149,.25)', '--kl-backdrop': 'none' },
@@ -75,6 +77,11 @@ export function themeCss(config: ModalConfig): string {
   const darkSurface = c.theme === 'dark' || c.theme === 'neon' || c.theme === 'glass' || c.theme === 'liquid'
     || (c.theme === 'custom' && !!c.background && luminance(c.background) < 140)
   base['--kl-img-outline'] = darkSurface ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'
+  // Warm on-brand glow layered over the modal background — mirrors the marketing home (a soft Klavity-purple
+  // glow at the top + an amber glow at the bottom-right) so the form isn't a flat box. Subtler on dark surfaces.
+  base['--kl-glow'] = darkSurface
+    ? 'radial-gradient(120% 80% at 50% -12%, rgba(139,92,246,.20), transparent 60%), radial-gradient(95% 75% at 108% 112%, rgba(255,170,90,.08), transparent 58%)'
+    : 'radial-gradient(120% 80% at 50% -12%, rgba(124,107,247,.13), transparent 58%), radial-gradient(95% 75% at 108% 112%, rgba(232,162,74,.10), transparent 55%)'
   const vars = Object.entries(base).map(([k, v]) => `${k}:${v};`).join('')
   return `:host{${vars}}`
 }

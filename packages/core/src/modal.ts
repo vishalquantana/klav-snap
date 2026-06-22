@@ -91,7 +91,12 @@ export function buildModal(
     @keyframes kl-genie-out{from{opacity:1;transform:translateY(0) scaleX(1) scaleY(1)}to{opacity:0;transform:translateY(180px) scaleX(.04) scaleY(.06)}}
     @keyframes kl-ov{from{opacity:0}to{opacity:1}}
     .klavity-overlay{position:fixed;inset:0;background:var(--kl-overlay);display:flex;align-items:center;justify-content:center;pointer-events:all;animation:kl-ov .3s ease both;}
-    .klavity-modal{background:var(--kl-bg);color:var(--kl-fg);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:0 0 0 1px var(--kl-border),var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
+    .klavity-modal{background:var(--kl-glow,transparent),var(--kl-bg);color:var(--kl-fg);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:0 0 0 1px var(--kl-border),var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
+    /* Staggered content reveal — the genie scales the panel in while its rows softly rise + fade so it feels
+       alive (not a flat box). Subtle; zeroed under prefers-reduced-motion below. */
+    @keyframes kl-rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+    .klavity-modal>.klavity-toggle,.klavity-modal>.klavity-page,.klavity-modal>.klavity-strip,.klavity-modal>.klavity-actions,.klavity-modal>textarea.klavity-desc,.klavity-modal>input.klavity-remail,.klavity-modal>.klavity-submit{animation:kl-rise .5s cubic-bezier(.16,1,.3,1) both;}
+    .klavity-modal>.klavity-toggle{animation-delay:.05s}.klavity-modal>.klavity-page{animation-delay:.09s}.klavity-modal>.klavity-strip{animation-delay:.12s}.klavity-modal>.klavity-actions{animation-delay:.15s}.klavity-modal>textarea.klavity-desc{animation-delay:.18s}.klavity-modal>input.klavity-remail{animation-delay:.21s}.klavity-modal>.klavity-submit{animation-delay:.23s}
     .klavity-modal.kl-closing{animation:kl-genie-out .5s cubic-bezier(.55,0,.85,.25) both;}
     .klavity-toggle{display:flex;gap:8px;margin-bottom:16px;}
     .klavity-toggle button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:600;background:var(--kl-chip);color:var(--kl-fg);}
@@ -109,6 +114,13 @@ export function buildModal(
     .klavity-rm::after,.klavity-mk::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;}
     .klavity-actions{display:flex;gap:8px;margin-bottom:12px;}
     .klavity-actions button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:var(--kl-chip);color:var(--kl-fg);border:none;border-radius:8px;cursor:pointer;font-size:12px;}
+    /* Optical icon alignment + micro-animation for icon+label buttons (capture row + Bug/Feature toggle): a
+       fixed-size, block-rendered icon flex-centered with its label (no baseline drift / stray whitespace),
+       with a springy scale+tilt on hover — same feel as the right-click menu's icon chips. */
+    .klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{display:inline-flex;align-items:center;flex:none;transition:transform .2s cubic-bezier(.34,1.56,.64,1);}
+    .klavity-actions .kl-cap-ic svg,.klavity-toggle .kl-cap-ic svg{display:block;width:15px;height:15px;}
+    .klavity-actions button:hover .kl-cap-ic,.klavity-toggle button:hover .kl-cap-ic{transform:scale(1.14) rotate(-6deg);}
+    .klavity-actions button:active .kl-cap-ic,.klavity-toggle button:active .kl-cap-ic{transform:scale(1.04);}
     .klavity-counter{font-size:11px;color:var(--kl-muted);margin-bottom:8px;font-variant-numeric:tabular-nums;}
     textarea.klavity-desc{width:100%;min-height:100px;resize:vertical;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:8px;padding:10px;font-size:14px;margin-bottom:16px;box-sizing:border-box;}
     input.klavity-remail{width:100%;background:var(--kl-input-bg);color:var(--kl-fg);border:1px solid var(--kl-border);border-radius:8px;padding:10px;font-size:14px;margin-bottom:10px;box-sizing:border-box;}
@@ -159,7 +171,7 @@ export function buildModal(
     .klavity-info-pop{position:absolute;bottom:calc(100% + 8px);right:0;width:228px;padding:10px 12px;border-radius:10px;background:var(--kl-bg);color:var(--kl-fg);box-shadow:0 0 0 1px var(--kl-border),0 12px 30px rgba(20,16,40,.22);font-size:12px;line-height:1.45;text-align:left;text-wrap:pretty;opacity:0;visibility:hidden;transform:translateY(4px);transition:opacity .15s ease,transform .15s ease;z-index:6;pointer-events:none;}
     .klavity-info-pop b{color:var(--kl-fg);font-weight:600;}
     .klavity-info-wrap:hover .klavity-info-pop,.klavity-info-wrap:focus-within .klavity-info-pop{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto;}
-    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing{animation-duration:.01ms;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info-pop{transform:none;}}
+    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing,.klavity-modal>*{animation-duration:.01ms!important;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info-pop{transform:none;}.klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{transition:none;transform:none!important;}}
   `
   shadowRoot.appendChild(style)
 
@@ -170,16 +182,16 @@ export function buildModal(
   modal.className = 'klavity-modal'
   modal.innerHTML = `
     <div class="klavity-toggle">
-      <button class="bug ${initialType === 'bug' ? 'active' : ''}">${icon('bug')} Bug</button>
-      <button class="feat ${initialType === 'feature' ? 'active' : ''}">${icon('lightbulb')} Feature</button>
+      <button class="bug ${initialType === 'bug' ? 'active' : ''}"><span class="kl-cap-ic">${icon('bug')}</span>Bug</button>
+      <button class="feat ${initialType === 'feature' ? 'active' : ''}"><span class="kl-cap-ic">${icon('lightbulb')}</span>Feature</button>
     </div>
     <div class="klavity-page">${icon('map-pin')} ${typeof window !== 'undefined' ? escHtml(window.location.pathname) : ''}</div>
     <div class="klavity-strip" id="klavity-strip"></div>
     <div class="klavity-actions">
-      ${callbacks.onCaptureSharp ? `<button id="klavity-sharp" title="Sharp — pixel-perfect full page, captures every image. Shares this tab (asks permission).">${icon('sparkles')} Sharp</button><span class="klavity-info-wrap"><button type="button" id="klavity-sharp-info" class="klavity-info" title="What does Sharp do?" aria-label="What does Sharp do?" style="flex:0 0 40px;width:40px;min-width:40px;padding:0;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button><span class="klavity-info-pop" role="tooltip">Sharp grabs the <b>whole page — every image, pixel-perfect</b> using your browser's screen-share. Your browser will ask you to <b>share this tab</b>.</span></span>` : ''}
-      <button id="klavity-full" title="Full Page — instant capture; may miss some cross-origin images">${icon('camera')} Full Page</button>
-      <button id="klavity-upload">${icon('image')} Upload</button>
-      ${callbacks.onRegionCapture ? `<button id="klavity-region">${icon('scissors')} Region</button>` : ''}
+      ${callbacks.onCaptureSharp ? `<button id="klavity-sharp" title="Sharp — pixel-perfect full page, captures every image. Shares this tab (asks permission)."><span class="kl-cap-ic">${icon('sparkles')}</span>Sharp</button><span class="klavity-info-wrap"><button type="button" id="klavity-sharp-info" class="klavity-info" title="What does Sharp do?" aria-label="What does Sharp do?" style="flex:0 0 40px;width:40px;min-width:40px;padding:0;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button><span class="klavity-info-pop" role="tooltip">Sharp grabs the <b>whole page — every image, pixel-perfect</b> using your browser's screen-share. Your browser will ask you to <b>share this tab</b>.</span></span>` : ''}
+      <button id="klavity-full" title="Full Page — instant capture; may miss some cross-origin images"><span class="kl-cap-ic">${icon('camera')}</span>Full Page</button>
+      <button id="klavity-upload"><span class="kl-cap-ic">${icon('image')}</span>Upload</button>
+      ${callbacks.onRegionCapture ? `<button id="klavity-region"><span class="kl-cap-ic">${icon('scissors')}</span>Region</button>` : ''}
     </div>
     <input type="file" id="klavity-file" accept="image/*,.heic,.heif" multiple style="display:none">
     <div class="klavity-counter" id="klavity-counter">0/5 images</div>

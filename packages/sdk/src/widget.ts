@@ -240,7 +240,21 @@ async function mount() {
 
   const reportBtn = document.createElement("button")
   reportBtn.innerHTML = `${icon('bug')} Report a bug`
-  reportBtn.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#5b5bf0;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(91,91,240,.32);display:inline-flex;align-items:center;gap:7px"
+  reportBtn.title = "Klavity is active on this page — right-click anywhere or click here to report"
+  reportBtn.style.cssText = "position:relative;border:0;border-radius:999px;padding:10px 16px;background:#5b5bf0;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(91,91,240,.32);display:inline-flex;align-items:center;gap:7px"
+  // ── Active/monitoring indicator: a small live green dot on the launcher so it's obvious Klavity is on. ──
+  if (!root.getElementById("klavity-launcher-anim")) {
+    const a = document.createElement("style"); a.id = "klavity-launcher-anim"
+    a.textContent =
+      "@keyframes kl-active-pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}" +
+      ".kl-active-dot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#22c55e;border:2px solid #fff;animation:kl-active-pulse 2.2s ease-out infinite;}" +
+      "@media (prefers-reduced-motion: reduce){.kl-active-dot{animation:none}}"
+    root.appendChild(a)
+  }
+  const activeDot = document.createElement("span")
+  activeDot.className = "kl-active-dot"
+  activeDot.setAttribute("aria-hidden", "true")
+  reportBtn.appendChild(activeDot)
   function openReport(type: "bug" | "feature" = "bug", opts?: { initialShot?: string }) {
     const identified = firstParty || !!getToken()  // already known to Klavity (own page session, or signed-in widget)
     // Only the "login" gate forces the connect flow on third-party sites. "email"/"anonymous" let an
