@@ -26,6 +26,10 @@ export interface ModalCallbacks {
     description: string
     screenshots: string[]
     annotations?: any
+    // The email typed into the REQUIRED-email gate (requireEmail). The host must forward it to the
+    // backend as reporter_email, otherwise an "email"-gated project rejects the submit with 400
+    // "A valid email is required to submit." Undefined when no email field was shown.
+    reporterEmail?: string
   }) => Promise<{ issueKey: string; issueUrl: string }>
   // When true, the compose screen shows a REQUIRED email field and blocks submit until it's valid.
   // Used by the embeddable widget on third-party sites when the project's report gate is "email",
@@ -239,7 +243,7 @@ export function buildModal(
     const errEl = shadowRoot.getElementById('klavity-err')!
     errEl.style.display = 'none'
     try {
-      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots], annotations: annotationsByIndex[0] ?? null })
+      const result = await callbacks.onSubmit({ type: currentType, description, screenshots: [...screenshots], annotations: annotationsByIndex[0] ?? null, reporterEmail: remail?.value.trim() || undefined })
       if (callbacks.success) {
         // Mode-aware lead/CTA screen rendered THROUGH the existing themed modal — no auto-close;
         // the user must interact (submit email or click the CTA, or dismiss via overlay/esc).

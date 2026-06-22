@@ -28,6 +28,19 @@ describe("submitFeedback", () => {
     expect(init.credentials).toBeUndefined()
   })
 
+  it("forwards reporterEmail as the reporter_email field (the email-gate fix)", async () => {
+    // Regression guard for the P1 400: an "email"-gated project rejects a submit that lacks
+    // reporter_email. submitFeedback must put the gate email onto the form.
+    const fetchMock = vi.fn(async (..._a: any[]) => new Response(JSON.stringify({ id: "fb4", saved: true }), { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+    await submitFeedback(
+      { backendUrl: "https://klavity.quantana.top", projectId: "p1", firstParty: false, token: "" },
+      { type: "bug", description: "checkout dead", pageUrl: "https://customer.example/cart", screenshots: [], reporterEmail: "buyer@test.local" },
+    )
+    const [, init] = fetchMock.mock.calls[0]
+    expect((init.body as FormData).get("reporter_email")).toBe("buyer@test.local")
+  })
+
   it("attaches the captured dev-tools context to the /api/feedback payload (G2/G5)", async () => {
     const fetchMock = vi.fn(async (..._a: any[]) => new Response(JSON.stringify({ id: "fb3", saved: true }), { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)

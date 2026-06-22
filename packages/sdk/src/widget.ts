@@ -169,7 +169,10 @@ async function mount() {
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, referrer: document.referrer || "", screenshots: p.screenshots,
-          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [], annotations: p.annotations },
+          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [], annotations: p.annotations,
+          // Forward the gate's required email → server reporter_email. Without this, an "email"-gated
+          // project (the default for cross-origin support widgets) rejects every submit with 400.
+          reporterEmail: p.reporterEmail },
       ),
       success: { copy: successCopy(widget.mode, widget.ctaUrl, suppressSuccessEmail), onLead: postLead },
     }, modalConfig)

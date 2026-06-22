@@ -128,6 +128,27 @@ test("cross-origin anonymous WITH a valid email is accepted + stores the contact
   expect(row.rows[0].contact_email).toBe("reporter@test.local")
 })
 
+// ── Happy path: the exact shape the widget submits (text + email + page_url + referrer) → 200 ──
+// Regression guard for the P1 400: an email-gated widget submit must succeed end-to-end and create
+// the report with the reporter captured as the contact.
+test("happy path: widget submit (description + reporter_email + page_url + referrer) returns 200 and creates the report", async () => {
+  const fd = new FormData()
+  fd.set("description", "[bug] the Pay button does nothing on first click")
+  fd.set("project_id", "p1")
+  fd.set("reporter_email", "shopper@test.local")
+  fd.set("page_url", "https://customer.example/checkout")
+  fd.set("referrer", "https://www.google.com/")
+  const r = await fetch(`${BASE}/api/feedback`, { method: "POST", body: fd, headers: { origin: "https://customer.example" } })
+  expect(r.status).toBe(200)
+  const j = await r.json()
+  expect(j.saved).toBe(true)
+  expect(j.id).toBeTruthy()
+  const row = await rawClient.execute({ sql: "SELECT observation, contact_email, url_host FROM feedback WHERE id=?", args: [j.id] })
+  expect(row.rows[0].contact_email).toBe("shopper@test.local")
+  expect(row.rows[0].url_host).toBe("customer.example")
+  expect(String(row.rows[0].observation)).toContain("Pay button")
+})
+
 // ── Test 3: over the per-IP cap → 429 ────────────────────────────────────────
 test("over the per-IP cap → 429", async () => {
   const hammer = async () => { const fd = new FormData(); fd.set("description","x"); fd.set("project_id","p1"); return fetch(`${BASE}/api/feedback`, { method:"POST", body: fd, headers: { origin: BASE } }) }
