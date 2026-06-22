@@ -384,7 +384,7 @@ async function mount() {
     // Warm cream "glass" surface with a soft Klavity-purple glow at the top, a layered
     // purple-tinted shadow, and a frosted backdrop. (Plain backdrop blur — not liquid-glass
     // refraction, which doesn't compose in Chrome.)
-    menu.style.cssText = "position:fixed;z-index:2147483647;width:300px;border-radius:20px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:top left;padding:8px;display:flex;flex-direction:column;gap:7px;box-sizing:border-box;" +
+    menu.style.cssText = "position:fixed;z-index:2147483647;width:300px;max-width:calc(100vw - 24px);border-radius:20px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:top left;padding:8px;display:flex;flex-direction:column;gap:7px;box-sizing:border-box;" +
       "background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.18), rgba(139,92,246,0) 55%), linear-gradient(180deg, rgba(250,247,240,.95), rgba(243,236,225,.96));" +
       "border:1px solid rgba(255,255,255,.55);" +
       "box-shadow:0 24px 60px -12px rgba(76,40,130,.32), 0 8px 22px rgba(99,102,241,.16), 0 1.5px 4px rgba(25,20,15,.10), inset 0 1px 0 rgba(255,255,255,.75);" +
@@ -422,13 +422,24 @@ async function mount() {
     // One-pass shimmer sweep — appended LAST so it sweeps OVER the opaque cards (pointer-events:none).
     const shine = document.createElement("div"); shine.className = "klm-shine"; menu.appendChild(shine)
     root.appendChild(menu)
-    requestAnimationFrame(() => {
-      const r = menu.getBoundingClientRect()
-      let ox = "left", oy = "top"
-      if (r.right > innerWidth - 8) { menu.style.left = (x - r.width) + "px"; ox = "right" }
-      if (r.bottom > innerHeight - 8) { menu.style.top = (y - r.height) + "px"; oy = "bottom" }
-      menu.style.transformOrigin = oy + " " + ox   // grow from the corner nearest the cursor
-    })
+    // Position near the cursor, smart-flip, then HARD-CLAMP fully on-screen so the wide cards never overflow.
+    // offsetWidth/Height (not getBoundingClientRect) gives the true layout size, unaffected by the entrance
+    // scale animation. Done synchronously (before paint) so there's no flash.
+    {
+      const M = 8 // viewport margin
+      const w = menu.offsetWidth, h = menu.offsetHeight
+      // horizontal: prefer right of the cursor; flip to the left if it would overflow; then clamp into view.
+      const flipX = x + w > innerWidth - M
+      let left = flipX ? x - w : x
+      left = Math.max(M, Math.min(left, innerWidth - w - M))
+      // vertical: prefer below the cursor; flip up if it would overflow; then clamp into view.
+      const flipY = y + h > innerHeight - M
+      let top = flipY ? y - h : y
+      top = Math.max(M, Math.min(top, innerHeight - h - M))
+      menu.style.left = left + "px"
+      menu.style.top = top + "px"
+      menu.style.transformOrigin = (flipY ? "bottom " : "top ") + (flipX ? "right" : "left") // grow from the corner by the cursor
+    }
     const onOutside = (ev: MouseEvent) => { const p = (ev.composedPath?.() || []) as HTMLElement[]; if (!p.includes(menu)) { closeMenu(); document.removeEventListener("mousedown", onOutside) } }
     const onEsc = (ev: KeyboardEvent) => { if (ev.key === "Escape") { closeMenu(); document.removeEventListener("keydown", onEsc, true) } }
     setTimeout(() => { document.addEventListener("mousedown", onOutside); document.addEventListener("keydown", onEsc, true) }, 0)

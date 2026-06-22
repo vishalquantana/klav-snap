@@ -335,7 +335,7 @@ function showCtxMenu(x: number, y: number) {
   menu.className = 'klm-menu'
   // Warm cream "glass" surface with a soft Klavity-purple top glow + layered purple shadow,
   // matching the in-page widget menu. (Plain backdrop blur — not liquid-glass refraction.)
-  menu.style.cssText = 'position:fixed;z-index:2147483647;min-width:236px;border-radius:14px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;padding:6px;transform-origin:top left;' +
+  menu.style.cssText = 'position:fixed;z-index:2147483647;min-width:236px;max-width:calc(100vw - 24px);border-radius:14px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;padding:6px;transform-origin:top left;' +
     'background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.18), rgba(139,92,246,0) 55%), linear-gradient(180deg, rgba(250,247,240,.96), rgba(243,236,225,.97));' +
     'border:1px solid rgba(255,255,255,.55);' +
     'box-shadow:0 24px 60px -12px rgba(76,40,130,.32),0 8px 22px rgba(99,102,241,.16),0 1.5px 4px rgba(25,20,15,.10),inset 0 1px 0 rgba(255,255,255,.75);' +
@@ -400,13 +400,21 @@ function showCtxMenu(x: number, y: number) {
 
   document.body.appendChild(menu)
 
-  requestAnimationFrame(() => {
-    const r = menu.getBoundingClientRect()
-    let ox = 'left', oy = 'top'
-    if (r.right > window.innerWidth - 8) { menu.style.left = `${x - r.width}px`; ox = 'right' }
-    if (r.bottom > window.innerHeight - 8) { menu.style.top = `${y - r.height}px`; oy = 'bottom' }
-    menu.style.transformOrigin = `${oy} ${ox}`   // grow from the corner nearest the cursor
-  })
+  // Smart-flip near the cursor, then HARD-CLAMP fully on-screen so the menu never overflows. offsetWidth/
+  // Height give the true layout size (unaffected by the entrance scale animation); measured synchronously.
+  {
+    const M = 8
+    const w = menu.offsetWidth, h = menu.offsetHeight
+    const flipX = x + w > window.innerWidth - M
+    let left = flipX ? x - w : x
+    left = Math.max(M, Math.min(left, window.innerWidth - w - M))
+    const flipY = y + h > window.innerHeight - M
+    let top = flipY ? y - h : y
+    top = Math.max(M, Math.min(top, window.innerHeight - h - M))
+    menu.style.left = `${left}px`
+    menu.style.top = `${top}px`
+    menu.style.transformOrigin = `${flipY ? 'bottom ' : 'top '}${flipX ? 'right' : 'left'}`
+  }
 
   const onOutside = (e: MouseEvent) => {
     if (!menu.contains(e.target as Node)) { closeCtxMenu(); document.removeEventListener('mousedown', onOutside) }
