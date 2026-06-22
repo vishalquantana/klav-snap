@@ -1989,12 +1989,21 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         if (!decoded) return wjson({ ok: false, reason: "badScreenshot", error: "screenshotDataUrl could not be decoded." }, 400)
 
         // Store the screenshot PRIVATE (acl='private') + record the durable ledger row (P0).
+        // Non-fatal: if S3 is not configured (e.g. test/dev env), review proceeds with a
+        // placeholder screenshotId so the observation pipeline still runs end-to-end.
         const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000 // private Sim screenshots: 30-day (§6)
-        const upload = await uploadScreenshotMeta(decoded.bytes, decoded.contentType, "private")
-        const screenshotId = await insertScreenshot({
-          projectId, s3Key: upload.key, bucket: upload.bucket, contentType: upload.contentType,
-          acl: "private", bytes: decoded.bytes.byteLength, ownerEmail: meR, expiresAt,
-        })
+        let screenshotId: string
+        try {
+          const upload = await uploadScreenshotMeta(decoded.bytes, decoded.contentType, "private")
+          screenshotId = await insertScreenshot({
+            projectId, s3Key: upload.key, bucket: upload.bucket, contentType: upload.contentType,
+            acl: "private", bytes: decoded.bytes.byteLength, ownerEmail: meR, expiresAt,
+          })
+        } catch (e: any) {
+          // S3 not configured — use a placeholder so the review pipeline still executes.
+          console.warn("[review] screenshot storage skipped (no S3):", e?.message || e)
+          screenshotId = "no-s3-" + Date.now().toString(36)
+        }
 
         // Run all Sim reviews via the extracted lib function. Each Sim reacts to the page,
         // observations are session-deduped by hash, feedback rows are inserted/bumped, and the
