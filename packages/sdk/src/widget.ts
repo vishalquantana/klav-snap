@@ -154,6 +154,11 @@ async function mount() {
     // gate (requireEmail), the user is a signed-in widget user (token), or it's our own non-leadgen page
     // (e.g. the logged-in dashboard). Leadgen pages still capture the lead — that's the whole funnel.
     const suppressSuccessEmail = requireEmail || !!getToken() || (firstParty && widget.mode !== "leadgen")
+    // Resilience: opening the composer must NEVER be blocked or killed by an enhancement. Session-replay
+    // load + the auto-screenshot are already best-effort (injectRecorderScript resolves null on
+    // adblock/error; autoCaptureOnOpen is deferred + caught inside buildModal). This try/catch is the
+    // final belt-and-suspenders so an unexpected throw can't leave the button silently doing nothing.
+    try {
     buildModal(type, {
       // Auto-grab a Full Page shot the moment the modal opens — parity with the extension
       // (content.ts autoCaptureOnOpen). Captures the current page state without an extra click.
@@ -168,6 +173,7 @@ async function mount() {
       ),
       success: { copy: successCopy(widget.mode, widget.ctaUrl, suppressSuccessEmail), onLead: postLead },
     }, modalConfig)
+    } catch (e) { console.warn("[Klavity] failed to open the report composer:", e) }
   }
   reportBtn.onclick = () => openReport("bug")
   reportDock.appendChild(reportBtn)

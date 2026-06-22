@@ -439,6 +439,18 @@ let klavRouteCount = 0                          // reviews sent this route load
 // string = a newer sig arrived while flight was in progress; run once more on completion.
 let klavPendingLatest: null | true | string = null
 
+// Throttled console logging: the capture loop runs on every DOM change, so on busy pages (e.g. the
+// dashboard) verbose per-trigger logs ("capturing…", "skip: capture failed/rate-limited") spam the
+// console dozens of times a minute. klavLog collapses repeats by key to at most one line per 15s, so
+// the signal survives without the noise. Best-effort and never throws.
+const _klavLogLast: Record<string, number> = {}
+function klavLog(key: string, ...args: unknown[]) {
+  const now = Date.now()
+  if (now - (_klavLogLast[key] || 0) < 15_000) return
+  _klavLogLast[key] = now
+  try { console.log(...args) } catch { /* never let logging break the content script */ }
+}
+
 // ── Observer handles (disconnect on route change) ─────────────────────────────
 let klavMutObs: MutationObserver | null = null
 let klavIntObs: IntersectionObserver | null = null
@@ -841,7 +853,7 @@ async function maybeActivate(reason: string) {
   const project = klavMatchProject(url)
   // Off-allowlist: tear down indicator and stop.
   if (!project) { klavIndicatorEl?.remove(); klavIndicatorEl = null; return }
-  console.log(`[Klavity] active on monitored URL (trigger: ${reason}) · project=${project.id} · ${location.pathname}`)
+  klavLog('active', `[Klavity] active on monitored URL (trigger: ${reason}) · project=${project.id} · ${location.pathname}`)
 
   const paused = await klavIsUserPaused(project.id)
   klavRenderIndicator(project.id, paused)
@@ -870,9 +882,11 @@ async function maybeActivate(reason: string) {
   klavPendingLatest = true
   const routeKey = klavNormUrl(url)
   try {
-    console.log(`[Klavity] change detected (${reason}) → capturing viewport…`)
+    klavLog('capturing', `[Klavity] change detected (${reason}) → capturing viewport…`)
     const dataUrl = await klavCapture()
-    if (!dataUrl) { console.log('[Klavity] skip: capture failed/rate-limited (will retry next change)'); return }
+    // captureVisibleTab is rate-limited by Chrome (~2/sec); on busy pages this is hit often. Non-fatal
+    // (we retry on the next change) — throttle the log so it doesn't spam the console.
+    if (!dataUrl) { klavLog('capfail', '[Klavity] skip: capture failed/rate-limited (will retry next change)'); return }
 
     // Compute sig AFTER captureVisibleTab returns — same DOM moment as the pixels.
     const postSig = klavDomSig()

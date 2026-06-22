@@ -3,7 +3,8 @@
 // rrweb is ~260 KB minified; statically importing it bloated the no-install widget IIFE to ~418 KB
 // gzip. The widget is embedded on customers' sites, so that initial payload is in their critical
 // path. Instead we inject a <script src> for a VENDORED rrweb UMD build (served by the Klavity
-// backend at /vendor/rrweb-record.min.js, mirroring how rrweb-player is vendored for playback) AFTER
+// backend at /vendor/klv-buffer.min.js — a NEUTRAL filename so ad-blockers don't block it; the recorder
+// global is still window.rrweb. Mirrors how the player is vendored at /vendor/klv-view.min.js) AFTER
 // the widget mounts. Until it loads, replay?.getEvents() returns [] (already handled). A few hundred
 // ms of "not recording yet" at page load is the accepted trade-off.
 //
@@ -20,7 +21,9 @@ export interface RrwebGlobal { record?: (opts: any) => (() => void) | undefined 
  */
 export function resolveRecorderUrl(backendUrl: string): string {
   const base = (backendUrl || "").replace(/\/+$/, "")
-  return base + "/vendor/rrweb-record.min.js"
+  // NEUTRAL filename: ad-blockers (uBlock/EasyPrivacy/Brave) block any URL containing "rrweb"/"record",
+  // which silently disabled session replay for adblock users. Keep the URL free of flagged tokens.
+  return base + "/vendor/klv-buffer.min.js"
 }
 
 let _loadPromise: Promise<RrwebGlobal | null> | null = null

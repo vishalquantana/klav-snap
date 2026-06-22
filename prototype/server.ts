@@ -974,22 +974,27 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     }
     if (req.method === "GET" && path === "/robots.txt") return new Response(Bun.file(SITE + "/robots.txt"), { headers: { "content-type": "text/plain; charset=utf-8" } })
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
-    // ── vendored rrweb-player assets (Trails Walk replay scrubber) ──
-    if (req.method === "GET" && path === "/vendor/rrweb-player.umd.min.js") {
-      return new Response(Bun.file(PUB + "/vendor/rrweb-player.umd.min.js"), {
+    // ── vendored session-replay PLAYER (Trails Walk + ticket replay scrubber) ──
+    // Served under NEUTRAL filenames (klv-view.*): ad-blockers (uBlock/EasyPrivacy/Brave) block ANY URL
+    // containing "rrweb"/"record", which silently broke replay for a large share of real users. The old
+    // /vendor/rrweb-player.* paths are kept as compat aliases for pages cached before this rename.
+    if (req.method === "GET" && (path === "/vendor/klv-view.min.js" || path === "/vendor/rrweb-player.umd.min.js")) {
+      return new Response(Bun.file(PUB + "/vendor/klv-view.min.js"), {
         headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=86400" },
       })
     }
-    if (req.method === "GET" && path === "/vendor/rrweb-player.css") {
-      return new Response(Bun.file(PUB + "/vendor/rrweb-player.css"), {
+    if (req.method === "GET" && (path === "/vendor/klv-view.css" || path === "/vendor/rrweb-player.css")) {
+      return new Response(Bun.file(PUB + "/vendor/klv-view.css"), {
         headers: { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=86400" },
       })
     }
-    // ── vendored rrweb RECORDER (lazy-loaded by the embeddable widget; kept OUT of the widget IIFE
-    // so the no-install widget's initial payload stays small). CORS-open: the widget runs cross-origin
-    // on customers' sites and injects this <script src> from the Klavity backend origin. ──
-    if (req.method === "GET" && path === "/vendor/rrweb-record.min.js") {
-      return new Response(Bun.file(PUB + "/vendor/rrweb-record.min.js"), {
+    // ── vendored session-replay RECORDER (lazy-loaded by the embeddable widget; kept OUT of the widget
+    // IIFE so the no-install widget's initial payload stays small). CORS-open: the widget runs cross-origin
+    // on customers' sites and injects this <script src> from the Klavity backend origin. Served under a
+    // NEUTRAL filename (klv-buffer.min.js) so ad-blockers don't block it (they match "rrweb"/"record");
+    // the old /vendor/rrweb-record.min.js path is kept as a compat alias for widgets cached before the rename. ──
+    if (req.method === "GET" && (path === "/vendor/klv-buffer.min.js" || path === "/vendor/rrweb-record.min.js")) {
+      return new Response(Bun.file(PUB + "/vendor/klv-buffer.min.js"), {
         headers: {
           "content-type": "text/javascript; charset=utf-8",
           "cache-control": "public, max-age=86400",
