@@ -8,11 +8,11 @@
 //   (c) per-session throttle — 2nd call within window blocked; resets after window
 import { test, expect, mock, beforeEach } from "bun:test"
 import {
-  hashObservation, buildSimRunSummary, obsIsNearDup,
+  hashObservation, buildSimRunSummary, obsIsNearDup, obsPassesMode,
   sessionCallCapped, sessionObsCapped, sessionCallCount, sessionObsCount,
   sessionBumpCall, sessionBumpObs,
   SESSION_CALL_CEIL, SESSION_OBS_CEIL, NEAR_DUP_THRESHOLD,
-  type SimReview, type SimObservation,
+  type SimFeedbackMode, type SimReview, type SimObservation,
 } from "./sim-review-pure"
 import { allow } from "./ratelimit"
 
@@ -328,4 +328,122 @@ test("(e) near-dup + ceiling compose: session stores seen texts for cross-screen
   const stored = sessionObsCount(id)
   expect(stored).toBe(1)
   expect(obsIsNearDup(rephrase, [text])).toBe(true)  // near-dup detected
+})
+
+// ── (f) feedback-mode filter ──────────────────────────────────────────────────
+//
+// obsPassesMode(obs, mode) determines which observations survive each mode.
+// Applied AFTER full assembly (sentiment + suggestedBug both resolved).
+//
+//   "all"      → every observation passes
+//   "positive" → only sentiment === "positive"
+//   "critical" → sentiment === "negative" OR suggestedBug != null
+
+// Helper: build minimal observation-shaped objects for filter tests
+function obs(sentiment: string | null, bug: any = null) {
+  return { sentiment, suggestedBug: bug }
+}
+
+// ── mode: "all" ───────────────────────────────────────────────────────────────
+
+test('(f) mode "all": positive observation passes', () => {
+  expect(obsPassesMode(obs("positive"), "all")).toBe(true)
+})
+test('(f) mode "all": negative observation passes', () => {
+  expect(obsPassesMode(obs("negative"), "all")).toBe(true)
+})
+test('(f) mode "all": neutral observation passes', () => {
+  expect(obsPassesMode(obs("neutral"), "all")).toBe(true)
+})
+test('(f) mode "all": null sentiment passes', () => {
+  expect(obsPassesMode(obs(null), "all")).toBe(true)
+})
+test('(f) mode "all": bug candidate passes', () => {
+  expect(obsPassesMode(obs("neutral", { title: "Bug" }), "all")).toBe(true)
+})
+
+// ── mode: "positive" ──────────────────────────────────────────────────────────
+
+test('(f) mode "positive": positive sentiment → passes', () => {
+  expect(obsPassesMode(obs("positive"), "positive")).toBe(true)
+})
+test('(f) mode "positive": negative sentiment → filtered out', () => {
+  expect(obsPassesMode(obs("negative"), "positive")).toBe(false)
+})
+test('(f) mode "positive": neutral sentiment → filtered out', () => {
+  expect(obsPassesMode(obs("neutral"), "positive")).toBe(false)
+})
+test('(f) mode "positive": null sentiment → filtered out', () => {
+  expect(obsPassesMode(obs(null), "positive")).toBe(false)
+})
+test('(f) mode "positive": bug candidate with positive sentiment → passes', () => {
+  // sentiment wins; positive bug report is uncommon but should still pass
+  expect(obsPassesMode(obs("positive", { title: "Bug" }), "positive")).toBe(true)
+})
+test('(f) mode "positive": bug candidate with negative sentiment → filtered out', () => {
+  expect(obsPassesMode(obs("negative", { title: "Bug" }), "positive")).toBe(false)
+})
+
+// ── mode: "critical" ─────────────────────────────────────────────────────────
+
+test('(f) mode "critical": negative sentiment → passes', () => {
+  expect(obsPassesMode(obs("negative"), "critical")).toBe(true)
+})
+test('(f) mode "critical": bug candidate (any sentiment) → passes', () => {
+  expect(obsPassesMode(obs("neutral", { title: "Bug" }), "critical")).toBe(true)
+  expect(obsPassesMode(obs(null, { title: "Bug" }), "critical")).toBe(true)
+})
+test('(f) mode "critical": negative sentiment + bug → passes (double-critical)', () => {
+  expect(obsPassesMode(obs("negative", { title: "Bug" }), "critical")).toBe(true)
+})
+test('(f) mode "critical": positive sentiment, no bug → filtered out', () => {
+  expect(obsPassesMode(obs("positive"), "critical")).toBe(false)
+})
+test('(f) mode "critical": neutral, no bug → filtered out', () => {
+  expect(obsPassesMode(obs("neutral"), "critical")).toBe(false)
+})
+test('(f) mode "critical": null sentiment, no bug → filtered out', () => {
+  expect(obsPassesMode(obs(null), "critical")).toBe(false)
+})
+
+// ── mode: default "all" preserves existing behaviour ─────────────────────────
+
+test('(f) default mode "all": unknown/missing mode value falls through (forward compat)', () => {
+  // obsPassesMode returns true for any unrecognised mode to stay forward-compatible
+  expect(obsPassesMode(obs("negative"), "all")).toBe(true)
+  expect(obsPassesMode(obs("positive"), "all")).toBe(true)
+})
+
+// ── buildSimRunSummary still counts correctly under any mode ──────────────────
+
+test('(f) mode filter + summary: only critical obs → summary shows filtered count', () => {
+  // Simulate what runSimReviews produces when mode="critical"
+  const filtered: SimReview[] = [
+    {
+      simId: "s1", simName: "Alice", initials: null, accent: null,
+      observations: [
+        // Only the critical observations survive the mode filter
+        { text: "Button broken", sentiment: "negative", quote: null, hash: hashObservation("Button broken"), suggestedBug: { title: "Bug" }, deduped: false },
+      ],
+    },
+  ]
+  const s = buildSimRunSummary(filtered)
+  expect(s.simCount).toBe(1)
+  expect(s.totalObservations).toBe(1)
+  expect(s.bugCount).toBe(1)
+})
+
+test('(f) mode filter + summary: only positive obs → no bugs in summary', () => {
+  const filtered: SimReview[] = [
+    {
+      simId: "s1", simName: "Alice", initials: null, accent: null,
+      observations: [
+        { text: "Checkout flow is smooth", sentiment: "positive", quote: null, hash: hashObservation("Checkout flow is smooth"), suggestedBug: null, deduped: false },
+        { text: "Page loads fast", sentiment: "positive", quote: null, hash: hashObservation("Page loads fast"), suggestedBug: null, deduped: false },
+      ],
+    },
+  ]
+  const s = buildSimRunSummary(filtered)
+  expect(s.totalObservations).toBe(2)
+  expect(s.bugCount).toBe(0)
 })

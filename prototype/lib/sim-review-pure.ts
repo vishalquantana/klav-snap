@@ -5,6 +5,31 @@ import { createHash } from "node:crypto"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Controls which observations are included in the Sim review response.
+ *   "all"      — every observation, regardless of sentiment or bug status (default)
+ *   "positive" — only positive-sentiment observations (what's working well)
+ *   "critical" — only negative-sentiment OR bug-candidate observations (what's broken)
+ *
+ * Default "all" preserves the existing behaviour; callers opt in by passing a mode.
+ */
+export type SimFeedbackMode = "all" | "positive" | "critical"
+
+/**
+ * Returns true when `obs` should be included under the given mode.
+ * Applied after full observation assembly (sentiment + suggestedBug both set).
+ */
+export function obsPassesMode(
+  obs: { sentiment: string | null; suggestedBug?: any | null },
+  mode: SimFeedbackMode,
+): boolean {
+  if (mode === "all") return true
+  if (mode === "positive") return obs.sentiment === "positive"
+  // "critical": negative sentiment OR a bug candidate (from the heuristic classifier)
+  if (mode === "critical") return obs.sentiment === "negative" || obs.suggestedBug != null
+  return true  // unknown mode → pass-through (forward-compatible)
+}
+
 /** One Sim's reaction to a page, enriched with dedup + recurrence context. */
 export interface SimObservation {
   text: string                  // observation text

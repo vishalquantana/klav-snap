@@ -21,13 +21,14 @@ import { buildRecurrenceMemory } from "./recurrence-memory"
 // Re-export everything from the pure module so callers only need one import path.
 export {
   hashObservation, decodeDataUrl, splitUrl, buildSimRunSummary,
-  obsIsNearDup, sessionCallCapped, sessionObsCapped, sessionCallCount, sessionObsCount,
+  obsIsNearDup, obsPassesMode,
+  sessionCallCapped, sessionObsCapped, sessionCallCount, sessionObsCount,
   sessionSeenTexts, sessionBumpCall, sessionBumpObs,
   SESSION_CALL_CEIL, SESSION_OBS_CEIL, NEAR_DUP_THRESHOLD, SESSION_TTL_MS,
-  type SimObservation, type SimReview,
+  type SimFeedbackMode, type SimObservation, type SimReview,
 } from "./sim-review-pure"
-import { hashObservation, obsIsNearDup, sessionCallCapped, sessionObsCapped, sessionObsCount, sessionBumpCall, sessionBumpObs, sessionSeenTexts, SESSION_CALL_CEIL, SESSION_OBS_CEIL } from "./sim-review-pure"
-import type { SimObservation, SimReview } from "./sim-review-pure"
+import { hashObservation, obsIsNearDup, obsPassesMode, sessionCallCapped, sessionObsCapped, sessionObsCount, sessionBumpCall, sessionBumpObs, sessionSeenTexts, SESSION_CALL_CEIL, SESSION_OBS_CEIL } from "./sim-review-pure"
+import type { SimFeedbackMode, SimObservation, SimReview } from "./sim-review-pure"
 
 export type SimReactFn = (
   sim: any,
@@ -66,6 +67,8 @@ export interface SimRunOptions {
   //   - per-session observation ceiling (SESSION_OBS_CEIL) is enforced
   //   - near-duplicate texts from prior calls are filtered (NEAR_DUP_THRESHOLD)
   sessionId?: string
+  // FEEDBACK MODE: which observations to surface. Default "all". See SimFeedbackMode.
+  mode?: SimFeedbackMode
   reactFn: SimReactFn
   resolveCitationsFn: ResolveCitationsFn
   autoCopy?: (feedbackId: string, projectId: string, actor: string) => void
@@ -108,7 +111,7 @@ export async function runSimReviews(opts: SimRunOptions): Promise<SimReview[]> {
   const {
     projectId, urlPath, urlHost, pageUrl, imageB64, mediaType,
     targetSims, actorEmail, screenshotId, seenHashes = new Set(),
-    sessionId, reactFn, resolveCitationsFn, autoCopy, markSeen, db,
+    sessionId, mode = "all", reactFn, resolveCitationsFn, autoCopy, markSeen, db,
   } = opts
 
   const out: SimReview[] = []
@@ -235,7 +238,7 @@ export async function runSimReviews(opts: SimRunOptions): Promise<SimReview[]> {
         }
       }
 
-      observations.push({
+      const assembled: SimObservation = {
         text: obsText,
         sentiment: r?.sentiment ?? null,
         quote: citation.sourceQuote,
@@ -244,7 +247,12 @@ export async function runSimReviews(opts: SimRunOptions): Promise<SimReview[]> {
         feedbackId,
         deduped,
         recurrence: recurrenceMem,
-      })
+      }
+
+      // FEEDBACK MODE filter: applied after full assembly so sentiment + suggestedBug are set.
+      if (!obsPassesMode(assembled, mode)) continue
+
+      observations.push(assembled)
     }
 
     // ── Per-session observation ceiling ──────────────────────────────────────

@@ -1937,6 +1937,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const seenHashes = new Set<string>(
           Array.isArray(body.seenHashes) ? body.seenHashes.map(String).filter((h: string) => /^[0-9a-f]{16}$/.test(h)) : []
         )
+        // Feedback mode: "all" (default) | "positive" | "critical". Unknown values fall back to "all".
+        const VALID_MODES = new Set(["all", "positive", "critical"])
+        const mode = (VALID_MODES.has(body.mode) ? body.mode : "all") as "all" | "positive" | "critical"
         // Per-session throttle: cap continuous-mode calls to 1 req/2s per (session, project) to
         // prevent runaway AI spend while still feeling live. Uses the same ratelimit infra as other
         // rate-limited endpoints. No-op when sessionId is absent (passive/one-shot mode).
@@ -2035,7 +2038,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           targetSims: activeIndexes.map((i) => targetSims[i]),
           actorEmail: meR, screenshotId,
           seenKeys: activeIndexes.map((i) => seenKeys[i]),
-          seenHashes,
+          seenHashes, sessionId: sessionId ?? undefined, mode,
           reactFn: (sim, b64, mt, pu) => reactToPage(sim, b64, mt, pu),
           resolveCitationsFn: resolveCitations,
           autoCopy: autoCopyFeedback,
