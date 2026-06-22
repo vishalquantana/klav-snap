@@ -1,8 +1,8 @@
 // packages/sdk/src/widget.ts
 import { createSim, injectSimStyles, emotionFromSentiment } from "@klavity/core/sim"
 import { safeToPng } from "./capture"
-import { buildModal } from "@klavity/core/modal"
-import { cropDataUrl } from "@klavity/core/crop"
+import { buildModal, installRegionDrag } from "@klavity/core/modal"
+import { cropDataUrl, type Rect } from "@klavity/core/crop"
 import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy } from "./widget-lib"
@@ -144,7 +144,7 @@ async function mount() {
   const reportBtn = document.createElement("button")
   reportBtn.innerHTML = `${icon('bug')} Report a bug`
   reportBtn.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#5b5bf0;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(91,91,240,.32);display:inline-flex;align-items:center;gap:7px"
-  function openReport(type: "bug" | "feature" = "bug") {
+  function openReport(type: "bug" | "feature" = "bug", opts?: { initialShot?: string }) {
     const identified = firstParty || !!getToken()  // already known to Klavity (own page session, or signed-in widget)
     // Only the "login" gate forces the connect flow on third-party sites. "email"/"anonymous" let an
     // end-user file WITHOUT a Klavity account; "email" requires a typed email when not already identified.
@@ -159,10 +159,12 @@ async function mount() {
     // adblock/error; autoCaptureOnOpen is deferred + caught inside buildModal). This try/catch is the
     // final belt-and-suspenders so an unexpected throw can't leave the button silently doing nothing.
     try {
-    buildModal(type, {
+    const ctrl = buildModal(type, {
       // Auto-grab a Full Page shot the moment the modal opens — parity with the extension
       // (content.ts autoCaptureOnOpen). Captures the current page state without an extra click.
-      autoCaptureOnOpen: true,
+      // EXCEPT when we already have a right-click-drag region shot: that one is the default first image,
+      // so we skip the full-page auto-capture and let the zoomed-in region lead.
+      autoCaptureOnOpen: !opts?.initialShot,
       onCaptureFull: async () => safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }),
       onRegionCapture: async (rect) => cropDataUrl(await safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
       requireEmail,
@@ -176,6 +178,8 @@ async function mount() {
       ),
       success: { copy: successCopy(widget.mode, widget.ctaUrl, suppressSuccessEmail), onLead: postLead },
     }, modalConfig)
+    // Right-click-drag region: load the cropped selection as the default (first) screenshot, zoomed to fit.
+    if (opts?.initialShot) ctrl.addScreenshot(opts.initialShot)
     } catch (e) { console.warn("[Klavity] failed to open the report composer:", e) }
   }
   reportBtn.onclick = () => openReport("bug")
@@ -290,11 +294,35 @@ async function mount() {
     setTimeout(() => { document.addEventListener("mousedown", onOutside); document.addEventListener("keydown", onEsc, true) }, 0)
   }
 
+  // Right-clicks on the widget's own UI (launcher / menu / open composer / overlay) are ignored so the
+  // context menu and region-drag never hijack them (right-click-paste in the description box keeps working).
+  const onOwnUi = (e: MouseEvent) => {
+    const path = (e.composedPath?.() || []) as HTMLElement[]
+    return path.some((n) => n?.id === HOST_ID || (typeof n?.className === "string" && /klavity-(overlay|modal)/.test(n.className)))
+  }
+
+  // ── Right-click + DRAG to select a region → capture JUST that area → open the composer with it as the
+  // default (first), zoomed-in screenshot. A plain right-click (no drag) still shows the menu below. ──
+  async function captureRegionAndOpen(rect: Rect) {
+    let shot = ""
+    try {
+      // Full-page capture (CSP/CORS-resilient), then crop to the selected VIEWPORT rect (cropDataUrl adds
+      // the scroll offset). Best-effort: if capture fails, still open the composer so the user can retry.
+      shot = await cropDataUrl(await safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect)
+    } catch { /* fall back to an empty composer */ }
+    openReport("bug", shot ? { initialShot: shot } : undefined)
+  }
+  const regionDrag = installRegionDrag({
+    isOwnTarget: onOwnUi,
+    mount: root,                       // draw the selection rectangle inside the widget's shadow root
+    onRegion: (rect) => { void captureRegionAndOpen(rect) },
+  })
+
   let reportArmed = true
   document.addEventListener("contextmenu", (e) => {
     if (e.shiftKey || nativePending) { nativePending = false; return }  // pass through to native menu
-    const path = (e.composedPath?.() || []) as HTMLElement[]
-    if (path.some((n) => n?.id === HOST_ID || (typeof n?.className === "string" && /klavity-(overlay|modal)/.test(n.className)))) return
+    if (regionDrag.suppressNextMenu()) { e.preventDefault(); return }   // a region drag just happened — no menu
+    if (onOwnUi(e)) return
     e.preventDefault()
     if (!reportArmed) return
     reportArmed = false

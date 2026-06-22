@@ -3,6 +3,11 @@ import { Annotator } from './annotator'
 import { themeCss, resolveModalConfig, type ModalConfig } from './modal-theme'
 import { icon } from './icons'
 
+// Re-exported here so the widget + extension can import the shared right-click-drag region gesture from
+// the same module they already use for buildModal (avoids adding a package.json export entry, which the
+// orchestrator's version-stamp ownership could clobber).
+export { installRegionDrag, type RegionDragHandle, type RegionDragOptions } from './region-drag'
+
 /** Escape text for safe interpolation into innerHTML. */
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')

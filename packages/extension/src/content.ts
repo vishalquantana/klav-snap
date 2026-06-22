@@ -1,5 +1,5 @@
 import type { ContentMessage, BackgroundMessage, ReportType, SubmitReportPayload, KlavConfig, KlavMonitoredProject } from '@klavity/core'
-import { buildModal, type ModalController } from '@klavity/core/modal'
+import { buildModal, installRegionDrag, type ModalController } from '@klavity/core/modal'
 import { icon } from '@klavity/core/icons'
 import { resolveModalConfig } from '@klavity/core/modal-theme'
 import { installCapture, buildReportContext, type CaptureBuffers } from '@klavity/core/capture'
@@ -156,7 +156,7 @@ async function fetchModalConfig(): Promise<ReturnType<typeof resolveModalConfig>
   return resolveModalConfig({})
 }
 
-async function openModal(type: ReportType) {
+async function openModal(type: ReportType, initialShot?: string) {
   if (modalCtrl) return // guard against double-open
   if (!isContextValid()) {
     showToast('Extension reloaded. Please refresh the page.')
@@ -164,11 +164,14 @@ async function openModal(type: ReportType) {
   }
   const config = await fetchModalConfig()
   modalCtrl = buildModal(type, {
-    autoCaptureOnOpen: true,
+    // Right-click-drag region: the cropped selection is the default first image, so skip the full-page
+    // auto-capture and let the zoomed-in region lead. Otherwise auto-grab the full page on open.
+    autoCaptureOnOpen: !initialShot,
     onCaptureFull,
     onRegionCapture,
     onSubmit: (p) => submitViaSW(p),
   }, config)
+  if (initialShot) modalCtrl.addScreenshot(initialShot)
 }
 
 function closeModal() {
@@ -428,9 +431,22 @@ function handleContextMenu(e: MouseEvent) {
     nativeMenuPending = false
     return // pass through to native browser menu
   }
+  if (regionDrag.suppressNextMenu()) { e.preventDefault(); return } // a right-click-drag region just happened
   e.preventDefault()
   showCtxMenu(e.clientX, e.clientY)
 }
+
+// Right-click + DRAG to select a region → capture JUST that area → open the composer with it as the
+// default (first), zoomed-in screenshot. Shares the gesture with the in-page widget (@klavity/core).
+// Yields when the in-page widget is present (it owns reporting) or a composer is already open.
+const regionDrag = installRegionDrag({
+  shouldIgnore: () => widgetPresent() || !!modalCtrl,
+  onRegion: async (rect) => {
+    let shot = ''
+    try { shot = await onRegionCapture(rect) } catch { /* open empty so the user can retry */ }
+    void openModal('bug', shot || undefined)
+  },
+})
 
 document.addEventListener('contextmenu', handleContextMenu)
 
