@@ -1,4 +1,5 @@
 import type { BackgroundMessage, ContentMessage, KlavitySettings, KlavConfig, ReportType } from '@klavity/core'
+import { findProjectForUrl } from './project-url'
 import { DEFAULT_SETTINGS } from '@klavity/core'
 import { dispatchSubmit } from '@klavity/core/submit'
 import { submitReport as jiraSubmit } from '@klavity/core/integrations/jira'
@@ -239,6 +240,20 @@ async function activeProjectIdFor(config: KlavConfig | null): Promise<string | n
   return config?.projects?.[0]?.id ?? null
 }
 
+// ── Project-follows-URL: auto-select the matching project when the admin
+// navigates to a monitored URL, so Analyze-with-Sims / Deploy / the popup
+// always operate on the right project for the current page.
+//
+// Only writes klavSelectedProjectId when a project claims the URL — no match
+// leaves the existing (possibly explicit) selection intact.
+async function autoSelectProjectForUrl(url: string): Promise<void> {
+  if (!url || /^(chrome|chrome-extension|about|data|blob):/.test(url)) return
+  const config = await getConfig()
+  const match = findProjectForUrl(url, config)
+  if (!match) return
+  await chrome.storage.local.set({ klavSelectedProjectId: match.id })
+}
+
 // How many Sims this project has. -1 = couldn't tell (offline/error) → don't block the review.
 async function projectSimCount(config: KlavConfig, pid: string): Promise<number> {
   try {
@@ -290,9 +305,22 @@ chrome.runtime.onStartup?.addListener?.(() => { void setupContextMenus(); void s
 
 // SPA backstop (P3b): the content script watches history in-page, but some SPA route
 // changes only surface to the platform via tabs.onUpdated. When a monitored tab's URL
-// changes, nudge its content script to re-evaluate. (No-op if no content script is there.)
+// changes: nudge the content script to re-evaluate AND auto-select the matching project.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.url) void safeSend(tabId, { kind: 'KLAV_NUDGE_ROUTE' })
+  if (changeInfo.url) {
+    void safeSend(tabId, { kind: 'KLAV_NUDGE_ROUTE' })
+    void autoSelectProjectForUrl(changeInfo.url)
+  }
+})
+
+// Project-follows-URL: when the user switches to a tab, resolve which project
+// monitors that tab's URL and make it the active project.  Uses chrome.tabs.get
+// (with lastError consumed) so it's safe even if the tab was just closed.
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  chrome.tabs.get(tabId, (tab) => {
+    void chrome.runtime.lastError  // consume "No tab with id" if tab was already closed
+    if (tab?.url) void autoSelectProjectForUrl(tab.url)
+  })
 })
 
 // Send to a tab's content script via the callback form, which CONSUMES
