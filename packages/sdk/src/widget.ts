@@ -266,15 +266,6 @@ async function mount() {
     return r
   }
 
-  function renderConnectButton() {
-    dock.innerHTML = ""
-    const b = document.createElement("button")
-    b.innerHTML = `${icon('zap')} Connect to Klavity`
-    b.style.cssText = "border:0;border-radius:999px;padding:10px 16px;background:#6366f1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(99,102,241,.35)"
-    b.onclick = openConnect
-    dock.appendChild(b)
-  }
-
   function openConnect() {
     const u = cfg.backendUrl + "/widget-connect?project=" + encodeURIComponent(cfg.projectId)
       + "&origin=" + encodeURIComponent(location.origin)
@@ -293,7 +284,7 @@ async function mount() {
 
   async function loadSims() {
     const r = await api("/api/personas?project=" + encodeURIComponent(cfg.projectId))
-    if (r.status === 401) { clearToken(); renderConnectButton(); return }
+    if (r.status === 401) { clearToken(); dock.innerHTML = ""; return }  // token expired → drop the Sims dock; never show a bare Connect CTA
     if (!r.ok) { banner("Couldn't load your Sims."); return }
     const j = await r.json()
     renderDock((j.personas || []) as Persona[])
@@ -337,7 +328,7 @@ async function mount() {
       j = await r.json().catch(() => ({}))
     }
     btn.disabled = false; btn.textContent = orig
-    if (r.status === 401) { clearToken(); renderConnectButton(); return }
+    if (r.status === 401) { clearToken(); dock.innerHTML = ""; return }  // token expired → drop the Sims dock; never show a bare Connect CTA
     if (!j.ok) { banner(gateMessage(j.reason || "")); return }
     for (const rev of (j.reviews || [])) for (const re of (rev.reactions || [])) {
       renderBubble(rev.simName, rev.accent || "#6366f1", re.observation, re.sentiment)
@@ -370,9 +361,13 @@ async function mount() {
     setTimeout(() => b.remove(), 16000)
   }
 
-  // Boot — the Sims-review dock is for embedded customer sites. On first-party (the klavity.quantana.top
-  // dogfood) we show only the report launcher, so users don't see a confusing second "Connect" dock.
-  if (!firstParty) { if (getToken()) loadSims(); else renderConnectButton() }
+  // Boot — SINGLE primary CTA. The floating launcher always shows "Report a bug". The Sims-review dock
+  // is an authenticated team tool, so it loads ONLY when the widget is already connected (token present).
+  // We never render a bare "Connect to Klavity" prompt to anonymous visitors: it's a PLG/prospect CTA
+  // that co-rendered with "Report a bug" and confused users on configured support projects (e.g. bigidea).
+  // Connecting happens deliberately from the Klavity dashboard (or the report "login" gate), not by
+  // prompting every visitor of a customer's site.
+  if (!firstParty && getToken()) loadSims()
   ;(window as any).KlavityWidget = { mount, identify, setMetadata }
 }
 
