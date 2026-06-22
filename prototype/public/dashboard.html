@@ -1275,8 +1275,15 @@ async function renderTriage() {
   await swrSection(
     "triage:" + pid,
     async () => { const r = await fetch("/api/projects/" + encodeURIComponent(pid) + "/triage"); if (!r.ok) return null; return await r.json() },
-    (d) => { _triageItems = (d && d.triage) || []; renderTriageFilters(); renderTriageList() },
+    // renderTriageItems is the actual renderer; the old renderTriageFilters()/renderTriageList()
+    // names don't exist, so this apply() used to throw (swallowed by swrSection) and the skeleton
+    // never got replaced. renderTriageItems() paints the items, or the empty-state when none.
+    (d) => { _triageItems = (d && d.triage) || []; renderTriageItems(_triageItems) },
   )
+  // Graceful fallback: on a failed fetch with no cache, apply() never ran and the skeleton would
+  // shimmer forever — replace it with a clear "couldn't load" state so it ALWAYS resolves.
+  const host = $("triageList")
+  if (host && host.querySelector(".sk")) host.innerHTML = emptyState("", "Couldn't load triage items — try refreshing.", "")
 }
 function renderTriageItems(items) {
   const host = $("triageList"); if (!host) return
