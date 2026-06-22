@@ -112,14 +112,19 @@ export function buildModal(
     .klavity-modal.kl-closing{animation:kl-genie-out .5s cubic-bezier(.55,0,.85,.25) both;}
     .klavity-toggle{display:flex;gap:8px;margin-bottom:16px;padding-right:34px;}
     .klavity-toggle button{flex:1;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:600;background:var(--kl-chip);color:var(--kl-fg);}
-    .klavity-toggle .bug.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
-    .klavity-toggle .feat.active{background:var(--kl-accent2);color:var(--kl-on-accent);}
+    .klavity-toggle .bug.active{background:var(--kl-accent);color:var(--kl-on-accent);}
+    .klavity-toggle .feat.active{background:var(--kl-accent);color:var(--kl-on-accent);}
     .klavity-page{font-size:12px;color:var(--kl-muted);margin-bottom:12px;}
-    .klavity-strip{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;min-height:64px;}
+    /* overflow-x:auto forces overflow-y to auto (not visible) per CSS spec — adding vertical padding gives
+       the absolutely-positioned rm/mk badge ::after hit-area extensions room so they're not clipped. */
+    .klavity-strip{display:flex;gap:8px;overflow-x:auto;padding:6px 0;margin-bottom:6px;min-height:64px;align-items:flex-start;}
     .klavity-thumb{position:relative;flex-shrink:0;}
     .klavity-thumb img{height:72px;width:104px;object-fit:cover;object-position:top center;background:var(--kl-chip);display:block;border-radius:8px;outline:1px solid var(--kl-img-outline);outline-offset:-1px;cursor:pointer;transition:filter .12s;}
     .klavity-thumb img:hover{filter:brightness(.85);}
-    .klavity-rm{position:absolute;top:4px;right:4px;z-index:2;background:var(--kl-accent2);color:var(--kl-on-accent);border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);}
+    /* Portrait (tall) screenshots: widen the thumbnail vertically so more page content is visible. */
+    .klavity-thumb.kl-tall img{width:68px;height:110px;}
+    /* Remove badge: dark semi-transparent circle — universally visible on all themes/backgrounds. */
+    .klavity-rm{position:absolute;top:4px;right:4px;z-index:2;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);}
     .klavity-mk{position:absolute;bottom:4px;right:4px;z-index:2;background:var(--kl-accent);color:var(--kl-on-accent);border:none;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.35);}
     /* Extend the 22px badges to a ≥40px hit area without enlarging the visible button. The top (X) and
        bottom (pencil) pseudo-areas don't overlap each other; the pencil shares the image's markup action. */
@@ -252,11 +257,15 @@ export function buildModal(
       const img = document.createElement('img')
       img.src = dataUrl
       img.title = 'Click to mark up'
+      // Portrait screenshot: add kl-tall so the thumbnail shows more vertical content.
+      img.addEventListener('load', () => {
+        if (img.naturalHeight > img.naturalWidth * 1.4) wrap.classList.add('kl-tall')
+      }, { once: true })
       // Click the thumbnail itself to open the full-screen markup editor (not just the pencil icon)
       img.addEventListener('click', () => openAnnotator(i))
       const rm = document.createElement('button')
       rm.className = 'klavity-rm'
-      rm.textContent = '×'
+      rm.innerHTML = icon('x', { size: 13 })
       rm.title = 'Remove'
       rm.addEventListener('click', (e) => { e.stopPropagation(); screenshots.splice(i, 1); screenshotCompressed.splice(i, 1); updateStrip() })
       const mk = document.createElement('button')
