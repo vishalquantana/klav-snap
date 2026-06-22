@@ -971,57 +971,115 @@ function activeProjectParam() {
   try { return new URLSearchParams(location.search).get("project") } catch (e) { return null }
 }
 
-// ── Per-project dashboard cache (stale-while-revalidate) ──────────────────────
-// Switching projects used to blank the UI while /api/dashboard refetched from
-// scratch. We now paint the last-cached payload for the target project INSTANTLY,
-// then revalidate in the background and re-cache when fresh data lands. Cached per
-// project id, versioned + TTL'd so it never serves stale-forever data. Every access
-// is wrapped: corrupt JSON, a missing key, or disabled/full localStorage all degrade
-// gracefully to a normal cold load.
-const DASH_CACHE_V = 1                          // bump when the /api/dashboard payload shape changes
-const DASH_CACHE_TTL_MS = 24 * 60 * 60 * 1000   // don't paint cache older than this (SWR still revalidates every load)
-const DASH_CACHE_PREFIX = "klav:dash:v" + DASH_CACHE_V + ":"
-const DASH_LAST_KEY = "klav:dash:last"          // last resolved active project id — for the no-?project= default load
-function dashCacheKey(pid) { return DASH_CACHE_PREFIX + pid }
+// ── Stale-while-revalidate cache (localStorage) ───────────────────────────────
+// Data sections used to blank out while their endpoint refetched from scratch on
+// every page load / project switch. We now paint the last-cached payload for a key
+// INSTANTLY, then revalidate in the background and re-cache when fresh data lands.
+// Generic + keyed (dashboard per project, triage per project, …); versioned + TTL'd
+// so it never serves stale-forever data. Every access is wrapped: corrupt JSON, a
+// missing key, or disabled/full localStorage all degrade to a normal cold load.
+const SWR_V = 1                              // bump when any cached payload's shape changes
+const SWR_TTL_MS = 24 * 60 * 60 * 1000       // don't paint cache older than this (SWR still revalidates every load)
+const SWR_PREFIX = "klav:swr:v" + SWR_V + ":"
+function swrKey(k) { return SWR_PREFIX + k }
 
-function readDashCache(pid) {
-  if (!pid) return null
+function swrRead(k) {
+  if (!k) return null
   try {
-    const raw = localStorage.getItem(dashCacheKey(pid))
+    const raw = localStorage.getItem(swrKey(k))
     if (!raw) return null
     const env = JSON.parse(raw)
-    if (!env || env.v !== DASH_CACHE_V || typeof env.t !== "number") return null   // wrong/old version or malformed
-    if (Date.now() - env.t > DASH_CACHE_TTL_MS) return null                        // too stale to paint
-    return env.data || null
+    if (!env || env.v !== SWR_V || typeof env.t !== "number") return null   // wrong/old version or malformed
+    if (Date.now() - env.t > SWR_TTL_MS) return null                        // too stale to paint
+    return env.data == null ? null : env.data
   } catch (e) { return null }   // corrupt JSON / storage disabled → cold load
 }
 
 // Drop our cache entries except the one we're keeping, plus any stale-version keys
 // from older builds. Best-effort; used to recover from a quota error.
-function pruneDashCache(keepPid) {
+function swrPrune(keepKey) {
   try {
-    const keep = keepPid ? dashCacheKey(keepPid) : null
+    const keep = keepKey ? swrKey(keepKey) : null
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i)
-      if (k && k.indexOf("klav:dash:v") === 0 && k !== keep) localStorage.removeItem(k)
+      if (k && k.indexOf("klav:swr:v") === 0 && k !== keep) localStorage.removeItem(k)
     }
   } catch (e) {}
 }
 
-function writeDashCache(pid, data) {
-  if (!pid || !data) return
+function swrWrite(k, data) {
+  if (!k || data == null) return
   let payload
-  try { payload = JSON.stringify({ v: DASH_CACHE_V, t: Date.now(), data }) } catch (e) { return }  // unserializable → skip
+  try { payload = JSON.stringify({ v: SWR_V, t: Date.now(), data }) } catch (e) { return }  // unserializable → skip
   try {
-    localStorage.setItem(dashCacheKey(pid), payload)
-    localStorage.setItem(DASH_LAST_KEY, pid)
+    localStorage.setItem(swrKey(k), payload)
   } catch (e) {
     // Most likely quota: drop older entries and retry once, then give up silently.
-    try { pruneDashCache(pid); localStorage.setItem(dashCacheKey(pid), payload); localStorage.setItem(DASH_LAST_KEY, pid) } catch (e2) {}
+    try { swrPrune(k); localStorage.setItem(swrKey(k), payload) } catch (e2) {}
   }
 }
 
-// Project to paint instantly on load: an explicit ?project=, else the last active one.
+// ── Top progress bar (GitHub/YouTube style) ───────────────────────────────────
+// A thin fixed line at the very top that animates while ANY background refresh is
+// in flight and completes + fades when the last one lands. Ref-counted so several
+// concurrent section refreshes share one bar. Created lazily in JS (no markup).
+const kbar = {
+  n: 0, el: null, hideT: null,
+  ensure() {
+    if (this.el) return this.el
+    const b = document.createElement("div")
+    b.id = "kbar"; b.setAttribute("aria-hidden", "true")
+    Object.assign(b.style, {
+      position: "fixed", top: "0", left: "0", right: "0", height: "3px",
+      transformOrigin: "0 50%", transform: "scaleX(0)", opacity: "0",
+      background: "linear-gradient(90deg,#6366f1,#a855f7)",
+      zIndex: "2147483647", pointerEvents: "none", willChange: "transform,opacity",
+      boxShadow: "0 0 6px rgba(99,102,241,.6)",
+    })
+    document.body.appendChild(b)
+    this.el = b
+    return b
+  },
+  start() {
+    this.n++
+    if (this.n > 1) return                     // a refresh is already showing the bar
+    const b = this.ensure()
+    clearTimeout(this.hideT)
+    b.style.transition = "none"; b.style.opacity = "1"; b.style.transform = "scaleX(0)"
+    // next frame: trickle toward 90% (never reaches 100% until done())
+    requestAnimationFrame(() => { b.style.transition = "transform 8s cubic-bezier(.1,.7,.1,1)"; b.style.transform = "scaleX(0.9)" })
+  },
+  done() {
+    if (this.n === 0) return
+    this.n--
+    if (this.n > 0) return                     // other refreshes still running
+    const b = this.el; if (!b) return
+    b.style.transition = "transform .2s ease-out"; b.style.transform = "scaleX(1)"   // snap to 100%
+    this.hideT = setTimeout(() => {
+      b.style.transition = "opacity .35s ease"; b.style.opacity = "0"
+      this.hideT = setTimeout(() => { b.style.transform = "scaleX(0)" }, 360)        // reset once invisible
+    }, 220)
+  },
+}
+
+// Generic SWR section runner: paint cached data instantly (if any), then revalidate
+// with the progress bar showing, applying + re-caching fresh data when it lands.
+// `fetcher` returns the payload (or null to skip caching); `apply` renders it.
+async function swrSection(cacheKey, fetcher, apply) {
+  const cached = swrRead(cacheKey)
+  if (cached != null) { try { apply(cached) } catch (e) {} }
+  kbar.start()
+  try {
+    const data = await fetcher()
+    if (data != null) { try { apply(data) } catch (e) {} ; swrWrite(cacheKey, data) }
+  } catch (e) {
+  } finally { kbar.done() }
+}
+
+// Dashboard payload is cached per resolved project id; a "last" pointer lets the
+// no-?project= default load paint instantly too.
+const DASH_LAST_KEY = "klav:dash:last"
+function dashCacheKey(pid) { return "dash:" + pid }
 function dashTargetProjId() {
   const p = activeProjectParam()
   if (p) return p
@@ -1032,27 +1090,32 @@ async function load() {
   // SWR step 1 — instant paint: render the last-cached payload for the target project
   // before the network round-trip. (Only on the first paint; never clobber live state.)
   if (state === null) {
-    const cached = readDashCache(dashTargetProjId())
-    if (cached) { state = cached; render() }   // report widget waits for fresh data to confirm the project
+    const cached = swrRead(dashCacheKey(dashTargetProjId()))
+    if (cached) { state = cached; render(true) }   // fromCache: skip network sub-loaders until fresh confirms the project
   }
-  // SWR step 2 — revalidate in the background.
+  // SWR step 2 — revalidate in the background (progress bar visible).
   let data
+  kbar.start()
   try {
     const pid = activeProjectParam()
     const r = await fetch("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
     if (r.status === 401) { location.href = "/login"; return }
     data = await r.json()
   } catch (e) { data = null }
+  finally { kbar.done() }
   if (!data || data.error) {
     // Keep whatever we painted from cache; only surface the error on a true cold miss.
     if (state === null) $("lead").textContent = "Couldn't load your project. Try refreshing."
     return
   }
-  // SWR step 3 — swap in fresh data, re-render, and re-cache under the resolved project id.
+  // SWR step 3 — swap in fresh data, re-render (with sub-loaders), and re-cache.
   state = data
   render()
   mountReportWidget()
-  if (data.active && data.active.id) writeDashCache(data.active.id, data)
+  if (data.active && data.active.id) {
+    swrWrite(dashCacheKey(data.active.id), data)
+    try { localStorage.setItem(DASH_LAST_KEY, data.active.id) } catch (e) {}
+  }
 }
 
 function mountReportWidget() {
@@ -1068,6 +1131,7 @@ function mountReportWidget() {
 // Re-fetch /api/dashboard and re-render — used after triage accept/dismiss so counts + banner + kanban update.
 async function refreshAll() {
   let data
+  kbar.start()
   try {
     const pid = activeProjectParam()
     const r = await fetch("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
@@ -1075,14 +1139,19 @@ async function refreshAll() {
     if (!r.ok) return
     data = await r.json()
   } catch (e) { return }
+  finally { kbar.done() }
   if (!data || data.error) return
   state = data
   render()
-  if (data.active && data.active.id) writeDashCache(data.active.id, data)   // keep cache fresh after triage actions
+  if (data.active && data.active.id) {                                       // keep cache fresh after triage actions
+    swrWrite(dashCacheKey(data.active.id), data)
+    try { localStorage.setItem(DASH_LAST_KEY, data.active.id) } catch (e) {}
+  }
 }
 
-// Triage view: fetch the queue once, then render filter chips + accept/dismiss rows (with a
-// screenshot thumbnail). Sentiment filtering is client-side over the fetched items — no re-fetch.
+// Triage view: paint the last-cached queue for this project INSTANTLY (SWR + top
+// progress bar), then revalidate and re-cache. Sentiment filter chips + screenshot
+// thumbnails render client-side over the fetched items — no re-fetch on filter change.
 let _triageItems = []
 let _triageSentiment = "all"
 const TG_SENTIMENTS = [["all", "All"], ["frustrated", "Frustrated"], ["confused", "Confused"], ["satisfied", "Satisfied"], ["neutral", "Neutral"]]
@@ -1094,13 +1163,12 @@ function tgSent(t) {
   return "neutral"
 }
 async function renderTriage() {
-  const host = $("triageList"); if (!host) return
   const pid = curProjId(); if (!pid) return
-  let items = []
-  try { const r = await fetch("/api/projects/" + encodeURIComponent(pid) + "/triage"); const d = await r.json(); items = d.triage || [] } catch (e) {}
-  _triageItems = items
-  renderTriageFilters()
-  renderTriageList()
+  await swrSection(
+    "triage:" + pid,
+    async () => { const r = await fetch("/api/projects/" + encodeURIComponent(pid) + "/triage"); if (!r.ok) return null; return await r.json() },
+    (d) => { _triageItems = (d && d.triage) || []; renderTriageFilters(); renderTriageList() },
+  )
 }
 function renderTriageFilters() {
   const el = $("triageFilters"); if (!el) return
@@ -1163,7 +1231,10 @@ function loadTriageShots(host) {
   })
 }
 
-function render() {
+// render(fromCache): when painting the instant cache snapshot we skip the network
+// sub-loaders (connectors/appearance/live/obs) — they fire once on the fresh render
+// so we never double-fetch them or flicker the progress bar on a cache hit.
+function render(fromCache) {
   const active = state.active
   const role = active ? active.role : "user"
   const admin = role === "admin"
@@ -1192,13 +1263,17 @@ function render() {
   $("settingsDrawer").classList.toggle("hide", false)
   $("connAdmin").classList.toggle("hide", !admin)
   $("connUser").classList.toggle("hide", admin)
-  loadConnectors(admin)
-  loadAppearance()
 
   // P3b admin-only: live-Sims config (monitored URLs + pause) and named observability.
   $("liveDrawer").classList.toggle("hide", !admin)
   $("obsDrawer").classList.toggle("hide", !admin)
-  if (admin) { loadLive(); loadObs() }
+
+  // Network sub-loaders — skipped on the instant cache paint, run once on fresh data.
+  if (!fromCache) {
+    loadConnectors(admin)
+    loadAppearance()
+    if (admin) { loadLive(); loadObs() }
+  }
 
   // Deep link: extension's "Analyze this page" with 0 Sims (and any ?create-sim=1) lands here.
   if (window.maybeOpenCreateSim) window.maybeOpenCreateSim()
@@ -1397,6 +1472,7 @@ const projPath = (suffix) => "/api/projects/" + encodeURIComponent(curProjId()) 
 // ── Pause toggle + monitored URLs (R5) ──
 async function loadLive() {
   // project detail gives review_mode; monitored-urls gives the allowlist patterns.
+  kbar.start()
   try {
     const [pr, ur] = await Promise.all([
       fetch(projPath("")).then(r => r.ok ? r.json() : null).catch(() => null),
@@ -1405,6 +1481,7 @@ async function loadLive() {
     renderPause(pr && pr.project ? pr.project.reviewMode : "auto")
     renderUrls((ur && ur.monitoredUrls) || [])
   } catch {}
+  finally { kbar.done() }
 }
 
 let curMode = "auto"
@@ -1494,6 +1571,7 @@ $("urlAdd").onclick = async () => {
 
 // ── Named observability (R6) ──
 async function loadObs() {
+  kbar.start()
   try {
     const r = await fetch(projPath("/activity?type=review_run&limit=50"))
     if (!r.ok) { $("obsList").innerHTML = `<div class="muted">Couldn't load activity.</div>`; return }
@@ -1503,6 +1581,7 @@ async function loadObs() {
       : `Observability is <b>aggregate</b> — teammate identities are hidden.`
     renderObs(d.events || [], d.named)
   } catch { $("obsList").innerHTML = `<div class="muted">Couldn't load activity.</div>` }
+  finally { kbar.done() }
 }
 function renderObs(events, named) {
   if (!events.length) { $("obsList").innerHTML = `<div class="empty"><div class="em">${kicon('eye',{size:32})}</div><p>No Sim reviews yet. When a teammate visits a monitored URL, the run shows up here — who, which Sim, which path.</p></div>`; return }
@@ -2250,6 +2329,7 @@ const INBOUND_GUIDE = {
 
 async function loadConnectors(admin) {
   if (!curProjId()) return
+  kbar.start()
   try {
     const r = await fetch(projPath("/connectors"))
     if (!r.ok) return
@@ -2258,6 +2338,7 @@ async function loadConnectors(admin) {
     connectorTypes = d.types || []
     renderConnectors(admin)
   } catch {}
+  finally { kbar.done() }
 }
 
 function renderConnectors(admin) {
@@ -2656,6 +2737,7 @@ async function loadAppearance() {
   renderWidgetPreview()
   // Load current config (admin variant: ?admin=1 routes past the public handler to the authed branch
   // that returns { modalConfig, pro }, so the Pro gating logic receives the correct flag)
+  kbar.start()
   try {
     const r = await fetch(projPath("/config") + "?admin=1")
     if (!r.ok) return
@@ -2680,6 +2762,7 @@ async function loadAppearance() {
     sync()
     renderWidgetPreview()
   } catch {}
+  finally { kbar.done() }
 }
 
 // Reflect the widget heartbeat: green "active" when seen recently, amber "idle" when stale, grey
