@@ -947,7 +947,71 @@ function activeProjectParam() {
   try { return new URLSearchParams(location.search).get("project") } catch (e) { return null }
 }
 
+// ── Per-project dashboard cache (stale-while-revalidate) ──────────────────────
+// Switching projects used to blank the UI while /api/dashboard refetched from
+// scratch. We now paint the last-cached payload for the target project INSTANTLY,
+// then revalidate in the background and re-cache when fresh data lands. Cached per
+// project id, versioned + TTL'd so it never serves stale-forever data. Every access
+// is wrapped: corrupt JSON, a missing key, or disabled/full localStorage all degrade
+// gracefully to a normal cold load.
+const DASH_CACHE_V = 1                          // bump when the /api/dashboard payload shape changes
+const DASH_CACHE_TTL_MS = 24 * 60 * 60 * 1000   // don't paint cache older than this (SWR still revalidates every load)
+const DASH_CACHE_PREFIX = "klav:dash:v" + DASH_CACHE_V + ":"
+const DASH_LAST_KEY = "klav:dash:last"          // last resolved active project id — for the no-?project= default load
+function dashCacheKey(pid) { return DASH_CACHE_PREFIX + pid }
+
+function readDashCache(pid) {
+  if (!pid) return null
+  try {
+    const raw = localStorage.getItem(dashCacheKey(pid))
+    if (!raw) return null
+    const env = JSON.parse(raw)
+    if (!env || env.v !== DASH_CACHE_V || typeof env.t !== "number") return null   // wrong/old version or malformed
+    if (Date.now() - env.t > DASH_CACHE_TTL_MS) return null                        // too stale to paint
+    return env.data || null
+  } catch (e) { return null }   // corrupt JSON / storage disabled → cold load
+}
+
+// Drop our cache entries except the one we're keeping, plus any stale-version keys
+// from older builds. Best-effort; used to recover from a quota error.
+function pruneDashCache(keepPid) {
+  try {
+    const keep = keepPid ? dashCacheKey(keepPid) : null
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i)
+      if (k && k.indexOf("klav:dash:v") === 0 && k !== keep) localStorage.removeItem(k)
+    }
+  } catch (e) {}
+}
+
+function writeDashCache(pid, data) {
+  if (!pid || !data) return
+  let payload
+  try { payload = JSON.stringify({ v: DASH_CACHE_V, t: Date.now(), data }) } catch (e) { return }  // unserializable → skip
+  try {
+    localStorage.setItem(dashCacheKey(pid), payload)
+    localStorage.setItem(DASH_LAST_KEY, pid)
+  } catch (e) {
+    // Most likely quota: drop older entries and retry once, then give up silently.
+    try { pruneDashCache(pid); localStorage.setItem(dashCacheKey(pid), payload); localStorage.setItem(DASH_LAST_KEY, pid) } catch (e2) {}
+  }
+}
+
+// Project to paint instantly on load: an explicit ?project=, else the last active one.
+function dashTargetProjId() {
+  const p = activeProjectParam()
+  if (p) return p
+  try { return localStorage.getItem(DASH_LAST_KEY) } catch (e) { return null }
+}
+
 async function load() {
+  // SWR step 1 — instant paint: render the last-cached payload for the target project
+  // before the network round-trip. (Only on the first paint; never clobber live state.)
+  if (state === null) {
+    const cached = readDashCache(dashTargetProjId())
+    if (cached) { state = cached; render() }   // report widget waits for fresh data to confirm the project
+  }
+  // SWR step 2 — revalidate in the background.
   let data
   try {
     const pid = activeProjectParam()
@@ -956,12 +1020,15 @@ async function load() {
     data = await r.json()
   } catch (e) { data = null }
   if (!data || data.error) {
-    $("lead").textContent = "Couldn't load your project. Try refreshing."
+    // Keep whatever we painted from cache; only surface the error on a true cold miss.
+    if (state === null) $("lead").textContent = "Couldn't load your project. Try refreshing."
     return
   }
+  // SWR step 3 — swap in fresh data, re-render, and re-cache under the resolved project id.
   state = data
   render()
   mountReportWidget()
+  if (data.active && data.active.id) writeDashCache(data.active.id, data)
 }
 
 function mountReportWidget() {
@@ -987,6 +1054,7 @@ async function refreshAll() {
   if (!data || data.error) return
   state = data
   render()
+  if (data.active && data.active.id) writeDashCache(data.active.id, data)   // keep cache fresh after triage actions
 }
 
 // Triage view: fetch the triage queue for the current project and render accept/dismiss rows.
