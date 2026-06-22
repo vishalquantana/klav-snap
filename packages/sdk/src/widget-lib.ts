@@ -47,7 +47,7 @@ export interface SuccessCopy {
 // / first-party non-leadgen) or we already took their email via the report gate — no point asking twice.
 export function successCopy(mode: string, ctaUrl: string, suppressEmail = false): SuccessCopy {
   if (mode === "leadgen") return {
-    headline: "That's exactly how Klavity works",
+    headline: `${icon('check-circle', { label: 'done', size: 20 })} That's exactly how Klavity works`,
     body: "You just right-clicked → auto-screenshot → filed a real ticket. Your users could do this for you.",
     emailLabel: "Send me the 2-min setup", ctaText: "Start free →", ctaUrl,
     showEmail: !suppressEmail, showCta: true,
