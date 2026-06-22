@@ -400,6 +400,24 @@ export async function applySchema(c: Client) {
        PRIMARY KEY (project_id, host)
      )`,
     `CREATE INDEX IF NOT EXISTS widget_pings_proj_idx ON widget_pings(project_id, last_seen)`,
+    // ── sim_runs: one row per on-demand Sim run (manual trigger from dashboard / extension).
+    //    v1 runs are synchronous (screenshot comes from the browser, server runs and returns in one round-trip).
+    //    status is always 'done' or 'error' by the time the HTTP response is returned.
+    `CREATE TABLE IF NOT EXISTS sim_runs (
+       id TEXT PRIMARY KEY,
+       project_id TEXT NOT NULL,
+       url TEXT NOT NULL,
+       status TEXT NOT NULL DEFAULT 'done',   -- done | error
+       sim_ids_json TEXT,                      -- null = all project Sims at run time
+       screenshot_id TEXT,
+       reactions_json TEXT,                    -- full SimReview[] array as JSON
+       label TEXT,
+       error_msg TEXT,
+       actor_email TEXT,
+       created_at INTEGER NOT NULL,
+       finished_at INTEGER
+     )`,
+    `CREATE INDEX IF NOT EXISTS sim_runs_proj_idx ON sim_runs(project_id, created_at DESC)`,
   ]
   for (const s of stmts) await c.execute(s)
 
@@ -2326,4 +2344,79 @@ export async function listTriageFeedback(projectId: string): Promise<any[]> {
       createdAt: Number(x.created_at),
     }
   })
+}
+
+// ── sim_runs — on-demand Sim run records ─────────────────────────────────────
+// One row per manual trigger: captures who ran, what URL, which Sims, and the
+// full reactions payload so the dashboard can show run history.
+
+export type SimRunStatus = "done" | "error"
+
+export type SimRunRow = {
+  id: string
+  projectId: string
+  url: string
+  status: SimRunStatus
+  simIds: string[] | null   // null = all project Sims
+  screenshotId: string | null
+  reactions: any[] | null   // SimReview[]
+  label: string | null
+  errorMsg: string | null
+  actorEmail: string | null
+  createdAt: number
+  finishedAt: number | null
+}
+
+function rowToSimRun(x: any): SimRunRow {
+  let reactions: any[] | null = null
+  try { reactions = x.reactions_json ? JSON.parse(String(x.reactions_json)) : null } catch { reactions = null }
+  let simIds: string[] | null = null
+  try { simIds = x.sim_ids_json ? JSON.parse(String(x.sim_ids_json)) : null } catch { simIds = null }
+  return {
+    id: String(x.id),
+    projectId: String(x.project_id),
+    url: String(x.url),
+    status: String(x.status ?? "done") as SimRunStatus,
+    simIds,
+    screenshotId: x.screenshot_id != null ? String(x.screenshot_id) : null,
+    reactions,
+    label: x.label != null ? String(x.label) : null,
+    errorMsg: x.error_msg != null ? String(x.error_msg) : null,
+    actorEmail: x.actor_email != null ? String(x.actor_email) : null,
+    createdAt: Number(x.created_at),
+    finishedAt: x.finished_at != null ? Number(x.finished_at) : null,
+  }
+}
+
+export async function insertSimRun(input: {
+  projectId: string; url: string; simIds?: string[] | null; screenshotId?: string | null
+  reactions?: any[] | null; label?: string | null; errorMsg?: string | null
+  actorEmail?: string | null; status?: SimRunStatus; finishedAt?: number | null
+}): Promise<string> {
+  const id = "simrun_" + crypto.randomUUID()
+  const now = Date.now()
+  await db!.execute({
+    sql: `INSERT INTO sim_runs (id,project_id,url,status,sim_ids_json,screenshot_id,reactions_json,label,error_msg,actor_email,created_at,finished_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    args: [id, input.projectId, input.url, input.status ?? "done",
+           input.simIds != null ? JSON.stringify(input.simIds) : null,
+           input.screenshotId ?? null,
+           input.reactions != null ? JSON.stringify(input.reactions) : null,
+           input.label ?? null, input.errorMsg ?? null, input.actorEmail ?? null,
+           now, input.finishedAt ?? now],
+  })
+  return id
+}
+
+export async function getSimRun(id: string): Promise<SimRunRow | null> {
+  const r = await db!.execute({ sql: "SELECT * FROM sim_runs WHERE id=?", args: [id] })
+  return r.rows.length ? rowToSimRun(r.rows[0]) : null
+}
+
+export async function listSimRuns(projectId: string, limit = 20): Promise<SimRunRow[]> {
+  const r = await db!.execute({
+    sql: "SELECT * FROM sim_runs WHERE project_id=? ORDER BY created_at DESC LIMIT ?",
+    args: [projectId, limit],
+  })
+  return r.rows.map(rowToSimRun)
 }
