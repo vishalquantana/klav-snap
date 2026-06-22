@@ -9,8 +9,13 @@ cd "$REPO" || exit 1
 log(){ echo "[$(date '+%F %T')] [merge-train] $*"; }
 
 git fetch -q origin master 2>/dev/null
-git checkout -q master 2>/dev/null || { log "cannot checkout master (busy?)"; exit 1; }
+# Self-heal a WEDGED checkout: a 120s-killed mid-merge can leave unmerged files
+# ("cannot checkout master / dashboard.html: needs merge") that froze integration
+# until a human reset it. Force through it so the loop NEVER needs an orchestrator.
+git merge --abort 2>/dev/null
+git checkout -qf master 2>/dev/null || { git reset -q --hard 2>/dev/null; git clean -fdq 2>/dev/null; git checkout -qf master 2>/dev/null || { log "cannot checkout master after self-heal"; exit 1; }; }
 git reset -q --hard origin/master 2>/dev/null   # single writer ⇒ align to origin
+git clean -fdq 2>/dev/null                       # drop any stray untracked from a killed cycle
 
 base_ver=$(sed -n 's/.*"version": *"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/p' package.json | head -1)
 [ -z "$base_ver" ] && base_ver="0.0.0"
