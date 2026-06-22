@@ -9,6 +9,7 @@ import { token, otp, emailAllowed, cookie, clearCookie, parseCookies, isOpsAdmin
 import { uploadScreenshotMeta, presignGet, deleteObject, getObjectBytes, type UploadedScreenshot } from "./lib/s3"
 import { signImageToken, verifyImageToken } from "./lib/imgsign"
 import { runRetentionSweep } from "./lib/retention"
+import { SCREENSHOTS, resolveScreenshotConfig, mbLabel } from "./lib/screenshot-config"
 import { buildIssueHtml, escapeHtml, sanitizeClientContext, clientContextLines } from "./lib/feedback"
 import { encryptSecret, decryptSecret } from "./lib/crypto"
 import { planeConfigFromForm, redactPlane, type PlaneStored } from "./lib/connection"
@@ -1438,20 +1439,21 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // Missing creds → we still persist below and return 200-saved (no 400).
         const planeConnected = !!(planeToken && planeWorkspace && planeProject)
 
-        // Upload screenshots (cap 5, 8MB each) to object storage.
-        const files = form.getAll("screenshots").filter((f): f is File => f instanceof File).slice(0, 5)
+        // Upload screenshots to object storage. Caps/MIME/ACL come from the central screenshot config
+        // (lib/screenshot-config.ts) instead of scattered literals.
+        const files = form.getAll("screenshots").filter((f): f is File => f instanceof File).slice(0, SCREENSHOTS.maxFiles)
         const imageUrls: string[] = []
         const uploaded: Array<UploadedScreenshot & { bytes: number; id: string }> = []
         for (const f of files) {
-          if (f.type && !f.type.startsWith("image/")) return wjson({ error: `Screenshot ${f.name} is not an image.` }, 400)
-          if (f.size > 8 * 1024 * 1024) return wjson({ error: `Screenshot ${f.name} exceeds 8MB.` }, 400)
+          if (f.type && !f.type.startsWith(SCREENSHOTS.allowedTypePrefix)) return wjson({ error: `Screenshot ${f.name} is not an image.` }, 400)
+          if (f.size > SCREENSHOTS.maxBytes) return wjson({ error: `Screenshot ${f.name} exceeds ${mbLabel(SCREENSHOTS.maxBytes)}.` }, 400)
           const buf = await f.arrayBuffer()
           // Upload PRIVATE (no public bucket exposure). The dashboard reads via the membership-checked
           // /api/screenshots/:id endpoint; the external tracker ticket embeds the PERMANENT signed link
           // /img/<id>.<hmac> (never expires, revocable, served from our domain) so the <img> renders
           // forever without making the object world-readable. Mint the id now so we can sign the link.
           const sid = "shot_" + crypto.randomUUID()
-          const meta = await uploadScreenshotMeta(buf, f.type || "image/png", "private")
+          const meta = await uploadScreenshotMeta(buf, f.type || "image/png", SCREENSHOTS.defaultAcl)
           imageUrls.push(`${BASE}/img/${signImageToken(sid)}`)
           uploaded.push({ ...meta, bytes: buf.byteLength, id: sid })
         }
@@ -1485,11 +1487,20 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               // Persist a ledger row for EVERY uploaded screenshot using its pre-minted id, so each
               // permanent /img link resolves (the dashboard still references screenshotId = the first).
               let screenshotId: string | null = null
+              // Per-project screenshot config = central server defaults merged with this project's
+              // settings (modal_config_json.screenshots). A project may disable storage entirely — drop
+              // the just-uploaded objects and persist no ledger rows. Retention TTL (if set) stamps expires_at.
+              const scfg = resolveScreenshotConfig(await getProjectModalConfig(projectId).catch(() => ({})))
+              if (!scfg.enabled) {
+                for (const u of uploaded) { await deleteObject(u.key).catch(() => {}) }
+                uploaded.length = 0; imageUrls.length = 0
+              }
+              const shotExpiresAt = scfg.retentionDays > 0 ? Date.now() + scfg.retentionDays * 86400000 : null
               for (const u of uploaded) {
                 await insertScreenshot({
                   id: u.id, projectId, s3Key: u.key, bucket: u.bucket,
                   contentType: u.contentType, acl: u.acl,
-                  bytes: u.bytes, ownerEmail: actor,
+                  bytes: u.bytes, ownerEmail: actor, expiresAt: shotExpiresAt,
                 })
               }
               if (uploaded[0]) screenshotId = uploaded[0].id
@@ -1859,8 +1870,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             const pub = `${(process.env.S3_ENDPOINT || "").replace(/\/+$/, "")}/${shot.bucket}/${shot.s3Key}`
             return json({ id: shot.id, url: pub, acl: shot.acl })
           }
-          const url = presignGet(shot.s3Key, 600)
-          return json({ id: shot.id, url, acl: shot.acl, expiresInSec: 600 })
+          const url = presignGet(shot.s3Key, SCREENSHOTS.presignTtlSec)
+          return json({ id: shot.id, url, acl: shot.acl, expiresInSec: SCREENSHOTS.presignTtlSec })
         } catch (e: any) { return json(oops(e, "signurl"), 500) }
       }
     }
