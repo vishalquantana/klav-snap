@@ -1,8 +1,8 @@
 # Manual Sim Trigger — Design Spec
 
 **Date:** 2026-06-23  
-**Status:** Brainstorm — awaiting user direction on 3 open decisions  
-**Branch:** feat/manual-sim-trigger  
+**Status:** Building (2026-06-23) — direction confirmed: **browser-capture v1 (Option B)**. Sims jump out and analyse the page the admin is currently browsing, on demand — "customers in the room while you build." The full vision is LIVE & PERSISTENT: Sims dock bottom-right for the whole session, re-analysing on each navigate/scroll/DOM change. Trails/server-side Playwright is a separate deferred track (AutoSim). Open decisions §9 resolved by user direction; §5 Option A deferred.  
+**Branch:** feat/manual-sim-trigger-ui (UI/presence) — Dev 3 owns backend (lib/sim-review.ts), Dev 4 owns DOM/scroll watch engine, Dev 6 owns right-click menus  
 
 ---
 

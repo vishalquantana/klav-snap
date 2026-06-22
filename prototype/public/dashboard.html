@@ -197,6 +197,14 @@ body[data-view="team"] .grid>.card[data-view~="team"]{grid-column:1/-1;max-width
 .sim .role{font-size:12px;color:var(--paper-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sim .la{font-size:11px;color:var(--paper-faint);font-family:var(--mono);margin-top:2px}
 /* sims-tab: per-Sim grouped feedback rows */
+/* sims live-trigger guidance steps */
+.sim-live-intro{margin-bottom:2px}
+.sim-live-steps{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-top:18px}
+.sim-live-step{display:flex;align-items:flex-start;gap:12px}
+.sim-live-n{width:24px;height:24px;border-radius:50%;background:var(--indigo);color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;display:grid;place-items:center;flex-shrink:0;margin-top:2px}
+.sim-live-step b{display:block;font-size:13.5px;font-weight:600;margin-bottom:3px}
+.sim-live-step .muted{font-size:12px}
+.sim-live-pill{display:inline-flex;align-items:center;gap:5px;background:var(--ink-3);border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-family:var(--mono);font-size:11px;color:var(--paper-faint);margin-top:6px}
 .sf-row{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:12px}
 .sf-hd{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--ink);text-decoration:none;color:var(--paper);transition:background .15s,transform .1s}
 .sf-hd:hover{background:var(--ink-3);transform:scale(1.005)}
@@ -861,6 +869,19 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <div class="card full" data-view="overview">
       <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></svg> What your Sims are saying<button class="card-go" type="button" onclick="setView('sims')" style="margin-left:auto" aria-label="View all Sims feedback">View all <span class="card-arrow" aria-hidden="true">→</span></button></h2>
       <div id="saying"><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div></div>
+    </div>
+
+    <!-- Sims tab: live-trigger guidance — "customers in the room while you build" -->
+    <div class="card full" data-view="sims">
+      <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9" /> <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5" /> <circle cx="12" cy="9" r="2" /> <path d="M16.2 4.8c2 2 2.26 5.11.8 7.47" /> <path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1" /> <path d="M9.5 18h5" /> <path d="m8 22 4-11 4 11" /></svg> Sims — live on your product</h2>
+      <div class="sim-live-intro">
+        <p class="muted" style="font-size:13.5px;line-height:1.55;max-width:640px">Your Sims jump out and react to any page you're on, on demand — like having customers in the room while you build. No scheduled run, no URL box: they analyse the exact page you're looking at, in real time.</p>
+        <div class="sim-live-steps">
+          <div class="sim-live-step"><span class="sim-live-n">1</span><div><b>Browse your product</b><div class="muted">Open any page you want Sim feedback on in your browser.</div></div></div>
+          <div class="sim-live-step"><span class="sim-live-n">2</span><div><b>Trigger a live review</b><div class="muted">Right-click the page or open the Klavity extension popup.</div><div class="sim-live-pill"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /><path d="m14 8-1.5-1.5" /><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /><path d="m16.5 10.5 1 1" /><path d="m17 6-2.891-2.891" /><path d="M2 15c6.667-6 13.333 0 20-6" /><path d="m20 9 .891.891" /><path d="M3.109 14.109 4 15" /><path d="m6.5 12.5 1 1" /><path d="m7 18 2.891 2.891" /><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg> Ask Sims to review this</div></div></div>
+          <div class="sim-live-step"><span class="sim-live-n">3</span><div><b>See instant reactions</b><div class="muted">Each Sim tells you what they notice, in their own voice — observations land here and in your ticket queue.</div></div></div>
+        </div>
+      </div>
     </div>
 
     <!-- Sims tab: each Sim with the feedback they have given -->
