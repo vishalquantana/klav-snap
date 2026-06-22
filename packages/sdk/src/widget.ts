@@ -126,14 +126,18 @@ async function mount() {
       method: "POST",
       headers: { "content-type": "application/json" },
       keepalive: true,
-      body: JSON.stringify({ project_id: cfg.projectId, host: location.host }),
+      // Source site: the page this widget is embedded on (+ where the visitor came from). The server
+      // derives the trusted host from Origin/Referer; url/referrer are extra attribution signals.
+      body: JSON.stringify({ project_id: cfg.projectId, host: location.host, url: location.href, referrer: document.referrer || "" }),
     }).catch(() => {})
   } catch { /* best-effort */ }
 
   async function postLead(feedbackId: string, email: string) {
     await fetch(cfg.backendUrl + "/api/widget/lead", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ project_id: cfg.projectId, feedback_id: feedbackId, email }),
+      // Carry the source site so a lead alert says where the lead came from (fallback to the feedback
+      // row's captured values server-side).
+      body: JSON.stringify({ project_id: cfg.projectId, feedback_id: feedbackId, email, source_url: location.href, source_host: location.host, referrer: document.referrer || "" }),
     })
   }
 
@@ -159,7 +163,7 @@ async function mount() {
       requireEmail,
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
-        { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, screenshots: p.screenshots,
+        { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, referrer: document.referrer || "", screenshots: p.screenshots,
           context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [], annotations: p.annotations },
       ),
       success: { copy: successCopy(widget.mode, widget.ctaUrl, suppressSuccessEmail), onLead: postLead },
@@ -368,11 +372,12 @@ async function mount() {
 
 export async function submitFeedback(
   cfg: { backendUrl: string; projectId: string; firstParty: boolean; token: string },
-  payload: { type: "bug" | "feature"; description: string; pageUrl: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any },
+  payload: { type: "bug" | "feature"; description: string; pageUrl: string; referrer?: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any; reporterEmail?: string },
 ): Promise<{ issueKey: string; issueUrl: string }> {
   const fd = buildFeedbackForm({
     description: `[${payload.type}] ${payload.description}`,
     pageUrl: payload.pageUrl,
+    referrer: payload.referrer,
     projectId: cfg.projectId,
     screenshots: payload.screenshots,
     context: payload.context,

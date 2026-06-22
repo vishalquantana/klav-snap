@@ -1723,7 +1723,8 @@ function buildTktDetail(t, admin, onChange) {
         ${(t.severity || t.sentiment || t.simName) ? `<div class="tkt-chips">${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${t.simName ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
         ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">${kicon('bug')} ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
         ${t.sourceQuote ? `<div class="tkt-prov">"${esc(t.sourceQuote)}"${t.sourceDate ? ` · raised ${esc(ago(t.sourceDate))}` : ""}</div>` : ""}
-        <div class="tkt-meta-line muted">${t.urlPath ? esc(t.urlPath) : ""}${(t.urlPath && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>
+        <div class="tkt-meta-line muted">${(t.urlHost || t.urlPath) ? esc((t.urlHost || "") + (t.urlPath || "")) : ""}${((t.urlHost || t.urlPath) && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>
+        ${t.sourceReferrer ? `<div class="tkt-meta-line muted">Referred from: ${esc(t.sourceReferrer)}</div>` : ""}
         ${t.screenshotId ? `<div class="tkt-shot" data-shot="${esc(t.screenshotId)}"><div class="muted" style="font-size:12px">Loading screenshot…</div></div>` : ""}
       </div>` : ""}
       <div class="tkt-status-row">

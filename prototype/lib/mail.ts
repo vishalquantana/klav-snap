@@ -83,7 +83,7 @@ export async function sendOtp(to: string, code: string) {
   if (!res.ok) throw new Error(`SendGrid ${res.status}: ${(await res.text()).slice(0, 200)}`)
 }
 
-export async function sendLeadAlert(to: string, lead: { email: string; description: string; pageUrl: string; projectName: string; feedbackUrl: string }) {
+export async function sendLeadAlert(to: string, lead: { email: string; description: string; pageUrl: string; referrer?: string; projectName: string; feedbackUrl: string }) {
   const key = process.env.SENDGRID_API_KEY
   const from = process.env.KLAV_MAIL_FROM || "klav@quantana.com.au"
   if (!key) throw new Error("SENDGRID_API_KEY not set")
@@ -101,6 +101,7 @@ export async function sendLeadAlert(to: string, lead: { email: string; descripti
          <p>Email: <b>${esc(lead.email)}</b></p>
          <p>They reported: ${esc(lead.description)}</p>
          <p>Page: ${esc(lead.pageUrl)}</p>
+         ${lead.referrer ? `<p>Came from: ${esc(lead.referrer)}</p>` : ""}
          <p><a href="${esc(lead.feedbackUrl)}">Open in Klavity →</a></p></div>` }],
     }),
   })

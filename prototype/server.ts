@@ -695,8 +695,12 @@ async function feedbackToTicketPayload(fb: any, project: { id: string; name?: st
   if (fb.observation) lines.push(fb.observation)
   if (simName) lines.push(`Sim: ${simName}`)
   else if (fb.simId) lines.push(`Sim: ${fb.simId}`)
-  const urlVal = fb.pageUrl ?? fb.urlPath ?? null
+  // Source site = the embed page (host + path). Prefer the stored host so the external ticket shows
+  // WHICH site the report came from, not just the path.
+  const urlVal = fb.urlHost ? `${fb.urlHost}${fb.urlPath || ""}` : (fb.pageUrl ?? fb.urlPath ?? null)
   if (urlVal) lines.push(`URL: ${urlVal}`)
+  // Where the visitor came from (document.referrer), when captured.
+  if (fb.sourceReferrer) lines.push(`Referred from: ${fb.sourceReferrer}`)
   // G2/G3/G5: append captured dev-tools context (console + network + env + identity/metadata) so the
   // external ticket carries the same technical context the extension path does.
   if (fb.clientContext) {
@@ -1010,6 +1014,10 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       const body: any = await req.json().catch(() => ({}))
       const projectId = String(body.project_id || ""), feedbackId = String(body.feedback_id || ""), email = String(body.email || "").trim()
       if (!projectId || !feedbackId || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) return wjson({ error: "invalid" }, 400)
+      // Optional source attribution forwarded by the widget (fallback if the linked feedback row didn't
+      // capture it). Sanitized: kept only as an http(s) URL, capped.
+      const leadReferrerRaw = String(body.referrer || "").trim().slice(0, 500)
+      const leadReferrer = /^https?:\/\//i.test(leadReferrerRaw) ? leadReferrerRaw : ""
       const ok = await setFeedbackContactEmail(feedbackId, projectId, email)
       if (!ok) return wjson({ error: "not found" }, 404)
       // fire-and-forget alert (never blocks / fails the response)
@@ -1023,6 +1031,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             email,
             description: fb?.observation || "(no description)",
             pageUrl: (fb?.urlHost ? `https://${fb.urlHost}` : "") + (fb?.urlPath || ""),
+            // Source attribution: where the visitor came from. Prefer what the feedback row captured at
+            // submit; fall back to the value posted with the lead.
+            referrer: fb?.sourceReferrer || leadReferrer || "",
             projectName: proj?.name || projectId,
             feedbackUrl: `${BASE}/dashboard?project=${encodeURIComponent(projectId)}`,
           })
@@ -1260,6 +1271,10 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const form = await req.formData()
         const description = String(form.get("description") || "").trim()
         const pageUrl = String(form.get("page_url") || "")
+        // Source attribution: where the visitor came FROM (document.referrer of the embed page). Capped;
+        // kept only if it parses as an http(s) URL so a junk/oversized value never poisons the row/ticket.
+        const referrerRaw = String(form.get("referrer") || "").trim().slice(0, 500)
+        const sourceReferrer = /^https?:\/\//i.test(referrerRaw) ? referrerRaw : ""
         const reporterEmail = String(form.get("reporter_email") || "").trim()
         const validReporterEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reporterEmail) && reporterEmail.length <= 200
         if (!description) return wjson({ error: "Description is required." }, 400)
@@ -1450,7 +1465,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
                 feedbackId = dedupedInto
               } else {
                 feedbackId = await insertFeedback({
-                  projectId, simId, actorEmail: actor, urlHost, urlPath,
+                  projectId, simId, actorEmail: actor, urlHost, urlPath, sourceReferrer: sourceReferrer || null,
                   observation, sentiment, severity, screenshotId, suggestedBug,
                   citedTraitIds: citation.citedTraitIds.length ? citation.citedTraitIds : null,
                   sourceQuote: citation.sourceQuote, sourceTranscriptId: citation.sourceTranscriptId, sourceDate: citation.sourceDate,
@@ -1561,7 +1576,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
         // R8: append the Sim citation line to the issue body when this feedback cites a trait.
         const citeLine = citation ? citationLine({ sourceQuote: citation.sourceQuote, speaker: citation.speaker, sourceDate: citation.sourceDate, recurrence: citation.recurrence }) : null
-        const description_html = buildIssueHtml(description, pageUrl, imageUrls, clientContext) +
+        const description_html = buildIssueHtml(description, pageUrl, imageUrls, clientContext, sourceReferrer) +
           (citeLine ? `<p><em>${escapeHtml(citeLine)}</em></p>` : "")
         // SSRF guard (H2): the Plane host can arrive from untrusted form input (direct mode is
         // unauthenticated). Block requests to internal/loopback/link-local addresses — including the
@@ -2609,7 +2624,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             return {
               id: f.id, simName: p?.name ?? null,
               title: f.observation, severity: f.severity,
-              urlPath: f.urlPath, planeIssueKey: f.planeIssueKey,
+              urlPath: f.urlPath, urlHost: f.urlHost, sourceReferrer: f.sourceReferrer,
+              planeIssueKey: f.planeIssueKey,
               planeIssueUrl: f.planeIssueUrl, createdAt: f.createdAt,
               status: meta.status, assignee: meta.assignee, exports,
               observation: f.observation, suggestedBug: f.suggestedBug,

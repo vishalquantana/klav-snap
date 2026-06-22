@@ -22,3 +22,13 @@ test('buildIssueHtml omits image/link sections when there are no screenshots', (
   expect(html).not.toContain('<img')
   expect(html).not.toContain('Screenshots:')
 })
+
+test('buildIssueHtml surfaces the source referrer when present, escaping it', () => {
+  const html = buildIssueHtml('Bug', 'https://app.example.com/p', [], undefined, 'https://news.ycombinator.com/?a=1&b=2')
+  expect(html).toContain('<strong>Referred from:</strong> https://news.ycombinator.com/?a=1&amp;b=2')
+})
+
+test('buildIssueHtml omits the referrer line when not provided', () => {
+  const html = buildIssueHtml('Bug', 'https://app.example.com/p', [])
+  expect(html).not.toContain('Referred from:')
+})

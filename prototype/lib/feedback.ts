@@ -108,11 +108,13 @@ export function clientContextLines(ctx: any): string[] {
   return lines
 }
 
-export function buildIssueHtml(description: string, pageUrl: string, imageUrls: string[], clientContext?: any): string {
+export function buildIssueHtml(description: string, pageUrl: string, imageUrls: string[], clientContext?: any, sourceReferrer?: string): string {
   const parts = [
     `<p>${escapeHtml(description)}</p>`,
     `<p><strong>Page:</strong> ${escapeHtml(pageUrl)}</p>`,
   ]
+  // Source attribution: where the visitor came from (document.referrer), when present.
+  if (sourceReferrer) parts.push(`<p><strong>Referred from:</strong> ${escapeHtml(sourceReferrer)}</p>`)
   for (let i = 0; i < imageUrls.length; i++) {
     // imageUrls come from our own S3 upload, so they are safe to use as attribute values.
     parts.push(`<p><img src="${imageUrls[i]}" alt="screenshot ${i + 1}" /></p>`)

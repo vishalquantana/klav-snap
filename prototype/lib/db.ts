@@ -441,6 +441,10 @@ export async function applySchema(c: Client) {
   // 'email' (default) = logged-in OR a valid email; 'anonymous' = open; 'login' = Klavity token required.
   await c.execute("ALTER TABLE projects ADD COLUMN widget_report_gate TEXT NOT NULL DEFAULT 'email'").catch((e) => console.warn("projects.widget_report_gate ALTER skipped:", e?.message || e))
   await c.execute("ALTER TABLE feedback ADD COLUMN contact_email TEXT").catch((e) => console.warn("feedback.contact_email ALTER skipped:", e?.message || e))
+  // Source attribution: document.referrer of the embed page (where the visitor came FROM). The embed
+  // page itself is already captured as url_host/url_path; this records the upstream traffic source so
+  // we can see which external site each widget interaction/lead originated from.
+  await c.execute("ALTER TABLE feedback ADD COLUMN source_referrer TEXT").catch((e) => console.warn("feedback.source_referrer ALTER skipped:", e?.message || e))
 }
 
 // ── schema_meta helpers ──
@@ -998,7 +1002,7 @@ export async function screenshotById(id: string): Promise<ScreenshotRow | null> 
 
 export type FeedbackInsert = {
   projectId: string; simId?: string | null; actorEmail?: string | null
-  urlHost?: string | null; urlPath?: string | null
+  urlHost?: string | null; urlPath?: string | null; sourceReferrer?: string | null
   observation?: string | null; sentiment?: string | null; severity?: string | null
   screenshotId?: string | null; suggestedBug?: any; citedTraitIds?: any
   sourceQuote?: string | null; sourceTranscriptId?: string | null; sourceDate?: number | null
@@ -1020,11 +1024,11 @@ export async function insertFeedback(f: FeedbackInsert): Promise<string> {
   const now = Date.now()
   const status = initialFeedbackStatus(f.severity)
   await db!.execute({
-    sql: `INSERT INTO feedback (id,project_id,sim_id,actor_email,url_host,url_path,observation,sentiment,severity,
+    sql: `INSERT INTO feedback (id,project_id,sim_id,actor_email,url_host,url_path,source_referrer,observation,sentiment,severity,
           screenshot_id,suggested_bug_json,cited_trait_ids_json,source_quote,source_transcript_id,source_date,
           plane_issue_key,plane_issue_url,issue_key,recurrence_count,recurrence_dates_json,last_seen_at,client_context_json,annotations_json,created_at,status)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    args: [id, f.projectId, f.simId ?? null, f.actorEmail ?? null, f.urlHost ?? null, f.urlPath ?? null,
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    args: [id, f.projectId, f.simId ?? null, f.actorEmail ?? null, f.urlHost ?? null, f.urlPath ?? null, f.sourceReferrer ?? null,
            f.observation ?? null, f.sentiment ?? null, f.severity ?? null, f.screenshotId ?? null,
            f.suggestedBug != null ? JSON.stringify(f.suggestedBug) : null,
            f.citedTraitIds != null ? JSON.stringify(f.citedTraitIds) : null,
@@ -1098,7 +1102,7 @@ export async function listActivity(projectId: string, opts: { actorEmail?: strin
 
 export type FeedbackRow = {
   id: string; projectId: string; simId: string | null; actorEmail: string | null
-  urlHost: string | null; urlPath: string | null; observation: string | null
+  urlHost: string | null; urlPath: string | null; sourceReferrer: string | null; observation: string | null
   sentiment: string | null; severity: string | null; screenshotId: string | null
   suggestedBug: any | null; sourceQuote: string | null; citedTraitIds: any | null; sourceDate: number | null
   planeIssueKey: string | null; planeIssueUrl: string | null; annotations: any | null; createdAt: number
@@ -1111,6 +1115,7 @@ function rowToFeedback(x: any): FeedbackRow {
     actorEmail: x.actor_email != null ? String(x.actor_email) : null,
     urlHost: x.url_host != null ? String(x.url_host) : null,
     urlPath: x.url_path != null ? String(x.url_path) : null,
+    sourceReferrer: x.source_referrer != null ? String(x.source_referrer) : null,
     observation: x.observation != null ? String(x.observation) : null,
     sentiment: x.sentiment != null ? String(x.sentiment) : null,
     severity: x.severity != null ? String(x.severity) : null,
@@ -2063,6 +2068,7 @@ export async function feedbackById(projectId: string, id: string): Promise<any |
     actorEmail: x.actor_email != null ? String(x.actor_email) : null,
     urlHost: x.url_host != null ? String(x.url_host) : null,
     urlPath: x.url_path != null ? String(x.url_path) : null,
+    sourceReferrer: x.source_referrer != null ? String(x.source_referrer) : null,
     pageUrl: x.url_path != null ? String(x.url_path) : null,
     observation: x.observation != null ? String(x.observation) : null,
     sentiment: x.sentiment != null ? String(x.sentiment) : null,

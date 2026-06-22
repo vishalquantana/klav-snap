@@ -90,10 +90,12 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime })
 }
 
-export function buildFeedbackForm(input: { description: string; pageUrl: string; projectId: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any }): FormData {
+export function buildFeedbackForm(input: { description: string; pageUrl: string; referrer?: string; projectId: string; screenshots: string[]; context?: ReportContext; replayEvents?: unknown[]; annotations?: any }): FormData {
   const fd = new FormData()
   fd.set("description", input.description)
   fd.set("page_url", input.pageUrl)
+  // Source attribution: where the visitor came from (document.referrer of the embed page), when present.
+  if (input.referrer) fd.set("referrer", input.referrer)
   fd.set("project_id", input.projectId)
   // G2/G5: attach the captured dev-tools context (console + network + env + identity/metadata) so the
   // no-install widget report carries the SAME technical context as the extension/SDK paths.
