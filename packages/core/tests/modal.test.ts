@@ -90,6 +90,9 @@ describe('buildModal button guards (re-entrancy)', () => {
     expect(submit.textContent).toContain('Uploading')
     expect((q(ctrl, '#klavity-full') as HTMLButtonElement).disabled).toBe(true)
     expect((q(ctrl, '#klavity-region') as HTMLButtonElement).disabled).toBe(true)
+    // The submit handler now awaits Promise.all(screenshotCompressed) before calling onSubmit,
+    // so we need one microtask tick for resolve to be assigned.
+    await new Promise(r => setTimeout(r, 0))
     resolve({ issueKey: 'K-1', issueUrl: '' })
     await new Promise(r => setTimeout(r, 0))
     ctrl.close()
