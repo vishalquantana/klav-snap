@@ -10,6 +10,7 @@ import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy, compressScreenshot } from "./widget-lib"
 import { icon } from "@klavity/core/icons"
 import { createSessionReplay, type SessionReplay } from "./session-replay"
+import { on, emit } from "./events"
 import "./sims-live"  // side-effecting: auto-installs window.KlavitySims on load
 import { startSimsWatch, type SimsWatchController } from "./sims-watch"
 
@@ -60,10 +61,24 @@ function buildWidgetContext(): ReportContext {
   return buildCaptureContext(_buffers, { identity: _identity, metadata: _metadata })
 }
 
+// Deferred openReport ref — populated inside mount() so window.Klavity.open() works post-mount.
+// Pre-mount calls are silently ignored (widget not initialised yet).
+let _openReport: (type?: "bug" | "feature") => void = () => {}
+
 // Expose the public API as early as possible so site code can call it before mount() resolves.
+// identify/setMetadata/on work immediately; open() is a no-op until mount() runs.
 if (typeof window !== "undefined") {
   const w = window as any
-  w.Klavity = { ...(w.Klavity || {}), identify, setMetadata, mount }
+  w.Klavity = {
+    ...(w.Klavity || {}),
+    identify,
+    setMetadata,
+    mount,
+    /** Open the bug/feature composer programmatically. No-op before the widget has mounted. */
+    open: (type: "bug" | "feature" = "bug") => _openReport(type),
+    /** Subscribe to a widget event. Returns an unsubscribe function. */
+    on,
+  }
 }
 
 // ── Sharp capture (getDisplayMedia real-pixel scroll-stitch) ─────────────────────────────────────────
@@ -294,6 +309,8 @@ async function mount() {
     // adblock/error; autoCaptureOnOpen is deferred + caught inside buildModal). This try/catch is the
     // final belt-and-suspenders so an unexpected throw can't leave the button silently doing nothing.
     try {
+    // G5: fire 'open' event so site code can react (e.g. pause video, expand widget).
+    emit("open", { type })
     const ctrl = buildModal(type, {
       // Auto-grab a Full Page shot the moment the modal opens — parity with the extension
       // (content.ts autoCaptureOnOpen). Captures the current page state without an extra click.
@@ -310,20 +327,27 @@ async function mount() {
       // Pre-compress each screenshot as soon as it's captured (runs while the user types their
       // description). By submit time the Promise is settled → zero compression delay before upload.
       compressImage: compressScreenshot,
-      onSubmit: async (p) => submitFeedback(
-        { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
-        { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, referrer: document.referrer || "", screenshots: p.screenshots,
-          context: buildWidgetContext(), replayEvents: replay.snapshot(), annotations: p.annotations,
-          // Forward the gate's required email → server reporter_email. Without this, an "email"-gated
-          // project (the default for cross-origin support widgets) rejects every submit with 400.
-          reporterEmail: p.reporterEmail },
-        // Drive the modal's progress fill with real XHR upload bytes — overrides the modal's own
-        // estimated 10 s animation so the bar reflects actual network speed.
-        (pct) => {
-          const fill = composer?.shadowRoot.getElementById("klavity-progress-fill") as HTMLElement | null
-          if (fill) { fill.style.transition = "width 0.15s ease"; fill.style.width = pct + "%" }
-        },
-      ),
+      onSubmit: async (p) => {
+        const result = await submitFeedback(
+          { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
+          { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, referrer: document.referrer || "", screenshots: p.screenshots,
+            context: buildWidgetContext(), replayEvents: replay.snapshot(), annotations: p.annotations,
+            // Forward the gate's required email → server reporter_email. Without this, an "email"-gated
+            // project (the default for cross-origin support widgets) rejects every submit with 400.
+            reporterEmail: p.reporterEmail },
+          // Drive the modal's progress fill with real XHR upload bytes — overrides the modal's own
+          // estimated 10 s animation so the bar reflects actual network speed.
+          (pct) => {
+            const fill = composer?.shadowRoot.getElementById("klavity-progress-fill") as HTMLElement | null
+            if (fill) { fill.style.transition = "width 0.15s ease"; fill.style.width = pct + "%" }
+          },
+        )
+        // G5: fire 'submit' event after the report is stored so site code receives the ticket key.
+        try { emit("submit", { issueKey: result.issueKey, issueUrl: result.issueUrl ?? null, type: p.type as "bug" | "feature" }) } catch {}
+        return result
+      },
+      // G5: fire 'close' event whenever the composer is dismissed (Esc, overlay click, X button).
+      onClose: () => emit("close", {}),
       success: { copy: successCopy(widget.mode, widget.ctaUrl, suppressSuccessEmail), onLead: postLead },
     }, modalConfig)
     composer = ctrl // track the open composer so a second open is ignored until this one closes
@@ -331,6 +355,8 @@ async function mount() {
     if (opts?.initialShot) ctrl.addScreenshot(opts.initialShot)
     } catch (e) { console.warn("[Klavity] failed to open the report composer:", e) }
   }
+  // G5: expose openReport through the module-level ref so window.Klavity.open() works.
+  _openReport = (type = "bug") => openReport(type as "bug" | "feature")
   reportBtn.onclick = () => openReport("bug")
   reportDock.appendChild(reportBtn)
 

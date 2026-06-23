@@ -63,6 +63,9 @@ export interface ModalCallbacks {
   // When true, onCaptureFull() is called automatically ~200ms after the modal mounts and the
   // result is added to the screenshot strip. Default false — the production widget is unaffected.
   autoCaptureOnOpen?: boolean
+  // Called once when the composer closes — via Esc, overlay click, X button, or programmatic close.
+  // Used by the widget to fire the public window.Klavity.on('close') event.
+  onClose?: () => void
 }
 
 export interface ModalController {
@@ -403,6 +406,7 @@ export function buildModal(
   function close() {
     document.removeEventListener('keydown', escHandler, { capture: true })
     document.removeEventListener('paste', onPaste)
+    try { callbacks.onClose?.() } catch { /* never let a listener error block the close */ }
     const m = shadowRoot.querySelector('.klavity-modal') as HTMLElement | null
     if (!m) { host.remove(); return }
     m.classList.add('kl-closing')
