@@ -355,23 +355,22 @@ details.drawer .drawer-in{padding:0 22px 22px}
 /* single-ticket view (opened on clicking any ticket) */
 .tkt-back{background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 13px;font-family:var(--body);font-size:13px;font-weight:600;color:var(--paper-dim);cursor:pointer;margin-bottom:16px}
 .tkt-back:hover{border-color:var(--indigo);color:var(--paper)}
-.single-head{display:flex;gap:14px;margin-bottom:16px;max-width:760px}
+.single-head{display:flex;gap:14px;margin-bottom:16px;max-width:920px}
 .single-rail{flex:none;width:4px;border-radius:4px;align-self:stretch;background:var(--paper-faint)}
 .single-rail.sv-high{background:var(--rose)}.single-rail.sv-medium{background:var(--amber)}.single-rail.sv-low{background:var(--paper-faint)}
 .single-h-b{flex:1;min-width:0}
 .single-title{font-family:var(--display);font-weight:500;font-size:22px;line-height:1.25;letter-spacing:-.01em}
 .single-meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px}
-#ticketSingle .tkt-detail{display:flex;border:1px solid var(--line);border-radius:14px;max-width:880px}
-#ticketSingle .single-head{max-width:880px}
-/* Single ticket: screenshot on the LEFT, the report content on the right. The title +
-   status/severity/url already live in .single-head above, so the body is de-duped in JS. */
-#ticketSingle .tkt-detail.single-has-shot .tkt-context{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);column-gap:18px;row-gap:10px;align-items:start}
-#ticketSingle .tkt-detail.single-has-shot .tkt-context>*{grid-column:2}
-#ticketSingle .tkt-detail.single-has-shot .tkt-shot{grid-column:1;grid-row:1/span 99;margin-top:0;align-self:start}
+#ticketSingle .tkt-detail{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;max-width:920px}
+#ticketSingle .single-head{max-width:920px}
+/* Two-column layout: screenshot LEFT, all details RIGHT. The shot is a direct child of
+   .tkt-detail; everything else is wrapped in .tkt-right-body. */
+#ticketSingle .tkt-detail.single-has-shot{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);column-gap:20px;align-items:start}
+#ticketSingle .tkt-detail.single-has-shot .tkt-shot{align-self:start}
+#ticketSingle .tkt-detail.single-has-shot .tkt-right-body{display:flex;flex-direction:column;gap:12px}
 @media(max-width:700px){
-  #ticketSingle .tkt-detail.single-has-shot .tkt-context{grid-template-columns:minmax(0,1fr)}
-  #ticketSingle .tkt-detail.single-has-shot .tkt-context>*{grid-column:1}
-  #ticketSingle .tkt-detail.single-has-shot .tkt-shot{grid-row:auto;order:-1}
+  #ticketSingle .tkt-detail.single-has-shot{grid-template-columns:minmax(0,1fr)}
+  #ticketSingle .tkt-detail.single-has-shot .tkt-right-body{grid-column:1}
 }
 /* annotation overlay on the ticket screenshot (KLAVITYKLA-1) */
 .tkt-shotwrap{position:relative;max-width:100%;border-radius:10px;overflow:hidden;margin-top:2px}
@@ -2004,25 +2003,32 @@ function buildTktDetail(t, admin, onChange, isSingle = false) {
          <button class="btn btn-ghost btn-sm copy-btn">Copy to…</button>`
       : ""
 
-    // In single-ticket view the header already shows: title, severity, simName, url·date.
-    // Derive what the context block should render to avoid repeating those fields.
+    // In single-ticket view the header shows: title, severity, sentiment, simName, url·date.
+    // Two-column layout when screenshot exists: shot in col-1, everything else in .tkt-right-body col-2.
+    const _isTwoCol = isSingle && !!t.screenshotId
     const _showObs = t.observation && (!isSingle || t.observation.trim() !== (t.title || "").trim())
-    const _showSevChip = !isSingle && t.severity
-    const _showSimChip = !isSingle && t.simName
+    const _showSevChip = !isSingle && !!t.severity
+    const _showSentiment = !isSingle && !!t.sentiment   // sentiment moves to single-meta header in single view
+    const _showSimChip = !isSingle && !!t.simName
     const _showMetaLine = !isSingle
-    const _hasContext = _showObs || t.suggestedBug || t.sourceQuote || t.screenshotId
-      || (_showSevChip || t.sentiment || _showSimChip)
-    detailEl.innerHTML = `
-      ${_hasContext ? `
+    const _hasContextItems = _showObs || !!t.suggestedBug || !!t.sourceQuote
+      || (_showSevChip || _showSentiment || _showSimChip)
+    const _hasContext = _hasContextItems || (!_isTwoCol && !!t.screenshotId)
+
+    const _shotHtml = t.screenshotId
+      ? `<div class="tkt-shot" data-shot="${esc(t.screenshotId)}"><div class="muted" style="font-size:12px">Loading screenshot…</div></div>`
+      : ""
+    const _contextHtml = _hasContext ? `
       <div class="tkt-context">
         ${_showObs ? `<div class="tkt-obs">${esc(t.observation)}</div>` : ""}
-        ${(_showSevChip || t.sentiment || _showSimChip) ? `<div class="tkt-chips">${_showSevChip ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${_showSimChip ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
+        ${(_showSevChip || _showSentiment || _showSimChip) ? `<div class="tkt-chips">${_showSevChip ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${_showSentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${_showSimChip ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
         ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">${kicon('bug')} ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
         ${t.sourceQuote ? `<div class="tkt-prov">"${esc(t.sourceQuote)}"${t.sourceDate ? ` · raised ${esc(ago(t.sourceDate))}` : ""}</div>` : ""}
         ${_showMetaLine ? `<div class="tkt-meta-line muted">${(t.urlHost || t.urlPath) ? esc((t.urlHost || "") + (t.urlPath || "")) : ""}${((t.urlHost || t.urlPath) && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>` : ""}
         ${t.sourceReferrer ? `<div class="tkt-meta-line muted">Referred from: ${esc(t.sourceReferrer)}</div>` : ""}
-        ${t.screenshotId ? `<div class="tkt-shot" data-shot="${esc(t.screenshotId)}"><div class="muted" style="font-size:12px">Loading screenshot…</div></div>` : ""}
-      </div>` : ""}
+        ${!_isTwoCol ? _shotHtml : ""}
+      </div>` : (!_isTwoCol ? _shotHtml : "")
+    const _bodyHtml = `
       <div class="tkt-status-row">
         <span class="tkt-status-lbl">Status</span>
         <div class="seg">${segBtns}</div>
@@ -2046,6 +2052,9 @@ function buildTktDetail(t, admin, onChange, isSingle = false) {
       <div class="tkt-gap tkt-copy">${copySelect}</div>
       <div class="tkt-err hide tkt-err-el"></div>
       <div class="tkt-msg hide tkt-msg-el"></div>`
+    detailEl.innerHTML = _isTwoCol
+      ? `${_shotHtml}<div class="tkt-right-body">${_contextHtml}${_bodyHtml}</div>`
+      : `${_contextHtml}${_bodyHtml}`
 
     // Wire up status buttons
     detailEl.querySelectorAll(".seg-btn").forEach(btn => {
@@ -2220,7 +2229,7 @@ function openSingleTicket(id) {
     head.innerHTML = `<span class="single-rail sv-${sv}"></span>
       <div class="single-h-b">
         <div class="single-title">${esc(t.title || "Untitled report")}</div>
-        <div class="single-meta">${statusPillHtml(t.status)}${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? (kicon('bot',{size:11}) + " " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
+        <div class="single-meta">${statusPillHtml(t.status)}${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? (kicon('bot',{size:11}) + " " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
       </div>`
   }
   renderHead()
