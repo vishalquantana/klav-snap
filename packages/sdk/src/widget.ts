@@ -777,10 +777,12 @@ async function mount() {
       const renderStart = benchNow()
       let observations = 0
       for (const review of data.reviews) {
-        const reactions: unknown[] = Array.isArray(review.observations) ? review.observations : (Array.isArray(review.reactions) ? review.reactions : [])
-        observations += reactions.length
-        _issueCount += reactions.length
-        try { kl?.renderFeedback?.(review.simId, review.simName ?? '', reactions) } catch { /* never break page */ }
+        const rawObs: unknown[] = Array.isArray(review.observations) ? review.observations : (Array.isArray(review.reactions) ? review.reactions : [])
+        // Server returns SimObservation with .observation (text) field; sims-live.ts LiveObservation expects .text.
+        const liveObs = rawObs.map((r: any) => ({ text: r.observation ?? r.text ?? '', sentiment: r.sentiment, severity: r.severity, region: r.region, suggestedBug: r.suggestedBug }))
+        observations += liveObs.length
+        _issueCount += liveObs.length
+        try { kl?.renderFeedback?.(review.simId, review.simName ?? '', liveObs) } catch { /* never break page */ }
       }
       const renderMs = benchNow() - renderStart
       const totalMs = benchNow() - benchStart
@@ -859,7 +861,7 @@ async function mount() {
     if (r.status === 401) { clearToken(); dock.innerHTML = ""; return }  // token expired → drop the Sims dock; never show a bare Connect CTA
     if (!j.ok) { banner(gateMessage(j.reason || "")); return }
     for (const rev of (j.reviews || [])) for (const re of (rev.observations || [])) {
-      renderBubble(rev.simName, rev.accent || "#6366f1", re.text, re.sentiment)
+      renderBubble(rev.simName, rev.accent || "#6366f1", re.observation ?? re.text, re.sentiment)
     }
     if (!(j.reviews || []).some((x: any) => (x.observations || []).length)) banner("Your Sims had nothing to flag here.")
   }

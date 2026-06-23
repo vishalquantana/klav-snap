@@ -275,9 +275,12 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
       let observations = 0
       for (const review of data.reviews) {
         if (!review?.simId) continue
-        observations += Array.isArray(review.observations) ? review.observations.length : 0
+        const rawObs: unknown[] = Array.isArray(review.observations) ? review.observations : []
+        // Server SimObservation uses .observation for text; sims-live.ts LiveObservation expects .text.
+        const liveObs = rawObs.map((r: any) => ({ text: r.observation ?? r.text ?? '', sentiment: r.sentiment, severity: r.severity, region: r.region, suggestedBug: r.suggestedBug }))
+        observations += liveObs.length
         try {
-          kl?.renderFeedback?.(review.simId, review.simName ?? '', review.observations ?? [])
+          kl?.renderFeedback?.(review.simId, review.simName ?? '', liveObs)
         } catch { /* UI errors must never break the watch loop */ }
       }
       const renderMs = benchNow() - renderStart
