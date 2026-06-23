@@ -35,7 +35,8 @@ jobs:
       - name: Install (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Emoji guard
+      - name: Emoji guard (enforcing — blocks on any emoji)
+        continue-on-error: false
         run: node scripts/check-no-emoji.mjs
 
       - name: Build

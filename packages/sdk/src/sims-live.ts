@@ -28,6 +28,7 @@
  */
 
 import { createSim, injectSimStyles, type SimProps } from '@klavity/core/sim'
+import { icon } from '@klavity/core/icons'
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -478,7 +479,7 @@ function deploy(
   const closeAll = document.createElement('button')
   closeAll.className = 'ksl-close-all'
   closeAll.setAttribute('aria-label', 'Stop all Sim reviews'); closeAll.title = 'Stop Sim reviews'
-  closeAll.textContent = '✕'; closeAll.addEventListener('click', undeploy)
+  closeAll.innerHTML = icon('x', { size: 12 }); closeAll.addEventListener('click', undeploy)
   dockEl.appendChild(closeAll)
 
   const visible = simIds === 'all' ? sims : sims.filter(s => (simIds as string[]).includes(s.id))
@@ -627,7 +628,7 @@ function showHaloAndPin(
   const actions = document.createElement('div'); actions.className = 'klav-pin-actions'
 
   const triageBtn = document.createElement('button'); triageBtn.className = 'klav-pin-triage'
-  triageBtn.textContent = '🐛 Triage as bug'
+  triageBtn.innerHTML = icon('bug') + ' Triage as bug'
   triageBtn.setAttribute('aria-label', `Triage observation from ${slot.name} as a bug`)
   triageBtn.addEventListener('click', () => { SimsLive.onTriage?.(obs, slot.name) })
 
@@ -697,7 +698,7 @@ function showHuddleBubble(slot: SimSlot, observations: LiveObservation[]): void 
   const closeBtn = document.createElement('button')
   closeBtn.className = 'ksl-b-close'
   closeBtn.setAttribute('aria-label', `Dismiss feedback from ${slot.name}`)
-  closeBtn.textContent = '✕'
+  closeBtn.innerHTML = icon('x', { size: 13 })
 
   const tag = document.createElement('div'); tag.className = 'ksl-b-tag'
   tag.style.color = slot.accent; tag.textContent = slot.name
