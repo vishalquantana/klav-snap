@@ -365,6 +365,11 @@ async function mount() {
   // Instant dismissal (no fade) — used when a region drag-select begins so the menu can't linger over the
   // selection. Removes any live OR mid-fade menu, regardless of whether closeMenu already nulled menuEl.
   const dismissMenuNow = () => { menuEl = null; root.querySelectorAll(".klm-menu").forEach((m) => (m as HTMLElement).remove()) }
+  // KLA-20: Always dismiss any open context menu at the start of a new right-mousedown, even when
+  // the cursor is positioned over the menu itself. In that case region-drag's isOwnTarget guard
+  // returns true and skips onRightDown, so the old menu would linger behind the drag overlay.
+  // This capture-phase listener fires before all bubble-phase handlers and before isOwnTarget runs.
+  document.addEventListener("mousedown", (e) => { if (e.button === 2) dismissMenuNow() }, true)
   // Scoped keyframes for the magical context menu (entrance spring, item stagger, shimmer
   // sweep, icon hover wiggle). Injected once into the widget's shadow root.
   function ensureMenuStyle() {

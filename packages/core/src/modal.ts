@@ -200,14 +200,15 @@ export function buildModal(
     .klavity-x:active{transform:var(--kl-press);}
     /* Keyboard accessibility — visible focus ring on every control */
     .klavity-toggle button:focus-visible,.klavity-actions button:focus-visible,.klavity-submit:focus-visible,.klavity-lead button:focus-visible,.klavity-cta:focus-visible,.klavity-rm:focus-visible,.klavity-mk:focus-visible,.klavity-x:focus-visible{outline:2px solid var(--kl-accent);outline-offset:2px;}
-    /* ── Sharp (i) info: the info affordance lives ON the Sharp button (right side), NOT a separate button.
-       Hover/focus/tap reveals the explainer; the (i) stopPropagations so it NEVER triggers the one-click
-       capture. Generous full-height hit zone (~34×40) at the right edge so the rest of the button stays a
-       one-tap Sharp. Shadow-as-border popover, theme-aware; press scale(0.96), accent hover, focus ring. ── */
-    #klavity-sharp{position:relative;flex:1.4;padding-left:30px;padding-right:30px;}
-    .klavity-info-wrap{position:absolute;top:0;right:0;bottom:0;width:34px;display:inline-flex;align-items:center;justify-content:center;}
-    .klavity-info{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:var(--kl-muted);cursor:help;transition:color .15s ease,background .15s ease;}
-    .klavity-info-wrap:hover .klavity-info{color:var(--kl-accent);background:color-mix(in srgb,var(--kl-accent) 16%,transparent);}
+    /* ── Sharp (i) info: the ⓘ is an INLINE element inside the Screen button, not a separate affordance.
+       It sits right after the "Screen" label so Screen+ⓘ read as a single unified control (KLA-15,
+       KLA-26). Clicks on ⓘ stopPropagation so they never trigger the one-click capture. The
+       floating tooltip (.kl-float-tip) is positioned via JS and lives outside the overflow:hidden
+       modal so it is never clipped. ── */
+    #klavity-sharp{flex:1.4;}
+    .klavity-info-wrap{display:inline-flex;align-items:center;margin-left:4px;flex:none;}
+    .klavity-info{width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:var(--kl-muted);cursor:help;opacity:.7;transition:color .15s ease,background .15s ease,opacity .15s ease;}
+    .klavity-info-wrap:hover .klavity-info{color:var(--kl-accent);background:color-mix(in srgb,var(--kl-accent) 14%,transparent);opacity:1;}
     /* .klavity-info-pop is kept in markup for its text; visibility is JS-driven via .kl-float-tip so
        the tooltip is rendered outside the overflow:hidden modal and is never clipped. */
     .klavity-info-pop{display:none;}
