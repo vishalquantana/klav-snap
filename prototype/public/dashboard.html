@@ -136,6 +136,10 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 .fx-b{flex:1;min-width:0}
 .fx-t{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .fx-recur{font-family:var(--mono);font-size:9px;color:var(--rose);background:rgba(219,39,119,.1);padding:2px 7px;border-radius:20px}
+/* KLA-2 regression-memory badges — consumed from recurrenceCount/firstSeen/isRegression API fields */
+.recur-badge{font-family:var(--mono);font-size:9px;color:var(--rose);background:rgba(219,39,119,.1);padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.regr-banner{display:flex;align-items:center;gap:7px;background:rgba(219,39,119,.07);border:1px solid rgba(219,39,119,.25);border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:var(--rose);margin-bottom:6px}
+.regr-banner .regr-ico{font-size:15px;flex-shrink:0}
 .fx-m{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px;font-size:11.5px;color:var(--paper-faint)}
 .fx-q{font-size:12.5px;color:var(--paper-dim);font-style:italic;margin-top:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .fx-m .fx-area{font-family:var(--mono);font-size:10.5px;background:var(--ink-3);padding:1px 7px;border-radius:5px;color:var(--paper-dim)}
@@ -2028,6 +2032,7 @@ function buildTktDetail(t, admin, onChange, isSingle = false) {
       : ""
     const _contextHtml = _hasContext ? `
       <div class="tkt-context">
+        ${regrBannerHtml(t)}
         ${_showObs ? `<div class="tkt-obs">${esc(t.observation)}</div>` : ""}
         ${(_showSevChip || _showSentiment || _showSimChip) ? `<div class="tkt-chips">${_showSevChip ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${_showSentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${_showSimChip ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
         ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">${kicon('bug')} ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
@@ -2191,7 +2196,7 @@ function renderTickets() {
       <span class="ico">${kicon('bug')}</span>
       <div class="body">
         <div class="t"></div>
-        <div class="d">${sub}</div>
+        <div class="d" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">${sub}${recurBadgeHtml(t)}</div>
       </div>
       <button class="copy-ai-icon" type="button" aria-label="Copy to AI" title="Copy to AI — paste into Claude / ChatGPT to fix this bug">${kicon('sparkles')}</button>
       <span class="go" aria-label="Expand">›</span>`
@@ -2237,7 +2242,8 @@ function openSingleTicket(id) {
     head.innerHTML = `<span class="single-rail sv-${sv}"></span>
       <div class="single-h-b">
         <div class="single-title">${esc(t.title || "Untitled report")}</div>
-        <div class="single-meta">${statusPillHtml(t.status)}${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? (kicon('bot',{size:11}) + " " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
+        <div class="single-meta">${statusPillHtml(t.status)}${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}${recurBadgeHtml(t)}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? (kicon('bot',{size:11}) + " " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
+        ${regrBannerHtml(t)}
       </div>`
   }
   renderHead()
@@ -2262,6 +2268,17 @@ function closeSingleTicket() {
 // graft helpers: severity rail class + status pill
 function sevRailClass(sev) { return "sevrail-" + ((sev === "high" || sev === "medium" || sev === "low") ? sev : "none") }
 function statusPillHtml(status) { const s = status || "open"; return `<span class="tkt-pill p-${esc(s)}"><span class="pdot"></span>${STATUS_LABELS[s] || esc(s)}</span>` }
+// KLA-2: Regression-memory badge helpers — gracefully hide when fields absent (Codex read-path not yet merged)
+function recurBadgeHtml(t) {
+  const n = t.recurrenceCount
+  if (!n || n < 2) return ""
+  const since = t.firstSeen ? " · first seen " + esc(ago(t.firstSeen)) : ""
+  return `<span class="recur-badge">Reported ${n}×${since}</span>`
+}
+function regrBannerHtml(t) {
+  if (!t.isRegression) return ""
+  return `<div class="regr-banner"><span class="regr-ico">↩</span>Regression — came back after resolved</div>`
+}
 let _kanbanSearch = "", _kbSearchBound = false
 // Active card-driven filter on the Tickets board (one at a time, plus the text search). null = none.
 let _kbFilter = null // { type:'open'|'recurring'|'sentiment-neg'|'severity', value?, label }
@@ -2348,7 +2365,7 @@ function renderTicketsKanban() {
         const sevChip = t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""
         const stChip = `<span class="chip kb-st kb-st-${esc(t.status || "open")}">${STATUS_LABELS[t.status] || esc(t.status || "open")}</span>`
         const assignee = t.assignee ? `<span class="muted" style="font-size:11px">→ ${esc(t.assignee)}</span>` : ""
-        cardEl.querySelector(".kb-card-meta").innerHTML = `${stChip}${sevChip}${assignee}`
+        cardEl.querySelector(".kb-card-meta").innerHTML = `${stChip}${sevChip}${assignee}${recurBadgeHtml(t)}`
       }
       cardEl.innerHTML = `
         <button class="copy-ai-icon kb-copy-ai" type="button" aria-label="Copy to AI" title="Copy to AI — paste into Claude / ChatGPT to fix this bug">${kicon('sparkles')}</button>
