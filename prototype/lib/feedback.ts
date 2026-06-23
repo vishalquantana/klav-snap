@@ -18,6 +18,8 @@ const CTX_MAX_META_KEYS = 50
 
 function capStr(v: any, max = CTX_MAX_STR): string { return String(v ?? '').slice(0, max) }
 
+const PERF_TYPES = new Set(['longtask', 'paint', 'resource'])
+
 export function sanitizeClientContext(raw: any): any | null {
   if (!raw || typeof raw !== 'object') return null
   const out: any = {}
@@ -40,6 +42,16 @@ export function sanitizeClientContext(raw: any): any | null {
       method: capStr(n?.method, 10),
       timestamp: Number(n?.timestamp) || 0,
       ...(n?.durationMs != null ? { durationMs: Number(n.durationMs) || 0 } : {}),
+    }))
+  }
+  // G3 PerformanceObserver entries: longtask, paint, resource sub-resources.
+  if (Array.isArray(raw.perfEntries)) {
+    out.perfEntries = raw.perfEntries.slice(0, CTX_MAX_ENTRIES).map((p: any) => ({
+      type: PERF_TYPES.has(p?.type) ? p.type : 'resource',
+      name: capStr(p?.name, 1000),
+      startMs: Number(p?.startMs) || 0,
+      durationMs: Number(p?.durationMs) || 0,
+      ...(p?.initiatorType ? { initiatorType: capStr(p.initiatorType, 30) } : {}),
     }))
   }
   const coerceMap = (m: any): Record<string, string> | undefined => {
@@ -85,6 +97,16 @@ export function clientContextHtml(ctx: any): string {
       .map((n: any) => `<li>${escapeHtml(String(n.method || 'GET'))} ${escapeHtml(capStr(n.url, 1000))} → ${escapeHtml(String(n.status))}${n.durationMs != null ? ` (${escapeHtml(String(n.durationMs))}ms)` : ''}</li>`).join('')
     parts.push(`<p><strong>Network (${ctx.networkFailures.length}):</strong></p><ul>${rows}</ul>`)
   }
+  if (Array.isArray(ctx.perfEntries) && ctx.perfEntries.length) {
+    const rows = ctx.perfEntries.map((p: any) => {
+      const type = String(p.type || 'resource')
+      const name = escapeHtml(capStr(p.name, 200))
+      const dur = p.durationMs != null && p.durationMs > 0 ? ` ${escapeHtml(String(p.durationMs))}ms` : ''
+      const init = p.initiatorType ? ` [${escapeHtml(String(p.initiatorType))}]` : ''
+      return `<li>[${escapeHtml(type)}]${init} ${name}${dur}</li>`
+    }).join('')
+    parts.push(`<p><strong>Performance (${ctx.perfEntries.length}):</strong></p><ul>${rows}</ul>`)
+  }
   return parts.length ? `<hr/>${parts.join('')}` : ''
 }
 
@@ -104,6 +126,14 @@ export function clientContextLines(ctx: any): string[] {
   if (Array.isArray(ctx.networkFailures) && ctx.networkFailures.length) {
     lines.push(`Network (${ctx.networkFailures.length}):`)
     for (const n of ctx.networkFailures) lines.push(`  ${n.method || 'GET'} ${capStr(n.url, 1000)} → ${n.status}${n.durationMs != null ? ` (${n.durationMs}ms)` : ''}`)
+  }
+  if (Array.isArray(ctx.perfEntries) && ctx.perfEntries.length) {
+    lines.push(`Performance (${ctx.perfEntries.length}):`)
+    for (const p of ctx.perfEntries) {
+      const dur = p.durationMs != null && p.durationMs > 0 ? ` ${p.durationMs}ms` : ''
+      const init = p.initiatorType ? ` [${p.initiatorType}]` : ''
+      lines.push(`  [${p.type || 'resource'}]${init} ${capStr(p.name, 200)}${dur}`)
+    }
   }
   return lines
 }

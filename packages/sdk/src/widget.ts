@@ -4,7 +4,8 @@ import { safeToPng } from "./capture"
 import { buildModal, installRegionDrag, type ModalController } from "@klavity/core/modal"
 import { cropDataUrl, type Rect } from "@klavity/core/crop"
 import { planScrollStitch, clampCaptureHeight } from "./sharp-capture"
-import { installCapture, buildReportContext, type CaptureBuffers } from "@klavity/core/capture"
+import { type CaptureBuffers } from "@klavity/core/capture"
+import { installCaptureContext, buildCaptureContext } from "./capture-context"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy, compressScreenshot } from "./widget-lib"
 import { icon } from "@klavity/core/icons"
@@ -57,7 +58,7 @@ export function setMetadata(meta: Record<string, unknown> | null) {
   _metadata = meta ? coerceStrings(meta) : undefined
 }
 function buildWidgetContext(): ReportContext {
-  return buildReportContext(_buffers, { identity: _identity, metadata: _metadata })
+  return buildCaptureContext(_buffers, { identity: _identity, metadata: _metadata })
 }
 
 // Expose the public API as early as possible so site code can call it before mount() resolves.
@@ -169,8 +170,8 @@ async function mount() {
   const cfg = parseScriptConfig(currentScript())
   if (!cfg.projectId || !cfg.backendUrl) return
 
-  // G2: start full-fidelity dev-tools capture for every widget report (console + network + env).
-  installCapture(_buffers, { consoleLevels: true })
+  // G3: start full-fidelity capture — console + fetch/XHR (core) + PerformanceObserver (longtask/paint/resource).
+  installCaptureContext(_buffers)
   // G5: seed identity/metadata declared on the script tag (a later identify()/setMetadata() wins).
   if (cfg.identity && !_identity) _identity = cfg.identity
   if (cfg.metadata && !_metadata) _metadata = cfg.metadata

@@ -61,6 +61,24 @@ export interface ReportIdentity {
   [key: string]: string | undefined
 }
 
+// A PerformanceObserver entry captured by the widget (G3 supplement). Covers signals that
+// fetch/XHR wrappers cannot see: long main-thread tasks, paint timing, and browser-loaded
+// sub-resources (images, scripts, stylesheets). Optional — absent on platforms that do not
+// support PerformanceObserver or when the widget is not used.
+export interface PerfEntry {
+  // Entry type: longtask (main-thread block >50ms), paint (FP/FCP), resource (sub-resource load).
+  type: 'longtask' | 'paint' | 'resource'
+  // Name from the PerformanceEntry. For paint: 'first-paint' | 'first-contentful-paint'.
+  // For resource: the (redacted) URL. For longtask: 'longtask'.
+  name: string
+  // Epoch timestamp (ms) derived from performance.timeOrigin + entry.startTime.
+  startMs: number
+  // Entry duration in ms (0 for paint marks).
+  durationMs: number
+  // Resource entries only: 'img', 'script', 'link', 'css', 'other', etc.
+  initiatorType?: string
+}
+
 export interface ReportContext {
   pageUrl: string
   userAgent: string
@@ -71,6 +89,8 @@ export interface ReportContext {
   // Custom metadata / identity (G5). Optional so existing payloads stay valid.
   identity?: ReportIdentity
   metadata?: Record<string, string>
+  // PerformanceObserver entries (G3 supplement). Optional: absent on unsupported platforms.
+  perfEntries?: PerfEntry[]
 }
 
 export interface SubmitReportPayload {
