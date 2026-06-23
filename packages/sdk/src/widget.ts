@@ -16,6 +16,12 @@ import { startSimsWatch, type SimsWatchController } from "./sims-watch"
 const HOST_ID = "klavity-widget-host"
 const TOKEN_KEY = "klavity_widget_token"
 
+const benchNow = (): number =>
+  typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now()
+const benchMs = (n: number): number => Math.round(n)
+
 type Persona = { id: string; name: string; initials?: string; accent?: string }
 
 function currentScript(): HTMLScriptElement {
@@ -691,10 +697,13 @@ async function mount() {
   // This is the "boot" review triggered right after Deploy — no waiting for scroll or mutation.
   async function bootReview(simIds: string[] | 'all') {
     try {
+      const benchStart = benchNow()
+      const captureStart = benchNow()
       const shot = await Promise.race([
         safeToPng(document.body, { skipFonts: true, filter: (n) => (n as HTMLElement).id !== HOST_ID }),
         new Promise<never>((_, rej) => setTimeout(() => rej(new Error("capture timeout")), 10_000)),
       ])
+      const captureMs = benchNow() - captureStart
       const body: Record<string, unknown> = {
         url: location.href,
         screenshotDataUrl: shot,
@@ -705,19 +714,33 @@ async function mount() {
       if (simIds !== 'all') body.simIds = simIds
       const headers: Record<string, string> = { 'content-type': 'application/json' }
       if (getToken()) headers.authorization = `Bearer ${getToken()}`
+      const networkStart = benchNow()
       const res = await fetch(cfg.backendUrl + '/api/sim/review', {
         method: 'POST', headers, credentials: 'include', body: JSON.stringify(body),
       })
       if (!res.ok) return
       const data = await res.json().catch(() => ({}))
+      const networkMs = benchNow() - networkStart
       if (!data?.ok || !Array.isArray(data.reviews)) return
       const kl = (window as any).KlavitySims
+      const renderStart = benchNow()
+      let observations = 0
       for (const review of data.reviews) {
-        const reactions: unknown[] = Array.isArray(review.reactions) ? review.reactions : []
+        const reactions: unknown[] = Array.isArray(review.observations) ? review.observations : (Array.isArray(review.reactions) ? review.reactions : [])
+        observations += reactions.length
         _issueCount += reactions.length
         try { kl?.renderFeedback?.(review.simId, review.simName ?? '', reactions) } catch { /* never break page */ }
       }
+      const renderMs = benchNow() - renderStart
+      const totalMs = benchNow() - benchStart
       updateIssueCounter()
+      const server = data.timing?.simReview
+      console.log(
+        `[bench-sim-review] client trigger=boot captureMs=${benchMs(captureMs)} networkMs=${benchMs(networkMs)} ` +
+        `serverTotalMs=${server?.totalMs ?? '?'} serverReceiveToReviewDoneMs=${server?.receiveToReviewDoneMs ?? '?'} ` +
+        `serverReviewMs=${server?.reviewMs ?? '?'} renderMs=${benchMs(renderMs)} totalMs=${benchMs(totalMs)} ` +
+        `sims=${data.reviews.length} observations=${observations}`,
+      )
     } catch { /* non-fatal: boot review is best-effort */ }
   }
 

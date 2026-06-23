@@ -1928,7 +1928,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     if (req.method === "POST" && path === "/api/sim/review") {
       const meR = (await sessionEmail(req)) || (await bearerEmail(req))
       try {
+        const benchStart = Date.now()
         const body = await req.json().catch(() => ({}))
+        const benchBodyReadAt = Date.now()
         const pageUrl = String(body.url || "")
         const domSig = body.domSig != null ? String(body.domSig) : null
         const screenshotDataUrl = String(body.screenshotDataUrl || "")
@@ -2011,6 +2013,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
         // ── ALL GATES PASSED. Only now do we review. ──
         console.log(`[review] running sims=${targetSims.length} path=${urlPath || "/"}`)
+        const benchGatesAt = Date.now()
         if (!screenshotDataUrl) return wjson({ ok: false, reason: "noScreenshot", error: "screenshotDataUrl is required." }, 400)
         const decoded = decodeDataUrlLib(screenshotDataUrl)
         if (!decoded) return wjson({ ok: false, reason: "badScreenshot", error: "screenshotDataUrl could not be decoded." }, 400)
@@ -2031,11 +2034,13 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           console.warn("[review] screenshot storage skipped (no S3):", e?.message || e)
           screenshotId = "no-s3-" + Date.now().toString(36)
         }
+        const benchScreenshotAt = Date.now()
 
         // Run all Sim reviews via the extracted lib function. Each Sim reacts to the page,
         // observations are session-deduped by hash, feedback rows are inserted/bumped, and the
         // expectations spine is updated. Recurring issues carry RecurrenceMemory (KLA-2).
         const activeIndexes = targetSims.map((_, i) => i).filter((i) => !reviewSeen(seenKeys[i]))
+        const benchReviewStart = Date.now()
         const reviews = await runSimReviews({
           projectId, urlPath, urlHost, pageUrl, imageB64: decoded.base64, mediaType: decoded.contentType,
           targetSims: activeIndexes.map((i) => targetSims[i]),
@@ -2049,6 +2054,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           markSeen: markReviewSeen,
           db: db ?? null,
         })
+        const benchReviewDoneAt = Date.now()
 
         // Persist a lightweight sim_runs record for run history and dashboard correlation.
         // Best-effort — a record failure never fails the HTTP response.
@@ -2062,10 +2068,27 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             })
           } catch (e: any) { console.warn("[review] sim_runs insert skipped:", e?.message || e) }
         }
+        const benchRunInsertAt = Date.now()
 
         const { simCount, totalObservations } = buildSimRunSummary(reviews)
+        const timing = {
+          bodyMs: benchBodyReadAt - benchStart,
+          gatesMs: benchGatesAt - benchBodyReadAt,
+          screenshotMs: benchScreenshotAt - benchGatesAt,
+          reviewMs: benchReviewDoneAt - benchReviewStart,
+          receiveToReviewDoneMs: benchReviewDoneAt - benchStart,
+          runInsertMs: benchRunInsertAt - benchReviewDoneAt,
+          totalMs: benchRunInsertAt - benchStart,
+        }
+        console.log(
+          `[bench-sim-review] server project=${projectId} path=${urlPath || "/"} sims=${targetSims.length} ` +
+          `active=${activeIndexes.length} reviewed=${simCount} observations=${totalObservations} ` +
+          `bodyMs=${timing.bodyMs} gatesMs=${timing.gatesMs} screenshotMs=${timing.screenshotMs} ` +
+          `reviewMs=${timing.reviewMs} receiveToReviewDoneMs=${timing.receiveToReviewDoneMs} ` +
+          `runInsertMs=${timing.runInsertMs} totalMs=${timing.totalMs}`,
+        )
         console.log(`[review] done path=${urlPath || "/"} sims_reviewed=${simCount} observations=${totalObservations}`)
-        return wjson({ ok: true, projectId, screenshotId, reviews })
+        return wjson({ ok: true, projectId, screenshotId, reviews, timing: { simReview: timing } })
       } catch (e: any) {
         return wjson({ ok: false, reason: "error", error: e?.message || "review failed" }, 500)
       }

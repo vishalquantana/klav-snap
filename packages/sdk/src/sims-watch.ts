@@ -131,6 +131,12 @@ const CAPTURE_TIMEOUT_MS = 10_000       // abort a hung captureViewport() after 
 
 type TriggerKind = 'scroll' | 'navigation' | 'mutation'
 
+const benchNow = (): number =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now()
+const benchMs = (n: number): number => Math.round(n)
+
 export interface SimsWatchOptions {
   /** Base URL of the Klavity backend, e.g. "https://klavity.quantana.top". */
   backendUrl: string
@@ -218,6 +224,8 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
     }
 
     try {
+      const benchStart = benchNow()
+      const captureStart = benchNow()
       // Race captureViewport against a timeout so a hung capture never locks busy=true.
       const screenshotDataUrl = await Promise.race([
         opts.captureViewport(),
@@ -225,6 +233,7 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
           setTimeout(() => reject(new Error('sims-watch: capture timeout')), CAPTURE_TIMEOUT_MS),
         ),
       ])
+      const captureMs = benchNow() - captureStart
       if (stopped) { busy = false; return }
 
       const ac = new AbortController()
@@ -242,6 +251,7 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
       const headers: Record<string, string> = { 'content-type': 'application/json' }
       if (opts.bearerToken) headers['authorization'] = `Bearer ${opts.bearerToken}`
 
+      const networkStart = benchNow()
       const res = await fetch(`${opts.backendUrl}/api/sim/review`, {
         method: 'POST',
         headers,
@@ -251,17 +261,34 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
       })
       fetchAbort = null
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: { ok: boolean; reviews?: Array<{ simId: string; simName: string; initials?: string; accent?: string; observations: unknown[] }> } = await res.json()
+      const data: {
+        ok: boolean
+        reviews?: Array<{ simId: string; simName: string; initials?: string; accent?: string; observations: unknown[] }>
+        timing?: { simReview?: { totalMs?: number; receiveToReviewDoneMs?: number; reviewMs?: number } }
+      } = await res.json()
+      const networkMs = benchNow() - networkStart
       if (!data?.ok || !Array.isArray(data.reviews)) { busy = false; return }
 
       // Deliver each Sim review to the presence UI layer (sims-live.ts / window.KlavitySims).
       const kl = typeof window !== 'undefined' ? (window as any).KlavitySims : null
+      const renderStart = benchNow()
+      let observations = 0
       for (const review of data.reviews) {
         if (!review?.simId) continue
+        observations += Array.isArray(review.observations) ? review.observations.length : 0
         try {
           kl?.renderFeedback?.(review.simId, review.simName ?? '', review.observations ?? [])
         } catch { /* UI errors must never break the watch loop */ }
       }
+      const renderMs = benchNow() - renderStart
+      const totalMs = benchNow() - benchStart
+      const server = data.timing?.simReview
+      console.log(
+        `[bench-sim-review] client trigger=${trigger} captureMs=${benchMs(captureMs)} networkMs=${benchMs(networkMs)} ` +
+        `serverTotalMs=${server?.totalMs ?? '?'} serverReceiveToReviewDoneMs=${server?.receiveToReviewDoneMs ?? '?'} ` +
+        `serverReviewMs=${server?.reviewMs ?? '?'} renderMs=${benchMs(renderMs)} totalMs=${benchMs(totalMs)} ` +
+        `sims=${data.reviews.length} observations=${observations}`,
+      )
     } catch (e) {
       // AbortError = intentional teardown via stop(); don't retry or log.
       if (e instanceof Error && e.name === 'AbortError') { busy = false; return }
