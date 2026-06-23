@@ -142,6 +142,22 @@ export function buildSimRunSummary(reviews: SimReview[]): {
   return { simCount: reviews.length, totalObservations, bugCount, dedupedCount, newCount }
 }
 
+// ── Active review target selection ─────────────────────────────────────────────
+
+/**
+ * Choose which target Sims should be sent to the LLM for this review.
+ * Continuous/background reviews honor the in-process seen cache; explicit ad-hoc
+ * deploys bypass it so a user-triggered "Deploy all Sims" can always render fresh
+ * reactions for the current page.
+ */
+export function activeReviewIndexes(
+  seenKeys: string[],
+  reviewSeen: (key: string) => boolean,
+  adhoc = false,
+): number[] {
+  return seenKeys.map((_, i) => i).filter((i) => adhoc || !reviewSeen(seenKeys[i]))
+}
+
 // ── Near-duplicate detection ──────────────────────────────────────────────────
 //
 // Continuous browsing fires many analyses of similar pages (e.g. /pricing watched

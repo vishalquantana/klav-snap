@@ -21,7 +21,7 @@ import { buildRecurrenceMemory } from "./recurrence-memory"
 // Re-export everything from the pure module so callers only need one import path.
 export {
   hashObservation, decodeDataUrl, splitUrl, buildSimRunSummary,
-  obsIsNearDup, obsPassesMode, parseRegion,
+  activeReviewIndexes, obsIsNearDup, obsPassesMode, parseRegion,
   sessionCallCapped, sessionObsCapped, sessionCallCount, sessionObsCount,
   sessionSeenTexts, sessionBumpCall, sessionBumpObs,
   SESSION_CALL_CEIL, SESSION_OBS_CEIL, NEAR_DUP_THRESHOLD, SESSION_TTL_MS,

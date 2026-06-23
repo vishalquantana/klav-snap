@@ -22,6 +22,11 @@ const benchNow = (): number =>
     ? performance.now()
     : Date.now()
 const benchMs = (n: number): number => Math.round(n)
+function reactionNodeCount(): number {
+  const dockHost = document.getElementById("klav-sims-live")
+  const shadowCount = dockHost?.shadowRoot?.querySelectorAll(".ksl-slot,.ksl-bubble").length ?? 0
+  return shadowCount + document.querySelectorAll("#klav-sims-overlay,.klav-halo,.klav-pin,.klav-walker").length
+}
 
 type Persona = { id: string; name: string; initials?: string; accent?: string }
 
@@ -788,11 +793,12 @@ async function mount() {
       const totalMs = benchNow() - benchStart
       updateIssueCounter()
       const server = data.timing?.simReview
+      const domNodes = reactionNodeCount()
       console.log(
         `[bench-sim-review] client trigger=boot captureMs=${benchMs(captureMs)} networkMs=${benchMs(networkMs)} ` +
         `serverTotalMs=${server?.totalMs ?? '?'} serverReceiveToReviewDoneMs=${server?.receiveToReviewDoneMs ?? '?'} ` +
         `serverReviewMs=${server?.reviewMs ?? '?'} renderMs=${benchMs(renderMs)} totalMs=${benchMs(totalMs)} ` +
-        `sims=${data.reviews.length} observations=${observations}`,
+        `sims=${data.reviews.length} observations=${observations} domNodes=${domNodes}`,
       )
     } catch { /* non-fatal: boot review is best-effort */ }
   }

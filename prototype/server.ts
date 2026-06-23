@@ -28,7 +28,7 @@ import { AsyncLocalStorage } from "node:async_hooks"
 // resolveProject can constrain it to that project (F5) — without threading state through every route.
 const reqCtx = new AsyncLocalStorage<{ boundProject?: string | null }>()
 import { ingestSnapOrSim } from "./lib/expectations-ingest"
-import { runSimReviews, decodeDataUrl as decodeDataUrlLib, splitUrl as splitUrlLib, buildSimRunSummary, type SimReview } from "./lib/sim-review"
+import { runSimReviews, decodeDataUrl as decodeDataUrlLib, splitUrl as splitUrlLib, buildSimRunSummary, activeReviewIndexes, type SimReview } from "./lib/sim-review"
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
@@ -2085,7 +2085,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // Run all Sim reviews via the extracted lib function. Each Sim reacts to the page,
         // observations are session-deduped by hash, feedback rows are inserted/bumped, and the
         // expectations spine is updated. Recurring issues carry RecurrenceMemory (KLA-2).
-        const activeIndexes = targetSims.map((_, i) => i).filter((i) => !reviewSeen(seenKeys[i]))
+        const activeIndexes = activeReviewIndexes(seenKeys, reviewSeen, adhoc)
         const benchReviewStart = Date.now()
         const reviews = await runSimReviews({
           projectId, urlPath, urlHost, pageUrl, imageB64: decoded.base64, mediaType: decoded.contentType,

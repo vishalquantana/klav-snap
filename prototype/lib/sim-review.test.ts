@@ -2,7 +2,7 @@
 // Pure unit tests for sim-review.ts helpers.
 // No DB, no OpenRouter — only the testable pure functions.
 import { test, expect } from "bun:test"
-import { hashObservation, decodeDataUrl, splitUrl, buildSimRunSummary, type SimReview } from "./sim-review-pure"
+import { hashObservation, decodeDataUrl, splitUrl, buildSimRunSummary, activeReviewIndexes, type SimReview } from "./sim-review-pure"
 
 // ── hashObservation ──────────────────────────────────────────────────────────
 
@@ -123,4 +123,20 @@ test("buildSimRunSummary: counts across multiple Sims", () => {
   expect(s.bugCount).toBe(2)   // obs1 + obs3
   expect(s.dedupedCount).toBe(1) // obs2
   expect(s.newCount).toBe(2)   // obs1 + obs3
+})
+
+// ── activeReviewIndexes ───────────────────────────────────────────────────────
+
+test("activeReviewIndexes: continuous reviews skip already-seen Sims", () => {
+  const seen = new Set(["sim_a|/|", "sim_c|/|"])
+  const keys = ["sim_a|/|", "sim_b|/|", "sim_c|/|"]
+
+  expect(activeReviewIndexes(keys, (k) => seen.has(k), false)).toEqual([1])
+})
+
+test("activeReviewIndexes: adhoc Deploy bypasses reviewSeen so bubbles can render again", () => {
+  const seen = new Set(["sim_a|/|", "sim_b|/|", "sim_c|/|"])
+  const keys = ["sim_a|/|", "sim_b|/|", "sim_c|/|"]
+
+  expect(activeReviewIndexes(keys, (k) => seen.has(k), true)).toEqual([0, 1, 2])
 })
