@@ -1,5 +1,112 @@
-import { describe, it, expect } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { clampRect, pinPosition, type Rect } from "./annotation-overlay"
+
+type FakeElement = {
+  tagName: string
+  id: string
+  className: string
+  textContent: string
+  dataset: Record<string, string>
+  style: Record<string, string>
+  children: FakeElement[]
+  parentNode: FakeElement | null
+  attrs: Record<string, string>
+  listeners: Record<string, () => void>
+  classList: {
+    add: (name: string) => void
+    contains: (name: string) => boolean
+  }
+  appendChild: (child: FakeElement) => FakeElement
+  remove: () => void
+  setAttribute: (name: string, value: string) => void
+  getAttribute: (name: string) => string | null
+  addEventListener: (name: string, fn: () => void) => void
+  click: () => void
+}
+
+function createFakeElement(tagName: string): FakeElement {
+  const el = {
+    tagName,
+    id: "",
+    className: "",
+    textContent: "",
+    dataset: {},
+    style: {},
+    children: [],
+    parentNode: null,
+    attrs: {},
+    listeners: {},
+    classList: {
+      add(name: string) {
+        const classes = new Set(el.className.split(/\s+/).filter(Boolean))
+        classes.add(name)
+        el.className = [...classes].join(" ")
+      },
+      contains(name: string) {
+        return el.className.split(/\s+/).includes(name)
+      },
+    },
+    appendChild(child: FakeElement) {
+      child.parentNode = el
+      el.children.push(child)
+      return child
+    },
+    remove() {
+      if (!el.parentNode) return
+      el.parentNode.children = el.parentNode.children.filter(child => child !== el)
+      el.parentNode = null
+    },
+    setAttribute(name: string, value: string) {
+      el.attrs[name] = value
+    },
+    getAttribute(name: string) {
+      return el.attrs[name] ?? null
+    },
+    addEventListener(name: string, fn: () => void) {
+      el.listeners[name] = fn
+    },
+    click() {
+      el.listeners.click?.()
+    },
+  } satisfies FakeElement
+
+  return el
+}
+
+function createFakeDocument() {
+  const head = createFakeElement("head")
+  const body = createFakeElement("body")
+
+  const findById = (node: FakeElement, id: string): FakeElement | null => {
+    if (node.id === id) return node
+    for (const child of node.children) {
+      const found = findById(child, id)
+      if (found) return found
+    }
+    return null
+  }
+
+  return {
+    head,
+    body,
+    createElement: (tagName: string) => createFakeElement(tagName),
+    getElementById: (id: string) => findById(head, id) ?? findById(body, id),
+  }
+}
+
+async function loadOverlayWithDom(viewport = { innerWidth: 1280, innerHeight: 720 }) {
+  vi.resetModules()
+  const document = createFakeDocument()
+  vi.stubGlobal("document", document)
+  vi.stubGlobal("window", viewport)
+  const mod = await import("./annotation-overlay")
+  return { document, ...mod }
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 // ── clampRect ─────────────────────────────────────────────────────────────────
 
@@ -109,5 +216,111 @@ describe("pinPosition", () => {
     const rect: Rect = { x: 100, y: 119, w: 200, h: 60 }
     const { below } = pinPosition(rect, PIN_W, 96, VW, VH, 10)
     expect(below).toBe(true)
+  })
+})
+
+// ── showAnnotation / clearAnnotation ─────────────────────────────────────────
+
+describe("annotation DOM API", () => {
+  it("creates the overlay and anchors the halo to the rect with padding", async () => {
+    const { document, showAnnotation } = await loadOverlayWithDom()
+
+    const id = showAnnotation({ x: 40, y: 50, w: 120, h: 30 }, undefined, { color: "#8b5cf6" })
+
+    expect(id).toBe("klav-ao-1")
+    expect(document.getElementById("klav-ao-css")?.tagName).toBe("style")
+    const overlay = document.getElementById("klav-ao-overlay")
+    expect(overlay).toBeTruthy()
+    expect(document.body.children).toContain(overlay)
+
+    const halo = overlay?.children.find(child => child.className === "klav-ao-halo")
+    expect(halo?.dataset.aoId).toBe(id)
+    expect(halo?.style.left).toBe("35px")
+    expect(halo?.style.top).toBe("45px")
+    expect(halo?.style.width).toBe("130px")
+    expect(halo?.style.height).toBe("40px")
+    expect(halo?.style.borderColor).toBe("#8b5cf6")
+    expect(halo?.style.boxShadow).toContain("rgba(139,92,246,0.14)")
+  })
+
+  it("positions a labeled pin above the halo when there is enough space", async () => {
+    const { document, showAnnotation } = await loadOverlayWithDom()
+
+    const id = showAnnotation({ x: 200, y: 300, w: 120, h: 30 }, "Broken CTA", { color: "#6366f1", severity: "medium" })
+    const overlay = document.getElementById("klav-ao-overlay")
+    const pin = overlay?.children.find(child => child.className === "klav-ao-pin")
+
+    expect(pin?.dataset.aoId).toBe(id)
+    expect(pin?.style.left).toBe("195px")
+    expect(pin?.style.top).toBe("185px")
+    expect(pin?.style.borderLeftColor).toBe("#6366f1")
+    expect(pin?.getAttribute("role")).toBe("status")
+    expect(pin?.getAttribute("aria-label")).toBe("Annotation: Broken CTA")
+    expect(pin?.children[0]?.children[0]?.textContent).toBe("Broken CTA")
+    expect(pin?.children[0]?.children[1]?.className).toBe("klav-ao-sev sev-m")
+  })
+
+  it("flips a labeled pin below the halo when the rect is near the top", async () => {
+    const { document, showAnnotation } = await loadOverlayWithDom()
+
+    showAnnotation({ x: 40, y: 20, w: 100, h: 20 }, "Top issue")
+    const overlay = document.getElementById("klav-ao-overlay")
+    const pin = overlay?.children.find(child => child.className.includes("klav-ao-pin"))
+
+    expect(pin?.classList.contains("tail-top")).toBe(true)
+    expect(pin?.style.left).toBe("35px")
+    expect(pin?.style.top).toBe("59px")
+  })
+
+  it("clears an unlabeled annotation immediately", async () => {
+    const { document, showAnnotation, clearAnnotation } = await loadOverlayWithDom()
+
+    const id = showAnnotation({ x: 40, y: 50, w: 120, h: 30 })
+    const overlay = document.getElementById("klav-ao-overlay")
+    expect(overlay?.children.length).toBe(1)
+
+    clearAnnotation(id)
+
+    expect(overlay?.children.length).toBe(0)
+  })
+
+  it("clears a labeled annotation after the exit animation window", async () => {
+    vi.useFakeTimers()
+    const { document, showAnnotation, clearAnnotation } = await loadOverlayWithDom()
+
+    const id = showAnnotation({ x: 200, y: 300, w: 120, h: 30 }, "Dismiss me")
+    const overlay = document.getElementById("klav-ao-overlay")
+    const pin = overlay?.children.find(child => child.className.includes("klav-ao-pin"))
+    const halo = overlay?.children.find(child => child.className === "klav-ao-halo")
+
+    clearAnnotation(id)
+
+    expect(pin?.classList.contains("is-out")).toBe(true)
+    expect(halo?.style.animation).toBe("klav-ao-pin-out .22s ease-in forwards")
+    expect(overlay?.children.length).toBe(2)
+
+    vi.advanceTimersByTime(240)
+
+    expect(overlay?.children.length).toBe(0)
+  })
+
+  it("clearAnnotations removes all visible unlabeled annotations", async () => {
+    const { document, showAnnotation, clearAnnotations } = await loadOverlayWithDom()
+
+    showAnnotation({ x: 10, y: 20, w: 30, h: 40 })
+    showAnnotation({ x: 80, y: 90, w: 30, h: 40 })
+    const overlay = document.getElementById("klav-ao-overlay")
+    expect(overlay?.children.length).toBe(2)
+
+    clearAnnotations()
+
+    expect(overlay?.children.length).toBe(0)
+  })
+
+  it("ignores unknown annotation ids", async () => {
+    const { showAnnotation, clearAnnotation } = await loadOverlayWithDom()
+
+    expect(() => clearAnnotation("missing")).not.toThrow()
+    expect(showAnnotation({ x: 0, y: 0, w: 10, h: 10 })).toBe("klav-ao-1")
   })
 })

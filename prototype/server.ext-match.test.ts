@@ -35,19 +35,34 @@ const MEMBER_EMAIL = "member@test.local"
 const OTHER_EMAIL  = "other@test.local"
 const ACCOUNT_ID   = "acc_test"
 const PROJECT_ID   = "proj_match_test"
+const PROJECT_ID_2 = "proj_match_second"
+const PROJECT_ID_OFF = "proj_no_match_test"
+const PROJECT_ID_PRIVATE = "proj_private_match"
 const TOKEN_MEMBER = "ext_membertoken000"
 const TOKEN_OTHER  = "ext_othertoken000"
+const TOKEN_BOUND_MATCH = "ext_boundmatch000"
+const TOKEN_BOUND_OFF = "ext_boundoff000"
 
 await rawExec(`INSERT INTO users VALUES (?, ?, ?)`, [MEMBER_EMAIL, "Member", NOW])
 await rawExec(`INSERT INTO users VALUES (?, ?, ?)`, [OTHER_EMAIL,  "Other",  NOW])
 await rawExec(`INSERT INTO accounts VALUES (?, ?, ?, ?, ?)`, [ACCOUNT_ID, "Test Acc", MEMBER_EMAIL, null, NOW])
 await rawExec(`INSERT INTO account_members VALUES (?, ?, ?, ?, ?)`, ["am1", ACCOUNT_ID, MEMBER_EMAIL, "member", NOW])
 await rawExec(`INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [PROJECT_ID, ACCOUNT_ID, "Match Project", "active", null, "auto", 200, "named", NOW, NOW])
+await rawExec(`INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [PROJECT_ID_2, ACCOUNT_ID, "Second Match Project", "active", null, "auto", 200, "named", NOW + 1, NOW + 1])
+await rawExec(`INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [PROJECT_ID_OFF, ACCOUNT_ID, "Offsite Project", "active", null, "auto", 200, "named", NOW + 2, NOW + 2])
+await rawExec(`INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [PROJECT_ID_PRIVATE, ACCOUNT_ID, "Private Match Project", "active", null, "auto", 200, "named", NOW + 3, NOW + 3])
 await rawExec(`INSERT INTO project_members VALUES (?, ?, ?, ?, ?, ?)`, ["pm1", PROJECT_ID, MEMBER_EMAIL, "member", null, NOW])
+await rawExec(`INSERT INTO project_members VALUES (?, ?, ?, ?, ?, ?)`, ["pm2", PROJECT_ID_2, MEMBER_EMAIL, "member", null, NOW])
+await rawExec(`INSERT INTO project_members VALUES (?, ?, ?, ?, ?, ?)`, ["pm3", PROJECT_ID_OFF, MEMBER_EMAIL, "member", null, NOW])
 await rawExec(`INSERT INTO monitored_urls VALUES (?, ?, ?, ?, ?)`, ["mu1", PROJECT_ID, "bigidea.quantana.top", 1, NOW])
+await rawExec(`INSERT INTO monitored_urls VALUES (?, ?, ?, ?, ?)`, ["mu2", PROJECT_ID_2, "bigidea.quantana.top", 1, NOW])
+await rawExec(`INSERT INTO monitored_urls VALUES (?, ?, ?, ?, ?)`, ["mu3", PROJECT_ID_OFF, "different.example.com", 1, NOW])
+await rawExec(`INSERT INTO monitored_urls VALUES (?, ?, ?, ?, ?)`, ["mu4", PROJECT_ID_PRIVATE, "bigidea.quantana.top", 1, NOW])
 // other user is NOT a project member
 await rawExec(`INSERT INTO extension_tokens VALUES (?, ?, ?, ?, ?, ?)`, [TOKEN_MEMBER, MEMBER_EMAIL, null, NOW, NOW + 86400000, 0])
 await rawExec(`INSERT INTO extension_tokens VALUES (?, ?, ?, ?, ?, ?)`, [TOKEN_OTHER,  OTHER_EMAIL,  null, NOW, NOW + 86400000, 0])
+await rawExec(`INSERT INTO extension_tokens VALUES (?, ?, ?, ?, ?, ?)`, [TOKEN_BOUND_MATCH, MEMBER_EMAIL, PROJECT_ID_2, NOW, NOW + 86400000, 0])
+await rawExec(`INSERT INTO extension_tokens VALUES (?, ?, ?, ?, ?, ?)`, [TOKEN_BOUND_OFF, MEMBER_EMAIL, PROJECT_ID_OFF, NOW, NOW + 86400000, 0])
 
 let serverProc: ReturnType<typeof Bun.spawn>
 let BASE: string
@@ -119,8 +134,39 @@ test("returns matching project for member on monitored URL", async () => {
   const body = await r.json()
   expect(Array.isArray(body.projects)).toBe(true)
   expect(body.projects.length).toBeGreaterThan(0)
-  expect(body.projects[0].projectId).toBe(PROJECT_ID)
-  expect(body.projects[0].name).toBe("Match Project")
+  const ids = body.projects.map((p: any) => p.projectId)
+  expect(ids).toContain(PROJECT_ID)
+  expect(body.projects.find((p: any) => p.projectId === PROJECT_ID)?.name).toBe("Match Project")
+})
+
+test("returns only accessible projects whose allowlist matches the url", async () => {
+  const r = await fetch(`${BASE}/api/extension/match?url=${encodeURIComponent(MONITORED_URL)}`, {
+    headers: { authorization: `Bearer ${TOKEN_MEMBER}` },
+  })
+  expect(r.status).toBe(200)
+  const body = await r.json()
+  const ids = body.projects.map((p: any) => p.projectId).sort()
+  expect(ids).toEqual([PROJECT_ID, PROJECT_ID_2].sort())
+  expect(ids).not.toContain(PROJECT_ID_OFF)
+  expect(ids).not.toContain(PROJECT_ID_PRIVATE)
+})
+
+test("bound project token is constrained to its project even when other accessible projects match", async () => {
+  const r = await fetch(`${BASE}/api/extension/match?url=${encodeURIComponent(MONITORED_URL)}`, {
+    headers: { authorization: `Bearer ${TOKEN_BOUND_MATCH}` },
+  })
+  expect(r.status).toBe(200)
+  const body = await r.json()
+  expect(body.projects).toEqual([{ projectId: PROJECT_ID_2, name: "Second Match Project" }])
+})
+
+test("bound project token returns empty when only other accessible projects match", async () => {
+  const r = await fetch(`${BASE}/api/extension/match?url=${encodeURIComponent(MONITORED_URL)}`, {
+    headers: { authorization: `Bearer ${TOKEN_BOUND_OFF}` },
+  })
+  expect(r.status).toBe(200)
+  const body = await r.json()
+  expect(body.projects).toEqual([])
 })
 
 test("non-member gets empty list — no existence disclosure", async () => {
