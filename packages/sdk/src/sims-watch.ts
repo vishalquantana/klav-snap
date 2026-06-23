@@ -136,6 +136,12 @@ const benchNow = (): number =>
     ? performance.now()
     : Date.now()
 const benchMs = (n: number): number => Math.round(n)
+function reactionNodeCount(): number {
+  if (typeof document === 'undefined') return 0
+  const dockHost = document.getElementById('klav-sims-live')
+  const shadowCount = dockHost?.shadowRoot?.querySelectorAll('.ksl-slot,.ksl-bubble').length ?? 0
+  return shadowCount + document.querySelectorAll('#klav-sims-overlay,.klav-halo,.klav-pin,.klav-walker').length
+}
 
 export interface SimsWatchOptions {
   /** Base URL of the Klavity backend, e.g. "https://klavity.quantana.top". */
@@ -286,11 +292,12 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
       const renderMs = benchNow() - renderStart
       const totalMs = benchNow() - benchStart
       const server = data.timing?.simReview
+      const domNodes = reactionNodeCount()
       console.log(
         `[bench-sim-review] client trigger=${trigger} captureMs=${benchMs(captureMs)} networkMs=${benchMs(networkMs)} ` +
         `serverTotalMs=${server?.totalMs ?? '?'} serverReceiveToReviewDoneMs=${server?.receiveToReviewDoneMs ?? '?'} ` +
         `serverReviewMs=${server?.reviewMs ?? '?'} renderMs=${benchMs(renderMs)} totalMs=${benchMs(totalMs)} ` +
-        `sims=${data.reviews.length} observations=${observations}`,
+        `sims=${data.reviews.length} observations=${observations} domNodes=${domNodes}`,
       )
     } catch (e) {
       // AbortError = intentional teardown via stop(); don't retry or log.
