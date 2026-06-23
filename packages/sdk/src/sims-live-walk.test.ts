@@ -48,6 +48,11 @@ async function settleWalk(): Promise<void> {
   await vi.advanceTimersByTimeAsync(1500)
 }
 
+async function settleMarkers(): Promise<HTMLElement[]> {
+  await vi.advanceTimersByTimeAsync(250)
+  return Array.from(document.querySelectorAll(".klav-pin-marker")) as HTMLElement[]
+}
+
 beforeEach(() => {
   vi.useFakeTimers()
   document.body.innerHTML = ""
@@ -76,7 +81,7 @@ afterEach(() => {
 })
 
 describe("SimsLive walk + outline choreography", () => {
-  it("walks to a region-backed target and pins a halo bubble", async () => {
+  it("renders a collapsed marker first, then walks and expands on marker click", async () => {
     makeTarget()
     SimsLive.deploy("all", [SIM])
 
@@ -88,10 +93,18 @@ describe("SimsLive walk + outline choreography", () => {
     }
     SimsLive.renderFeedback(SIM.id, SIM.name, [obs])
 
+    const markers = await settleMarkers()
+    expect(markers).toHaveLength(1)
+    expect(document.querySelector(".klav-walker")).toBeNull()
+    expect(document.querySelector(".klav-halo")).toBeNull()
+    expect(document.querySelector(".klav-pin")).toBeNull()
+
+    markers[0].click()
     await settleWalk()
 
     expect(document.querySelector(".klav-halo")).toBeTruthy()
     expect(document.querySelector(".klav-pin")).toBeTruthy()
+    expect(document.querySelectorAll(".klav-pin")).toHaveLength(1)
     expect(document.querySelector(".ksl-bubble")).toBeNull()
   })
 
@@ -105,13 +118,52 @@ describe("SimsLive walk + outline choreography", () => {
       region: null,
     }])
 
+    const markers = await settleMarkers()
+    expect(markers).toHaveLength(1)
+    markers[0].dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }))
     await settleWalk()
 
     expect(document.querySelector(".klav-halo")).toBeTruthy()
     expect(document.querySelector(".klav-pin")).toBeTruthy()
   })
 
-  it("undeploy removes queued walkers, halos, and pins", async () => {
+  it("keeps only one observation expanded and dims the rest", async () => {
+    makeTarget()
+    SimsLive.deploy("all", [SIM])
+
+    SimsLive.renderFeedback(SIM.id, SIM.name, [
+      {
+        text: "The checkout button feels blocked.",
+        sentiment: "blocked",
+        region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
+        targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
+      },
+      {
+        text: "The checkout pricing feels broken.",
+        sentiment: "confused",
+        region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
+        targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
+      },
+    ])
+
+    const markers = await settleMarkers()
+    expect(markers).toHaveLength(2)
+    markers[0].click()
+    await settleWalk()
+    expect(document.querySelectorAll(".klav-pin")).toHaveLength(1)
+    expect(document.querySelectorAll(".klav-halo")).toHaveLength(1)
+    expect(markers[0].classList.contains("is-active")).toBe(true)
+    expect(markers[1].classList.contains("is-dim")).toBe(true)
+
+    markers[1].click()
+    await settleWalk()
+    expect(document.querySelectorAll(".klav-pin")).toHaveLength(1)
+    expect(document.querySelectorAll(".klav-halo")).toHaveLength(1)
+    expect(markers[0].classList.contains("is-dim")).toBe(true)
+    expect(markers[1].classList.contains("is-active")).toBe(true)
+  })
+
+  it("dock click focuses that Sim's annotation and Escape collapses back to pins", async () => {
     makeTarget()
     SimsLive.deploy("all", [SIM])
     SimsLive.renderFeedback(SIM.id, SIM.name, [{
@@ -120,6 +172,40 @@ describe("SimsLive walk + outline choreography", () => {
       region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
       targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
     }])
+
+    const markers = await settleMarkers()
+    expect(markers).toHaveLength(1)
+    const slot = dockShadow()?.querySelector(".ksl-slot") as HTMLElement
+    slot.click()
+    await settleWalk()
+    expect(document.querySelector(".klav-pin")).toBeTruthy()
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    await vi.advanceTimersByTimeAsync(260)
+    expect(document.querySelector(".klav-pin")).toBeNull()
+    expect(document.querySelector(".klav-halo")).toBeNull()
+    expect(document.querySelector(".klav-pin-marker")).toBeTruthy()
+
+    markers[0].click()
+    await settleWalk()
+    expect(document.querySelector(".klav-pin")).toBeTruthy()
+    document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, composed: true }))
+    await vi.advanceTimersByTimeAsync(260)
+    expect(document.querySelector(".klav-pin")).toBeNull()
+    expect(document.querySelector(".klav-halo")).toBeNull()
+  })
+
+  it("undeploy removes queued walkers, halos, expanded bubbles, and markers", async () => {
+    makeTarget()
+    SimsLive.deploy("all", [SIM])
+    SimsLive.renderFeedback(SIM.id, SIM.name, [{
+      text: "The checkout button feels blocked.",
+      sentiment: "blocked",
+      region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
+      targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
+    }])
+    const markers = await settleMarkers()
+    markers[0].click()
     await settleWalk()
 
     SimsLive.undeploy()
@@ -127,6 +213,7 @@ describe("SimsLive walk + outline choreography", () => {
     expect(document.querySelector(".klav-walker")).toBeNull()
     expect(document.querySelector(".klav-halo")).toBeNull()
     expect(document.querySelector(".klav-pin")).toBeNull()
+    expect(document.querySelector(".klav-pin-marker")).toBeNull()
   })
 
   it("does not render positive or neutral observations on-page", async () => {
@@ -152,6 +239,7 @@ describe("SimsLive walk + outline choreography", () => {
     expect(document.querySelector(".klav-walker")).toBeNull()
     expect(document.querySelector(".klav-halo")).toBeNull()
     expect(document.querySelector(".klav-pin")).toBeNull()
+    expect(document.querySelector(".klav-pin-marker")).toBeNull()
     expect(dockShadow()?.querySelector(".ksl-bubble")).toBeNull()
   })
 })

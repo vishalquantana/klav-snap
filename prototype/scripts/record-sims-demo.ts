@@ -261,13 +261,25 @@ async function record(token: string | null): Promise<void> {
     const deployClickedAt = Date.now()
     await deploy.first().click()
 
-    log("Waiting for review reactions")
+    log("Waiting for collapsed review pins")
     await page.waitForFunction(
       () => {
-        return document.querySelectorAll(".klav-halo").length > 0 && document.querySelectorAll(".klav-pin").length > 0
+        return document.querySelectorAll(".klav-pin-marker").length > 0
       },
       null,
       { timeout: 90_000 },
+    )
+    await page.evaluate(() => {
+      const firstMarker = document.querySelector(".klav-pin-marker") as HTMLElement | null
+      firstMarker?.click()
+    })
+    log("Focusing one review pin")
+    await page.waitForFunction(
+      () => {
+        return document.querySelectorAll(".klav-halo").length === 1 && document.querySelectorAll(".klav-pin").length === 1
+      },
+      null,
+      { timeout: 30_000 },
     )
     const reactionNodeAppearedAt = Date.now()
 
@@ -278,9 +290,12 @@ async function record(token: string | null): Promise<void> {
       const slots = dock?.shadowRoot?.querySelectorAll(".ksl-slot").length || 0
       const halos = document.querySelectorAll(".klav-halo").length
       const pins = document.querySelectorAll(".klav-pin").length
+      const markers = document.querySelectorAll(".klav-pin-marker").length
+      const activeMarkers = document.querySelectorAll(".klav-pin-marker.is-active").length
+      const dimMarkers = document.querySelectorAll(".klav-pin-marker.is-dim").length
       const walkers = document.querySelectorAll(".klav-walker").length
       const maxWalkers = ((window as any).__klavWalkStats?.maxWalkers || 0) as number
-      const overlayChildren = overlay?.shadowRoot?.childElementCount || 0
+      const overlayChildren = overlay?.childElementCount || 0
       const firstHalo = document.querySelector(".klav-halo") as HTMLElement | null
       let anchored = false
       let anchorTag: string | null = null
@@ -289,7 +304,7 @@ async function record(token: string | null): Promise<void> {
         const rect = firstHalo.getBoundingClientRect()
         const x = rect.left + rect.width / 2
         const y = rect.top + rect.height / 2
-        const hidden = Array.from(document.querySelectorAll("#klav-sims-live,#klav-sims-overlay,#klavity-widget-host,.klav-halo,.klav-pin,.klav-walker")) as HTMLElement[]
+        const hidden = Array.from(document.querySelectorAll("#klav-sims-live,#klav-sims-overlay,#klavity-widget-host,.klav-halo,.klav-pin,.klav-pin-marker,.klav-walker")) as HTMLElement[]
         const prior = hidden.map((el) => [el, el.style.visibility] as const)
         hidden.forEach((el) => { el.style.visibility = "hidden" })
         const target = document.elementFromPoint(x, y) as HTMLElement | null
@@ -299,7 +314,7 @@ async function record(token: string | null): Promise<void> {
         anchorId = target?.id || null
       }
       ;(window as any).__klavWalkObserver?.disconnect?.()
-      return { bubbles, slots, halos, pins, walkers, maxWalkers, overlayChildren, anchored, anchorTag, anchorId, total: bubbles + halos + pins + walkers }
+      return { bubbles, slots, halos, pins, markers, activeMarkers, dimMarkers, walkers, maxWalkers, overlayChildren, anchored, anchorTag, anchorId, total: bubbles + halos + pins + markers + walkers }
     })
 
     const review = reviewResponse as ReviewResponse | null
@@ -320,8 +335,8 @@ async function record(token: string | null): Promise<void> {
     if (verifierRenderMs <= 0) {
       throw new Error(`Expected positive verifier render duration; got ${verifierRenderMs}`)
     }
-    if (counts.halos <= 0 || counts.pins <= 0 || counts.maxWalkers <= 0 || !counts.anchored) {
-      throw new Error(`Expected walkers plus anchored halo/pin nodes; got ${JSON.stringify(counts)}`)
+    if (counts.markers <= 0 || counts.halos !== 1 || counts.pins !== 1 || counts.activeMarkers !== 1 || counts.maxWalkers <= 0 || !counts.anchored) {
+      throw new Error(`Expected collapsed pins plus exactly one focused halo/bubble; got ${JSON.stringify(counts)}`)
     }
 
     log(`Reaction DOM assertion passed: ${JSON.stringify(counts)}`)

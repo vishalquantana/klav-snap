@@ -5,11 +5,11 @@
  *
  * HOME BASE: Sims huddle bottom-right in the dock — always visible.
  *
- * WALK/BOX/PIN: when renderFeedback() receives a critical/concern observation
+ * PIN/FOCUS: when renderFeedback() receives a critical/concern observation
  * that resolves to a target element (model `region` first, text-matching fallback second), the Sim
- *   1. WALKS from the huddle to the flagged page element
- *   2. DRAWS a pulsing halo box around that element
- *   3. PINS a speech bubble anchored to the element (stays until dismissed)
+ *   1. DROPS a small collapsed marker on the flagged page element
+ *   2. EXPANDS one marker at a time on hover/click or dock click
+ *   3. WALKS to that element, then DRAWS a pulsing halo + speech bubble
  *
  * Critical page-level observations with no target show as a transient huddle bubble.
  * Positive/neutral observations are persisted server-side but are intentionally
@@ -99,20 +99,34 @@ let dockEl: HTMLElement | null = null
 let overlayEl: HTMLElement | null = null    // full-page overlay for walkers/halos/pins
 let deployAbort: AbortController | null = null
 interface SimSlot {
+  simId: string
   avatarEl: HTMLElement   // .ksl-slot in the dock
   accent: string
   initials: string
   name: string
   clearBubble: (() => void) | null
+  annotationIds: Set<string>
 }
 const simSlots = new Map<string, SimSlot>()
 
 /** In-transit walker elements (removed on arrival or undeploy). */
 const walkers = new Set<HTMLElement>()
 
-interface Pin { halo: HTMLElement; bubble: HTMLElement; cleanup?: () => void }
-/** Active pinned annotations keyed by a unique pin id. */
-const pins = new Map<string, Pin>()
+interface Annotation {
+  id: string
+  slot: SimSlot
+  obs: LiveObservation
+  targetEl: HTMLElement
+  marker: HTMLElement
+  halo: HTMLElement | null
+  bubble: HTMLElement | null
+  markerCleanup: (() => void) | null
+  chromeCleanup: (() => void) | null
+}
+/** Active page annotations keyed by a unique annotation id. */
+const annotations = new Map<string, Annotation>()
+let annotationSeq = 0
+let focusedAnnotationId: string | null = null
 let walkQueueIndex = 0
 let walkQueueResetTimer: ReturnType<typeof setTimeout> | null = null
 const walkQueueTimers = new Set<ReturnType<typeof setTimeout>>()
@@ -148,6 +162,10 @@ const DOCK_CSS = `
     animation: ksl-jumpin .62s cubic-bezier(.34,1.36,.64,1) both;
     animation-delay: calc(var(--ksl-idx,0) * 72ms);
     pointer-events: auto;
+  }
+  .ksl-slot.ksl-has-annotation { cursor: pointer; }
+  .ksl-slot.ksl-focus .ksim-head {
+    box-shadow: 0 0 0 3px rgba(139,92,246,.28), 0 0 26px rgba(139,92,246,.36);
   }
 
   /* Idle "watching…" label */
@@ -308,6 +326,7 @@ const EXT_CSS = `
     /* entry: scale-in from centre */
     animation: klav-halo-in .38s cubic-bezier(.34,1.36,.64,1) both,
                klav-halo-pulse 2.4s ease-in-out .4s infinite;
+    transition: opacity .18s ease, transform .18s ease;
   }
   @keyframes klav-halo-in {
     from { transform: scale(.84); opacity: 0; }
@@ -318,7 +337,61 @@ const EXT_CSS = `
     50%     { opacity: 1; }
   }
 
-  /* ── Pinned bubble — sticky annotation anchored to the halo ── */
+  /* ── Collapsed marker — small anchored pin before an observation is focused ── */
+  @keyframes klav-marker-in {
+    from { transform: scale(.68); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .klav-pin-marker {
+    position: fixed;
+    z-index: 2147483642;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    border: 2px solid rgba(255,255,255,.86);
+    box-shadow: 0 8px 26px rgba(0,0,0,.34), 0 0 0 5px var(--klav-marker-glow, rgba(139,92,246,.16));
+    color: #fff;
+    font: 700 9px/1 ui-monospace, 'JetBrains Mono', monospace;
+    letter-spacing: -.02em;
+    cursor: pointer;
+    pointer-events: auto;
+    user-select: none;
+    animation: klav-marker-in .28s cubic-bezier(.34,1.36,.64,1) both;
+    transition: transform .16s ease, opacity .16s ease, filter .16s ease, box-shadow .16s ease;
+  }
+  .klav-pin-marker:hover,
+  .klav-pin-marker:focus-visible {
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 12px 32px rgba(0,0,0,.42), 0 0 0 7px var(--klav-marker-glow, rgba(139,92,246,.22));
+    outline: none;
+  }
+  .klav-pin-marker.is-active {
+    transform: translateY(-3px) scale(1.13);
+    opacity: 1;
+    filter: saturate(1.18);
+  }
+  .klav-pin-marker.is-dim {
+    opacity: .42;
+    filter: grayscale(.35) saturate(.8);
+    transform: scale(.92);
+  }
+  .klav-pin-marker::after {
+    content:'';
+    position:absolute;
+    left:50%;
+    bottom:-7px;
+    transform:translateX(-50%);
+    width:0;
+    height:0;
+    border:6px solid transparent;
+    border-top-color: var(--klav-marker-accent, currentColor);
+    opacity:.95;
+  }
+
+  /* ── Expanded pinned bubble — only one is visible at a time ── */
   @keyframes klav-pin-in {
     from { transform: scale(.86) translateY(10px); opacity: 0; }
     60%  { transform: scale(1.02) translateY(-2px); opacity: 1; }
@@ -342,6 +415,7 @@ const EXT_CSS = `
     backdrop-filter: blur(12px) saturate(140%);
     pointer-events: auto;
     animation: klav-pin-in .36s cubic-bezier(.34,1.36,.64,1) both;
+    transition: opacity .16s ease, transform .16s ease;
   }
   .klav-pin.is-out { animation: klav-pin-out .22s ease-in forwards; pointer-events: none; }
 
@@ -382,6 +456,7 @@ const EXT_CSS = `
     .klav-walker { transition:none !important; }
     .klav-walker .ksim-legs i { animation:none !important; }
     .klav-halo,.klav-halo.klav-halo { animation:none !important; opacity:1; transform:none; }
+    .klav-pin-marker { animation:none !important; transition:none !important; }
     .klav-pin,.klav-pin.is-out { animation:none !important; opacity:1; transform:none; }
   }
 `
@@ -425,6 +500,7 @@ function isOwnOverlayElement(el: Element | null): boolean {
   return !!classList && (
     classList.contains('klav-halo') ||
     classList.contains('klav-pin') ||
+    classList.contains('klav-pin-marker') ||
     classList.contains('klav-walker') ||
     classList.contains('ksl-bubble') ||
     classList.contains('ksl-slot')
@@ -625,11 +701,13 @@ function inferTargetFromText(obs: LiveObservation): HTMLElement | null {
   return best
 }
 
-async function resolveObservationTarget(obs: LiveObservation): Promise<HTMLElement | null> {
+async function resolveObservationTarget(obs: LiveObservation, opts: { scroll?: boolean } = {}): Promise<HTMLElement | null> {
   if (obs.region) {
     const viewport = viewportFor(obs)
     const targetDocRect = targetRectFromRegion(obs.region, viewport)
-    await scrollDocumentPointIntoView(targetDocRect.left + targetDocRect.width / 2, targetDocRect.top + targetDocRect.height / 2)
+    if (opts.scroll !== false) {
+      await scrollDocumentPointIntoView(targetDocRect.left + targetDocRect.width / 2, targetDocRect.top + targetDocRect.height / 2)
+    }
     const byRegion = bestElementForRegion(obs.region, obs)
     if (byRegion) return byRegion
   }
@@ -682,8 +760,13 @@ function deploy(
   ensureOverlay()
   deployAbort = new AbortController()
 
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') undeploy() },
-    { signal: deployAbort.signal })
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') collapseFocusedAnnotation()
+  }, { signal: deployAbort.signal })
+  document.addEventListener('pointerdown', (e) => {
+    if (!focusedAnnotationId || isAnnotationEventPath(e)) return
+    collapseFocusedAnnotation()
+  }, { capture: true, signal: deployAbort.signal })
 
   // Screen reader live region
   const announcer = document.createElement('div')
@@ -717,8 +800,16 @@ function deploy(
     const slot = document.createElement('div')
     slot.className = 'ksl-slot'; slot.dataset.simId = sim.id
     slot.setAttribute('aria-label', sim.name)
+    slot.setAttribute('role', 'button')
+    slot.setAttribute('tabindex', '0')
     slot.style.setProperty('--ksl-idx', String(idx))
     slot.style.setProperty('--ksl-accent', accent)
+    slot.addEventListener('click', () => focusFirstAnnotationForSlot(sim.id))
+    slot.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return
+      e.preventDefault()
+      focusFirstAnnotationForSlot(sim.id)
+    })
 
     const size = window.innerWidth <= 480 ? 38 : 46
     slot.appendChild(createSim({ name: sim.name, initials, photoUrl: sim.photoUrl, color: accent, animate: true, legs: true, size } as SimProps))
@@ -745,7 +836,7 @@ function deploy(
     idle.setAttribute('aria-hidden', 'true'); slot.appendChild(idle)
 
     dockEl!.appendChild(slot)
-    simSlots.set(sim.id, { avatarEl: slot, accent, initials, name: sim.name, clearBubble: null })
+    simSlots.set(sim.id, { simId: sim.id, avatarEl: slot, accent, initials, name: sim.name, clearBubble: null, annotationIds: new Set() })
   })
 }
 
@@ -786,14 +877,85 @@ function spawnWalker(slot: SimSlot, destX: number, destY: number): Promise<void>
   })
 }
 
-/** Draw a halo box and pin a speech bubble, both anchored to `targetEl`. */
-function showHaloAndPin(
-  slot: SimSlot,
-  obs: LiveObservation,
-  targetEl: Element,
-): void {
+function updateAnnotationFocusClasses(): void {
+  annotations.forEach((ann) => {
+    const active = ann.id === focusedAnnotationId
+    const dim = !!focusedAnnotationId && !active
+    ann.marker.classList.toggle('is-active', active)
+    ann.marker.classList.toggle('is-dim', dim)
+    ann.slot.avatarEl.classList.toggle('ksl-focus', active)
+  })
+}
+
+function removeFocusedChrome(ann: Annotation, immediate = false): void {
+  ann.chromeCleanup?.()
+  ann.chromeCleanup = null
+  const halo = ann.halo
+  const bubble = ann.bubble
+  ann.halo = null
+  ann.bubble = null
+  if (immediate) {
+    bubble?.remove()
+    halo?.remove()
+    return
+  }
+  if (bubble) bubble.classList.add('is-out')
+  if (halo) {
+    halo.style.animation = 'klav-pin-out .18s ease-in forwards'
+    halo.style.opacity = '0'
+  }
+  setTimeout(() => {
+    bubble?.remove()
+    halo?.remove()
+  }, 220)
+}
+
+function collapseFocusedAnnotation(immediate = false): void {
+  if (!focusedAnnotationId) return
+  const ann = annotations.get(focusedAnnotationId)
+  focusedAnnotationId = null
+  if (ann) removeFocusedChrome(ann, immediate)
+  simSlots.forEach(({ avatarEl }) => avatarEl.classList.remove('ksl-focus'))
+  updateAnnotationFocusClasses()
+}
+
+function isAnnotationEventPath(e: Event): boolean {
+  const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+  return path.some((item) => {
+    if (!(item instanceof Element)) return false
+    if (item === overlayEl || item === dockHostEl) return true
+    return item.classList?.contains('klav-pin-marker') ||
+      item.classList?.contains('klav-pin') ||
+      item.classList?.contains('klav-pin-triage') ||
+      item.classList?.contains('klav-pin-dismiss') ||
+      item.classList?.contains('ksl-slot') ||
+      item.classList?.contains('ksim')
+  })
+}
+
+function visibleElementRect(targetEl: HTMLElement): DOMRect | null {
+  const rect = targetEl.getBoundingClientRect()
+  const visible =
+    rect.width > 0 && rect.height > 0 &&
+    rect.bottom > 0 && rect.right > 0 &&
+    rect.top < window.innerHeight && rect.left < window.innerWidth
+  return visible ? rect : null
+}
+
+function positionMarker(marker: HTMLElement, targetEl: HTMLElement): void {
+  const rect = visibleElementRect(targetEl)
+  marker.style.display = rect ? '' : 'none'
+  if (!rect) return
+
+  const left = Math.max(8, Math.min(window.innerWidth - 36, rect.left + Math.min(rect.width - 8, 14)))
+  const top = Math.max(8, Math.min(window.innerHeight - 36, rect.top - 12))
+  marker.style.left = `${left}px`
+  marker.style.top = `${top}px`
+}
+
+function createExpandedChrome(ann: Annotation): void {
   const ov = ensureOverlay()
-  const pinId = `pin_${slot.name}_${Date.now()}`
+  const { slot, obs, targetEl } = ann
 
   // Halo
   const halo = document.createElement('div')
@@ -806,7 +968,7 @@ function showHaloAndPin(
   pin.className = 'klav-pin'
   pin.style.borderLeftColor = slot.accent
   pin.setAttribute('role', 'status')
-  pin.setAttribute('aria-label', `Pinned feedback from ${slot.name}`)
+  pin.setAttribute('aria-label', `Focused feedback from ${slot.name}`)
 
   // Header
   const hd = document.createElement('div'); hd.className = 'klav-pin-hd'
@@ -840,15 +1002,9 @@ function showHaloAndPin(
   triageBtn.addEventListener('click', () => { SimsLive.onTriage?.(obs, slot.name) })
 
   const dismissBtn = document.createElement('button'); dismissBtn.className = 'klav-pin-dismiss'
-  dismissBtn.textContent = 'Dismiss'
-  dismissBtn.setAttribute('aria-label', `Dismiss pinned feedback from ${slot.name}`)
-  dismissBtn.addEventListener('click', () => {
-    pin.classList.add('is-out')
-    halo.style.animation = 'klav-pin-out .22s ease-in forwards'
-    const current = pins.get(pinId)
-    current?.cleanup?.()
-    setTimeout(() => { pin.remove(); halo.remove(); pins.delete(pinId) }, 240)
-  })
+  dismissBtn.textContent = 'Collapse'
+  dismissBtn.setAttribute('aria-label', `Collapse pinned feedback from ${slot.name}`)
+  dismissBtn.addEventListener('click', () => collapseFocusedAnnotation())
 
   actions.appendChild(triageBtn); actions.appendChild(dismissBtn)
   pin.appendChild(hd); pin.appendChild(obsEl); pin.appendChild(actions)
@@ -856,11 +1012,11 @@ function showHaloAndPin(
 
   const ctrl = new AbortController()
   const updatePosition = () => {
-    const rect = targetEl.getBoundingClientRect()
-    const visible = rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth
+    const rect = visibleElementRect(targetEl)
+    const visible = !!rect
     halo.style.display = visible ? '' : 'none'
     pin.style.display = visible ? '' : 'none'
-    if (!visible) return
+    if (!rect) return
 
     halo.style.left = `${rect.left - 5}px`
     halo.style.top = `${rect.top - 5}px`
@@ -881,41 +1037,102 @@ function showHaloAndPin(
   window.addEventListener('scroll', scheduleUpdate, { passive: true, signal: ctrl.signal })
   window.addEventListener('resize', scheduleUpdate, { signal: ctrl.signal })
 
-  pins.set(pinId, { halo, bubble: pin, cleanup: () => ctrl.abort() })
+  ann.halo = halo
+  ann.bubble = pin
+  ann.chromeCleanup = () => ctrl.abort()
 }
 
-function enqueueWalk(slot: SimSlot, obs: LiveObservation): void {
-  const delay = walkQueueIndex * 650
+async function focusAnnotation(annotationId: string): Promise<void> {
+  const ann = annotations.get(annotationId)
+  if (!ann) return
+
+  if (focusedAnnotationId === annotationId) return
+  collapseFocusedAnnotation(true)
+  focusedAnnotationId = annotationId
+  updateAnnotationFocusClasses()
+
+  const targetRect = ann.targetEl.getBoundingClientRect()
+  await scrollDocumentPointIntoView(
+    targetRect.left + targetRect.width / 2 + window.scrollX,
+    targetRect.top + targetRect.height / 2 + window.scrollY,
+  )
+  if (focusedAnnotationId !== annotationId) return
+
+  const rect = ann.targetEl.getBoundingClientRect()
+  const destX = Math.max(8, Math.min(window.innerWidth - 60, rect.left + rect.width * .1 - 21))
+  const destY = Math.min(window.innerHeight - 80, rect.bottom - 58)
+  if (!prefersReducedMotion()) await spawnWalker(ann.slot, destX, destY)
+  if (focusedAnnotationId !== annotationId) return
+
+  createExpandedChrome(ann)
+}
+
+function focusFirstAnnotationForSlot(simId: string): void {
+  const slot = simSlots.get(simId)
+  if (!slot) return
+  const first = Array.from(slot.annotationIds).find((id) => annotations.has(id))
+  if (first) void focusAnnotation(first)
+}
+
+function createCollapsedAnnotation(slot: SimSlot, obs: LiveObservation, targetEl: HTMLElement): void {
+  const ov = ensureOverlay()
+  const annotationId = `ann_${slot.simId}_${++annotationSeq}`
+  const marker = document.createElement('button')
+  marker.type = 'button'
+  marker.className = 'klav-pin-marker'
+  marker.style.background = slot.accent
+  marker.style.color = '#fff'
+  marker.style.setProperty('--klav-marker-glow', hexToRgba(slot.accent, .2))
+  marker.style.setProperty('--klav-marker-accent', slot.accent)
+  marker.textContent = slot.initials
+  marker.setAttribute('aria-label', `Show feedback from ${slot.name}`)
+  marker.addEventListener('click', (e) => {
+    e.stopPropagation()
+    void focusAnnotation(annotationId)
+  })
+  marker.addEventListener('pointerenter', () => { void focusAnnotation(annotationId) })
+  ov.appendChild(marker)
+
+  const ctrl = new AbortController()
+  const scheduleUpdate = () => requestAnimationFrame(() => positionMarker(marker, targetEl))
+  positionMarker(marker, targetEl)
+  window.addEventListener('scroll', scheduleUpdate, { passive: true, signal: ctrl.signal })
+  window.addEventListener('resize', scheduleUpdate, { signal: ctrl.signal })
+
+  const ann: Annotation = {
+    id: annotationId,
+    slot,
+    obs,
+    targetEl,
+    marker,
+    halo: null,
+    bubble: null,
+    markerCleanup: () => ctrl.abort(),
+    chromeCleanup: null,
+  }
+  annotations.set(annotationId, ann)
+  slot.annotationIds.add(annotationId)
+  slot.avatarEl.classList.add('ksl-has-annotation')
+  updateAnnotationFocusClasses()
+}
+
+function enqueueAnnotation(slot: SimSlot, obs: LiveObservation): void {
+  const delay = walkQueueIndex * 120
   walkQueueIndex += 1
   if (walkQueueResetTimer) clearTimeout(walkQueueResetTimer)
   walkQueueResetTimer = setTimeout(() => {
     walkQueueIndex = 0
     walkQueueResetTimer = null
-  }, delay + 2200)
+  }, delay + 900)
   const timer = setTimeout(() => {
     walkQueueTimers.delete(timer)
-    void walkAndPin(slot, obs)
+    void resolveObservationTarget(obs, { scroll: false }).then((targetEl) => {
+      if (!simSlots.has(slot.simId)) return
+      if (targetEl) createCollapsedAnnotation(slot, obs, targetEl)
+      else showHuddleBubble(slot, [obs])
+    })
   }, delay)
   walkQueueTimers.add(timer)
-}
-
-/** Full walk + pin sequence for one observation. */
-async function walkAndPin(slot: SimSlot, obs: LiveObservation): Promise<void> {
-  if (!overlayEl || !dockHostEl) return
-  const targetEl = await resolveObservationTarget(obs)
-  if (!targetEl) {
-    // Fallback to huddle if element not found
-    showHuddleBubble(slot, [obs])
-    return
-  }
-
-  const rect = targetEl.getBoundingClientRect()
-  // Destination: Sim stands just below-left of the target element
-  const destX = Math.max(8, Math.min(window.innerWidth - 60,  rect.left + rect.width * .1 - 21))
-  const destY = Math.min(window.innerHeight - 80,              rect.bottom - 58)
-
-  await spawnWalker(slot, destX, destY)
-  showHaloAndPin(slot, obs, targetEl)
 }
 
 // ── Huddle bubble (existing behavior for non-walk observations) ───────────────
@@ -1014,8 +1231,8 @@ function renderFeedback(simId: string, simName: string, observations: LiveObserv
     if (isConcernObservation(obs)) toWalk.push(obs)
   }
 
-  // Walk observations: staggered so Sims leave one after the other
-  toWalk.forEach((obs) => enqueueWalk(slot, obs))
+  // Marker observations: staggered lightly so pins pop in without a wall of chrome.
+  toWalk.forEach((obs) => enqueueAnnotation(slot, obs))
 }
 
 // ── undeploy() ────────────────────────────────────────────────────────────────
@@ -1023,6 +1240,7 @@ function renderFeedback(simId: string, simName: string, observations: LiveObserv
 function undeploy(): void {
   // 1. Cancel huddle bubble timers
   simSlots.forEach(s => { s.clearBubble?.(); s.clearBubble = null })
+  focusedAnnotationId = null
   simSlots.clear()
 
   // 2. Abort global listeners
@@ -1036,8 +1254,15 @@ function undeploy(): void {
   // 3. Remove all in-transit walkers immediately
   walkers.forEach(w => w.remove()); walkers.clear()
 
-  // 4. Remove all pinned halos + bubbles
-  pins.forEach(({ halo, bubble, cleanup }) => { cleanup?.(); halo.remove(); bubble.remove() }); pins.clear()
+  // 4. Remove all annotation markers + focused chrome
+  annotations.forEach(({ marker, halo, bubble, markerCleanup, chromeCleanup }) => {
+    markerCleanup?.()
+    chromeCleanup?.()
+    marker.remove()
+    halo?.remove()
+    bubble?.remove()
+  })
+  annotations.clear()
 
   // 5. Remove overlay host (and any leftover children)
   overlayEl?.remove(); overlayEl = null
