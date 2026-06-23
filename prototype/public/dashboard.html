@@ -74,6 +74,11 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 /* bar-brand: Klavity logo shown in the top bar on mobile only (sidebar is horizontal there,
    its own brand is hidden, so the bar carries the logo instead) */
 .bar-brand{display:none;font-size:18px}
+/* Studio shortcut — always-visible primary action in the navbar (KLAVITYKLA-25).
+   Lives on the left of .bar-in so it's reachable from every tab. JS (a[href^="/app"])
+   auto-appends ?project= at load time so it opens the right project. */
+.nav-studio{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;border:1px solid rgba(99,102,241,.28);background:rgba(99,102,241,.1);color:var(--indigo);font-family:var(--body);font-size:13px;font-weight:600;text-decoration:none}
+@media(max-width:500px){.nav-studio .nav-studio-lbl{display:none}.nav-studio{padding:7px 10px}}
 /* Sidebar: full-width select with "Project" label stacked above it */
 .side .proj-pick .switcher{flex-direction:column;align-items:flex-start;gap:3px}
 .side .proj-select{width:100%;padding:8px 32px 8px 11px;font-size:13.5px;text-overflow:ellipsis;transition:border-color var(--mi-dur,.15s) var(--mi-ease,ease)}
@@ -716,6 +721,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <!-- Mobile-only: brand lives here when the sidebar collapses to a horizontal tab row -->
   <div class="brand bar-brand"><span class="spark">K</span>Klavity</div>
   <span class="ws hide" id="wsName"></span>
+  <!-- Studio shortcut — primary action always visible in the navbar regardless of active tab -->
+  <a class="nav-studio mi" href="/app" id="studioNavBtn" aria-label="Open Sims Studio"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.524.888l-1.267 5.54a.5.5 0 0 0 .595.595l5.54-1.267a2 2 0 0 0 .888-.524z" /><path d="m15.5 5.5 3 3" /></svg><span class="nav-studio-lbl">Studio</span></a>
   <div class="right">
     <button class="nav-icon" id="themeToggle" type="button" aria-label="Toggle dark mode"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></button>
     <span class="who" id="who"></span>
