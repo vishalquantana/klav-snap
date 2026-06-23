@@ -812,10 +812,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   </div>
 
   <div class="grid">
-    <!-- Sims overview -->
-    <div class="card" data-view="overview sims">
-      <h2 style="display:flex;align-items:center;gap:10px"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg> Your Sims <span class="count" id="simsCount"></span>
-        <button class="btn btn-indigo btn-sm hide" id="newSimBtn" style="margin-left:auto" onclick="openSimModal()">＋ New Sim</button></h2>
+    <!-- Sims overview (compact grid — shows on overview only; Sims tab uses simsFeed for full detail) -->
+    <div class="card" data-view="overview">
+      <h2 style="display:flex;align-items:center;gap:10px"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg> Your Sims<button class="card-go" type="button" onclick="setView('sims')" aria-label="View all Sims and their feedback">View all <span class="card-arrow" aria-hidden="true">→</span></button></h2>
       <div class="muted" style="margin:-8px 0 14px;font-size:12.5px">AI personas, built from real customer calls, that react to your pages.</div>
       <div id="sims"><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div></div>
     </div>
@@ -884,9 +883,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
     </div>
 
-    <!-- Sims tab: each Sim with the feedback they have given -->
+    <!-- Sims tab: each Sim with the feedback they have given (primary Sims view) -->
     <div class="card full" data-view="sims">
-      <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg> Sims &amp; their feedback</h2>
+      <h2 style="display:flex;align-items:center;gap:10px"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg> Your Sims <span class="count" id="simsCount"></span>
+        <button class="btn btn-indigo btn-sm hide" id="newSimBtn" style="margin-left:auto" onclick="openSimModal()">＋ New Sim</button></h2>
       <div id="simsFeed"><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div></div>
     </div>
 
@@ -1247,7 +1247,7 @@ async function swrSection(cacheKey, fetcher, apply, host) {
 // the list means a NEW section is one entry away from the same guarantee — and clearStuckSkeletons()
 // is the single safety net that runs after every render pass and on the cold-error path, so no section
 // can be left shimmering regardless of which renderer was skipped or threw.
-const SKELETON_HOSTS = ["stFeedback", "stSims", "stTeam", "stTickets", "saying", "sims", "members", "tickets", "ticketsKanban", "activity", "triageList"]
+const SKELETON_HOSTS = ["stFeedback", "stSims", "stTeam", "stTickets", "saying", "sims", "simsFeed", "members", "tickets", "ticketsKanban", "activity", "triageList"]
 function clearStuckSkeletons(msg) {
   for (const id of SKELETON_HOSTS) {
     const el = $(id)
@@ -1868,7 +1868,6 @@ function renderSaying() {
 
 function renderSims(admin) {
   const sims = state.sims || []
-  $("simsCount").textContent = sims.length ? sims.length : ""
   if (!sims.length) {
     $("sims").innerHTML = emptyState(kicon('dna',{size:32}), "No Sims yet — bring your first one to life in a sentence.", `<button class="btn btn-indigo btn-sm" onclick="openSimModal()">＋ Create your first Sim</button>`)
     return
@@ -1894,19 +1893,29 @@ function renderSims(admin) {
 
 function renderSimsFeed() {
   const sims = state.sims || []
-  const sayItems = state.saying || []
   const el = $("simsFeed")
   if (!el) return
+  // Update the count badge in the simsFeed card header (this card owns the Sims tab header)
+  const countEl = $("simsCount")
+  if (countEl) countEl.textContent = sims.length ? String(sims.length) : ""
   if (!sims.length) {
     el.innerHTML = emptyState(kicon('dna',{size:32}), "No Sims yet — bring your first one to life in a sentence.", `<button class="btn btn-indigo btn-sm" onclick="openSimModal()">＋ Create your first Sim</button>`)
     return
   }
-  // Group observations by simId (newest-first order already from API)
+  // Use dedicated per-Sim feedback map from the API (simFeedback) — only Sim-generated observations,
+  // not mixed with user-filed bugs. Fall back to filtered saying items for SWR cache compat.
   const bySimId = new Map()
-  for (const s of sayItems) {
-    if (!s.simId) continue
-    if (!bySimId.has(s.simId)) bySimId.set(s.simId, [])
-    bySimId.get(s.simId).push(s)
+  const simFeedback = state.simFeedback || {}
+  if (Object.keys(simFeedback).length) {
+    for (const [simId, obs] of Object.entries(simFeedback)) {
+      bySimId.set(simId, obs)
+    }
+  } else {
+    for (const s of (state.saying || [])) {
+      if (!s.simId) continue
+      if (!bySimId.has(s.simId)) bySimId.set(s.simId, [])
+      bySimId.get(s.simId).push(s)
+    }
   }
   const pid = curProjId()
   el.innerHTML = sims.map(sim => {
@@ -1921,7 +1930,6 @@ function renderSimsFeed() {
       ? `<div class="sf-obs">${obs.map(o => {
           const tags = []
           if (o.sentiment) tags.push(`<span class="chip s-${esc(o.sentiment)}">${esc(o.sentiment)}</span>`)
-          if (o.kind) tags.push(`<span class="chip k-${esc(o.kind)}">${esc(o.kind)}</span>`)
           const meta = []
           if (o.urlPath) meta.push(esc(o.urlPath))
           if (o.createdAt) meta.push(ago(o.createdAt))

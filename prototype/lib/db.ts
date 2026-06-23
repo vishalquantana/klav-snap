@@ -1164,12 +1164,18 @@ function rowToFeedback(x: any): FeedbackRow {
   }
 }
 // Recent feedback for a project, newest-first (uses fb_proj_idx). withTicketOnly → only rows that
-// reached the tracker (plane_issue_key set) — i.e. filed tickets.
-export async function listFeedback(projectId: string, opts: { withTicketOnly?: boolean; limit?: number } = {}): Promise<FeedbackRow[]> {
+// reached the tracker (plane_issue_key set) — i.e. filed tickets. simOnly → only Sim-generated rows.
+export async function listFeedback(projectId: string, opts: { withTicketOnly?: boolean; limit?: number; simOnly?: boolean } = {}): Promise<FeedbackRow[]> {
   const limit = opts.limit ?? 20
-  const r = opts.withTicketOnly
-    ? await db!.execute({ sql: "SELECT * FROM feedback WHERE project_id=? AND plane_issue_key IS NOT NULL ORDER BY created_at DESC LIMIT ?", args: [projectId, limit] })
-    : await db!.execute({ sql: "SELECT * FROM feedback WHERE project_id=? ORDER BY created_at DESC LIMIT ?", args: [projectId, limit] })
+  let sql: string
+  if (opts.withTicketOnly) {
+    sql = "SELECT * FROM feedback WHERE project_id=? AND plane_issue_key IS NOT NULL ORDER BY created_at DESC LIMIT ?"
+  } else if (opts.simOnly) {
+    sql = "SELECT * FROM feedback WHERE project_id=? AND sim_id IS NOT NULL ORDER BY created_at DESC LIMIT ?"
+  } else {
+    sql = "SELECT * FROM feedback WHERE project_id=? ORDER BY created_at DESC LIMIT ?"
+  }
+  const r = await db!.execute({ sql, args: [projectId, limit] })
   return r.rows.map(rowToFeedback)
 }
 

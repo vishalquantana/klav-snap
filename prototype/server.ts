@@ -2670,14 +2670,14 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           const wid = projectId // reads below are all project-scoped on the project id
 
           // Reads run in parallel (each is an indexed query).
-          const [personas, feedbackTickets, activityRows, sayingFeedback] = await Promise.all([
+          const [personas, feedbackTickets, activityRows, simObservations] = await Promise.all([
             listPersonas(wid),
             // All recent feedback (not just withTicketOnly) — Klavity Cloud is the primary ticket system.
             listFeedback(projectId, { limit: 12 }),
             // Non-admins see only their own activity (own-rows-only); admins see all.
             listActivity(projectId, { actorEmail: isAdmin ? null : me, limit: 25 }),
-            // Recent observations (any feedback row with text), newest-first, for the "saying" feed.
-            listFeedback(projectId, { limit: 12 }),
+            // Only Sim-generated observations (sim_id IS NOT NULL) — bugs never bleed into the Sims feeds.
+            listFeedback(projectId, { simOnly: true, limit: 100 }),
           ])
 
           // Index personas for name/role/accent lookups by sim_id.
@@ -2696,10 +2696,11 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             lastActiveAt: lastActiveBySim.get(p.id) ?? null,
           }))
 
-          // saying — "what your Sims are saying": recent feedback observations first; if none yet,
-          // fall back to personas' insights_json so a new user never sees a blank feed.
-          let saying = sayingFeedback
+          // saying — "what your Sims are saying" overview feed: only Sim observations, newest-first.
+          // simObservations is already sim_id IS NOT NULL, so no bug-without-sim can appear.
+          let saying = simObservations
             .filter(f => f.observation)
+            .slice(0, 12)
             .map(f => {
               const p = f.simId ? personaById.get(f.simId) : null
               return {
@@ -2729,6 +2730,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               }
             }
             saying = fb.slice(0, 12) as any
+          }
+
+          // simFeedback — per-Sim observation map for the Sims tab; covers all 100 most recent
+          // Sim observations grouped by simId so the Sims page can show each Sim's full history.
+          const simFeedback: Record<string, Array<{ id: string; text: string; sentiment: string | null; urlPath: string | null; createdAt: number }>> = {}
+          for (const f of simObservations) {
+            if (!f.simId || !f.observation) continue
+            if (!simFeedback[f.simId]) simFeedback[f.simId] = []
+            simFeedback[f.simId].push({ id: f.id, text: f.observation, sentiment: f.sentiment, urlPath: f.urlPath, createdAt: f.createdAt })
           }
 
           // tickets — all recent feedback (Klavity Cloud is the primary tracker), newest-first.
@@ -2798,7 +2808,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             dashboardCounts(projectId),
             computeDashboardInsights(projectId),
           ])
-          return json({ email: me, projects, active: activeOut, members, sims, saying, tickets, activity, counts, insights })
+          return json({ email: me, projects, active: activeOut, members, sims, saying, simFeedback, tickets, activity, counts, insights })
         } catch (e: any) {
           return json(oops(e, "dashboard"), 500)
         }
