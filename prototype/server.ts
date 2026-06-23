@@ -2805,28 +2805,36 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           const ticketsWithReplay = ticketIds.length ? await feedbackIdsWithReplay(projectId, ticketIds) : new Set<string>()
           const [ticketExportsMap, ticketMetaRows] = await Promise.all([
             ticketIds.length ? exportsForFeedbackIds(ticketIds) : Promise.resolve({} as Record<string, any[]>),
-            // Fetch status/assignee via feedbackById in batch (single IN query via raw DB).
+            // Fetch mutable state + recurrence-memory columns in one batch.
+            // recurrence_dates_json / last_seen_at / resolved_at / created_at power the four
+            // KLA-2 dashboard fields: recurrenceCount, firstSeen, lastSeen, isRegression.
             db && ticketIds.length
               ? db.execute({
-                  sql: `SELECT id, status, assignee, notes, recurrence_count FROM feedback WHERE id IN (${ticketIds.map(() => "?").join(",")})`,
+                  sql: `SELECT id, status, assignee, notes, recurrence_count,
+                               recurrence_dates_json, last_seen_at, resolved_at, created_at
+                        FROM feedback WHERE id IN (${ticketIds.map(() => "?").join(",")})`,
                   args: ticketIds,
                 }).then(r => {
-                  const m: Record<string, { status: string; assignee: string | null; notes: string | null; recurrence: number }> = {}
+                  const m: Record<string, { status: string; assignee: string | null; notes: string | null; recurrence: number; recurrenceDatesJson: string | null; lastSeenAt: number | null; resolvedAt: number | null; createdAt: number }> = {}
                   for (const x of r.rows) {
                     m[String((x as any).id)] = {
                       status: (x as any).status ? String((x as any).status) : "open",
                       assignee: (x as any).assignee != null ? String((x as any).assignee) : null,
                       notes: (x as any).notes != null ? String((x as any).notes) : null,
                       recurrence: Number((x as any).recurrence_count ?? 1),
+                      recurrenceDatesJson: (x as any).recurrence_dates_json != null ? String((x as any).recurrence_dates_json) : null,
+                      lastSeenAt: (x as any).last_seen_at != null ? Number((x as any).last_seen_at) : null,
+                      resolvedAt: (x as any).resolved_at != null ? Number((x as any).resolved_at) : null,
+                      createdAt: Number((x as any).created_at),
                     }
                   }
                   return m
                 })
-              : Promise.resolve({} as Record<string, { status: string; assignee: string | null; notes: string | null; recurrence: number }>),
+              : Promise.resolve({} as Record<string, { status: string; assignee: string | null; notes: string | null; recurrence: number; recurrenceDatesJson: string | null; lastSeenAt: number | null; resolvedAt: number | null; createdAt: number }>),
           ])
           const tickets = feedbackTickets.map(f => {
             const p = f.simId ? personaById.get(f.simId) : null
-            const meta = ticketMetaRows[f.id] ?? { status: "open", assignee: null, notes: null, recurrence: 1 }
+            const meta = ticketMetaRows[f.id] ?? { status: "open", assignee: null, notes: null, recurrence: 1, recurrenceDatesJson: null, lastSeenAt: null, resolvedAt: null, createdAt: f.createdAt }
             // Build exports: latest ok per connector
             const rawExports = ticketExportsMap[f.id] ?? []
             const seenConnector = new Set<string>()
@@ -2849,6 +2857,11 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
               sourceQuote: f.sourceQuote, sourceDate: f.sourceDate,
               notes: meta.notes, hasReplay: ticketsWithReplay.has(f.id),
               recurrence: meta.recurrence, annotations: f.annotations,
+              // KLA-2 regression-memory fields — consumed by dashboard UI via recurBadgeHtml/regrBannerHtml
+              recurrenceCount: meta.recurrence,
+              firstSeen: meta.createdAt,
+              lastSeen: meta.lastSeenAt ?? meta.createdAt,
+              isRegression: meta.resolvedAt != null && (meta.lastSeenAt ?? meta.createdAt) > meta.resolvedAt,
             }
           })
 
@@ -2982,6 +2995,43 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           const memory = await buildRecurrenceMemory(db, fid, fbRow.projectId).catch(() => null)
           if (!memory) return json({ error: "No recurrence memory for this report." }, 404)
           return json({ memory })
+        }
+
+        // GET /api/feedback/:id — single enriched report with KLA-2 recurrence-memory fields.
+        // Returns the same shape as each ticket in the dashboard /api/dashboard response, plus the
+        // full RecurrenceMemory block (recurrenceCount, firstSeen, lastSeen, isRegression).
+        if (req.method === "GET" && !isReplay && !isMemory && !isExport) {
+          const lastSeen = fbRow.lastSeenAt ?? fbRow.createdAt
+          const isRegression = fbRow.resolvedAt != null && lastSeen > fbRow.resolvedAt
+          const report = {
+            id: fbRow.id,
+            projectId: fbRow.projectId,
+            title: fbRow.observation,
+            observation: fbRow.observation,
+            sentiment: fbRow.sentiment,
+            severity: fbRow.severity,
+            status: fbRow.status,
+            assignee: fbRow.assignee,
+            notes: fbRow.notes,
+            urlPath: fbRow.urlPath,
+            urlHost: fbRow.urlHost,
+            sourceReferrer: fbRow.sourceReferrer,
+            sourceQuote: fbRow.sourceQuote,
+            sourceDate: fbRow.sourceDate,
+            screenshotId: fbRow.screenshotId,
+            simId: fbRow.simId,
+            planeIssueKey: fbRow.planeIssueKey,
+            planeIssueUrl: fbRow.planeIssueUrl,
+            issueKey: fbRow.issueKey,
+            createdAt: fbRow.createdAt,
+            updatedAt: fbRow.updatedAt,
+            // KLA-2 recurrence-memory fields (same names consumed by the dashboard UI)
+            recurrenceCount: fbRow.recurrenceCount,
+            firstSeen: fbRow.createdAt,
+            lastSeen,
+            isRegression,
+          }
+          return json({ report })
         }
 
         // PATCH /api/feedback/:id — any project member may edit status/assignee/notes/severity
