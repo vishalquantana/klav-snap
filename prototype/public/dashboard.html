@@ -943,8 +943,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     </div>
   </div>
 
-  <!-- Admin: Live Sims — monitored URLs + pause (P3b, R5). Admin-only. Lives under Settings, not the main Sims feed. -->
-  <details class="drawer hide" id="liveDrawer" data-view="settings">
+  <!-- Admin: Live Sims — monitored URLs + pause (P3b, R5). Admin-only. Accessible from both Sims and Settings views as a collapsed section. -->
+  <details class="drawer hide" id="liveDrawer" data-view="sims settings">
     <summary><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9" /> <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5" /> <circle cx="12" cy="9" r="2" /> <path d="M16.2 4.8c2 2 2.26 5.11.8 7.47" /> <path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1" /> <path d="M9.5 18h5" /> <path d="m8 22 4-11 4 11" /></svg> Live Sims — monitored URLs & pause <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="muted" style="margin-bottom:14px">When a teammate (with the Snap extension, signed in) opens a URL that matches a pattern below, this project's Sims <b>auto-comment in-character</b> on that page — popping up and filing what they think. Capture happens <b>only</b> on these allowlisted paths, each member consents before their first capture, and screenshots are private.</div>
@@ -970,8 +970,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     </div>
   </details>
 
-  <!-- Admin: Observability (R6) — named activity feed of who ran which Sim on which path. Admin-only; Settings sub-area. -->
-  <details class="drawer hide" id="obsDrawer" data-view="settings">
+  <!-- Admin: Observability (R6) — named activity feed of who ran which Sim on which path. Admin-only; also accessible from Sims view as a collapsed section. -->
+  <details class="drawer hide" id="obsDrawer" data-view="sims settings">
     <summary><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></svg> Observability — Sim review activity <span class="caret">›</span></summary>
     <div class="drawer-in">
       <div class="muted" style="margin-bottom:6px">Every live Sim review, <b>named</b>: which teammate triggered which Sim on which path. Click <b>View screenshot</b> for the private capture (a short-lived signed link). URLs are path-only; off-allowlist navigation is never recorded.</div>
@@ -1666,9 +1666,9 @@ $("checklistDismiss") && ($("checklistDismiss").onclick = () => {
   const el = $("checklist"); if (el) el.classList.add("hide")
 })
 const simLiveStrip = $("simLiveStrip")
-try { if (simLiveStrip && sessionStorage.getItem("klavSimLiveStripDismissed") === "1") simLiveStrip.classList.add("hide") } catch (e) {}
+try { if (simLiveStrip && localStorage.getItem("klavSimLiveStripDismissed") === "1") simLiveStrip.classList.add("hide") } catch (e) {}
 $("simLiveDismiss") && ($("simLiveDismiss").onclick = () => {
-  try { sessionStorage.setItem("klavSimLiveStripDismissed", "1") } catch (e) {}
+  try { localStorage.setItem("klavSimLiveStripDismissed", "1") } catch (e) {}
   const el = $("simLiveStrip"); if (el) el.classList.add("hide")
 })
 // Step 2: open Settings and expand the Live Sims drawer (admin-only drawer; harmless otherwise).
@@ -2040,20 +2040,25 @@ function renderSimsFeed() {
     const badge = obs.length
       ? obs.length + " observation" + (obs.length === 1 ? "" : "s")
       : "no feedback yet"
+    // Show only the latest (first) observation inline; if more exist, link to Triage
     const obHtml = obs.length
-      ? `<div class="sf-obs">${obs.map(o => {
+      ? (() => {
+          const o = obs[0]
           const tags = []
           if (o.sentiment) tags.push(`<span class="chip s-${esc(o.sentiment)}">${esc(o.sentiment)}</span>`)
           const meta = []
           if (o.urlPath) meta.push(esc(o.urlPath))
           if (o.createdAt) meta.push(ago(o.createdAt))
-          meta.push(`<a class="sf-triage" href="#triage" onclick="setView('triage')">View in Triage →</a>`)
-          return `<div class="sf-ob">
+          const moreLink = obs.length > 1
+            ? `<a class="sf-triage" href="#triage" onclick="setView('triage')">See ${obs.length - 1} more →</a>`
+            : `<a class="sf-triage" href="#triage" onclick="setView('triage')">View in Triage →</a>`
+          meta.push(moreLink)
+          return `<div class="sf-obs"><div class="sf-ob">
             ${tags.length ? `<div class="sf-ob-tags">${tags.join("")}</div>` : ""}
             <div class="sf-ob-text">${esc(o.text)}</div>
             ${meta.length ? `<div class="sf-ob-meta">${meta.join(" · ")}</div>` : ""}
-          </div>`
-        }).join("")}</div>`
+          </div></div>`
+        })()
       : `<div class="sf-obs"><div class="sf-none">No feedback yet from this Sim.</div></div>`
     return `<div class="sf-row">
       <a class="sf-hd" href="${esc(href)}">

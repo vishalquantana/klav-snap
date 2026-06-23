@@ -170,12 +170,13 @@ test("sidebar view switcher dedupes nav buttons and exposes the inline setView A
   expect(HTML).toContain("window.setView=setView")
 })
 
-test("Sims page leads with Sims feed and keeps Live/Observability under Settings", () => {
+test("Sims page leads with Sims feed; Live/Observability are collapsible in Sims+Settings views", () => {
   expect(HTML.indexOf('id="simsFeed"')).toBeGreaterThan(-1)
   expect(HTML.indexOf('id="simLiveStrip"')).toBeGreaterThan(-1)
   expect(HTML.indexOf('id="simsFeed"')).toBeLessThan(HTML.indexOf('id="simLiveStrip"'))
-  expect(HTML).toContain('id="liveDrawer" data-view="settings"')
-  expect(HTML).toContain('id="obsDrawer" data-view="settings"')
+  // drawers now appear in both Sims and Settings views as collapsed <details>
+  expect(HTML).toContain('id="liveDrawer" data-view="sims settings"')
+  expect(HTML).toContain('id="obsDrawer" data-view="sims settings"')
   expect(HTML).toContain('id="simLiveDismiss"')
 })
 
