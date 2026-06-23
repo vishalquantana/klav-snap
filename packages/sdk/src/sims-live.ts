@@ -5,13 +5,15 @@
  *
  * HOME BASE: Sims huddle bottom-right in the dock — always visible.
  *
- * WALK/BOX/PIN: when renderFeedback() receives an observation that resolves to a
- * target element (model `region` first, text-matching fallback second), the Sim
+ * WALK/BOX/PIN: when renderFeedback() receives a critical/concern observation
+ * that resolves to a target element (model `region` first, text-matching fallback second), the Sim
  *   1. WALKS from the huddle to the flagged page element
  *   2. DRAWS a pulsing halo box around that element
  *   3. PINS a speech bubble anchored to the element (stays until dismissed)
  *
- * Page-level observations with no target show as a transient huddle bubble.
+ * Critical page-level observations with no target show as a transient huddle bubble.
+ * Positive/neutral observations are persisted server-side but are intentionally
+ * not displayed on-page.
  *
  * Public API on window.KlavitySims:
  *   deploy(simIds, sims?, opts?)  — mount dock; opts.mode:'critical'|'all'
@@ -69,9 +71,9 @@ export interface LiveObservation {
 
 export interface DeployOpts {
   /**
-   * 'all' (default) — every observation with a resolved target walks out.
-   * 'critical' — only negative/high-severity observations with a resolved target
-   * walk out and get pinned; positives stay in the huddle.
+   * On-page annotations are intentionally critical-only to keep customer pages
+   * readable. This option is retained for API compatibility; positives/neutral
+   * observations still persist to Triage but do not render on-page.
    */
   mode?: 'critical' | 'all'
 }
@@ -96,8 +98,6 @@ let shadowRoot: ShadowRoot | null = null
 let dockEl: HTMLElement | null = null
 let overlayEl: HTMLElement | null = null    // full-page overlay for walkers/halos/pins
 let deployAbort: AbortController | null = null
-let activeMode: 'critical' | 'all' = 'all'
-
 interface SimSlot {
   avatarEl: HTMLElement   // .ksl-slot in the dock
   accent: string
@@ -397,11 +397,15 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
-/** Critical = high severity OR negative sentiment → walks out and pins. */
-function isCritical(obs: LiveObservation): boolean {
-  if (obs.severity === 'high' || obs.severity === 'critical') return true
-  const NEG = new Set(['frustrated','confused','alarmed','negative','blocked','stuck'])
-  return !!(obs.sentiment && NEG.has(obs.sentiment.toLowerCase()))
+/** Concern = bug/severity OR non-positive sentiment; positives/neutral stay off-page. */
+function isConcernObservation(obs: LiveObservation): boolean {
+  if (obs.suggestedBug) return true
+  const severity = String(obs.severity ?? '').trim().toLowerCase()
+  if (severity && severity !== 'none') return true
+  const sentiment = String(obs.sentiment ?? '').trim().toLowerCase()
+  if (!sentiment) return false
+  const NON_ACTIONABLE = new Set(['positive','satisfied','delighted','neutral','none'])
+  return !NON_ACTIONABLE.has(sentiment)
 }
 
 function prefersReducedMotion(): boolean {
@@ -673,8 +677,6 @@ function deploy(
 ): void {
   if (typeof document === 'undefined') return
   undeploy()   // clean slate
-
-  activeMode = opts.mode ?? 'all'
 
   const shadow = ensureDockHost()
   ensureOverlay()
@@ -1004,21 +1006,16 @@ function renderFeedback(simId: string, simName: string, observations: LiveObserv
   }
   if (!observations.length) return
 
-  // Partition observations: walk+pin vs huddle
+  // Keep the on-page layer action-oriented. Non-actionable observations still
+  // persist through the review pipeline, but they do not create page chrome.
   const toWalk: LiveObservation[] = []
-  const toHuddle: LiveObservation[] = []
 
   for (const obs of observations) {
-    const shouldWalk = activeMode === 'all' || isCritical(obs)
-    if (shouldWalk) toWalk.push(obs)
-    else             toHuddle.push(obs)
+    if (isConcernObservation(obs)) toWalk.push(obs)
   }
 
   // Walk observations: staggered so Sims leave one after the other
   toWalk.forEach((obs) => enqueueWalk(slot, obs))
-
-  // Huddle observations: show as a single transient bubble (first + "+N more")
-  if (toHuddle.length) showHuddleBubble(slot, toHuddle)
 }
 
 // ── undeploy() ────────────────────────────────────────────────────────────────

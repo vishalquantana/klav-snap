@@ -38,6 +38,10 @@ function makeTarget(text = "Checkout button pricing area"): HTMLElement {
   return target
 }
 
+function dockShadow(): ShadowRoot | null {
+  return (document.querySelector("#klav-sims-live") as HTMLElement | null)?.shadowRoot ?? null
+}
+
 async function settleWalk(): Promise<void> {
   await vi.advanceTimersByTimeAsync(1)
   expect(document.querySelector(".klav-walker")).toBeTruthy()
@@ -77,8 +81,8 @@ describe("SimsLive walk + outline choreography", () => {
     SimsLive.deploy("all", [SIM])
 
     const obs: LiveObservation = {
-      text: "The checkout button is exactly where I need it.",
-      sentiment: "satisfied",
+      text: "The checkout button is confusing and hard to trust.",
+      sentiment: "confused",
       region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
       targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
     }
@@ -96,8 +100,8 @@ describe("SimsLive walk + outline choreography", () => {
     SimsLive.deploy("all", [SIM])
 
     SimsLive.renderFeedback(SIM.id, SIM.name, [{
-      text: "The pricing checkout guarantee is reassuring.",
-      sentiment: "delighted",
+      text: "The pricing checkout guarantee is confusing.",
+      sentiment: "confused",
       region: null,
     }])
 
@@ -111,8 +115,8 @@ describe("SimsLive walk + outline choreography", () => {
     makeTarget()
     SimsLive.deploy("all", [SIM])
     SimsLive.renderFeedback(SIM.id, SIM.name, [{
-      text: "The checkout button is hard to miss.",
-      sentiment: "neutral",
+      text: "The checkout button feels blocked.",
+      sentiment: "blocked",
       region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
       targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
     }])
@@ -123,5 +127,31 @@ describe("SimsLive walk + outline choreography", () => {
     expect(document.querySelector(".klav-walker")).toBeNull()
     expect(document.querySelector(".klav-halo")).toBeNull()
     expect(document.querySelector(".klav-pin")).toBeNull()
+  })
+
+  it("does not render positive or neutral observations on-page", async () => {
+    makeTarget()
+    SimsLive.deploy("all", [SIM])
+
+    SimsLive.renderFeedback(SIM.id, SIM.name, [
+      {
+        text: "The checkout button is exactly where I need it.",
+        sentiment: "satisfied",
+        region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
+        targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
+      },
+      {
+        text: "The pricing section is neutral.",
+        sentiment: "neutral",
+        region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
+        targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
+      },
+    ])
+    await vi.advanceTimersByTimeAsync(2000)
+
+    expect(document.querySelector(".klav-walker")).toBeNull()
+    expect(document.querySelector(".klav-halo")).toBeNull()
+    expect(document.querySelector(".klav-pin")).toBeNull()
+    expect(dockShadow()?.querySelector(".ksl-bubble")).toBeNull()
   })
 })
