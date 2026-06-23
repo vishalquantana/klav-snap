@@ -1865,7 +1865,11 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       if (!rawUrl || rawUrl.length > 2048 || !/^https?:\/\//i.test(rawUrl)) {
         return json({ projects: [] })
       }
-      const accessible = await listProjects(meM)
+      // F5: if the Bearer is a project-bound widget token, constrain to that project only —
+      // same guard resolveProject enforces, preventing a leaked widget token from probing
+      // the owner's other projects' allowlists.
+      const boundProj = reqCtx.getStore()?.boundProject ?? null
+      const accessible = (await listProjects(meM)).filter(p => !boundProj || p.id === boundProj)
       const matched: { projectId: string; name: string }[] = []
       for (const p of accessible) {
         if (!(await projectAccess(meM, p.id))) continue
