@@ -148,5 +148,6 @@ if (typeof window !== 'undefined') {
 }
 
 export { SimsLive, SimsLive as KlavitySims, installKlavitySims, type KlavitySimsAPI, type LiveObservation, type LiveSimDescriptor } from './sims-live'
+export { showAnnotation, clearAnnotation, clearAnnotations, type Rect as AnnotationRect, type AnnotationOpts } from './annotation-overlay'
 
 export default { init, openModal, identify, setMetadata }
