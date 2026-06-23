@@ -33,8 +33,8 @@ function makeTarget(text = "Checkout button pricing area"): HTMLElement {
   document.body.appendChild(target)
   setRect(target, rect(120, 150, 240, 90))
 
-  vi.spyOn(document, "elementFromPoint").mockReturnValue(target)
-  vi.spyOn(document, "elementsFromPoint").mockReturnValue([target, document.body])
+  Object.defineProperty(document, "elementFromPoint", { value: vi.fn(() => target), configurable: true })
+  Object.defineProperty(document, "elementsFromPoint", { value: vi.fn(() => [target, document.body]), configurable: true })
   return target
 }
 
