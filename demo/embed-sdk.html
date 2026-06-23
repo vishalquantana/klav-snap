@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Klavity · Embed SDK demo</title>
+<style>
+/* ── reset ────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+/* ── page / dark app shell ────────────────────────────────────────────── */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: #0b0e14;
+  color: #e7ecf3;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── sidebar ──────────────────────────────────────────────────────────── */
+.sidebar {
+  width: 212px;
+  flex-shrink: 0;
+  background: #10141d;
+  border-right: 1px solid #1c2230;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.logo {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  margin: 4px 6px 20px;
+  color: #fff;
+}
+.logo span { color: #8b8bf5; }
+.nav-item {
+  padding: 9px 11px;
+  border-radius: 9px;
+  color: #9aa6b8;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.nav-item:hover { background: #161c2a; color: #c8d3e0; }
+.nav-item.active { background: #1b2333; color: #fff; box-shadow: inset 0 0 0 1px #2a3650; }
+.sidebar-footer {
+  margin-top: auto;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: linear-gradient(135deg,#6366f1,#8b5cf6);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* ── main content ─────────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 36px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+}
+.page-sub {
+  font-size: 13.5px;
+  color: #7a869a;
+  margin-bottom: 28px;
+}
+
+/* ── cards ────────────────────────────────────────────────────────────── */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.card {
+  background: #131720;
+  border: 1px solid #1e2638;
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.card-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #5a6478;
+  margin-bottom: 8px;
+}
+.card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+}
+.card-sub {
+  font-size: 12px;
+  color: #5a6478;
+  margin-top: 4px;
+}
+.accent { color: #8b8bf5; }
+
+/* ── table ────────────────────────────────────────────────────────────── */
+.table-wrap {
+  background: #131720;
+  border: 1px solid #1e2638;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #1e2638;
+}
+.table-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  text-align: left;
+  padding: 10px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #4a5568;
+  background: #0f131b;
+  border-bottom: 1px solid #1e2638;
+}
+td {
+  padding: 11px 20px;
+  border-bottom: 1px solid #161c2a;
+  color: #9aa6b8;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #161c2a; }
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-open   { background: rgba(99,102,241,.18); color: #a5b4fc; }
+.badge-done   { background: rgba(52,211,153,.15); color: #6ee7b7; }
+.badge-prog   { background: rgba(251,191, 36,.14); color: #fcd34d; }
+
+/* ── code panel ───────────────────────────────────────────────────────── */
+.code-panel {
+  background: #0d1017;
+  border: 1px solid #1e2638;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #1e2638;
+  background: #111520;
+}
+.code-lang {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #4a5568;
+}
+.code-copy {
+  font-size: 11px;
+  color: #6366f1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 5px;
+  transition: background .12s;
+}
+.code-copy:hover { background: rgba(99,102,241,.14); }
+pre {
+  padding: 16px 20px;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #cdd6f4;
+  overflow-x: auto;
+  tab-size: 2;
+}
+/* syntax highlight colours (no library — hand-coloured tokens) */
+.kw { color: #cba6f7; }     /* keyword */
+.st { color: #a6e3a1; }     /* string */
+.cm { color: #45475a; }     /* comment */
+.fn { color: #89b4fa; }     /* function/method */
+.nm { color: #fab387; }     /* number/property */
+.op { color: #89dceb; }     /* operator / punctuation */
+
+/* ── event log ────────────────────────────────────────────────────────── */
+.event-log {
+  background: #131720;
+  border: 1px solid #1e2638;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.event-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #1e2638;
+}
+.event-log-title { font-size: 14px; font-weight: 600; color: #fff; }
+.event-log-clear {
+  font-size: 11.5px; color: #5a6478; background: none; border: none;
+  cursor: pointer; padding: 3px 8px; border-radius: 6px;
+  transition: color .12s, background .12s;
+}
+.event-log-clear:hover { background: #1e2638; color: #9aa6b8; }
+#event-entries {
+  min-height: 60px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.event-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 20px;
+  font-size: 12.5px;
+  border-bottom: 1px solid #0f131b;
+  animation: fadeIn .2s ease;
+}
+.event-entry:last-child { border-bottom: none; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.ev-time { color: #4a5568; font-family: ui-monospace, monospace; font-size: 11px; flex-shrink: 0; }
+.ev-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: 1px 7px; border-radius: 20px; flex-shrink: 0;
+}
+.ev-open   { background: rgba(139,139,245,.2); color: #a5b4fc; }
+.ev-close  { background: rgba(90,100,120,.2);  color: #6b7280; }
+.ev-submit { background: rgba(52,211,153,.2);  color: #6ee7b7; }
+.ev-text   { color: #9aa6b8; }
+.ev-empty  { padding: 16px 20px; font-size: 13px; color: #4a5568; font-style: italic; }
+
+/* ── buttons ──────────────────────────────────────────────────────────── */
+.btn-row { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+.btn {
+  padding: 9px 18px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.btn:hover  { transform: translateY(-1px); filter: brightness(1.06); }
+.btn:active { transform: scale(.97); }
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(99,102,241,.35);
+}
+.btn-secondary {
+  background: #1b2333;
+  color: #c8d3e0;
+  box-shadow: inset 0 0 0 1px #2a3650;
+}
+
+/* ── section label ────────────────────────────────────────────────────── */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: #4a5568;
+  margin-bottom: 10px;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="logo">Klav<span>ity</span></div>
+  <nav>
+    <div class="nav-item">Overview</div>
+    <div class="nav-item active">Tickets</div>
+    <div class="nav-item">Sims</div>
+    <div class="nav-item">Triage</div>
+    <div class="nav-item">Team</div>
+    <div class="nav-item">Settings</div>
+  </nav>
+  <div class="sidebar-footer">Upgrade to Pro →</div>
+</aside>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main class="main">
+  <div class="page-title">Embed SDK demo</div>
+  <div class="page-sub">
+    This page has the Klavity widget loaded with <code>identify()</code>, <code>setMetadata()</code>,
+    and <code>on()</code> wired up. The floating launcher is in the bottom-right corner —
+    right-click anywhere or click it to file a report.
+  </div>
+
+  <!-- Stat cards (mock data — simulates a dashboard behind the widget) -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">Open tickets</div>
+      <div class="card-value">12</div>
+      <div class="card-sub">3 filed this week</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Session replay</div>
+      <div class="card-value accent">ON</div>
+      <div class="card-sub">~30 s rolling buffer, masked</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Console capture</div>
+      <div class="card-value accent">ON</div>
+      <div class="card-sub">Last 50 log/warn/error entries</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Identity</div>
+      <div class="card-value" style="font-size:18px;line-height:1.4">Ada&nbsp;L.</div>
+      <div class="card-sub">plan: pro · build: 2.1.0</div>
+    </div>
+  </div>
+
+  <!-- Try it: programmatic open buttons -->
+  <div class="section-label">Try it — open the composer</div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="window.Klavity?.open('bug')">
+      ⚡ Report a bug
+    </button>
+    <button class="btn btn-secondary" onclick="window.Klavity?.open('feature')">
+      💡 Request a feature
+    </button>
+  </div>
+
+  <!-- Live event log -->
+  <div class="event-log">
+    <div class="event-log-header">
+      <div class="event-log-title">Live widget events — <code>window.Klavity.on(…)</code></div>
+      <button class="event-log-clear" onclick="clearLog()">Clear</button>
+    </div>
+    <div id="event-entries">
+      <div class="ev-empty" id="ev-empty">No events yet — open the composer to see them here.</div>
+    </div>
+  </div>
+
+  <!-- Embed snippet -->
+  <div class="section-label">Embed snippet</div>
+  <div class="code-panel">
+    <div class="code-header">
+      <span class="code-lang">HTML</span>
+      <button class="code-copy" onclick="copySnippet('embed-snippet', this)">Copy</button>
+    </div>
+    <pre id="embed-snippet"><span class="cm">&lt;!-- 1. Drop in the widget (one tag, no npm) --&gt;</span>
+<span class="op">&lt;</span><span class="kw">script</span>
+  <span class="nm">src</span><span class="op">="</span><span class="st">https://klavity.quantana.top/widget.js</span><span class="op">"</span>
+  <span class="nm">data-project</span><span class="op">="</span><span class="st">proj_abc123</span><span class="op">"</span>
+  <span class="nm">data-replay</span><span class="op">="</span><span class="st">on</span><span class="op">"</span>
+  <span class="nm">defer</span>
+<span class="op">&gt;&lt;/</span><span class="kw">script</span><span class="op">&gt;</span>
+
+<span class="cm">&lt;!-- 2. Wire up identity + metadata (after your auth resolves) --&gt;</span>
+<span class="op">&lt;</span><span class="kw">script</span><span class="op">&gt;</span>
+authPromise.<span class="fn">then</span>(<span class="kw">function</span>(user) {
+  window.<span class="nm">Klavity</span>?.<span class="fn">identify</span>({
+    <span class="nm">id</span>:    user.id,
+    <span class="nm">email</span>: user.email,
+    <span class="nm">name</span>:  user.displayName,
+  })
+  window.<span class="nm">Klavity</span>?.<span class="fn">setMetadata</span>({
+    <span class="nm">plan</span>:  user.subscriptionTier,
+    <span class="nm">build</span>: window.__APP_VERSION__,
+  })
+})
+
+<span class="cm">// 3. Subscribe to events</span>
+window.<span class="nm">Klavity</span>?.<span class="fn">on</span>(<span class="st">'submit'</span>, <span class="kw">function</span>(e) {
+  console.<span class="fn">log</span>(<span class="st">'Bug filed:'</span>, e.issueKey)
+  <span class="cm">// myAnalytics.track('Bug filed', { issueKey: e.issueKey })</span>
+})
+
+<span class="cm">// 4. Open composer from your own UI</span>
+document.<span class="fn">getElementById</span>(<span class="st">'report-btn'</span>).<span class="nm">onclick</span> = <span class="kw">function</span>() {
+  window.<span class="nm">Klavity</span>?.<span class="fn">open</span>(<span class="st">'bug'</span>)
+}
+<span class="op">&lt;/</span><span class="kw">script</span><span class="op">&gt;</span></pre>
+  </div>
+
+  <!-- Recent tickets (mock data) -->
+  <div class="table-wrap">
+    <div class="table-head">
+      <div class="table-title">Recent tickets</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Title</th>
+          <th>Reporter</th>
+          <th>Plan</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="accent">KLA-14</td>
+          <td>Checkout step 3 shows blank on mobile Safari</td>
+          <td>ada@example.com</td>
+          <td>pro</td>
+          <td><span class="badge badge-prog">In progress</span></td>
+        </tr>
+        <tr>
+          <td class="accent">KLA-13</td>
+          <td>Export CSV includes deleted rows</td>
+          <td>bob@acme.com</td>
+          <td>team</td>
+          <td><span class="badge badge-open">Open</span></td>
+        </tr>
+        <tr>
+          <td class="accent">KLA-12</td>
+          <td>Dashboard graph flickers on resize</td>
+          <td>carol@example.com</td>
+          <td>free</td>
+          <td><span class="badge badge-done">Done</span></td>
+        </tr>
+        <tr>
+          <td class="accent">KLA-11</td>
+          <td>Notification badge not clearing after read</td>
+          <td>ada@example.com</td>
+          <td>pro</td>
+          <td><span class="badge badge-open">Open</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<!-- ── Event log JS ─────────────────────────────────────────────────────── -->
+<script>
+function ts() {
+  var d = new Date()
+  return d.toTimeString().slice(0, 8)
+}
+
+function addEntry(type, text) {
+  var empty = document.getElementById('ev-empty')
+  if (empty) empty.remove()
+
+  var entry = document.createElement('div')
+  entry.className = 'event-entry'
+  entry.innerHTML =
+    '<span class="ev-time">' + ts() + '</span>' +
+    '<span class="ev-badge ev-' + type + '">' + type + '</span>' +
+    '<span class="ev-text">' + text + '</span>'
+
+  var log = document.getElementById('event-entries')
+  log.appendChild(entry)
+  log.scrollTop = log.scrollHeight
+}
+
+function clearLog() {
+  var log = document.getElementById('event-entries')
+  log.innerHTML = '<div class="ev-empty" id="ev-empty">No events yet — open the composer to see them here.</div>'
+}
+
+function copySnippet(id, btn) {
+  var pre = document.getElementById(id)
+  navigator.clipboard.writeText(pre.innerText).then(function() {
+    btn.textContent = 'Copied!'
+    setTimeout(function() { btn.textContent = 'Copy' }, 1500)
+  }).catch(function() {
+    btn.textContent = 'Error'
+    setTimeout(function() { btn.textContent = 'Copy' }, 1500)
+  })
+}
+</script>
+
+<!-- ── Klavity widget ───────────────────────────────────────────────────── -->
+<!--
+  Replace proj_abc123 with your real project ID.
+  The widget URL points to the production Klavity backend.
+  For local testing, change the src to http://localhost:3000/widget.js
+-->
+<script
+  src="https://klavity.quantana.top/widget.js"
+  data-project="proj_abc123"
+  data-replay="on"
+  defer
+></script>
+
+<script>
+// Wire up identity + metadata as soon as the widget loads.
+// In a real app, call this after your auth resolves.
+(function() {
+  function initKlavity() {
+    if (!window.Klavity) { return }
+
+    // G5: identify the current user
+    window.Klavity.identify({
+      id:    'u_42',
+      email: 'ada@example.com',
+      name:  'Ada Lovelace',
+    })
+
+    // G5: attach custom metadata
+    window.Klavity.setMetadata({
+      plan:    'pro',
+      build:   '2.1.0',
+      demoPage: 'embed-sdk',
+    })
+
+    // G5: subscribe to widget lifecycle events
+    window.Klavity.on('open', function(e) {
+      addEntry('open', 'Composer opened · type: ' + e.type)
+    })
+
+    window.Klavity.on('close', function() {
+      addEntry('close', 'Composer dismissed')
+    })
+
+    window.Klavity.on('submit', function(e) {
+      var url = e.issueUrl ? ' · <a href="' + e.issueUrl + '" target="_blank" style="color:#8b8bf5">' + e.issueUrl + '</a>' : ''
+      addEntry('submit', 'Report filed · issueKey: ' + e.issueKey + url)
+    })
+  }
+
+  // The Klavity object is available as soon as the script tag is parsed,
+  // even before mount() resolves — so identify/setMetadata/on work immediately.
+  initKlavity()
+})()
+</script>
+</body>
+</html>
