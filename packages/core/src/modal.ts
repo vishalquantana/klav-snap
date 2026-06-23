@@ -208,12 +208,16 @@ export function buildModal(
     .klavity-info-wrap{position:absolute;top:0;right:0;bottom:0;width:34px;display:inline-flex;align-items:center;justify-content:center;}
     .klavity-info{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:var(--kl-muted);cursor:help;transition:color .15s ease,background .15s ease;}
     .klavity-info-wrap:hover .klavity-info{color:var(--kl-accent);background:color-mix(in srgb,var(--kl-accent) 16%,transparent);}
-    .klavity-info-pop{position:absolute;bottom:calc(100% + 10px);right:0;width:228px;padding:10px 12px;border-radius:10px;background:var(--kl-bg);color:var(--kl-fg);box-shadow:0 0 0 1px var(--kl-border),0 12px 30px rgba(20,16,40,.22);font-size:12px;line-height:1.45;text-align:left;text-wrap:pretty;opacity:0;visibility:hidden;transform:translateY(4px);transition:opacity .15s ease,transform .15s ease;z-index:6;pointer-events:none;}
-    .klavity-info-pop b{color:var(--kl-fg);font-weight:600;}
-    /* Show the explainer on hover (mouse) OR when the Sharp button itself is keyboard-focused — one control. */
-    .klavity-info-wrap:hover .klavity-info-pop,#klavity-sharp:focus-visible .klavity-info-pop{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto;}
+    /* .klavity-info-pop is kept in markup for its text; visibility is JS-driven via .kl-float-tip so
+       the tooltip is rendered outside the overflow:hidden modal and is never clipped. */
+    .klavity-info-pop{display:none;}
+    /* Floating tooltip — appended to the shadow root (sibling of overlay), position:fixed to viewport so
+       overflow:hidden on .klavity-modal cannot clip it. JS positions it with edge-detection. */
+    .kl-float-tip{position:fixed;width:228px;max-width:calc(100vw - 16px);padding:10px 12px;border-radius:10px;background:var(--kl-bg);color:var(--kl-fg);box-shadow:0 0 0 1px var(--kl-border),0 12px 30px rgba(20,16,40,.22);font-size:12px;line-height:1.45;text-align:left;text-wrap:pretty;z-index:2147483647;pointer-events:none;visibility:hidden;opacity:0;transition:opacity .15s ease;}
+    .kl-float-tip.kl-show{visibility:visible;opacity:1;}
+    .kl-float-tip b{color:var(--kl-fg);font-weight:600;}
     @media (max-width:430px){.klavity-lead{flex-direction:column}.klavity-lead button{width:100%;}}
-    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing,.klavity-modal>*{animation-duration:.01ms!important;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info-pop{transform:none;}.klavity-info{transition:none;}.klavity-actions button.kl-loading{animation:none;}.klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{transition:none;transform:none!important;}}
+    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing,.klavity-modal>*{animation-duration:.01ms!important;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info{transition:none;}.klavity-actions button.kl-loading{animation:none;}.klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{transition:none;transform:none!important;}}
   `
   shadowRoot.appendChild(style)
 
@@ -247,6 +251,53 @@ export function buildModal(
 
   overlay.appendChild(modal)
   shadowRoot.appendChild(overlay)
+
+  // ── Floating info tooltip — lives outside the modal so overflow:hidden never clips it. ──
+  // .klavity-info-pop in the markup is the text source; we copy its innerHTML into a shadow-root-level
+  // div with position:fixed, then position it via getBoundingClientRect with full edge-detection.
+  // This sidesteps the overflow:hidden + transform containing-block problem on .klavity-modal.
+  const infoWrap = shadowRoot.querySelector('.klavity-info-wrap')
+  const infoPopSource = shadowRoot.querySelector('.klavity-info-pop')
+  if (infoWrap && infoPopSource) {
+    const ft = document.createElement('div')
+    ft.className = 'kl-float-tip'
+    ft.setAttribute('role', 'tooltip')
+    ft.innerHTML = infoPopSource.innerHTML
+    shadowRoot.appendChild(ft)
+    const showTip = () => {
+      const r = infoWrap.getBoundingClientRect()
+      const TIP_W = Math.min(228, window.innerWidth - 16)
+      const PAD = 8
+      const vw = window.innerWidth, vh = window.innerHeight
+      // Horizontal: right-align with the info wrap's right edge; clamp so neither side clips.
+      const left = Math.max(PAD, Math.min(r.right - TIP_W, vw - TIP_W - PAD))
+      ft.style.left = left + 'px'
+      ft.style.top = '-9999px'     // off-screen to measure height before final placement
+      ft.style.visibility = 'hidden'
+      ft.style.display = 'block'
+      const tipH = ft.offsetHeight
+      ft.style.display = ''
+      ft.style.visibility = ''
+      // Vertical: prefer above; flip below if there's not enough room above.
+      const spaceAbove = r.top - PAD
+      let top = r.top - tipH - 10
+      if (top < PAD || spaceAbove < tipH) top = r.bottom + 10
+      top = Math.max(PAD, Math.min(top, vh - tipH - PAD))
+      ft.style.top = top + 'px'
+      ft.classList.add('kl-show')
+    }
+    const hideTip = () => ft.classList.remove('kl-show')
+    infoWrap.addEventListener('mouseenter', showTip)
+    infoWrap.addEventListener('mouseleave', hideTip)
+    infoWrap.addEventListener('focusin', showTip)
+    infoWrap.addEventListener('focusout', hideTip)
+    // Also show when the whole Sharp button gets keyboard focus (mirrors the old CSS rule)
+    const sharpBtn = shadowRoot.getElementById('klavity-sharp')
+    if (sharpBtn) {
+      sharpBtn.addEventListener('focus', showTip)
+      sharpBtn.addEventListener('blur', hideTip)
+    }
+  }
 
   const controller: ModalController = {
     shadowRoot,
