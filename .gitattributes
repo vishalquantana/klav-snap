@@ -1,1 +1,7 @@
 CHANGELOG.md merge=union
+
+# Built/minified bundles — treat as binary so merge-train never text-merges them
+packages/sdk/dist/**          binary
+packages/sdk/dist/*.js        binary
+**/*.iife.js                  binary
+**/*.min.js                   binary
