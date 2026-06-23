@@ -1,283 +1,348 @@
 /**
- * record-sims-demo.ts
+ * Records and verifies the production Klavity Sims reaction flow on bigidea.
  *
- * Records a .webm video of the Klavity on-page Sims flow on bigidea.quantana.top:
- *   load page -> right-click -> Deploy all Sims -> 3 avatars dock WATCHING -> (optionally react)
+ * Authenticated run:
+ *   KLAV_EMAIL=vishal@quantana.com.au KLAV_OTP=666666 \
+ *     bun scripts/record-sims-demo.ts
  *
- * DEFAULT: anonymous mode — no auth required. Sims deploy + dock visually; review
- * returns 401 but the deploy/dock animation still plays. Use this to get a video NOW.
- *
- * AUTH modes (for the full AI-reacting version):
- *   KLAV_BEARER_TOKEN=ext_xxx  pass a pre-minted extension token directly
- *   KLAV_SESSION=<cookie-val>  raw klav_session value; script fetches a Bearer token
- *   KLAV_EMAIL=you@example.com  (no OTP) -> requests OTP and exits with instructions
- *   KLAV_EMAIL=x KLAV_OTP=123456 -> verifies OTP, gets session, records with auth
- *   KLAV_HEADED=1              -> opens headed browser on klavity.quantana.top for
- *                                 interactive OTP login (requires display)
- *
- * Output: ~/Downloads/sims-bigidea-demo.webm  (override: KLAV_VIDEO_OUT=<path>)
- *
- * Usage:
- *   cd prototype
- *   bun scripts/record-sims-demo.ts                        # anonymous, works immediately
- *   KLAV_BEARER_TOKEN=ext_xxx bun scripts/record-sims-demo.ts  # authed, full reactions
- *   KLAV_EMAIL=you@example.com bun scripts/record-sims-demo.ts # request OTP then exit
- *   KLAV_EMAIL=x KLAV_OTP=123456 bun scripts/record-sims-demo.ts # verify + record
+ * Output:
+ *   ~/Downloads/sims-bigidea-reacting.webm
  */
 
-import { chromium } from "@playwright/test"
-import { existsSync, mkdirSync, renameSync, copyFileSync, unlinkSync, rmdirSync } from "fs"
-import { resolve, dirname } from "path"
+import { chromium, type Page } from "@playwright/test"
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmdirSync, unlinkSync } from "fs"
 import { homedir } from "os"
+import { dirname, resolve } from "path"
 
-const BIGIDEA_URL      = "https://bigidea.quantana.top"
-const KLAV_URL         = "https://klavity.quantana.top"
+const BIGIDEA_ORIGIN = "https://bigidea.quantana.top"
+const BIGIDEA_PROJECT_ID = process.env.KLAV_PROJECT_ID || "proj_6d574acf-c927-48c8-b2d8-88364af3ca3a"
+const KLAV_URL = process.env.KLAV_API_ORIGIN || "https://klavity.quantana.top"
 const WIDGET_TOKEN_KEY = "klavity_widget_token"
+const RUN_ID = process.env.KLAV_RUN_ID || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+const TARGET_URL = process.env.KLAV_TARGET_URL || `${BIGIDEA_ORIGIN}/?klav_verify=${encodeURIComponent(RUN_ID)}`
+const VIDEO_OUT = process.env.KLAV_VIDEO_OUT || resolve(homedir(), "Downloads", "sims-bigidea-reacting.webm")
 
-const VIDEO_OUT = process.env.KLAV_VIDEO_OUT
-  || resolve(homedir(), "Downloads", "sims-bigidea-demo.webm")
+type ReviewResponse = {
+  reviews?: Array<{ observations?: unknown[] }>
+}
 
-function log(msg: string) { console.log(`[sims-demo] ${msg}`) }
-async function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+function log(message: string): void {
+  console.log(`[sims-demo] ${message}`)
+}
 
-// ── Auth helpers ──────────────────────────────────────────────────────────────
-
-async function mintTokenFromSession(session: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${KLAV_URL}/api/extension/config`, {
-      headers: { cookie: `klav_session=${session}` },
-    })
-    if (!res.ok) { log(`extension/config -> ${res.status}`); return null }
-    const data = await res.json()
-    return data?.token || null
-  } catch (e: any) { log(`mintTokenFromSession: ${e.message}`); return null }
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 }
 
 async function otpRequest(email: string): Promise<void> {
-  const r = await fetch(`${KLAV_URL}/api/auth/request`, {
+  const response = await fetch(`${KLAV_URL}/api/auth/request`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email }),
   })
-  const d = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(`OTP request failed: ${JSON.stringify(d)}`)
-  log(`OTP sent to ${email}. Now run:`)
-  log(`  KLAV_EMAIL=${email} KLAV_OTP=<6-digit-code> bun scripts/record-sims-demo.ts`)
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(`OTP request failed: ${JSON.stringify(body)}`)
+  }
+  log(`OTP sent to ${email}. Re-run with KLAV_EMAIL=${email} KLAV_OTP=<code>`)
 }
 
 async function otpVerify(email: string, otp: string): Promise<string | null> {
-  const r = await fetch(`${KLAV_URL}/api/auth/verify`, {
+  const response = await fetch(`${KLAV_URL}/api/auth/verify`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, code: otp }),
   })
-  if (!r.ok) { log(`OTP verify failed: ${r.status}`); return null }
-  const m = (r.headers.get("set-cookie") || "").match(/klav_session=([^;]+)/)
-  return m ? m[1] : null
+  const body = await response.text().catch(() => "")
+  if (!response.ok) {
+    throw new Error(`OTP verify failed (${response.status}): ${body}`)
+  }
+  const cookie = response.headers.get("set-cookie") || ""
+  const match = cookie.match(/klav_session=([^;]+)/)
+  return match?.[1] || null
 }
 
-// ── Resolve bearer token (or null for anonymous) ──────────────────────────────
+async function mintWidgetTokenFromSession(session: string): Promise<string> {
+  const response = await fetch(`${KLAV_URL}/api/widget/token`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: `klav_session=${session}`,
+    },
+    body: JSON.stringify({
+      projectId: BIGIDEA_PROJECT_ID,
+      origin: BIGIDEA_ORIGIN,
+    }),
+  })
+  const body = await response.text()
+  if (!response.ok) {
+    throw new Error(`Widget token mint failed (${response.status}): ${body}`)
+  }
+  const json = JSON.parse(body) as { token?: string }
+  if (!json.token) {
+    throw new Error(`Widget token mint returned no token: ${body}`)
+  }
+  return json.token
+}
 
 async function resolveAuth(): Promise<{ token: string | null; method: string }> {
-  // Direct bearer token
   if (process.env.KLAV_BEARER_TOKEN) {
-    log("Using KLAV_BEARER_TOKEN")
     return { token: process.env.KLAV_BEARER_TOKEN, method: "env-bearer" }
   }
 
-  // Session cookie -> bearer
   if (process.env.KLAV_SESSION) {
-    log("Minting bearer from KLAV_SESSION...")
-    const token = await mintTokenFromSession(process.env.KLAV_SESSION)
-    if (token) return { token, method: "session->bearer" }
+    const token = await mintWidgetTokenFromSession(process.env.KLAV_SESSION)
+    return { token, method: "session->widget-token" }
   }
 
-  // OTP flow: KLAV_EMAIL only -> request OTP and exit
-  if (process.env.KLAV_EMAIL && !process.env.KLAV_OTP) {
-    await otpRequest(process.env.KLAV_EMAIL)
+  const email = process.env.KLAV_EMAIL
+  const otp = process.env.KLAV_OTP
+  if (email && !otp) {
+    await otpRequest(email)
     process.exit(0)
   }
-
-  // OTP flow: KLAV_EMAIL + KLAV_OTP -> verify and mint bearer
-  if (process.env.KLAV_EMAIL && process.env.KLAV_OTP) {
-    log("Verifying OTP...")
-    const session = await otpVerify(process.env.KLAV_EMAIL, process.env.KLAV_OTP)
-    if (session) {
-      const token = await mintTokenFromSession(session)
-      if (token) return { token, method: "otp->bearer" }
+  if (email && otp) {
+    const session = await otpVerify(email, otp)
+    if (!session) {
+      throw new Error("OTP verify succeeded but no klav_session cookie was returned")
     }
+    const token = await mintWidgetTokenFromSession(session)
+    return { token, method: "otp->widget-token" }
   }
 
-  // Headed browser login (requires display + KLAV_HEADED=1)
-  if (process.env.KLAV_HEADED === "1") {
-    log("KLAV_HEADED=1: launching headed browser for interactive login...")
-    return { token: null, method: "headed-pending" }
-  }
-
-  // Default: anonymous
   return { token: null, method: "anonymous" }
 }
 
-// ── Record the demo ───────────────────────────────────────────────────────────
+async function installToken(page: Page, token: string | null): Promise<void> {
+  if (!token) {
+    return
+  }
+  await page.addInitScript(
+    ([key, value]) => {
+      localStorage.setItem(key as string, value as string)
+    },
+    [WIDGET_TOKEN_KEY, token],
+  )
+}
 
-async function record(bearerToken: string | null): Promise<void> {
+async function openKlavityMenu(page: Page): Promise<void> {
+  const cards = page.locator("#klavity-widget-host .klm-card")
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await page.mouse.move(720, 400)
+    await page.mouse.click(720, 400, { button: "right" })
+    await sleep(500)
+    if ((await cards.count()) > 0) {
+      return
+    }
+
+    await page.evaluate(() => {
+      const x = Math.round(window.innerWidth * 0.55)
+      const y = Math.round(window.innerHeight * 0.45)
+      const target = document.elementFromPoint(x, y) || document.body
+      target.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+        }),
+      )
+    })
+    await sleep(500)
+    if ((await cards.count()) > 0) {
+      return
+    }
+  }
+  throw new Error("Klavity context menu did not open")
+}
+
+function parseRenderMs(logs: string[]): number | null {
+  for (let i = logs.length - 1; i >= 0; i -= 1) {
+    const match = logs[i].match(/\brenderMs=(\d+)/)
+    if (match) {
+      return Number(match[1])
+    }
+  }
+  return null
+}
+
+async function waitForRenderMs(logs: string[], timeoutMs: number): Promise<number | null> {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const renderMs = parseRenderMs(logs)
+    if (renderMs !== null) {
+      return renderMs
+    }
+    await sleep(250)
+  }
+  return null
+}
+
+async function record(token: string | null): Promise<void> {
   const videoDir = dirname(VIDEO_OUT)
   mkdirSync(videoDir, { recursive: true })
   const tmpVideoDir = resolve(videoDir, ".klav-video-tmp")
   mkdirSync(tmpVideoDir, { recursive: true })
 
-  const headless = process.env.KLAV_HEADED !== "1"
-  log(`Launching ${headless ? "headless" : "headed"} Chromium...`)
-
   const browser = await chromium.launch({
-    headless,
+    headless: process.env.KLAV_HEADED !== "1",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   })
-
-  // ── Optional: headed login to get session then bearer ──
-  if (!bearerToken && process.env.KLAV_HEADED === "1") {
-    log("Opening klavity.quantana.top — enter email + OTP in the browser window...")
-    const loginCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-    const loginPage = await loginCtx.newPage()
-    await loginPage.goto(`${KLAV_URL}/dashboard`, { waitUntil: "networkidle" })
-    await loginPage.waitForURL(/\/dashboard/, { timeout: 3 * 60 * 1000 })
-    const cookies = await loginCtx.cookies()
-    const sessionVal = cookies.find(c => c.name === "klav_session")?.value
-    if (sessionVal) bearerToken = await mintTokenFromSession(sessionVal)
-    await loginCtx.close()
-    if (bearerToken) log("Headed login succeeded; got bearer token")
-    else log("Headed login did not yield a token; falling back to anonymous recording")
-  }
-
-  // ── Recording context ──
-  log(`Recording to: ${VIDEO_OUT}`)
-  const ctx = await browser.newContext({
+  const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     recordVideo: { dir: tmpVideoDir, size: { width: 1440, height: 900 } },
-    ...(bearerToken ? {
-      storageState: {
-        origins: [{ origin: BIGIDEA_URL, localStorage: [{ name: WIDGET_TOKEN_KEY, value: bearerToken }] }],
-        cookies: [],
-      },
-    } : {}),
-  })
-  const page = await ctx.newPage()
-
-  // ── Navigate ──
-  log(`Navigating to ${BIGIDEA_URL}...`)
-  await page.goto(BIGIDEA_URL, { waitUntil: "domcontentloaded", timeout: 30_000 })
-
-  // Wait for Klavity widget host element
-  log("Waiting for Klavity widget to boot...")
-  await page.waitForFunction(
-    () => !!document.getElementById("klavity-widget-host"),
-    { timeout: 15_000 }
-  ).catch(() => log("Widget host not detected after 15s — continuing"))
-
-  // Ensure token is in localStorage even if storageState injection missed it
-  if (bearerToken) {
-    const stored = await page.evaluate((key) => localStorage.getItem(key), WIDGET_TOKEN_KEY)
-    if (!stored) {
-      await page.evaluate(
-        ([key, val]) => localStorage.setItem(key, val as string),
-        [WIDGET_TOKEN_KEY, bearerToken]
-      )
-      log("Token injected via page.evaluate")
-    } else {
-      log(`Token confirmed in localStorage (${stored.slice(0, 10)}...)`)
-    }
-  }
-
-  // Brief pause so the page fully settles before right-click
-  await sleep(2_000)
-
-  // ── Right-click to open Klavity context menu ──
-  log("Right-clicking to open Klavity context menu...")
-  await page.mouse.move(720, 400)
-  await sleep(200)
-  await page.mouse.click(720, 400, { button: "right" })
-  await sleep(1_200)
-
-  // ── Click "Deploy all Sims" ──
-  // First try Playwright's shadow-piercing getByText, then JS fallback
-  const deployBtn = page.getByText("Deploy all Sims", { exact: true })
-  const isVisible = await deployBtn.isVisible({ timeout: 6_000 }).catch(() => false)
-
-  if (isVisible) {
-    log('Clicking "Deploy all Sims"...')
-    await deployBtn.click()
-  } else {
-    log('getByText miss — using shadow DOM evaluate fallback...')
-    const clicked = await page.evaluate(() => {
-      const host = document.getElementById("klavity-widget-host")
-      if (!host?.shadowRoot) return false
-      for (const el of host.shadowRoot.querySelectorAll("button, [role=button]")) {
-        if ((el as HTMLElement).textContent?.trim() === "Deploy all Sims") {
-          (el as HTMLElement).click()
-          return true
+    ...(token
+      ? {
+          storageState: {
+            origins: [
+              {
+                origin: BIGIDEA_ORIGIN,
+                localStorage: [{ name: WIDGET_TOKEN_KEY, value: token }],
+              },
+            ],
+            cookies: [],
+          },
         }
-      }
-      return false
-    })
-    if (!clicked) log("WARN: Could not find Deploy all Sims button — recording anyway")
-  }
+      : {}),
+  })
 
-  // ── Wait for dock + reactions ──
-  log("Waiting for Sims to dock (WATCHING state)...")
-  await sleep(2_500)
+  const page = await context.newPage()
+  await installToken(page, token)
 
-  if (bearerToken) {
-    log("Waiting up to 45s for AI reactions...")
+  const benchLogs: string[] = []
+  let reviewResponse: unknown = null
+  page.on("console", (msg) => {
+    const text = msg.text()
+    if (text.includes("[bench-sim-review]")) {
+      benchLogs.push(text)
+    }
+    console.log(`[browser:${msg.type()}] ${text}`)
+  })
+  page.on("response", async (response) => {
+    if (!response.url().includes("/api/sim/review")) {
+      return
+    }
+    try {
+      reviewResponse = await response.json()
+    } catch {
+      reviewResponse = await response.text().catch(() => null)
+    }
+  })
+
+  let assertionError: Error | null = null
+  try {
+    log(`Recording to: ${VIDEO_OUT}`)
+    log(`Navigating to ${TARGET_URL}`)
+    await page.goto(TARGET_URL, { waitUntil: "domcontentloaded", timeout: 45_000 })
+    await page.waitForFunction(() => Boolean((window as any).KlavitySims), null, { timeout: 30_000 })
+    await page.waitForFunction(
+      () => Boolean((document.getElementById("klavity-widget-host") as HTMLElement & { shadowRoot?: ShadowRoot })?.shadowRoot),
+      null,
+      { timeout: 30_000 },
+    )
+
+    await openKlavityMenu(page)
+    const deploy = page.locator("#klavity-widget-host .klm-card").filter({ hasText: "Deploy all Sims" })
+    const deployCount = await deploy.count()
+    if (deployCount === 0) {
+      throw new Error("Deploy all Sims was not found in the Klavity shadow menu")
+    }
+    log('Clicking "Deploy all Sims"')
+    const deployClickedAt = Date.now()
+    await deploy.first().click()
+
+    log("Waiting for review reactions")
     await page.waitForFunction(
       () => {
-        const dockHost = document.getElementById("kl-sims-dock-host")
-          || document.querySelector("[id^='kl-sims']")
-        if (dockHost?.shadowRoot) {
-          if (dockHost.shadowRoot.querySelectorAll(".ksl-pin,.ksl-walker,.ksl-obs").length > 0) return true
-        }
-        return false
+        const dock = document.getElementById("klav-sims-live") as HTMLElement & { shadowRoot?: ShadowRoot }
+        const shadowCount = dock?.shadowRoot?.querySelectorAll(".ksl-bubble").length || 0
+        const lightCount = document.querySelectorAll(".klav-halo,.klav-pin,.klav-walker").length
+        return shadowCount + lightCount > 0
       },
-      { timeout: 45_000 }
-    ).catch(() => log("No reaction nodes found in 45s — capturing current state"))
-  } else {
-    // Anonymous: 12s is enough for the 3 avatars to jump in and show WATCHING
-    log("Anonymous: waiting 12s for avatars to dock...")
-    await sleep(12_000)
+      null,
+      { timeout: 90_000 },
+    )
+    const reactionNodeAppearedAt = Date.now()
+
+    const counts = await page.evaluate(() => {
+      const dock = document.getElementById("klav-sims-live") as HTMLElement & { shadowRoot?: ShadowRoot }
+      const overlay = document.getElementById("klav-sims-overlay") as HTMLElement & { shadowRoot?: ShadowRoot }
+      const bubbles = dock?.shadowRoot?.querySelectorAll(".ksl-bubble").length || 0
+      const slots = dock?.shadowRoot?.querySelectorAll(".ksl-slot").length || 0
+      const halos = document.querySelectorAll(".klav-halo").length
+      const pins = document.querySelectorAll(".klav-pin").length
+      const walkers = document.querySelectorAll(".klav-walker").length
+      const overlayChildren = overlay?.shadowRoot?.childElementCount || 0
+      return { bubbles, slots, halos, pins, walkers, overlayChildren, total: bubbles + halos + pins + walkers }
+    })
+
+    const review = reviewResponse as ReviewResponse | null
+    const observationCount =
+      review?.reviews?.reduce(
+        (sum, item) => sum + (Array.isArray(item.observations) ? item.observations.length : 0),
+        0,
+      ) || 0
+    if (observationCount <= 0) {
+      throw new Error(`Review response did not include observations: ${JSON.stringify(reviewResponse)}`)
+    }
+
+    const renderMs = await waitForRenderMs(benchLogs, 15_000)
+    const verifierRenderMs = reactionNodeAppearedAt - deployClickedAt
+    if (renderMs === null) {
+      throw new Error(`Expected a production renderMs bench log. Logs: ${JSON.stringify(benchLogs)}`)
+    }
+    if (verifierRenderMs <= 0) {
+      throw new Error(`Expected positive verifier render duration; got ${verifierRenderMs}`)
+    }
+    if (counts.total <= 0) {
+      throw new Error(`Expected reaction nodes; got ${JSON.stringify(counts)}`)
+    }
+
+    log(`Reaction DOM assertion passed: ${JSON.stringify(counts)}`)
+    log(`Review response observations: ${observationCount}`)
+    log(`production renderMs: ${renderMs}; verifier renderMs: ${verifierRenderMs}`)
+    await sleep(6_000)
+  } catch (error) {
+    assertionError = error instanceof Error ? error : new Error(String(error))
+    console.error(`[sims-demo] Assertion failed: ${assertionError.message}`)
+    await sleep(3_000)
+  } finally {
+    const videoPath = await page.video()?.path()
+    await context.close()
+    await browser.close()
+
+    if (videoPath && existsSync(videoPath)) {
+      try {
+        renameSync(videoPath, VIDEO_OUT)
+      } catch {
+        copyFileSync(videoPath, VIDEO_OUT)
+        unlinkSync(videoPath)
+      }
+      log(`Video saved: ${VIDEO_OUT}`)
+    } else {
+      log(`WARN: no Playwright video was produced at ${videoPath}`)
+    }
+    try {
+      rmdirSync(tmpVideoDir)
+    } catch {}
   }
 
-  // 4s steady-state hold so the final frame is clean
-  await sleep(4_000)
-
-  // ── Flush and save ──
-  log("Closing context — Playwright will flush the video...")
-  const videoPath = await page.video()?.path()
-  await ctx.close()
-  await browser.close()
-
-  if (!videoPath || !existsSync(videoPath)) {
-    log(`WARN: No video file found at path: ${videoPath}`)
-    return
+  if (assertionError) {
+    throw assertionError
   }
-
-  try {
-    renameSync(videoPath, VIDEO_OUT)
-  } catch {
-    copyFileSync(videoPath, VIDEO_OUT)
-    unlinkSync(videoPath)
-  }
-  try { rmdirSync(tmpVideoDir) } catch {}
-
-  log(`Video saved: ${VIDEO_OUT}`)
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
-
-async function main() {
+async function main(): Promise<void> {
   const { token, method } = await resolveAuth()
-  log(`Auth method: ${method}`)
-  if (!token) log("Recording anonymous deploy+dock flow (no AI reactions)")
+  log(`Auth method: ${method}${token ? " (token installed)" : ""}`)
+  if (!token) {
+    throw new Error("Authenticated recording is required for reaction verification")
+  }
   await record(token)
-  log(token ? "Full authed flow recorded (AI reactions)" : "Anonymous flow recorded (deploy+dock only)")
+  log("Full authed flow recorded and verified")
 }
 
-main().catch(e => { console.error(e); process.exit(1) })
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
+})
