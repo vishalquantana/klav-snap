@@ -9,8 +9,7 @@ import { installCaptureContext, buildCaptureContext } from "./capture-context"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
 import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy, compressScreenshot } from "./widget-lib"
 import { icon } from "@klavity/core/icons"
-import { startReplayRecording, type ReplayController } from "./replay-recorder"
-import { injectRecorderScript } from "./load-recorder"
+import { createSessionReplay, type SessionReplay } from "./session-replay"
 import "./sims-live"  // side-effecting: auto-installs window.KlavitySims on load
 import { startSimsWatch, type SimsWatchController } from "./sims-watch"
 
@@ -194,23 +193,13 @@ async function mount() {
   // Announce widget presence so the extension can yield (Task 3 handshake).
   document.dispatchEvent(new CustomEvent("klavity:widget-ready"))
 
-  // ── G1 session replay: continuously record a rolling ~45s buffer of rrweb DOM events so that, on
-  // bug submit, we can attach the seconds leading up to the bug (the free answer to Marker's $149
-  // "Session replay"). Masked by default (maskAllInputs + masked text) for privacy. Best-effort: a
-  // recorder failure must never break the widget. Disable per-page with data-replay="off".
-  //
-  // PERF: rrweb (~260 KB) is NOT bundled into the widget IIFE — it's lazy-loaded as a vendored script
-  // from the Klavity backend AFTER mount (non-blocking). Until it resolves, replay stays null and
-  // replay?.getEvents() returns []. A few hundred ms of "not recording yet" at page load is fine.
-  let replay: ReplayController | null = null
-  const replayEnabled = (currentScript()?.dataset?.replay || "on") !== "off"
-  if (replayEnabled) {
-    injectRecorderScript(cfg.backendUrl)
-      .then((rrweb) => {
-        if (rrweb?.record) { try { replay = startReplayRecording(rrweb.record as any) } catch { replay = null } }
-      })
-      .catch(() => { /* never let recorder loading break the widget */ })
-  }
+  // ── G1 session replay: rolling ~30s rrweb buffer, masked by default, attached on submit.
+  // rrweb (~260 KB) is lazy-loaded from the backend AFTER mount so it's not in the widget IIFE.
+  // Disable per-page with data-replay="off". Best-effort: any failure degrades to no-replay.
+  const replay: SessionReplay = createSessionReplay({
+    backendUrl: cfg.backendUrl,
+    enabled: (currentScript()?.dataset?.replay || "on") !== "off",
+  })
 
   const firstParty = isFirstParty(location.origin, cfg.backendUrl)
 
@@ -324,7 +313,7 @@ async function mount() {
       onSubmit: async (p) => submitFeedback(
         { backendUrl: cfg.backendUrl, projectId: cfg.projectId, firstParty, token: getToken() },
         { type: p.type as "bug" | "feature", description: p.description, pageUrl: location.href, referrer: document.referrer || "", screenshots: p.screenshots,
-          context: buildWidgetContext(), replayEvents: replay?.getEvents() ?? [], annotations: p.annotations,
+          context: buildWidgetContext(), replayEvents: replay.snapshot(), annotations: p.annotations,
           // Forward the gate's required email → server reporter_email. Without this, an "email"-gated
           // project (the default for cross-origin support widgets) rejects every submit with 400.
           reporterEmail: p.reporterEmail },
