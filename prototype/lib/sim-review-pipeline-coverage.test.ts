@@ -133,3 +133,54 @@ test("reviewDedupeKey-style per-Sim seen set only skips the matching Sim", async
   expect(keys[0]).not.toBe(keys[1])
   expect(active).toEqual(["sim_b"])
 })
+
+// ── Concurrency: parallel Phase 1 (error isolation + all-Sims-run) ───────────
+
+test("runSimReviews: all N Sims produce output when all reactFns succeed", async () => {
+  // Three Sims, each returning one distinct observation — all three should appear in output.
+  const sims = [
+    { id: `sim_par_a_${Date.now()}`, name: "Alice", role: "Buyer", summary: "Checks clarity.", insights: [], initials: "A", accent: "#6366f1" },
+    { id: `sim_par_b_${Date.now()}`, name: "Bob",   role: "Dev",   summary: "Checks perf.",   insights: [], initials: "B", accent: "#8b5cf6" },
+    { id: `sim_par_c_${Date.now()}`, name: "Carol", role: "PM",    summary: "Checks flow.",   insights: [], initials: "C", accent: "#a78bfa" },
+  ]
+  const calledIds: string[] = []
+
+  const reviews = await baseRun({
+    targetSims: sims,
+    seenKeys: sims.map((_, i) => `par-key-${i}`),
+    reactFn: async (sim) => {
+      calledIds.push(sim.id)
+      return { data: { reactions: [{ observation: `Observation from ${sim.name}`, sentiment: "negative" }] } }
+    },
+  })
+
+  // All three Sims were called.
+  expect(calledIds.sort()).toEqual(sims.map((s) => s.id).sort())
+  // All three produced output (each has one unique observation).
+  expect(reviews).toHaveLength(3)
+  const names = reviews.map((r) => r.simName).sort()
+  expect(names).toEqual(["Alice", "Bob", "Carol"])
+})
+
+test("runSimReviews: one Sim's reactFn throwing does NOT prevent other Sims from running", async () => {
+  // Sim B's reactFn throws — Sims A and C must still produce their observations.
+  const sims = [
+    { id: `sim_iso_a_${Date.now()}`, name: "Alice", role: "Buyer", summary: "Clarity checker.", insights: [], initials: "A", accent: "#6366f1" },
+    { id: `sim_iso_b_${Date.now()}`, name: "Bob",   role: "Dev",   summary: "Perf checker.",   insights: [], initials: "B", accent: "#8b5cf6" },
+    { id: `sim_iso_c_${Date.now()}`, name: "Carol", role: "PM",    summary: "Flow checker.",   insights: [], initials: "C", accent: "#a78bfa" },
+  ]
+
+  const reviews = await baseRun({
+    targetSims: sims,
+    seenKeys: sims.map((_, i) => `iso-key-${i}`),
+    reactFn: async (sim) => {
+      if (sim.name === "Bob") throw new Error("OpenRouter timeout")
+      return { data: { reactions: [{ observation: `${sim.name} saw an issue`, sentiment: "negative" }] } }
+    },
+  })
+
+  // Bob is skipped (reactFn threw) but Alice and Carol still produce output.
+  const names = reviews.map((r) => r.simName).sort()
+  expect(names).toEqual(["Alice", "Carol"])
+  expect(reviews).toHaveLength(2)
+})

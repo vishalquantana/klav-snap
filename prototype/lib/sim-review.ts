@@ -112,6 +112,37 @@ function issueKeyForFeedback(projectId: string, urlPath: string | null, issueTyp
  * RECURRING ISSUE MEMORY: deduped observations carry a RecurrenceMemory (KLA-2)
  * so the response shows "this was 3rd occurrence, first filed by Alice (Sim)."
  */
+// Maximum number of Sims whose vision/LLM calls run in-flight simultaneously within
+// one /api/sim/review request. Keeps N-Sim latency at ~max(one call) instead of
+// N × 7 s while bounding concurrent OpenRouter load. Increase only if the model
+// provider's rate limits allow it.
+export const SIM_REVIEW_CONCURRENCY = 4
+
+// Concurrency-capped async map: runs `fn` over `items` with at most `limit`
+// promises in-flight at any time. Preserves input order in the returned array.
+async function poolMap<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++
+      results[i] = await fn(items[i], i)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+// Internal type: the output of Phase 1 (trait loading + vision call) for one Sim.
+// null means the Sim was skipped (session ceiling hit or reactFn threw).
+type SimPhase1 = {
+  sim: any
+  simIndex: number
+  simWithMemory: any
+  citePre: { traits: Trait[]; eventsByTrait: Map<string, TraitEventRow[]> } | undefined
+  rawReactions: any[]
+} | null
+
 export async function runSimReviews(opts: SimRunOptions): Promise<SimReview[]> {
   const {
     projectId, urlPath, urlHost, pageUrl, imageB64, mediaType,
@@ -122,14 +153,19 @@ export async function runSimReviews(opts: SimRunOptions): Promise<SimReview[]> {
 
   const out: SimReview[] = []
 
-  for (let i = 0; i < targetSims.length; i++) {
-    const sim = targetSims[i]
-
+  // ── Phase 1: trait loading + vision LLM call — run concurrently ───────────
+  // Each Sim's DB reads and the ~7 s reactFn call are independent; running them in
+  // parallel collapses N-Sim latency from N × 7 s → ~max(7 s).
+  // Session call-ceiling checks are synchronous (JS is single-threaded) so they are
+  // consistent across concurrent entries. At most SIM_REVIEW_CONCURRENCY extra calls
+  // can slip past a saturating ceiling — acceptable for abuse prevention. Error
+  // isolation: a thrown reactFn returns null and does not cancel sibling Sims.
+  const phase1: SimPhase1[] = await poolMap(targetSims, SIM_REVIEW_CONCURRENCY, async (sim, simIndex) => {
     // ── Per-session LLM call ceiling ─────────────────────────────────────────
     // Guard BEFORE the LLM call so we never spend budget when capped.
     if (sessionId && sessionCallCapped(sessionId)) {
       console.log(`[sim-review] session ${sessionId} call ceiling (${SESSION_CALL_CEIL}) reached — skipping sim ${sim.id}`)
-      continue
+      return null
     }
 
     // Build regression-gated recurrence memory for this Sim's traits (avoids N+1 per reaction).
@@ -187,10 +223,22 @@ export async function runSimReviews(opts: SimRunOptions): Promise<SimReview[]> {
       rawReactions = Array.isArray(data?.reactions) ? data.reactions : []
     } catch (e: any) {
       console.error(`sim-review reactFn [${sim.id}] (non-fatal):`, e?.message || e)
-      continue
+      return null  // error isolation: skip this Sim without cancelling siblings
     }
     // Count this LLM call toward the session ceiling regardless of how many observations survive.
     if (sessionId) sessionBumpCall(sessionId)
+
+    return { sim, simIndex, simWithMemory, citePre, rawReactions }
+  })
+
+  // ── Phase 2: reaction processing — serial for consistent session state ─────
+  // Near-dup matching, citation resolution, DB writes, and the session observation
+  // ceiling all mutate shared session state; keeping this serial ensures each Sim
+  // sees the accumulated seen-texts from its predecessors and the ceiling is respected.
+  for (const p1 of phase1) {
+    if (!p1) continue
+    const { sim, simIndex, citePre, rawReactions } = p1
+    const i = simIndex
 
     const observations: SimObservation[] = []
     // Fetch server-side seen texts once per Sim (for near-dup matching across consecutive screens).
