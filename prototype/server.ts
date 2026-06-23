@@ -32,7 +32,7 @@ import { runSimReviews, decodeDataUrl as decodeDataUrlLib, splitUrl as splitUrlL
 import { trailsDashboardData } from "./lib/trails-dashboard"
 import { fileFindingById, dismissFinding, realFiler } from "./lib/trails-findings-gate"
 import { getReplay, runsWithReplay } from "./lib/trails-replay"
-import { saveFeedbackReplay, getFeedbackReplay, feedbackIdsWithReplay } from "./lib/feedback-replay"
+import { saveFeedbackReplay, getFeedbackReplay, feedbackIdsWithReplay, pruneOldFeedbackReplays } from "./lib/feedback-replay"
 import { listRunSteps, listTrails, getTrail, listTrailSteps, insertAssertStep, deleteTrailStep } from "./lib/trails"
 import { runWalkNow } from "./lib/trails-trigger"
 import { WalkBusyError } from "./lib/trails-browser"
@@ -3129,7 +3129,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         return json({ project: { id: created.id, name: created.name, accountId: created.accountId, status: created.status, role: "admin" } }, 201)
       }
       // Project detail + members (projectAccess-gated) and project-scoped invite (R4) + monitored-urls (P3b) + connectors.
-      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/rename|\/config|\/triage|\/recurring|\/monitored-urls(?:\/[^/]+)?|\/connectors(?:\/[^/]+)?(?:\/test)?)?$/)
+      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/rename|\/config|\/triage|\/recurring|\/replays|\/monitored-urls(?:\/[^/]+)?|\/connectors(?:\/[^/]+)?(?:\/test)?)?$/)
       if (projMatch) {
         const pid = projMatch[1]
         const sub = projMatch[2] || ""
@@ -3137,6 +3137,21 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         if (!access) return json({ error: "No access to this project." }, 403)
         const proj = await projectById(pid)
         if (!proj) return json({ error: "Not found." }, 404)
+
+        // DELETE /api/projects/:id/replays — prune old session-replay recordings (admin-only, privacy).
+        // Accepts optional ?before=<epoch-ms> to prune before a specific timestamp; defaults to 90 days.
+        // Sensitive DOM recordings should not accumulate indefinitely — this gives admins control.
+        if (req.method === "DELETE" && sub === "/replays") {
+          if (access !== "admin") return json({ error: "Only project admins can prune replays." }, 403)
+          const beforeParam = url.searchParams.get("before")
+          const beforeMs = beforeParam ? Number(beforeParam) : null
+          if (beforeMs !== null && (!Number.isFinite(beforeMs) || beforeMs <= 0)) {
+            return json({ error: "before must be a positive epoch-ms timestamp." }, 400)
+          }
+          const maxAgeMs = beforeMs ? Date.now() - beforeMs : undefined
+          const deleted = await pruneOldFeedbackReplays(pid, maxAgeMs)
+          return json({ ok: true, deleted })
+        }
 
         // Monitored URLs (R5 allowlist) — admin-only manage; project-scoped via projectAccess.
         if (sub.startsWith("/monitored-urls")) {

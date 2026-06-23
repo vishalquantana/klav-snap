@@ -18,6 +18,37 @@ const CTX_MAX_META_KEYS = 50
 
 function capStr(v: any, max = CTX_MAX_STR): string { return String(v ?? '').slice(0, max) }
 
+// Query parameter names commonly used to carry secrets in request URLs.
+// These are redacted before storing networkFailures to prevent API keys / auth tokens from
+// propagating into DB rows, Plane/GitHub ticket bodies, and AI prompts.
+export const SENSITIVE_PARAM_NAMES = new Set([
+  'token', 'api_key', 'apikey', 'api-key', 'access_token', 'auth_token', 'authtoken',
+  'secret', 'password', 'passwd', 'pwd', 'key', 'authorization',
+  'session_id', 'sessionid', 'session', 'private_key', 'client_secret', 'client_id',
+  'oauth_token', 'bearer', 'x-api-key',
+])
+
+/**
+ * Strip sensitive query parameter values from a URL string before storage.
+ * Non-parseable URLs (relative, malformed, data:) are returned unchanged —
+ * they can't carry structured query params and are already capped by the caller.
+ */
+export function redactSensitiveParams(urlStr: string): string {
+  try {
+    const u = new URL(urlStr)
+    let changed = false
+    for (const k of [...u.searchParams.keys()]) {
+      if (SENSITIVE_PARAM_NAMES.has(k.toLowerCase())) {
+        u.searchParams.set(k, 'REDACTED')
+        changed = true
+      }
+    }
+    return changed ? u.toString() : urlStr
+  } catch {
+    return urlStr // unparseable — leave as-is
+  }
+}
+
 const PERF_TYPES = new Set(['longtask', 'paint', 'resource'])
 
 export function sanitizeClientContext(raw: any): any | null {
@@ -37,7 +68,7 @@ export function sanitizeClientContext(raw: any): any | null {
   }
   if (Array.isArray(raw.networkFailures)) {
     out.networkFailures = raw.networkFailures.slice(0, CTX_MAX_ENTRIES).map((n: any) => ({
-      url: capStr(n?.url, 1000),
+      url: redactSensitiveParams(capStr(n?.url, 1000)),
       status: Number(n?.status) || 0,
       method: capStr(n?.method, 10),
       timestamp: Number(n?.timestamp) || 0,

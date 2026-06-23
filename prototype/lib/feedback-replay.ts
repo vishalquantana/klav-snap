@@ -99,6 +99,27 @@ export async function getFeedbackReplay(projectId: string, feedbackId: string): 
   }
 }
 
+// Replays older than this are eligible for automatic pruning (90 days).
+// Sensitive DOM recordings should not accumulate indefinitely.
+export const REPLAY_RETAIN_MS = 90 * 24 * 60 * 60 * 1000
+
+/**
+ * Delete feedback replays for a project that are older than maxAgeMs (default: REPLAY_RETAIN_MS).
+ * Project-scoped: only rows matching projectId are touched.
+ * Returns the number of rows deleted.
+ */
+export async function pruneOldFeedbackReplays(
+  projectId: string,
+  maxAgeMs = REPLAY_RETAIN_MS,
+): Promise<number> {
+  const cutoff = Date.now() - maxAgeMs
+  const r = await db!.execute({
+    sql: `DELETE FROM feedback_replays WHERE project_id=? AND created_at<?`,
+    args: [projectId, cutoff],
+  })
+  return r.rowsAffected ?? 0
+}
+
 /**
  * Which of the given feedbackIds have a stored replay — project-scoped, one query. Lets the dashboard
  * show a "▶ Session replay" affordance only on tickets that actually have a recording.
