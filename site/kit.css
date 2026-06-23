@@ -147,9 +147,16 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
 .nav-links a{
   position:relative;font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;
   color:var(--paper-dim);padding:6px 11px;border-radius:99px;border:1px solid transparent;
-  transition:color .2s,border-color .2s;
+  transition:color 150ms ease,border-color 150ms ease,transform 150ms ease;
 }
-.nav-links a:hover{border-color:var(--line);color:var(--paper)}
+.nav-links a:hover{
+  border-color:var(--indigo);
+  color:var(--paper);
+  transform:translateY(-1.5px) scale(1.02);
+}
+.nav-links a:active{
+  transform:scale(0.97);
+}
 .nav-links a.s-snap:hover{color:var(--indigo)}
 .nav-links a.s-sims:hover{color:var(--rose)}
 .nav-links a.s-autosim:hover{color:var(--green)}
@@ -161,10 +168,16 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
   font-family:var(--body);font-weight:600;font-size:14px;
   padding:10px 18px;border-radius:99px;border:1px solid transparent;
   display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
-  transition:transform .12s var(--ease),background .2s,border-color .2s,gap .2s,box-shadow .2s;
+  transition:transform 150ms ease,background-color 150ms ease,background 150ms ease,border-color 150ms ease,gap 150ms ease,box-shadow 150ms ease,color 150ms ease;
 }
-.btn:hover{gap:11px}
-.btn:active{transform:translateY(1px)}
+.btn:hover{
+  gap:11px;
+  transform:translateY(-1.5px) scale(1.02);
+  border-color:var(--indigo);
+}
+.btn:active{
+  transform:scale(0.97);
+}
 .btn-primary{
   color:#fff;background:var(--accent);
   box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 30%,transparent);
@@ -177,7 +190,7 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
   transform:translateX(-130%);
 }
 .btn-ghost{color:var(--paper);background:var(--ink-2);border-color:var(--line)}
-.btn-ghost:hover{border-color:var(--paper-faint);background:var(--ink-3)}
+.btn-ghost:hover{border-color:var(--indigo);background:var(--ink-3)}
 
 /* ── 6. CHIPS / PILLS ─────────────────────────────────────────────────── */
 .chip{
@@ -327,9 +340,10 @@ h3{font-family:var(--display);font-weight:540;letter-spacing:-.01em}
   background:var(--ink-2);border:1px solid var(--line);border-radius:18px;padding:24px;
   position:relative;overflow:hidden;
   box-shadow:0 14px 40px rgba(17,17,19,.06);
-  transition:transform .2s var(--ease),border-color .2s,box-shadow .2s;
+  transition:transform 150ms ease,border-color 150ms ease,box-shadow 150ms ease;
 }
-.card:hover{transform:translateY(-4px);border-color:var(--paper-faint);box-shadow:0 22px 46px rgba(0,0,0,.08)}
+.card:hover{transform:translateY(-2px) scale(1.02);border-color:var(--indigo);box-shadow:0 22px 46px rgba(0,0,0,.08)}
+.card:active{transform:scale(0.97)}
 
 /* a filed ticket */
 .tkt{border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--ink-2)}

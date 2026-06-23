@@ -55,17 +55,20 @@ label.fld .lt{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-t
 input.in{width:100%;background:var(--ink-2);border:1px solid var(--line);border-radius:12px;padding:13px 15px;color:var(--paper);font-family:var(--body);font-size:15px;outline:none;transition:border-color .2s}
 input.in:focus{border-color:var(--indigo)}
 input.code{font-family:var(--mono);font-size:24px;letter-spacing:.5em;text-align:center}
-.btn{font-family:var(--body);font-weight:600;font-size:15px;padding:12px 22px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:transform .12s,background .2s,border-color .2s,opacity .2s;display:inline-flex;align-items:center;gap:9px}
-.btn:active{transform:translateY(1px)}
+.btn{font-family:var(--body);font-weight:600;font-size:15px;padding:12px 22px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:transform 150ms ease,background 150ms ease,border-color 150ms ease,opacity 150ms ease;display:inline-flex;align-items:center;gap:9px}
+.btn:hover{transform:translateY(-2px) scale(1.02);border-color:var(--indigo)}
+.btn:active{transform:scale(0.97)}
 .btn[disabled]{opacity:.5;cursor:default}
 .btn-indigo{color:#fff;background:linear-gradient(135deg,#a9a9ff,var(--indigo));box-shadow:0 10px 26px rgba(139,139,245,.3)}
 [data-theme="dark"] .btn-indigo{color:#0c0a08}
 .btn-amber{color:#fff;background:linear-gradient(135deg,#eab06a,var(--amber));box-shadow:0 10px 26px rgba(217,131,36,.28)}
 [data-theme="dark"] .btn-amber{color:#0c0a08}
 .btn-ghost{color:var(--paper);border-color:var(--line);background:transparent}
-.btn-ghost:hover{border-color:rgba(139,139,245,.4)}
+.btn-ghost:hover{border-color:var(--indigo);background:var(--ink-3)}
 .row{display:flex;gap:13px;align-items:center;margin-top:32px;flex-wrap:wrap}
-.row .skip{font-size:13.5px;color:var(--paper-faint);margin-left:auto;cursor:pointer}.row .skip:hover{color:var(--paper-dim)}
+.row .skip{font-size:13.5px;color:var(--paper-faint);margin-left:auto;cursor:pointer;transition:transform 150ms ease,color 150ms ease}
+.row .skip:hover{color:var(--indigo);transform:translateY(-1.5px) scale(1.02)}
+.row .skip:active{transform:scale(0.97)}
 .err{margin-top:14px;font-size:13.5px;color:var(--rose);font-family:var(--body);min-height:1px}
 .note{margin-top:22px;font-size:13.5px;color:var(--paper-dim);line-height:1.5;border-left:3px solid var(--indigo);padding-left:12px}
 .note.amber{border-color:var(--amber)}
@@ -130,7 +133,13 @@ input.code{font-family:var(--mono);font-size:24px;letter-spacing:.5em;text-align
 .reelwrap{max-width:660px;margin:0 auto 30px}
 .reelframe{width:100%;aspect-ratio:16/9;border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px rgba(25,20,15,.12);display:block;background:var(--ink-3)}
 
-.theme-toggle{position:fixed;right:16px;bottom:16px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.theme-toggle{position:fixed;right:16px;bottom:16px;z-index:90;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--ink-2);color:var(--paper);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.12);transition:transform 150ms ease,border-color 150ms ease,color 150ms ease}
+.theme-toggle:hover{border-color:var(--indigo);color:var(--indigo);transform:translateY(-1.5px) scale(1.02)}
+.theme-toggle:active{transform:scale(0.97)}
+
+#copySnippet{transition:transform 150ms ease,border-color 150ms ease,background-color 150ms ease}
+#copySnippet:hover{transform:translateY(-1.5px) scale(1.02);border-color:var(--indigo) !important}
+#copySnippet:active{transform:scale(0.97)}
 
 /* ── a11y: visible focus + reduced-motion ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
