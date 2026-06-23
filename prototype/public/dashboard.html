@@ -1083,6 +1083,23 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           </select>
         </label>
         <p style="font-size:12px;opacity:.7;margin-top:-4px">How an end-user is identified before a report is accepted. <b>Require email</b> = no Klavity account needed, they just type an email (and become a lead). <b>Anonymous</b> = max conversion. <b>Require login</b> = locked down.</p>
+        <label>Launcher display
+          <select id="kl-launcher-mode">
+            <option value="full">Full — icon + label (default)</option>
+            <option value="icon">Icon only — no label</option>
+            <option value="hidden">Hidden — right-click only, no button</option>
+            <option value="custom">Custom — use my own label text</option>
+          </select>
+        </label>
+        <div id="kl-launcher-custom" style="display:none">
+          <label>Custom label text
+            <input type="text" id="kl-launcher-text" maxlength="60" placeholder="e.g. Give feedback">
+          </label>
+        </div>
+        <label>Launcher color
+          <input type="color" id="kl-launcher-icon-color" value="#5b5bf0">
+        </label>
+        <p style="font-size:12px;opacity:.7;margin-top:-4px">Controls the background color of the floating launcher button.</p>
         <label>CTA URL
           <input type="url" id="kl-cta" placeholder="https://...">
         </label>
@@ -3079,6 +3096,31 @@ function renderWidgetPreview() {
   const showThanks = $("wp-thanks-toggle") && $("wp-thanks-toggle").checked
   if ($("wp-body")) $("wp-body").style.display = showThanks ? "none" : "block"
   if ($("wp-thanks")) $("wp-thanks").style.display = showThanks ? "block" : "none"
+  // Reflect launcher mode in the live preview launcher pill
+  const launcher = document.querySelector(".wp-launcher")
+  if (launcher) {
+    const lMode = $("kl-launcher-mode") ? $("kl-launcher-mode").value : "full"
+    const lColor = $("kl-launcher-icon-color") ? $("kl-launcher-icon-color").value : "#5b5bf0"
+    const lText = ($("kl-launcher-text") && $("kl-launcher-text").value.trim()) || "Report a bug"
+    launcher.style.display = lMode === "hidden" ? "none" : ""
+    launcher.style.background = lColor
+    if (lMode === "icon") {
+      launcher.innerHTML = '<span data-ki="bug"></span>'
+      launcher.style.borderRadius = "50%"
+      launcher.style.padding = "10px"
+      launcher.style.width = "40px"
+      launcher.style.height = "40px"
+      launcher.style.justifyContent = "center"
+    } else {
+      const label = lMode === "custom" ? lText : "Report a bug"
+      launcher.innerHTML = '<span data-ki="bug"></span> ' + label
+      launcher.style.borderRadius = ""
+      launcher.style.padding = ""
+      launcher.style.width = ""
+      launcher.style.height = ""
+      launcher.style.justifyContent = ""
+    }
+  }
 }
 
 // ── Widget appearance settings ──
@@ -3089,11 +3131,19 @@ async function loadAppearance() {
   if (!sel) return
   // Wire theme select sync once
   function sync() { cust.style.display = sel.value === "custom" ? "block" : "none" }
+  function syncLauncher() {
+    const lMode = $("kl-launcher-mode") ? $("kl-launcher-mode").value : "full"
+    const custEl = $("kl-launcher-custom")
+    if (custEl) custEl.style.display = lMode === "custom" ? "block" : "none"
+    renderWidgetPreview()
+  }
   if (!_appearanceWired) {
     _appearanceWired = true
     sel.addEventListener("change", sync)
+    const lmSel = $("kl-launcher-mode")
+    if (lmSel) lmSel.addEventListener("change", syncLauncher)
     // Live preview re-renders as any appearance field changes (before saving).
-    ;["kl-theme","kl-primary","kl-secondary","kl-bg","kl-font","kl-thankyou","kl-mode","kl-cta"].forEach(id => {
+    ;["kl-theme","kl-primary","kl-secondary","kl-bg","kl-font","kl-thankyou","kl-mode","kl-cta","kl-launcher-icon-color","kl-launcher-text"].forEach(id => {
       const el = $(id); if (el) { el.addEventListener("input", renderWidgetPreview); el.addEventListener("change", renderWidgetPreview) }
     })
     const wpT = $("wp-thanks-toggle"); if (wpT) wpT.addEventListener("change", renderWidgetPreview)
@@ -3111,6 +3161,13 @@ async function loadAppearance() {
         body.background = $("kl-bg").value
         body.font = $("kl-font").value
       }
+      // Launcher display settings (all plans)
+      const lmVal = $("kl-launcher-mode") ? $("kl-launcher-mode").value : "full"
+      body.launcherMode = lmVal
+      const ltVal = ($("kl-launcher-text") && $("kl-launcher-text").value.trim()) || ""
+      if (ltVal) body.launcherText = ltVal
+      const licVal = $("kl-launcher-icon-color") ? $("kl-launcher-icon-color").value : "#5b5bf0"
+      if (licVal && licVal !== "#5b5bf0") body.launcherIconColor = licVal
       const notifyVal = $("kl-notify").value.trim()
       if (notifyVal) body.notify_email = notifyVal
       msg.textContent = "Saving…"
@@ -3139,6 +3196,11 @@ async function loadAppearance() {
     if (c.background) $("kl-bg").value = c.background
     if (c.font) $("kl-font").value = c.font
     if (c.thankYou) $("kl-thankyou").value = c.thankYou
+    // Launcher display settings
+    if (c.launcherMode && $("kl-launcher-mode")) $("kl-launcher-mode").value = c.launcherMode
+    if (c.launcherText && $("kl-launcher-text")) $("kl-launcher-text").value = c.launcherText
+    if (c.launcherIconColor && $("kl-launcher-icon-color")) $("kl-launcher-icon-color").value = c.launcherIconColor
+    syncLauncher()
     // Pre-fill lead-gen widget fields (notify email is never returned — left blank)
     const w = d.widget || {}
     $("kl-mode").value = w.mode || "support"

@@ -1,6 +1,9 @@
 export type ModalTheme = 'light' | 'dark' | 'glass' | 'neon' | 'custom' | 'liquid'
 export const ALLOWED_THEMES: ModalTheme[] = ['light', 'dark', 'glass', 'neon', 'custom', 'liquid']
 
+export type LauncherMode = 'hidden' | 'icon' | 'full' | 'custom'
+export const ALLOWED_LAUNCHER_MODES: LauncherMode[] = ['hidden', 'icon', 'full', 'custom']
+
 export interface ModalConfig {
   theme?: ModalTheme
   primary?: string
@@ -8,6 +11,9 @@ export interface ModalConfig {
   background?: string
   font?: string
   thankYou?: string
+  launcherMode?: LauncherMode
+  launcherText?: string
+  launcherIconColor?: string
 }
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/
@@ -51,6 +57,14 @@ export function resolveModalConfig(raw: unknown): ModalConfig & { theme: ModalTh
   if (bg) out.background = bg
   if (f) out.font = f
   if (ty) out.thankYou = ty
+  // Launcher display settings
+  if (typeof r.launcherMode === 'string' && (ALLOWED_LAUNCHER_MODES as string[]).includes(r.launcherMode)) {
+    out.launcherMode = r.launcherMode as LauncherMode
+  }
+  const lt = str(r.launcherText, 60)
+  if (lt) out.launcherText = lt
+  const lic = hex(r.launcherIconColor)
+  if (lic) out.launcherIconColor = lic
   return out
 }
 
@@ -101,6 +115,14 @@ export function validateModalConfigInput(body: unknown, opts: { isPro: boolean }
     if (bg) config.background = bg
     if (f) config.font = f
   }
+  // Launcher display settings — available to all plans
+  if (typeof body.launcherMode === 'string' && (ALLOWED_LAUNCHER_MODES as string[]).includes(body.launcherMode)) {
+    config.launcherMode = body.launcherMode as LauncherMode
+  }
+  const lt = str(body.launcherText, 60)
+  if (lt) config.launcherText = lt
+  const lic = hex(body.launcherIconColor)
+  if (lic) config.launcherIconColor = lic
   if (JSON.stringify(config).length > 2048) return { ok: false, error: 'Config too large.' }
   return { ok: true, config }
 }

@@ -222,12 +222,26 @@ async function mount() {
   // → buildModal 3rd arg) AND the lead-gen widget settings (widget: {mode, ctaUrl}, → success copy).
   let modalConfig: any = {}
   let widget: { mode: string; ctaUrl: string; reportGate: string } = { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding", reportGate: "email" }
+  // Launcher display settings (from modalConfig)
+  let launcherMode: 'hidden' | 'icon' | 'full' | 'custom' = 'full'
+  let launcherText = 'Report a bug'
+  let launcherIconColor = '#5b5bf0'
   try {
     const r = await fetch(cfg.backendUrl + "/api/projects/" + encodeURIComponent(cfg.projectId) + "/config")
     if (r.ok) {
       const j = await r.json()
       modalConfig = j.modalConfig || {}
       if (j.widget) widget = { mode: j.widget.mode || "support", ctaUrl: j.widget.ctaUrl || widget.ctaUrl, reportGate: j.widget.reportGate || "email" }
+      // Pull launcher display overrides out of modalConfig
+      if (modalConfig.launcherMode && ['hidden', 'icon', 'full', 'custom'].includes(modalConfig.launcherMode)) {
+        launcherMode = modalConfig.launcherMode
+      }
+      if (typeof modalConfig.launcherText === 'string' && modalConfig.launcherText.trim()) {
+        launcherText = modalConfig.launcherText.trim().slice(0, 60)
+      }
+      if (typeof modalConfig.launcherIconColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(modalConfig.launcherIconColor)) {
+        launcherIconColor = modalConfig.launcherIconColor
+      }
     }
   } catch { /* default theme + support mode + email gate */ }
 
@@ -270,10 +284,20 @@ async function mount() {
     _issueBadge.style.display = _issueCount > 0 ? "flex" : "none"
   }
 
+  // Render launcher based on launcherMode setting.
+  // 'hidden': no visible launcher (right-click still works); 'icon': bug icon only, no label;
+  // 'full': icon + "Report a bug" (default); 'custom': icon + admin-defined text.
   const reportBtn = document.createElement("button")
-  reportBtn.innerHTML = `${icon('bug')} Report a bug`
+  if (launcherMode === 'icon') {
+    reportBtn.innerHTML = icon('bug')
+    reportBtn.style.cssText = `position:relative;border:0;border-radius:50%;padding:10px;background:${launcherIconColor};color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(91,91,240,.32);display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px`
+  } else {
+    const label = launcherMode === 'custom' ? launcherText : 'Report a bug'
+    reportBtn.innerHTML = `${icon('bug')} ${label}`
+    reportBtn.style.cssText = `position:relative;border:0;border-radius:999px;padding:10px 16px;background:${launcherIconColor};color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(91,91,240,.32);display:inline-flex;align-items:center;gap:7px`
+  }
+  if (launcherMode === 'hidden') reportDock.style.display = "none"
   reportBtn.title = "Klavity is active on this page — right-click anywhere or click here to report"
-  reportBtn.style.cssText = "position:relative;border:0;border-radius:999px;padding:10px 16px;background:#5b5bf0;color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(91,91,240,.32);display:inline-flex;align-items:center;gap:7px"
   // ── Active/monitoring indicator: a small live green dot on the launcher so it's obvious Klavity is on. ──
   if (!root.getElementById("klavity-launcher-anim")) {
     const a = document.createElement("style"); a.id = "klavity-launcher-anim"

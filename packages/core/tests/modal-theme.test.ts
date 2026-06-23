@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { resolveModalConfig, themeCss, validateModalConfigInput, ALLOWED_THEMES } from "../src/modal-theme"
+import { resolveModalConfig, themeCss, validateModalConfigInput, ALLOWED_THEMES, ALLOWED_LAUNCHER_MODES } from "../src/modal-theme"
 
 describe("resolveModalConfig", () => {
   it("defaults to light when empty/garbage", () => {
@@ -72,5 +72,48 @@ describe("validateModalConfigInput", () => {
   it("exposes the allowed theme set", () => {
     expect(ALLOWED_THEMES).toContain("liquid")
     expect(ALLOWED_THEMES).toContain("light")
+  })
+})
+
+describe("launcher display fields", () => {
+  it("resolveModalConfig passes through valid launcherMode", () => {
+    for (const mode of ALLOWED_LAUNCHER_MODES) {
+      const c = resolveModalConfig({ theme: "light", launcherMode: mode })
+      expect(c.launcherMode).toBe(mode)
+    }
+  })
+  it("resolveModalConfig ignores invalid launcherMode", () => {
+    const c = resolveModalConfig({ theme: "light", launcherMode: "floating" })
+    expect(c.launcherMode).toBeUndefined()
+  })
+  it("resolveModalConfig clamps launcherText to 60 chars", () => {
+    const long = "x".repeat(80)
+    const c = resolveModalConfig({ theme: "light", launcherMode: "custom", launcherText: long })
+    expect(c.launcherText!.length).toBe(60)
+  })
+  it("resolveModalConfig accepts valid launcherIconColor hex", () => {
+    const c = resolveModalConfig({ theme: "light", launcherIconColor: "#e11d48" })
+    expect(c.launcherIconColor).toBe("#e11d48")
+  })
+  it("resolveModalConfig rejects invalid launcherIconColor", () => {
+    const c = resolveModalConfig({ theme: "light", launcherIconColor: "red" })
+    expect(c.launcherIconColor).toBeUndefined()
+  })
+  it("validateModalConfigInput passes through launcher fields", () => {
+    const r = validateModalConfigInput({ theme: "light", launcherMode: "icon", launcherIconColor: "#e11d48" }, { isPro: false })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.config.launcherMode).toBe("icon")
+      expect(r.config.launcherIconColor).toBe("#e11d48")
+    }
+  })
+  it("validateModalConfigInput rejects invalid launcherMode silently", () => {
+    const r = validateModalConfigInput({ theme: "light", launcherMode: "mega" }, { isPro: false })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.config.launcherMode).toBeUndefined()
+  })
+  it("exposes ALLOWED_LAUNCHER_MODES", () => {
+    expect(ALLOWED_LAUNCHER_MODES).toContain("hidden")
+    expect(ALLOWED_LAUNCHER_MODES).toContain("custom")
   })
 })
