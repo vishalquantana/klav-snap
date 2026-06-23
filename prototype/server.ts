@@ -2429,9 +2429,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       if (!meSP) return json({ error: "Sign in to continue." }, 401)
       const projSP = await resolveProject(meSP, url.searchParams.get("project"))
       if (!projSP) return json({ error: "No project." }, 400)
-      const sim = (await listPersonas(projSP.id)).find(p => p.id === simProfileMatch[1])
-      if (!sim) return json({ error: "Not found" }, 404)
       try {
+        const sim = (await listPersonas(projSP.id)).find(p => p.id === simProfileMatch[1])
+        if (!sim) return json({ error: "Not found" }, 404)
         const [traits, feedback, transcripts] = await Promise.all([
           listTraits(sim.id, { activeOnly: true }),
           listFeedbackForSim(projSP.id, sim.id),
@@ -2515,14 +2515,17 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       // membership on first login, so "has a membership" can't tell new from returning. Instead, a user
       // who has ALREADY been through setup is detected by a captured company domain (onboarding step 1);
       // they skip to the dashboard. Fresh accounts (no domain yet) and logged-out visitors get the wizard.
-      if (me) {
-        const ms = await membershipsFor(me)
-        if (ms.length) {
-          const dr = await db!.execute({ sql: "SELECT domain FROM accounts WHERE id=?", args: [ms[0].workspaceId] })
-          const onboarded = dr.rows.length > 0 && !!(dr.rows[0] as any).domain
-          if (onboarded) return redirect("/dashboard")
+      // Wrapped in try/catch: a DB hang here must never produce a 502 — fall through to serve the page.
+      try {
+        if (me) {
+          const ms = await membershipsFor(me)
+          if (ms.length) {
+            const dr = await db!.execute({ sql: "SELECT domain FROM accounts WHERE id=?", args: [ms[0].workspaceId] })
+            const onboarded = dr.rows.length > 0 && !!(dr.rows[0] as any).domain
+            if (onboarded) return redirect("/dashboard")
+          }
         }
-      }
+      } catch { /* DB error — serve onboarding.html rather than crashing */ }
       return file(SITE + "/onboarding.html")
     }
 

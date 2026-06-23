@@ -478,12 +478,15 @@ function openStudio(){
 //    the server would have redirected them to /dashboard. But a signed-in user WITHOUT a project
 //    name set (edge) lands here — pre-resolve their project and let them skip the OTP sub-step. ──
 async function bootstrap(){
+  // 10s timeout: a hanging /api/me must never block paint() — the welcome screen must always show.
+  const ctrl = new AbortController()
+  const tmo = setTimeout(() => ctrl.abort(), 10000)
   try {
-    const me = await jsonFetch('/api/me', { headers:{'accept':'application/json'} })
+    const me = await jsonFetch('/api/me', { headers:{'accept':'application/json'}, signal: ctrl.signal })
     if (me.ok && me.data && me.data.email){
       // already signed in: pre-fill email + resolve project so step-2/3 work without re-auth.
       $('email').value = me.data.email
-      const pr = await jsonFetch('/api/projects', { headers:{'accept':'application/json'} })
+      const pr = await jsonFetch('/api/projects', { headers:{'accept':'application/json'}, signal: ctrl.signal })
       if (pr.ok && pr.data.projects && pr.data.projects.length){
         const own = pr.data.projects.filter(p => p.role === 'admin').pop() || pr.data.projects[0]
         projectId = own.id
@@ -492,6 +495,7 @@ async function bootstrap(){
       }
     }
   } catch(e){}
+  finally { clearTimeout(tmo) }
   paint()
 }
 bootstrap()

@@ -208,13 +208,30 @@ async function toggleTx(id) {
 async function load() {
   if (!SIM_ID) { $("root").innerHTML = `<div class="err">No Sim specified.</div>`; return }
   let data
+  const ctrl = new AbortController()
+  const tmo = setTimeout(() => ctrl.abort(), 20000) // 20s guard — never leave an infinite spinner
   try {
-    const r = await fetch(pq('/api/sims/' + encodeURIComponent(SIM_ID) + '/profile'))
+    let r = await fetch(pq('/api/sims/' + encodeURIComponent(SIM_ID) + '/profile'), { signal: ctrl.signal })
+    // 404 without an explicit ?project= means resolveProject picked the wrong default project.
+    // Walk the user's accessible projects to find the one that actually contains this Sim.
+    if (r.status === 404 && !PROJECT_ID) {
+      const pr = await fetch('/api/projects', { signal: ctrl.signal }).then(x => x.ok ? x.json() : {}).catch(() => ({}))
+      for (const p of (pr.projects || [])) {
+        const attempt = await fetch('/api/sims/' + encodeURIComponent(SIM_ID) + '/profile?project=' + encodeURIComponent(p.id), { signal: ctrl.signal })
+        if (attempt.ok) { r = attempt; break }
+      }
+    }
     if (r.status === 401) { location.href = "/login"; return }
-    if (r.status === 404) { $("root").innerHTML = `<div class="err">Sim not found in this project.</div>`; return }
-    if (!r.ok) { $("root").innerHTML = `<div class="err">Couldn't load this Sim.</div>`; return }
+    if (r.status === 404) { $("root").innerHTML = `<div class="err">Sim not found — it may belong to a different project. <a href="/dashboard">← Back to Dashboard</a></div>`; return }
+    if (!r.ok) { $("root").innerHTML = `<div class="err">Couldn't load this Sim (${r.status}).</div>`; return }
     data = await r.json()
-  } catch { $("root").innerHTML = `<div class="err">Couldn't load this Sim.</div>`; return }
+  } catch (e) {
+    const timedOut = e instanceof DOMException && e.name === 'AbortError'
+    $("root").innerHTML = `<div class="err">${timedOut ? 'Loading timed out' : "Couldn't load this Sim"} — try <a href="">refreshing</a>.</div>`
+    return
+  } finally {
+    clearTimeout(tmo)
+  }
 
   const s = data.sim || {}
   const studioUrl = pq('/app?sim=' + encodeURIComponent(SIM_ID))
