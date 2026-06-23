@@ -3235,17 +3235,43 @@ load()
 // ===== sidebar view switching =====
 (function(){
   var VIEWS=['overview','triage','sims','tickets','team','settings','recurring'];
-  var navs=[].slice.call(document.querySelectorAll('.side .nv'));
+  function sidebarNavs(){
+    return [].slice.call(document.querySelectorAll('.side .nv'));
+  }
+  function normalizeSidebar(){
+    var seen={};
+    sidebarNavs().forEach(function(b){
+      var key=b.getAttribute('data-go')||'';
+      if(!key||seen[key]){b.remove();return;}
+      seen[key]=b;
+    });
+    var version=document.querySelector('.side .side-version');
+    VIEWS.forEach(function(v){
+      var b=seen[v];
+      if(b&&version&&b.nextSibling!==version)version.parentNode.insertBefore(b,version);
+    });
+  }
   function setView(v){
     if(VIEWS.indexOf(v)<0)v='overview';
+    normalizeSidebar();
     document.body.setAttribute('data-view',v);
-    navs.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-go')===v);});
+    sidebarNavs().forEach(function(b){b.classList.toggle('active',b.getAttribute('data-go')===v);});
     try{history.replaceState(null,'',v==='overview'?(location.pathname+location.search):('#'+v));}catch(e){}
     window.scrollTo(0,0);
     if(v==='triage'){if(typeof renderTriage==='function')renderTriage();}
     if(v==='recurring'){if(typeof renderRecurringIssues==='function')renderRecurringIssues();}
   }
-  navs.forEach(function(b){b.addEventListener('click',function(){setView(b.getAttribute('data-go'));});});
+  normalizeSidebar();
+  var side=document.querySelector('.side');
+  if(side&&!side.dataset.navBound){
+    side.dataset.navBound='1';
+    side.addEventListener('click',function(e){
+      var b=e.target&&e.target.closest?e.target.closest('.nv[data-go]'):null;
+      if(!b||!side.contains(b))return;
+      setView(b.getAttribute('data-go'));
+    });
+  }
+  window.setView=setView;
   window.klavSetView=setView; // exposed so card-go buttons (onclick="setView(...)") and inline handlers can call it
   // the checklist's "Open Live Sims settings" link lives under the Sims section
   var cl=document.getElementById('checklistUrlLink');
