@@ -1338,10 +1338,25 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const failEmailKey = `otpfail:e:${e}`
         if (rlCount(failKey) >= OTP_FAIL_MAX || rlCount(failEmailKey) >= OTP_FAIL_EMAIL_MAX)
           return json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429, { "Retry-After": "900" })
-        if (!(await verifyOtp(e, c))) {
+        // ── TEST-OTP bypass (gated: KLAV_TEST_OTP env + per-email allowlist) ──
+        // Fixed code 666666 is accepted ONLY when:
+        //   (a) KLAV_TEST_OTP env var is set/truthy (OFF by default in production), AND
+        //   (b) the email is listed in KLAV_TEST_OTP_EMAILS (comma-separated allowlist).
+        // Any other email, or when the env is unset, 666666 is rejected by the normal verifyOtp path.
+        // This is server-env-gated only — no URL param or header can enable it.
+        const TEST_OTP_CODE = "666666"
+        const testOtpEnabled = !!process.env.KLAV_TEST_OTP && c === TEST_OTP_CODE
+        const testOtpAllowlist = (process.env.KLAV_TEST_OTP_EMAILS ?? "")
+          .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
+        const testOtpGranted = testOtpEnabled && testOtpAllowlist.includes(e)
+        if (!(testOtpGranted || await verifyOtp(e, c))) {
           rlRecord(failKey, OTP_FAIL_WINDOW)
           rlRecord(failEmailKey, OTP_FAIL_EMAIL_WINDOW)
           return json({ error: "Invalid or expired code." }, 401)
+        }
+        if (testOtpGranted) {
+          // Loud audit trail so test-OTP usage is always visible in logs.
+          console.warn(`[TEST-OTP-USED] email=${e} accepted test bypass code (KLAV_TEST_OTP active) — audit this if unexpected`)
         }
         // Successful verify clears BOTH the per-(email,IP) and the per-email counters.
         rlClear(failKey)

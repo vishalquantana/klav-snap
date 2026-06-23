@@ -16,6 +16,27 @@ This folder holds the evidence pack. Every claim is cited to `file:line` in the 
 
 ---
 
+## ✅ Test-OTP bypass (KLAV_TEST_OTP / KLAV_TEST_OTP_EMAILS)
+
+Two server-only env vars gate a fixed OTP bypass for automated test recording flows:
+
+| Env var | Purpose | Default |
+|---------|---------|---------|
+| `KLAV_TEST_OTP` | Enable the bypass (any truthy value). **Must be unset in production.** | unset (OFF) |
+| `KLAV_TEST_OTP_EMAILS` | Comma-separated allowlist of emails that may use code `666666`. Only effective when `KLAV_TEST_OTP` is set. | unset (empty → no email allowed) |
+
+**Security properties:**
+- OFF by default — both env vars are absent from `deploy/klav.env.example` so a fresh deployment never enables it.
+- Code `666666` is only accepted when *both* env vars are set and the email is on the allowlist. Any other condition routes 666666 through the normal `verifyOtp` DB check (SHA-256 hash comparison → 401).
+- No URL/query-param surface — the bypass cannot be triggered by client-controlled input.
+- Every acceptance emits a `[TEST-OTP-USED]` `console.warn` line with the email for log-based audit.
+- The bypass does NOT skip rate-limiting or session creation — it inserts a normal session row.
+- Covered by `server.test-otp.test.ts` (6 tests): accept allowlisted email ✓, reject non-allowlisted ✓, reject when env off ✓, reject wrong code ✓, second allowlist entry with whitespace ✓, normal OTP flow unaffected ✓.
+
+**Intended use:** set `KLAV_TEST_OTP=1` + `KLAV_TEST_OTP_EMAILS=vishal@quantana.com.au` on the test or staging box to enable Playwright/recording sessions on one owned account. Never set in production.
+
+---
+
 ## ✅ Done this session
 
 - **SAST Medium (DOM-XSS)** — extension Sim renderer now HTML-escapes all AI/server fields (`content.ts`).
