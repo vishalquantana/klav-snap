@@ -8,6 +8,7 @@ import { captureFullPage } from './fullpage'
 import { klavContentSig, shouldCapture, createTrailingDebounce, DEBOUNCE_MS, DEBOUNCE_MAX_WAIT_MS, ROUTE_COOLDOWN_MS, MAX_REVIEWS_PER_ROUTE, CAPTURE_BACKOFF_MS, CAPTURE_MAX_RETRIES } from './feedback-trigger'
 import { widgetPresent } from './coexist'
 import { makeCaptureAwaiter } from './capture-bridge'
+import { parseMatchResponse } from './ext-match'
 
 // ── Error + network capture ring buffer (shared @klavity/core/capture, full fidelity G3) ──
 const _buffers: CaptureBuffers = { consoleErrors: [], networkFailures: [] }
@@ -597,6 +598,9 @@ document.addEventListener('klavity:widget-ready', () => {
 // ════════════════════════════════════════════════════════════════════════════
 
 let klavConfig: KlavConfig | null = null
+// Server-side match result for the current URL — populated by klavFetchServerMatch().
+// Used as a fallback in maybeActivate() when the cached config doesn't cover this URL.
+let klavApiMatchedProject: { id: string; name: string } | null = null
 let klavReviewedRoutes = new Set<string>()   // legacy compat: keeps existing usage for consent/revoke
 let klavLastUrl = location.href
 let klavIndicatorEl: HTMLElement | null = null
@@ -686,6 +690,25 @@ async function klavHasConsent(projectId: string): Promise<boolean> {
 }
 async function klavSetConsent(projectId: string, status: 'granted' | 'paused' | 'revoked'): Promise<void> {
   try { await chrome.storage.local.set({ [klavConsentKey(projectId)]: status }) } catch { /* ignore */ }
+}
+
+// Calls GET /api/extension/match?url= to discover whether the caller is a member of
+// any project whose allowlist matches `url`. Result is cached in klavApiMatchedProject
+// for the current URL context and cleared on route changes. Best-effort: any fetch
+// or parse failure silently leaves klavApiMatchedProject at its current value (null).
+async function klavFetchServerMatch(url: string): Promise<void> {
+  if (!klavConfig?.token || !klavConfig?.backendUrl) return
+  try {
+    const base = klavConfig.backendUrl.replace(/\/+$/, '')
+    const r = await fetch(
+      `${base}/api/extension/match?url=${encodeURIComponent(url)}`,
+      { headers: { authorization: `Bearer ${klavConfig.token}` } }
+    )
+    if (!r.ok) return
+    klavApiMatchedProject = parseMatchResponse(await r.json())
+  } catch {
+    // offline / server error — keep existing value (null on first call)
+  }
 }
 
 // Global Sims kill-switch (Options page). Defaults to ON: a missing/undefined flag
@@ -1037,7 +1060,17 @@ async function maybeActivate(reason: string) {
   if (document.visibilityState !== 'visible') return
 
   const url = location.href
-  const project = klavMatchProject(url)
+  let project = klavMatchProject(url)
+  // Server-match fallback: if the local cache doesn't cover this URL but the server
+  // confirmed membership, synthesize a minimal project descriptor and activate.
+  if (!project && klavApiMatchedProject) {
+    project = {
+      id: klavApiMatchedProject.id,
+      name: klavApiMatchedProject.name,
+      reviewMode: 'auto',   // optimistic; server re-gates on /api/sim/review
+      monitoredUrls: [],    // server already confirmed the URL match — no client re-check needed
+    }
+  }
   // Off-allowlist: tear down indicator and stop.
   if (!project) { klavIndicatorEl?.remove(); klavIndicatorEl = null; return }
   klavLog('active', `[Klavity] active on monitored URL (trigger: ${reason}) · project=${project.id} · ${location.pathname}`)
@@ -1242,6 +1275,10 @@ function klavOnRouteChange() {
   klavPendingLatest = null
   klavBootGuard = false  // boot guard is per-page-load only; new routes fire freely
 
+  // Reset server match for the new route and re-query asynchronously.
+  klavApiMatchedProject = null
+  void klavFetchServerMatch(location.href)
+
   // Tear down observers, re-arm on the new route's DOM (after a tick so the SPA
   // has finished rendering enough of the new route to find the content region).
   klavDisarmObservers()
@@ -1264,6 +1301,9 @@ async function klavBootstrap() {
   if (location.protocol !== 'http:' && location.protocol !== 'https:') return
   const resp = await klavSend<{ ok: boolean; config: KlavConfig | null }>({ kind: 'KLAV_GET_CONFIG' })
   klavConfig = resp?.config ?? null
+  // Server-side match: check current URL against backend allowlist before activating.
+  // Runs before maybeActivate so the fallback project is ready at boot.
+  await klavFetchServerMatch(location.href)
   // Boot review first — observers armed after so the first IO fire is suppressed.
   await maybeActivate('boot')
   // Clear boot guard so subsequent IO fires on this page-load are processed.

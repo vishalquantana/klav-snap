@@ -1847,6 +1847,33 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       return json({ email: meX, token: extToken, projects: out })
     }
 
+    // ── extension URL match (R5b) — bearer-gated real-time allowlist check.
+    // Returns the caller's accessible projects whose enabled monitored-URL patterns
+    // match the supplied url. Designed for the extension content-script: call on
+    // each page load with the ext_ token; use result to activate when the cached
+    // config is stale or hasn't yet synced.
+    // SECURITY: missing auth → 401 (no project info). Authenticated non-member →
+    // { projects: [] } — never discloses whether a project monitors the URL.
+    if (req.method === "GET" && path === "/api/extension/match") {
+      const meM = (await bearerEmail(req)) || (await sessionEmail(req))
+      if (!meM) return json({ error: "Sign in to continue." }, 401)
+      // Rate-limit: per token prefix (60/min) and per IP (120/min).
+      const tok8 = (req.headers.get("authorization") || "").slice(7, 15)
+      if (!rlAllow(`extmatch:tok:${tok8}`, 60, 60_000)) return json({ error: "rate limited" }, 429)
+      if (!rlAllow(`extmatch:ip:${clientIp(req, server)}`, 120, 60_000)) return json({ error: "rate limited" }, 429)
+      const rawUrl = url.searchParams.get("url") || ""
+      if (!rawUrl || rawUrl.length > 2048 || !/^https?:\/\//i.test(rawUrl)) {
+        return json({ projects: [] })
+      }
+      const accessible = await listProjects(meM)
+      const matched: { projectId: string; name: string }[] = []
+      for (const p of accessible) {
+        if (!(await projectAccess(meM, p.id))) continue
+        if (await matchMonitored(p.id, rawUrl)) matched.push({ projectId: p.id, name: p.name })
+      }
+      return json({ projects: matched })
+    }
+
     // ── monitoring consent (P3b) — grant / pause / revoke for the CALLER on a project. Cookie OR Bearer.
     // 'granted' = allow capture; 'paused' = user-pause (instant, reversible); 'revoked' = withdraw consent.
     // This is the per-member-per-project consent row that gate (c) requires before the first capture (§5b).
