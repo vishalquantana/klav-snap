@@ -217,6 +217,26 @@ export function buildModal(
     .kl-float-tip{position:fixed;width:228px;max-width:calc(100vw - 16px);padding:10px 12px;border-radius:10px;background:var(--kl-bg);color:var(--kl-fg);box-shadow:0 0 0 1px var(--kl-border),0 12px 30px rgba(20,16,40,.22);font-size:12px;line-height:1.45;text-align:left;text-wrap:pretty;z-index:2147483647;pointer-events:none;visibility:hidden;opacity:0;transition:opacity .15s ease;}
     .kl-float-tip.kl-show{visibility:visible;opacity:1;}
     .kl-float-tip b{color:var(--kl-fg);font-weight:600;}
+    /* ── Capture-source active/selected indicator (KLA-21) ──────────────────────────────────────
+       .kl-active is applied to whichever capture button the user most recently used successfully.
+       Uses the same accent palette and transition system as the rest of the modal so it reads as
+       "native" — no custom keyframes; the existing press→release spring on transform is enough.
+       A small CSS checkmark (rotated L-shape border) appears at the top-right corner as a clear
+       "selected" badge without adding any DOM weight. ── */
+    .klavity-actions button.kl-active{
+      position:relative;
+      color:var(--kl-accent);
+      background:color-mix(in srgb,var(--kl-accent) 12%,var(--kl-chip));
+      box-shadow:0 0 0 1.5px var(--kl-accent),0 4px 14px color-mix(in srgb,var(--kl-accent) 18%,transparent);
+    }
+    .klavity-actions button.kl-active .kl-cap-ic{color:var(--kl-accent);}
+    .klavity-actions button.kl-active::after{
+      content:"";position:absolute;top:6px;right:7px;
+      width:6px;height:4px;
+      border-left:1.5px solid var(--kl-accent);
+      border-bottom:1.5px solid var(--kl-accent);
+      transform:rotate(-45deg);
+    }
     @media (max-width:430px){.klavity-lead{flex-direction:column}.klavity-lead button{width:100%;}}
     @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing,.klavity-modal>*{animation-duration:.01ms!important;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info{transition:none;}.klavity-actions button.kl-loading{animation:none;}.klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{transition:none;transform:none!important;}}
   `
@@ -444,6 +464,12 @@ export function buildModal(
     if (on) submitBtn.disabled = true
     else refreshSubmit()
   }
+  // KLA-21: active-source indicator — moves .kl-active + aria-pressed to the chosen capture button
+  // so the user can see which source is currently selected. Call on every successful capture/ingest.
+  const setActiveCapture = (btn: HTMLButtonElement | null) => {
+    captureBtnEls().forEach(b => { b.classList.remove('kl-active'); b.removeAttribute('aria-pressed') })
+    if (btn) { btn.classList.add('kl-active'); btn.setAttribute('aria-pressed', 'true') }
+  }
 
   submitBtn.addEventListener('click', async () => {
     if (busy || submitBtn.disabled) return // re-entrancy: ignore double-clicks / clicks while a capture runs
@@ -510,7 +536,7 @@ export function buildModal(
     if (busy) return
     lockComposer(true)
     fullBtn.classList.add('kl-loading')
-    try { addScreenshot(await callbacks.onCaptureFull()) }
+    try { addScreenshot(await callbacks.onCaptureFull()); setActiveCapture(fullBtn) }
     catch { /* ignore */ }
     finally { fullBtn.classList.remove('kl-loading'); lockComposer(false) }
   })
@@ -531,7 +557,7 @@ export function buildModal(
       target.textContent = 'Capturing…'
       try {
         const shot = await callbacks.onCaptureSharp!()
-        if (shot) addScreenshot(shot)
+        if (shot) { addScreenshot(shot); setActiveCapture(sharpBtn) }
       } catch { /* user cancelled the share prompt, or capture failed — just restore */ }
       finally { host.style.display = ''; target.textContent = orig; lockComposer(false) }
     }
@@ -546,7 +572,8 @@ export function buildModal(
     }
   }
   const fileInput = modal.querySelector('#klavity-file') as HTMLInputElement
-  modal.querySelector('#klavity-upload')!.addEventListener('click', () => {
+  const uploadBtn = modal.querySelector('#klavity-upload') as HTMLButtonElement
+  uploadBtn.addEventListener('click', () => {
     if (busy || screenshots.length >= MAX_IMAGES) {
       if (screenshots.length >= MAX_IMAGES) showError(`You can attach up to ${MAX_IMAGES} images.`)
       return
@@ -557,7 +584,11 @@ export function buildModal(
     const input = e.target as HTMLInputElement
     const files = input.files ? Array.from(input.files) : []
     input.value = '' // reset so re-selecting the SAME file fires change again (and clears stuck state)
-    if (files.length) await ingestFiles(files) // ingestFiles enforces cap + type + size + failure handling
+    if (files.length) {
+      const before = screenshots.length
+      await ingestFiles(files) // ingestFiles enforces cap + type + size + failure handling
+      if (screenshots.length > before) setActiveCapture(uploadBtn) // at least one file was accepted
+    }
   })
 
   // Region capture button — only rendered when the host provides onRegionCapture
@@ -576,7 +607,7 @@ export function buildModal(
         document.addEventListener('keydown', escHandler, { capture: true })
         try {
           const shot = await callbacks.onRegionCapture!(rect)
-          if (shot) addScreenshot(shot)
+          if (shot) { addScreenshot(shot); setActiveCapture(regionBtn) }
         } finally {
           host.style.display = ''
           lockComposer(false)
