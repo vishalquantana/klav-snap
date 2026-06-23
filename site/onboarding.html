@@ -64,8 +64,8 @@ a{color:inherit;text-decoration:none}
 .panel{max-width:560px;width:100%}
 .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--indigo);margin-bottom:16px}
 .kicker.amber{color:var(--amber)}
-.panel h1{font-family:var(--display);font-weight:450;font-size:clamp(30px,4vw,44px);line-height:1.08;letter-spacing:-.02em;margin-bottom:14px}
-.panel h1 em{font-style:italic;color:var(--amber)}
+.panel h1, .panel h2{font-family:var(--display);font-weight:450;font-size:clamp(30px,4vw,44px);line-height:1.08;letter-spacing:-.02em;margin-bottom:14px}
+.panel h1 em, .panel h2 em{font-style:italic;color:var(--amber)}
 .panel .sub{font-size:17px;color:var(--paper-dim);margin-bottom:30px;line-height:1.55}
 label.fld{display:block;margin-bottom:18px}
 label.fld .lt{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:7px;display:block}
@@ -167,7 +167,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 <body>
 <div class="shell norail" id="shell">
   <aside class="rail" id="rail">
-    <a class="brand" href="index.html"><img src="/favicon.svg" width="30" height="30" alt="Klavity" style="border-radius:9px;display:block" />Klavity</a>
+    <a class="brand" href="index.html"><img src="/favicon.svg" width="30" height="30" alt="" style="border-radius:9px;display:block" />Klavity</a>
     <ul class="steps">
       <li class="rstep" data-r="1"><span class="ix">1</span><div class="rl">Create your project</div></li>
       <li class="rstep" data-r="2"><span class="ix">2</span><div class="rl">Point Sims at your product</div></li>
@@ -198,7 +198,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <!-- 1a: signup form -->
           <div id="s1form">
             <div class="kicker">Step 1 of 3</div>
-            <h1>Create your <em>project.</em></h1>
+            <h2>Create your <em>project.</em></h2>
             <p class="sub">A project is one product — its Sims, the pages they watch, and the tickets they file. You can add more projects later. Magic-link sign-in, no password.</p>
             <label class="fld"><span class="lt">Work email</span><input class="in" id="email" type="email" placeholder="you@acme.com" autocomplete="email" /></label>
             <label class="fld"><span class="lt">Project name</span><input class="in" id="projectName" placeholder="Acme Billing" /></label>
@@ -209,7 +209,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <!-- 1b: code entry -->
           <div id="s1code" class="hide">
             <div class="kicker">Step 1 of 3 · check your email</div>
-            <h1>Enter your <em>6-digit code.</em></h1>
+            <h2>Enter your <em>6-digit code.</em></h2>
             <p class="sub">We emailed a sign-in code to <b id="codeEmail">you</b>. Pop it in below to finish creating your project.</p>
             <label class="fld"><span class="lt">6-digit code</span><input class="in code" id="code" inputmode="numeric" maxlength="6" placeholder="••••••" /></label>
             <div class="row"><button class="btn btn-indigo" id="verifyBtn" onclick="verifyCode()">Verify &amp; create →</button><span class="skip" onclick="backToEmail()">Use a different email</span></div>
@@ -225,10 +225,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="content" style="padding:60px clamp(28px,6vw,90px)">
         <div class="panel">
           <div class="kicker amber">Step 2 of 3 · where Sims watch</div>
-          <h1>Where should your Sims <em>watch?</em></h1>
+          <h2>Where should your Sims <em>watch?</em></h2>
           <p class="sub">Add your product's URL. When you — or a teammate with the extension — open it, your Sims jump out and comment in-character, live on the real page. Every reaction is one click from a ticket.</p>
           <div class="urlrow">
-            <input class="in" id="urlInput" placeholder="app.acme.com/*" onkeydown="if(event.key==='Enter')addUrl()" />
+            <input class="in" id="urlInput" aria-label="Product URL to watch" placeholder="app.acme.com/*" onkeydown="if(event.key==='Enter')addUrl()" />
             <button class="btn btn-ghost" onclick="addUrl()">Add</button>
           </div>
           <div style="font-family:var(--mono);font-size:11px;color:var(--paper-faint);line-height:1.5;margin-bottom:12px">Tip: end a path with <code>/*</code> to cover every page beneath it — e.g. <code>app.acme.com/*</code>. We drop <code>https://</code> and anything after <code>?</code> for you.</div>
@@ -256,7 +256,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="content" style="padding:60px clamp(28px,6vw,90px)">
         <div class="panel">
           <div class="kicker">Step 3 of 3 · bring your customers in</div>
-          <h1>Who should <em>review it?</em></h1>
+          <h2>Who should <em>review it?</em></h2>
           <p class="sub">Start from a real customer call, or drop in a ready-made review team if you don't have a transcript yet. Either way, you'll meet them in the Studio next.</p>
           <div class="tiles">
             <div class="tile sel" id="intentTranscript" onclick="pickIntent('transcript')"><div class="ti"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /> <path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></svg></div><h3>From a customer call</h3><p>Upload a transcript (Zoom / Meet / Loom). We turn each speaker into a Sim, grounded in their exact words.</p></div>

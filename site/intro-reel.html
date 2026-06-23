@@ -109,7 +109,7 @@ body{background:#211c17;color:var(--paper);font-family:var(--body);min-height:10
 .prod .bar2{display:flex;gap:6px;align-items:center;padding:9px 13px;border-bottom:1px solid var(--line);background:var(--ink-3)}
 .prod .d{width:9px;height:9px;border-radius:50%}.prod .u{margin-left:9px;font-family:var(--mono);font-size:10px;color:#9a8f7d}
 .prod .body{padding:18px}
-.prod h3{font-family:var(--display);font-weight:600;font-size:18px;margin-bottom:3px}
+.prod .prod-h{font-family:var(--display);font-weight:600;font-size:18px;margin-bottom:3px}
 .prod .sub{font-size:11px;color:var(--paper-faint);margin-bottom:13px}
 .kpis{display:flex;gap:10px;margin-bottom:13px}
 .kpi{flex:1;background:var(--ink-3);border-radius:9px;padding:9px 11px}
@@ -157,7 +157,7 @@ body{background:#211c17;color:var(--paper);font-family:var(--body);min-height:10
 .ticket .tk-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .ticket .key{font-family:var(--mono);font-size:10px;color:#fff;background:var(--indigo);padding:3px 8px;border-radius:5px}
 .ticket .trk{font-family:var(--mono);font-size:10px;color:var(--paper-faint);margin-left:auto}
-.ticket h4{font-family:var(--display);font-weight:600;font-size:16px;margin-bottom:8px}
+.ticket .ticket-h{font-family:var(--display);font-weight:600;font-size:16px;margin-bottom:8px}
 .ticket .cite{font-size:11.5px;color:var(--paper-dim);border-left:2px solid var(--indigo);padding-left:9px;line-height:1.45}
 .ticket .cite i{font-family:var(--display);color:var(--paper)}
 .ticket .meta{display:flex;gap:8px;margin-top:11px}
@@ -197,6 +197,7 @@ html.embed,html.embed body{height:100%;margin:0}
 html.embed body{padding:0;gap:0;display:block;background:#efeae0}
 html.embed .title,html.embed .controls,html.embed .note{display:none}
 html.embed .reel{width:100%;height:100%;max-width:none;aspect-ratio:auto;border-radius:0;box-shadow:none}
+button:focus-visible, a:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
 </style>
 </head>
 <body>
@@ -241,7 +242,7 @@ html.embed .reel{width:100%;height:100%;max-width:none;aspect-ratio:auto;border-
     <div class="prod">
       <div class="bar2"><span class="d" style="background:#ff6058"></span><span class="d" style="background:#ffbd2e"></span><span class="d" style="background:#28c840"></span><span class="u">app.acme.com/finance</span></div>
       <div class="body">
-        <h3>Q2 Revenue Overview</h3><div class="sub">apr–jun 2026 · updated 2h ago</div>
+        <div class="prod-h">Q2 Revenue Overview</div><div class="sub">apr–jun 2026 · updated 2h ago</div>
         <div class="kpis">
           <div class="kpi"><div class="kl">Revenue</div><div class="kv">$2.4M</div></div>
           <div class="kpi"><div class="kl">Pending</div><div class="kv">14</div></div>
@@ -270,7 +271,7 @@ html.embed .reel{width:100%;height:100%;max-width:none;aspect-ratio:auto;border-
     <div class="flyarrow">→</div>
     <div class="ticket">
       <div class="tk-top"><span class="key">KS-128</span><span class="trk">▦ Plane · filed</span></div>
-      <h4>Sort approvals by urgency (overdue first)</h4>
+      <div class="ticket-h">Sort approvals by urgency (overdue first)</div>
       <div class="cite">From: <i>"These aren't sorted by urgency — I can't see what's overdue at a glance."</i> — Sarah Chen, CFO</div>
       <div class="meta"><div class="shot"></div><span class="ms">screenshot + page attached</span></div>
     </div>
