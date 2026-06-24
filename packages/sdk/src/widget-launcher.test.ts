@@ -57,6 +57,7 @@ const HOST_ID = "klavity-widget-host"
 // The modalConfig the mocked /config endpoint will return. Tests mutate this
 // before calling mountWith().
 let nextModalConfig: Record<string, unknown> = {}
+let nextWidgetSims: Array<{ id: string; name: string; initials?: string; accent?: string }> = []
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -76,6 +77,9 @@ function installFetchStub() {
         modalConfig: nextModalConfig,
         widget: { mode: "support", ctaUrl: "https://cta.test", reportGate: "anonymous" },
       })
+    }
+    if (url.includes("/api/widget/sims")) {
+      return jsonResponse({ sims: nextWidgetSims })
     }
     // heartbeat ping + any stray call → blank ok
     return jsonResponse({ ok: true })
@@ -117,6 +121,7 @@ beforeEach(() => {
     clear: () => { storage.clear() },
   })
   nextModalConfig = {}
+  nextWidgetSims = []
   SimsLive.onTriage = null
   vi.mocked(parseScriptConfig).mockReturnValue({ projectId: "", backendUrl: "" })
 })
@@ -127,6 +132,28 @@ function activeComposerShadow(): ShadowRoot {
     if (shadow?.getElementById("klavity-desc")) return shadow
   }
   throw new Error("composer shadow root not found")
+}
+
+async function openContextMenu(): Promise<HTMLElement> {
+  document.body.dispatchEvent(new MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+    clientX: 40,
+    clientY: 40,
+  }))
+  await Promise.resolve()
+  await Promise.resolve()
+  const menu = host().shadowRoot.querySelector(".klm-menu") as HTMLElement | null
+  if (!menu) throw new Error("context menu not found")
+  return menu
+}
+
+async function waitUntil(fn: () => boolean, timeoutMs = 500): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (!fn()) {
+    if (Date.now() > deadline) throw new Error("timed out waiting for condition")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
 }
 
 // ── 1. launcherMode === 'hidden' → no visible launcher ────────────────────────
@@ -185,6 +212,32 @@ describe("widget Sims dock consolidation", () => {
 
     document.dispatchEvent(new CustomEvent("klavity:sims-live", { detail: { active: false } }))
     expect(h.style.bottom).toBe("18px")
+  })
+
+  it("does not reserve a blank Sims header row when the project has no Sims", async () => {
+    await mountWith({ launcherMode: "full" })
+    const menu = await openContextMenu()
+    const simsRow = menu.querySelector(".klm-sims-row") as HTMLElement
+
+    expect(simsRow).toBeTruthy()
+    expect(simsRow.style.display).toBe("none")
+    const firstVisible = Array.from(menu.children).find((el) => getComputedStyle(el).display !== "none") as HTMLElement
+    expect(firstVisible.classList.contains("klm-card")).toBe(true)
+  })
+
+  it("renders context-menu Sim chips as circles when Sims are available", async () => {
+    nextWidgetSims = [
+      { id: "sim_one", name: "Sarah Chen", initials: "SC", accent: "#6366f1" },
+      { id: "sim_two", name: "Devon Moore", initials: "DM", accent: "#ef4444" },
+    ]
+    await mountWith({ launcherMode: "full" })
+    const menu = await openContextMenu()
+    await waitUntil(() => !!menu.querySelector(".klm-sim-chip"))
+    const chip = menu.querySelector(".klm-sim-chip") as HTMLElement
+
+    expect(chip).toBeTruthy()
+    expect(host().shadowRoot.textContent).toContain(".klm-sim-chip{width:24px;height:24px;border-radius:50%")
+    expect((menu.querySelector(".klm-sims-row") as HTMLElement).style.display).toBe("flex")
   })
 })
 
