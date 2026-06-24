@@ -140,7 +140,7 @@ function reactionNodeCount(): number {
   if (typeof document === 'undefined') return 0
   const dockHost = document.getElementById('klav-sims-live')
   const shadowCount = dockHost?.shadowRoot?.querySelectorAll('.ksl-slot,.ksl-bubble').length ?? 0
-  return shadowCount + document.querySelectorAll('#klav-sims-overlay,.klav-halo,.klav-pin,.klav-walker').length
+  return shadowCount + document.querySelectorAll('#klav-sims-overlay,.klav-halo,.klav-pin,.klav-pin-marker,.klav-walker').length
 }
 
 export interface SimsWatchOptions {

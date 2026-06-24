@@ -49,7 +49,7 @@ async function settleWalk(): Promise<void> {
 }
 
 async function settleMarkers(): Promise<HTMLElement[]> {
-  await vi.advanceTimersByTimeAsync(250)
+  await vi.advanceTimersByTimeAsync(1900)
   return Array.from(document.querySelectorAll(".klav-pin-marker")) as HTMLElement[]
 }
 
@@ -156,6 +156,15 @@ describe("SimsLive walk + outline choreography", () => {
 
     const markers = await settleMarkers()
     expect(markers).toHaveLength(2)
+    const counter = dockShadow()?.querySelector(".ksl-more-counter") as HTMLButtonElement
+    expect(counter.textContent).toBe("+2 more")
+    counter.click()
+    await settleWalk()
+    expect(document.querySelectorAll(".klav-pin")).toHaveLength(1)
+    expect(counter.textContent).toBe("+1 more")
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    await vi.advanceTimersByTimeAsync(260)
+
     markers[0].click()
     await settleWalk()
     expect(document.querySelectorAll(".klav-pin")).toHaveLength(1)
@@ -201,6 +210,41 @@ describe("SimsLive walk + outline choreography", () => {
     await vi.advanceTimersByTimeAsync(260)
     expect(document.querySelector(".klav-pin")).toBeNull()
     expect(document.querySelector(".klav-halo")).toBeNull()
+  })
+
+  it("queues offscreen observations and reveals their pins when the target enters the viewport", async () => {
+    const target = makeTarget()
+    setRect(target, rect(120, 1000, 240, 90))
+    let ioCallback: IntersectionObserverCallback | null = null
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+    vi.stubGlobal("IntersectionObserver", vi.fn((cb: IntersectionObserverCallback) => {
+      ioCallback = cb
+      return { observe, disconnect, unobserve: vi.fn(), takeRecords: vi.fn(() => []) }
+    }))
+
+    SimsLive.deploy("all", [SIM])
+    SimsLive.renderFeedback(SIM.id, SIM.name, [{
+      text: "The checkout button feels blocked.",
+      sentiment: "blocked",
+      region: { x: 120 / 1280, y: 150 / 720, w: 240 / 1280, h: 90 / 720 },
+      targetViewport: { scrollX: 0, scrollY: 0, width: 1280, height: 720 },
+    }])
+
+    await vi.advanceTimersByTimeAsync(250)
+    expect(document.querySelector(".klav-pin-marker")).toBeNull()
+    const counter = dockShadow()?.querySelector(".ksl-more-counter") as HTMLButtonElement
+    expect(counter.textContent).toBe("+1 more")
+    expect(observe).toHaveBeenCalledWith(target)
+
+    setRect(target, rect(120, 150, 240, 90))
+    ioCallback?.([{ isIntersecting: true, intersectionRatio: 0.6, target } as IntersectionObserverEntry], {} as IntersectionObserver)
+    await vi.advanceTimersByTimeAsync(1700)
+
+    expect(disconnect).toHaveBeenCalled()
+    expect(document.querySelectorAll(".klav-pin-marker")).toHaveLength(1)
+    expect(document.querySelector(".klav-pin")).toBeNull()
+    expect(counter.textContent).toBe("+1 more")
   })
 
   it("undeploy removes queued walkers, halos, expanded bubbles, and markers", async () => {

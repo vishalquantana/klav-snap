@@ -123,13 +123,25 @@ interface Annotation {
   markerCleanup: (() => void) | null
   chromeCleanup: (() => void) | null
 }
+
+interface PendingAnnotation {
+  id: string
+  slot: SimSlot
+  obs: LiveObservation
+  targetEl: HTMLElement
+  cleanup: (() => void) | null
+  revealed: boolean
+}
+
 /** Active page annotations keyed by a unique annotation id. */
 const annotations = new Map<string, Annotation>()
+const pendingAnnotations = new Map<string, PendingAnnotation>()
 let annotationSeq = 0
 let focusedAnnotationId: string | null = null
 let walkQueueIndex = 0
 let walkQueueResetTimer: ReturnType<typeof setTimeout> | null = null
 const walkQueueTimers = new Set<ReturnType<typeof setTimeout>>()
+let moreCounterEl: HTMLButtonElement | null = null
 
 // ── Dock CSS (shadow DOM) ─────────────────────────────────────────────────────
 
@@ -281,6 +293,31 @@ const DOCK_CSS = `
   .ksl-dock:hover .ksl-close-all { opacity:1; }
   .ksl-close-all:hover { color:#f5f3ee; background:#2a2218; }
   .ksl-close-all:focus-visible { opacity:1; outline:2px solid #8b5cf6; outline-offset:2px; }
+
+  .ksl-more-counter {
+    min-width: 42px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid rgba(139,92,246,.38);
+    background: rgba(22,17,12,.92);
+    color: #c4b5fd;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    font: 700 11px/1 ui-monospace,'JetBrains Mono',monospace;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 10px 28px rgba(0,0,0,.34), 0 0 0 4px rgba(139,92,246,.12);
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+  }
+  .ksl-more-counter:hover {
+    transform: translateY(-1px) scale(1.04);
+    background: rgba(139,92,246,.2);
+    border-color: rgba(139,92,246,.62);
+  }
+  .ksl-more-counter:active { transform: scale(.97); }
+  .ksl-more-counter:focus-visible { outline:2px solid #8b5cf6; outline-offset:2px; }
 
   @media (max-width:480px) {
     .ksl-dock { max-width:calc(100vw - 24px); gap:7px; }
@@ -786,6 +823,13 @@ function deploy(
   closeAll.innerHTML = icon('x', { size: 12 }); closeAll.addEventListener('click', undeploy)
   dockEl.appendChild(closeAll)
 
+  moreCounterEl = document.createElement('button')
+  moreCounterEl.type = 'button'
+  moreCounterEl.className = 'ksl-more-counter'
+  moreCounterEl.setAttribute('aria-label', 'Show more Sim observations')
+  moreCounterEl.addEventListener('click', () => { void cycleMoreObservation() })
+  dockEl.appendChild(moreCounterEl)
+
   const visible = simIds === 'all' ? sims : sims.filter(s => (simIds as string[]).includes(s.id))
 
   if (!visible.length) {
@@ -885,6 +929,37 @@ function updateAnnotationFocusClasses(): void {
     ann.marker.classList.toggle('is-dim', dim)
     ann.slot.avatarEl.classList.toggle('ksl-focus', active)
   })
+  updateDockCounter()
+}
+
+function updateDockCounter(): void {
+  if (!moreCounterEl) return
+  const expandedCount = focusedAnnotationId ? 1 : 0
+  const count = Math.max(0, annotations.size - expandedCount) + pendingAnnotations.size
+  moreCounterEl.style.display = count > 0 ? 'inline-flex' : 'none'
+  moreCounterEl.textContent = `+${count} more`
+  moreCounterEl.setAttribute('aria-label', `${count} more Sim observation${count === 1 ? '' : 's'}`)
+}
+
+async function cycleMoreObservation(): Promise<void> {
+  const ids = Array.from(annotations.keys())
+  const start = focusedAnnotationId ? Math.max(0, ids.indexOf(focusedAnnotationId) + 1) : 0
+  const ordered = ids.slice(start).concat(ids.slice(0, start))
+  const next = ordered.find((id) => id !== focusedAnnotationId)
+  if (next) {
+    await focusAnnotation(next)
+    return
+  }
+
+  const pending = pendingAnnotations.values().next().value as PendingAnnotation | undefined
+  if (!pending) return
+  const rect = pending.targetEl.getBoundingClientRect()
+  await scrollDocumentPointIntoView(
+    rect.left + rect.width / 2 + window.scrollX,
+    rect.top + rect.height / 2 + window.scrollY,
+  )
+  const revealedId = await revealPendingAnnotation(pending.id)
+  if (revealedId) await focusAnnotation(revealedId)
 }
 
 function removeFocusedChrome(ann: Annotation, immediate = false): void {
@@ -928,6 +1003,7 @@ function isAnnotationEventPath(e: Event): boolean {
       item.classList?.contains('klav-pin') ||
       item.classList?.contains('klav-pin-triage') ||
       item.classList?.contains('klav-pin-dismiss') ||
+      item.classList?.contains('ksl-more-counter') ||
       item.classList?.contains('ksl-slot') ||
       item.classList?.contains('ksim')
   })
@@ -1074,7 +1150,7 @@ function focusFirstAnnotationForSlot(simId: string): void {
   if (first) void focusAnnotation(first)
 }
 
-function createCollapsedAnnotation(slot: SimSlot, obs: LiveObservation, targetEl: HTMLElement): void {
+function createCollapsedAnnotation(slot: SimSlot, obs: LiveObservation, targetEl: HTMLElement): string {
   const ov = ensureOverlay()
   const annotationId = `ann_${slot.simId}_${++annotationSeq}`
   const marker = document.createElement('button')
@@ -1114,6 +1190,59 @@ function createCollapsedAnnotation(slot: SimSlot, obs: LiveObservation, targetEl
   slot.annotationIds.add(annotationId)
   slot.avatarEl.classList.add('ksl-has-annotation')
   updateAnnotationFocusClasses()
+  return annotationId
+}
+
+async function revealPendingAnnotation(pendingId: string): Promise<string | null> {
+  const pending = pendingAnnotations.get(pendingId)
+  if (!pending || pending.revealed) return null
+  pending.revealed = true
+  pending.cleanup?.()
+  pending.cleanup = null
+  pendingAnnotations.delete(pendingId)
+  updateDockCounter()
+
+  if (!simSlots.has(pending.slot.simId)) return null
+  const rect = visibleElementRect(pending.targetEl)
+  if (rect && !prefersReducedMotion()) {
+    const destX = Math.max(8, Math.min(window.innerWidth - 60, rect.left + rect.width * .1 - 21))
+    const destY = Math.min(window.innerHeight - 80, rect.bottom - 58)
+    await spawnWalker(pending.slot, destX, destY)
+  }
+  if (!simSlots.has(pending.slot.simId)) return null
+  return createCollapsedAnnotation(pending.slot, pending.obs, pending.targetEl)
+}
+
+function queueScrollReveal(slot: SimSlot, obs: LiveObservation, targetEl: HTMLElement): void {
+  const pendingId = `pending_${slot.simId}_${++annotationSeq}`
+  const pending: PendingAnnotation = { id: pendingId, slot, obs, targetEl, cleanup: null, revealed: false }
+  pendingAnnotations.set(pendingId, pending)
+  slot.avatarEl.classList.add('ksl-has-annotation')
+  updateDockCounter()
+
+  if (visibleElementRect(targetEl)) {
+    void revealPendingAnnotation(pendingId)
+    return
+  }
+
+  if (typeof IntersectionObserver !== 'undefined') {
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+        void revealPendingAnnotation(pendingId)
+      }
+    }, { threshold: 0.1 })
+    io.observe(targetEl)
+    pending.cleanup = () => io.disconnect()
+    return
+  }
+
+  const ctrl = new AbortController()
+  const onScrollOrResize = () => {
+    if (visibleElementRect(targetEl)) void revealPendingAnnotation(pendingId)
+  }
+  window.addEventListener('scroll', onScrollOrResize, { passive: true, signal: ctrl.signal })
+  window.addEventListener('resize', onScrollOrResize, { signal: ctrl.signal })
+  pending.cleanup = () => ctrl.abort()
 }
 
 function enqueueAnnotation(slot: SimSlot, obs: LiveObservation): void {
@@ -1128,7 +1257,7 @@ function enqueueAnnotation(slot: SimSlot, obs: LiveObservation): void {
     walkQueueTimers.delete(timer)
     void resolveObservationTarget(obs, { scroll: false }).then((targetEl) => {
       if (!simSlots.has(slot.simId)) return
-      if (targetEl) createCollapsedAnnotation(slot, obs, targetEl)
+      if (targetEl) queueScrollReveal(slot, obs, targetEl)
       else showHuddleBubble(slot, [obs])
     })
   }, delay)
@@ -1250,6 +1379,9 @@ function undeploy(): void {
   walkQueueTimers.forEach((timer) => clearTimeout(timer))
   walkQueueTimers.clear()
   walkQueueIndex = 0
+  pendingAnnotations.forEach((pending) => pending.cleanup?.())
+  pendingAnnotations.clear()
+  moreCounterEl = null
 
   // 3. Remove all in-transit walkers immediately
   walkers.forEach(w => w.remove()); walkers.clear()
