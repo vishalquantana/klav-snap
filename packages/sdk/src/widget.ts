@@ -490,7 +490,7 @@ async function mount() {
       // Sim icons row at the top of the menu
       ".klm-sims-row{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 4px;gap:6px;min-height:30px}" +
       ".klm-sims-chips{display:flex;align-items:center;gap:0}" +
-      ".klm-sim-chip{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;border:1.5px solid rgba(255,255,255,.65);margin-left:-3px}" +
+      ".klm-sim-chip{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;border:1.5px solid rgba(255,255,255,.65);margin-left:-3px}" +
       ".klm-sims-chips .klm-sim-chip:first-child{margin-left:0}" +
       ".klm-issue-pill{font-size:10px;font-weight:650;color:#ef4444;background:rgba(239,68,68,.1);border-radius:20px;padding:2px 7px;white-space:nowrap;margin-left:auto}" +
       ".klm-sims-label{font-size:10.5px;color:#9a93a6;margin-left:6px;white-space:nowrap}" +
@@ -551,6 +551,7 @@ async function mount() {
     // ── Sim icons row: shows deployed Sims (or available Sims fetched async) + issue count ──
     const simsRow = document.createElement("div")
     simsRow.className = "klm-sims-row"
+    simsRow.style.display = "none"
     const simsChips = document.createElement("div")
     simsChips.className = "klm-sims-chips"
     simsRow.appendChild(simsChips)
@@ -561,6 +562,9 @@ async function mount() {
       simsRow.appendChild(pill)
     }
     menu.appendChild(simsRow)
+    function syncSimsRow() {
+      simsRow.style.display = simsChips.children.length > 0 || _issueCount > 0 ? "flex" : "none"
+    }
     function renderSimChips(sims: Array<{ id: string; name: string; initials?: string; accent?: string }>) {
       simsChips.innerHTML = ""
       sims.slice(0, 6).forEach((s, i) => {
@@ -579,7 +583,9 @@ async function mount() {
         lbl.textContent = sims.length + " Sim" + (sims.length > 1 ? "s" : "")
         simsChips.after(lbl)
       }
+      syncSimsRow()
     }
+    syncSimsRow()
     if (_deployedSims.length > 0) {
       renderSimChips(_deployedSims)
     } else {
