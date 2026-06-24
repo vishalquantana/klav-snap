@@ -1,5 +1,5 @@
 // packages/sdk/src/widget.ts
-import { createSim, injectSimStyles, emotionFromSentiment } from "@klavity/core/sim"
+import { injectSimStyles } from "@klavity/core/sim"
 import { safeToPng } from "./capture"
 import { buildModal, installRegionDrag, type ModalController } from "@klavity/core/modal"
 import { cropDataUrl, type Rect } from "@klavity/core/crop"
@@ -7,7 +7,7 @@ import { planScrollStitch, clampCaptureHeight } from "./sharp-capture"
 import { type CaptureBuffers } from "@klavity/core/capture"
 import { installCaptureContext, buildCaptureContext } from "./capture-context"
 import type { ReportContext, ReportIdentity } from "@klavity/core"
-import { parseScriptConfig, gateMessage, isFirstParty, buildFeedbackForm, successCopy, compressScreenshot } from "./widget-lib"
+import { parseScriptConfig, isFirstParty, buildFeedbackForm, successCopy, compressScreenshot } from "./widget-lib"
 import { icon } from "@klavity/core/icons"
 import { createSessionReplay, type SessionReplay } from "./session-replay"
 import { on, emit } from "./events"
@@ -28,8 +28,6 @@ function reactionNodeCount(): number {
   return shadowCount + document.querySelectorAll("#klav-sims-overlay,.klav-halo,.klav-pin,.klav-pin-marker,.klav-walker").length
 }
 
-type Persona = { id: string; name: string; initials?: string; accent?: string }
-
 function currentScript(): HTMLScriptElement {
   return (document.currentScript as HTMLScriptElement)
     || (document.querySelector('script[src*="widget.js"]') as HTMLScriptElement)
@@ -37,7 +35,6 @@ function currentScript(): HTMLScriptElement {
 
 function getToken(): string { try { return localStorage.getItem(TOKEN_KEY) || "" } catch { return "" } }
 function setToken(t: string) { try { localStorage.setItem(TOKEN_KEY, t) } catch {} }
-function clearToken() { try { localStorage.removeItem(TOKEN_KEY) } catch {} }
 
 // ── Dev-tools capture (G2) + custom metadata (G5) ──
 // Shared full-fidelity capture buffers, plus site-owner identity/metadata that can be set either via
@@ -222,14 +219,26 @@ async function mount() {
   document.body.appendChild(host)
   const root = host.attachShadow({ mode: "open" })
   injectSimStyles(root)
+  const chrome = document.createElement("div")
+  chrome.style.cssText = "display:flex;flex-direction:column;align-items:flex-end;gap:8px;font-family:system-ui,sans-serif"
+  root.appendChild(chrome)
   const dock = document.createElement("div")
-  dock.style.cssText = "display:flex;align-items:flex-end;gap:10px;font-family:system-ui,sans-serif"
-  root.appendChild(dock)
+  dock.style.cssText = "display:flex;flex-direction:column;align-items:flex-end;gap:8px;font-family:system-ui,sans-serif"
+  chrome.appendChild(dock)
 
-  // Report launcher lives in its own element so Sims rendering (dock.innerHTML = "") never clobbers it.
+  // Report launcher is separate from the SimsLive dock. When the live Sims dock appears,
+  // this host lifts itself above it so the two bottom-right controls do not overlap.
   const reportDock = document.createElement("div")
-  reportDock.style.cssText = "display:flex;align-items:flex-end;gap:10px;font-family:system-ui,sans-serif;margin-bottom:8px"
-  root.appendChild(reportDock)
+  reportDock.style.cssText = "display:flex;align-items:flex-end;gap:10px;font-family:system-ui,sans-serif"
+  chrome.appendChild(reportDock)
+
+  const setLiveDockActive = (active: boolean) => {
+    host.style.bottom = active ? "86px" : "18px"
+  }
+  const onLiveDock = (event: Event) => {
+    setLiveDockActive(Boolean((event as CustomEvent<{ active?: boolean }>).detail?.active))
+  }
+  document.addEventListener("klavity:sims-live", onLiveDock)
 
   // Announce widget presence so the extension can yield (Task 3 handshake).
   document.dispatchEvent(new CustomEvent("klavity:widget-ready"))
@@ -653,10 +662,6 @@ async function mount() {
     }
     menu.appendChild(card("zap", "Report a Bug", "Snap the page and tell us what broke.", { primary: true, onClick: () => openReport("bug") }))
     menu.appendChild(card("lightbulb", "Request a Feature", "Suggest something you'd love to see.", { onClick: () => openReport("feature") }))
-    // Sims live review — only shown to authenticated team members (token present).
-    if (getToken()) {
-      menu.appendChild(card("dna", "Ask Sims to review this", "Get instant in-character reactions from your AI personas.", { onClick: () => void runReview() }))
-    }
     menu.appendChild(card("users", "Deploy all Sims", "Have every Sim jump in and analyze this page.", { onClick: () => { closeMenu(); void deployAndWatch("all") } }))
     menu.appendChild(card("sparkles", "Select Sims…", "Choose which Sims jump into action.", { onClick: () => { void showSimPicker() } }))
     menu.appendChild(card("monitor", "Browser menu", "", { muted: true, hint: "⇧ right-click", onClick: () => { nativePending = true; showNativeHint(x, y) } }))
@@ -737,14 +742,6 @@ async function mount() {
       dock.appendChild(el) }
     el.textContent = text
     setTimeout(() => { if (el && el.textContent === text) el.remove() }, 6000)
-  }
-
-  async function api(pathName: string, opts: RequestInit = {}) {
-    const r = await fetch(cfg.backendUrl + pathName, {
-      ...opts,
-      headers: { ...(opts.headers || {}), authorization: "Bearer " + getToken() },
-    })
-    return r
   }
 
   // Deploy the named Sims (or "all") + boot the watch engine + fire an IMMEDIATE review.
@@ -851,97 +848,14 @@ async function mount() {
         setToken(ev.data.token)
         window.removeEventListener("message", onMsg)
         try { w && w.close() } catch {}
-        loadSims()
       }
     }
     window.addEventListener("message", onMsg)
   }
 
-  async function loadSims() {
-    const r = await api("/api/personas?project=" + encodeURIComponent(cfg.projectId))
-    if (r.status === 401) { clearToken(); dock.innerHTML = ""; return }  // token expired → drop the Sims dock; never show a bare Connect CTA
-    if (!r.ok) { banner("Couldn't load your Sims."); return }
-    const j = await r.json()
-    renderDock((j.personas || []) as Persona[])
-  }
-
-  function renderDock(personas: Persona[]) {
-    dock.innerHTML = ""
-    const col = document.createElement("div")
-    col.style.cssText = "display:flex;flex-direction:column;align-items:flex-end;gap:8px"
-    const btn = document.createElement("button")
-    btn.textContent = "Have your Sims review this page"
-    btn.style.cssText = "border:0;border-radius:999px;padding:9px 14px;background:#d98324;color:#fff;font-weight:600;font-size:12.5px;cursor:pointer;box-shadow:0 8px 24px rgba(217,131,36,.3)"
-    btn.onclick = () => runReview(btn)
-    const avatars = document.createElement("div")
-    avatars.style.cssText = "display:flex;gap:-6px"
-    for (const p of personas.slice(0, 5)) {
-      const s = createSim({ name: p.name, initials: p.initials, color: p.accent || "#6366f1", size: 34, legs: false, animate: false })
-      s.style.marginLeft = "-6px"
-      avatars.appendChild(s)
-    }
-    col.appendChild(avatars); col.appendChild(btn); dock.appendChild(col)
-  }
-
-  async function runReview(btn: HTMLButtonElement) {
-    btn.disabled = true; const orig = btn.textContent; btn.textContent = "Capturing…"
-    let shot = ""
-    try {
-      shot = await safeToPng(document.body, { filter: (node) => (node as HTMLElement).id !== HOST_ID })
-    } catch { banner("Couldn't capture the page."); btn.disabled = false; btn.textContent = orig; return }
-    btn.textContent = "Reviewing…"
-    let r = await api("/api/sim/review", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ projectId: cfg.projectId, url: location.href, domSig: null, screenshotDataUrl: shot }) })
-    let j = await r.json().catch(() => ({}))
-    // Auto-grant consent once, then retry — the widget user is an authenticated team member.
-    if (!j.ok && j.reason === "needsConsent") {
-      await api("/api/consent", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: cfg.projectId, status: "granted" }) })
-      r = await api("/api/sim/review", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: cfg.projectId, url: location.href, domSig: null, screenshotDataUrl: shot }) })
-      j = await r.json().catch(() => ({}))
-    }
-    btn.disabled = false; btn.textContent = orig
-    if (r.status === 401) { clearToken(); dock.innerHTML = ""; return }  // token expired → drop the Sims dock; never show a bare Connect CTA
-    if (!j.ok) { banner(gateMessage(j.reason || "")); return }
-    for (const rev of (j.reviews || [])) for (const re of (rev.observations || [])) {
-      renderBubble(rev.simName, rev.accent || "#6366f1", re.observation ?? re.text, re.sentiment)
-    }
-    if (!(j.reviews || []).some((x: any) => (x.observations || []).length)) banner("Your Sims had nothing to flag here.")
-  }
-
-  function renderBubble(name: string, accent: string, observation: string, sentiment: string) {
-    const b = document.createElement("div")
-    b.style.cssText = "max-width:260px;background:#15110d;color:#f5f3ee;border:1px solid #574f45;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:8px"
-    b.style.borderLeftWidth = "3px"
-    b.style.borderLeftStyle = "solid"
-    b.style.borderLeftColor = accent
-    const em = emotionFromSentiment(sentiment)
-    // Build with DOM nodes — no innerHTML on server/LLM-sourced text (XSS guard).
-    const nameEl = document.createElement("b")
-    nameEl.textContent = name
-    const sep = document.createTextNode(" · ")
-    const emEl = document.createElement("span")
-    emEl.style.color = "#8a8076"
-    emEl.textContent = em
-    const br = document.createElement("br")
-    const obs = document.createTextNode(observation || "")
-    b.appendChild(nameEl)
-    b.appendChild(sep)
-    b.appendChild(emEl)
-    b.appendChild(br)
-    b.appendChild(obs)
-    dock.insertBefore(b, dock.firstChild)
-    setTimeout(() => b.remove(), 16000)
-  }
-
   // Boot — SINGLE primary CTA. The floating launcher always shows "Report a bug". The Sims-review dock
-  // is an authenticated team tool, so it loads ONLY when the widget is already connected (token present).
-  // We never render a bare "Connect to Klavity" prompt to anonymous visitors: it's a PLG/prospect CTA
-  // that co-rendered with "Report a bug" and confused users on configured support projects (e.g. bigidea).
-  // Connecting happens deliberately from the Klavity dashboard (or the report "login" gate), not by
-  // prompting every visitor of a customer's site.
-  if (!firstParty && getToken()) loadSims()
+  // now lives exclusively in SimsLive after "Deploy all Sims". The old authenticated mini dock rendered
+  // a second avatar stack and a second review control in the same corner, so it is intentionally gone.
   ;(window as any).KlavityWidget = { mount, identify, setMetadata }
 }
 

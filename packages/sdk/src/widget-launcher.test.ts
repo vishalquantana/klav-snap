@@ -109,6 +109,13 @@ function launcherButton(): HTMLButtonElement {
 beforeEach(() => {
   // Wipe any host created by a previous mount() so each test starts clean.
   document.body.innerHTML = ""
+  const storage = new Map<string, string>()
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => { storage.set(key, String(value)) },
+    removeItem: (key: string) => { storage.delete(key) },
+    clear: () => { storage.clear() },
+  })
   nextModalConfig = {}
   SimsLive.onTriage = null
   vi.mocked(parseScriptConfig).mockReturnValue({ projectId: "", backendUrl: "" })
@@ -155,6 +162,29 @@ describe("Sim observation tracking", () => {
     expect(desc.value).toContain("Severity: high")
     expect(desc.value).toContain("Suggested title: Checkout button blocks progress")
     expect(submit.disabled).toBe(false)
+  })
+})
+
+describe("widget Sims dock consolidation", () => {
+  it("does not render the legacy mini Sims avatar dock when a team token is present", async () => {
+    localStorage.setItem("klavity_widget_token", "team-token")
+    await mountWith({ launcherMode: "full" })
+
+    const shadow = host().shadowRoot
+    expect(shadow.querySelector(".ksim")).toBeNull()
+    expect(launcherButton().textContent).toContain("Report a bug")
+  })
+
+  it("lifts the report launcher while the live Sims dock is active", async () => {
+    await mountWith({ launcherMode: "full" })
+    const h = host()
+    expect(h.style.bottom).toBe("18px")
+
+    document.dispatchEvent(new CustomEvent("klavity:sims-live", { detail: { active: true } }))
+    expect(h.style.bottom).toBe("86px")
+
+    document.dispatchEvent(new CustomEvent("klavity:sims-live", { detail: { active: false } }))
+    expect(h.style.bottom).toBe("18px")
   })
 })
 

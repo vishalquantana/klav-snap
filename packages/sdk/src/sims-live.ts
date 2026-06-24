@@ -142,6 +142,23 @@ let walkQueueIndex = 0
 let walkQueueResetTimer: ReturnType<typeof setTimeout> | null = null
 const walkQueueTimers = new Set<ReturnType<typeof setTimeout>>()
 let moreCounterEl: HTMLButtonElement | null = null
+let tourControlsEl: HTMLElement | null = null
+let tourPlayBtn: HTMLButtonElement | null = null
+let tourPrevBtn: HTMLButtonElement | null = null
+let tourNextBtn: HTMLButtonElement | null = null
+let tourStopBtn: HTMLButtonElement | null = null
+let tourIndex = 0
+let tourPlaying = false
+let tourRunId = 0
+let tourBusy = false
+let tourTimer: ReturnType<typeof setTimeout> | null = null
+const TOUR_READ_MS = 3400
+
+function emitLiveDock(active: boolean): void {
+  try {
+    document.dispatchEvent(new CustomEvent('klavity:sims-live', { detail: { active } }))
+  } catch { /* non-fatal: layout hints are best-effort */ }
+}
 
 // ── Dock CSS (shadow DOM) ─────────────────────────────────────────────────────
 
@@ -318,6 +335,44 @@ const DOCK_CSS = `
   }
   .ksl-more-counter:active { transform: scale(.97); }
   .ksl-more-counter:focus-visible { outline:2px solid #8b5cf6; outline-offset:2px; }
+
+  .ksl-tour-controls {
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid rgba(139,92,246,.32);
+    background: rgba(22,17,12,.92);
+    display: none;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    pointer-events: auto;
+    box-shadow: 0 10px 28px rgba(0,0,0,.34), 0 0 0 4px rgba(139,92,246,.1);
+  }
+  .ksl-tour-btn {
+    width: 26px;
+    height: 24px;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    color: #c4b5fd;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+    transition: transform .15s ease, background .15s ease, color .15s ease;
+  }
+  .ksl-tour-btn:hover {
+    transform: translateY(-1px) scale(1.06);
+    background: rgba(139,92,246,.2);
+    color: #fff;
+  }
+  .ksl-tour-btn:active { transform: scale(.97); }
+  .ksl-tour-btn:focus-visible { outline:2px solid #8b5cf6; outline-offset:2px; }
+  .ksl-tour-btn:disabled { opacity:.38; cursor:not-allowed; transform:none; background:transparent; }
+  .ksl-tour-btn.is-playing {
+    background: rgba(139,92,246,.28);
+    color: #fff;
+  }
 
   @media (max-width:480px) {
     .ksl-dock { max-width:calc(100vw - 24px); gap:7px; }
@@ -798,7 +853,9 @@ function deploy(
   deployAbort = new AbortController()
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') collapseFocusedAnnotation()
+    if (e.key !== 'Escape') return
+    if (tourPlaying) stopTour()
+    else collapseFocusedAnnotation()
   }, { signal: deployAbort.signal })
   document.addEventListener('pointerdown', (e) => {
     if (!focusedAnnotationId || isAnnotationEventPath(e)) return
@@ -830,12 +887,54 @@ function deploy(
   moreCounterEl.addEventListener('click', () => { void cycleMoreObservation() })
   dockEl.appendChild(moreCounterEl)
 
+  tourControlsEl = document.createElement('div')
+  tourControlsEl.className = 'ksl-tour-controls'
+  tourControlsEl.setAttribute('role', 'group')
+  tourControlsEl.setAttribute('aria-label', 'Walk me through Sim observations')
+
+  tourPrevBtn = document.createElement('button')
+  tourPrevBtn.type = 'button'
+  tourPrevBtn.className = 'ksl-tour-btn'
+  tourPrevBtn.title = 'Previous observation'
+  tourPrevBtn.setAttribute('aria-label', 'Previous Sim observation')
+  tourPrevBtn.innerHTML = icon('chevron-left', { size: 15 })
+  tourPrevBtn.addEventListener('click', () => { void stepTour(-1) })
+
+  tourPlayBtn = document.createElement('button')
+  tourPlayBtn.type = 'button'
+  tourPlayBtn.className = 'ksl-tour-btn'
+  tourPlayBtn.title = 'Walk me through'
+  tourPlayBtn.setAttribute('aria-label', 'Play Sim walkthrough')
+  tourPlayBtn.innerHTML = icon('play', { size: 14 })
+  tourPlayBtn.addEventListener('click', () => toggleTourPlayback())
+
+  tourNextBtn = document.createElement('button')
+  tourNextBtn.type = 'button'
+  tourNextBtn.className = 'ksl-tour-btn'
+  tourNextBtn.title = 'Next observation'
+  tourNextBtn.setAttribute('aria-label', 'Next Sim observation')
+  tourNextBtn.innerHTML = icon('chevron-right', { size: 15 })
+  tourNextBtn.addEventListener('click', () => { void stepTour(1) })
+
+  tourStopBtn = document.createElement('button')
+  tourStopBtn.type = 'button'
+  tourStopBtn.className = 'ksl-tour-btn'
+  tourStopBtn.title = 'Stop walkthrough'
+  tourStopBtn.setAttribute('aria-label', 'Stop Sim walkthrough')
+  tourStopBtn.innerHTML = icon('x', { size: 13 })
+  tourStopBtn.addEventListener('click', () => stopTour())
+
+  tourControlsEl.append(tourPrevBtn, tourPlayBtn, tourNextBtn, tourStopBtn)
+  dockEl.appendChild(tourControlsEl)
+
   const visible = simIds === 'all' ? sims : sims.filter(s => (simIds as string[]).includes(s.id))
 
   if (!visible.length) {
     console.warn('[KlavitySims] deploy(): no matching Sims — dock not mounted.')
     undeploy(); return
   }
+
+  emitLiveDock(true)
 
   visible.slice(0, 8).forEach((sim, idx) => {
     const accent = sim.accent || '#6366f1'
@@ -939,6 +1038,125 @@ function updateDockCounter(): void {
   moreCounterEl.style.display = count > 0 ? 'inline-flex' : 'none'
   moreCounterEl.textContent = `+${count} more`
   moreCounterEl.setAttribute('aria-label', `${count} more Sim observation${count === 1 ? '' : 's'}`)
+  updateTourControls()
+}
+
+function tourItems(): Array<{ kind: 'annotation' | 'pending'; id: string }> {
+  return [
+    ...Array.from(annotations.keys()).map((id) => ({ kind: 'annotation' as const, id })),
+    ...Array.from(pendingAnnotations.keys()).map((id) => ({ kind: 'pending' as const, id })),
+  ]
+}
+
+function updateTourControls(): void {
+  if (!tourControlsEl || !tourPlayBtn || !tourPrevBtn || !tourNextBtn || !tourStopBtn) return
+  const count = annotations.size + pendingAnnotations.size
+  tourControlsEl.style.display = count > 0 ? 'inline-flex' : 'none'
+  tourPrevBtn.disabled = count < 2
+  tourNextBtn.disabled = count < 2
+  tourStopBtn.disabled = !tourPlaying && !focusedAnnotationId
+  tourPlayBtn.disabled = count === 0
+  tourPlayBtn.classList.toggle('is-playing', tourPlaying)
+  tourPlayBtn.innerHTML = icon(tourPlaying ? 'pause' : 'play', { size: tourPlaying ? 13 : 14 })
+  tourPlayBtn.title = tourPlaying ? 'Pause walkthrough' : 'Walk me through'
+  tourPlayBtn.setAttribute('aria-label', tourPlaying ? 'Pause Sim walkthrough' : 'Play Sim walkthrough')
+}
+
+function clearTourTimer(): void {
+  if (!tourTimer) return
+  clearTimeout(tourTimer)
+  tourTimer = null
+}
+
+function pauseTour(): void {
+  tourPlaying = false
+  tourRunId += 1
+  clearTourTimer()
+  updateTourControls()
+}
+
+function stopTour(): void {
+  pauseTour()
+  collapseFocusedAnnotation()
+}
+
+function toggleTourPlayback(): void {
+  if (tourPlaying) {
+    pauseTour()
+    return
+  }
+  const count = tourItems().length
+  if (!count) return
+  tourPlaying = true
+  tourRunId += 1
+  tourIndex = Math.max(0, Math.min(tourIndex, count - 1))
+  updateTourControls()
+  void runTour(tourRunId)
+}
+
+function waitTourRead(runId: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    clearTourTimer()
+    tourTimer = setTimeout(() => {
+      tourTimer = null
+      resolve(tourPlaying && tourRunId === runId)
+    }, TOUR_READ_MS)
+  })
+}
+
+async function showTourItem(index: number): Promise<boolean> {
+  const items = tourItems()
+  if (!items.length) return false
+  const normalized = ((index % items.length) + items.length) % items.length
+  tourIndex = normalized
+  const item = items[normalized]
+  let annotationId: string | null = null
+
+  if (item.kind === 'annotation') {
+    annotationId = item.id
+  } else {
+    annotationId = await revealPendingAnnotation(item.id)
+  }
+
+  if (!annotationId) return false
+  await focusAnnotation(annotationId)
+  const revealedIndex = Array.from(annotations.keys()).indexOf(annotationId)
+  if (revealedIndex >= 0) tourIndex = revealedIndex
+  updateTourControls()
+  return true
+}
+
+async function runTour(runId: number): Promise<void> {
+  if (!tourPlaying || tourRunId !== runId || tourBusy) return
+  tourBusy = true
+  try {
+    while (tourPlaying && tourRunId === runId) {
+      const count = tourItems().length
+      if (!count) {
+        stopTour()
+        return
+      }
+      const shown = await showTourItem(tourIndex)
+      if (!shown || !tourPlaying || tourRunId !== runId) return
+      const shouldContinue = await waitTourRead(runId)
+      if (!shouldContinue) return
+      collapseFocusedAnnotation()
+      tourIndex = (tourIndex + 1) % Math.max(1, tourItems().length)
+      await sleep(220)
+    }
+  } finally {
+    tourBusy = false
+    updateTourControls()
+    if (tourPlaying && tourRunId === runId) void runTour(runId)
+  }
+}
+
+async function stepTour(delta: number): Promise<void> {
+  pauseTour()
+  const count = tourItems().length
+  if (!count) return
+  tourIndex = ((tourIndex + delta) % count + count) % count
+  await showTourItem(tourIndex)
 }
 
 async function cycleMoreObservation(): Promise<void> {
@@ -1004,6 +1222,8 @@ function isAnnotationEventPath(e: Event): boolean {
       item.classList?.contains('klav-pin-triage') ||
       item.classList?.contains('klav-pin-dismiss') ||
       item.classList?.contains('ksl-more-counter') ||
+      item.classList?.contains('ksl-tour-controls') ||
+      item.classList?.contains('ksl-tour-btn') ||
       item.classList?.contains('ksl-slot') ||
       item.classList?.contains('ksim')
   })
@@ -1367,6 +1587,15 @@ function renderFeedback(simId: string, simName: string, observations: LiveObserv
 // ── undeploy() ────────────────────────────────────────────────────────────────
 
 function undeploy(): void {
+  pauseTour()
+  tourIndex = 0
+  tourBusy = false
+  tourControlsEl = null
+  tourPlayBtn = null
+  tourPrevBtn = null
+  tourNextBtn = null
+  tourStopBtn = null
+
   // 1. Cancel huddle bubble timers
   simSlots.forEach(s => { s.clearBubble?.(); s.clearBubble = null })
   focusedAnnotationId = null
@@ -1405,6 +1634,7 @@ function undeploy(): void {
 
   // 7. Leave EXT_CSS in place — removing it mid-session can cause a flash;
   //    it only adds .klav-* rules which harmlessly sit unused between sessions.
+  emitLiveDock(false)
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
