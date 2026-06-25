@@ -225,10 +225,17 @@ h1 .ind{color:var(--indigo)}
 .sim .arm{position:absolute; top:11px; right:32px; width:30px; height:6px; border-radius:3px; transform-origin:right center; transform:rotate(-38deg)}
 .sim .arm .fin{position:absolute; left:-5px; top:-6px; font-size:14px}
 
-#sarah{left:6%; bottom:6%; animation:walkSarah 9s ease-in-out infinite}
+#sarah{left:6%; bottom:6%; animation:walkSarah 12s ease-in-out infinite; will-change:left,bottom,opacity}
 @keyframes walkSarah{
-  0%{left:-12%; opacity:0} 8%{left:6%; opacity:1}
-  14%,40%{left:34%} 48%,92%{left:34%} 100%{left:34%}
+  0%{left:-12%; bottom:4%; opacity:0}
+  8%{left:6%; bottom:6%; opacity:1}
+  22%{left:22%; bottom:18%; opacity:1}
+  38%{left:42%; bottom:18%; opacity:1}
+  54%{left:58%; bottom:30%; opacity:1}
+  70%{left:42%; bottom:42%; opacity:1}
+  84%{left:18%; bottom:32%; opacity:1}
+  94%{left:6%; bottom:12%; opacity:1}
+  100%{left:-12%; bottom:4%; opacity:0}
 }
 .float{animation:bob 3.2s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
