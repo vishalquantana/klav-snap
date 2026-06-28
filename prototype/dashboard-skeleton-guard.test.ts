@@ -34,6 +34,8 @@ const swrSectionSrc = extractFn(HTML, "async function swrSection(")
 const clearStuckSrc = extractFn(HTML, "function clearStuckSkeletons(")
 const renderSimsFeedSrc = extractFn(HTML, "function renderSimsFeed(")
 const renderSayingSrc = extractFn(HTML, "function renderSaying(")
+const buildTktDetailSrc = extractFn(HTML, "function buildTktDetail(")
+const openSingleTicketSrc = extractFn(HTML, "function openSingleTicket(")
 
 expect(skeletonHostsSrc).toBeTruthy()
 
@@ -184,6 +186,32 @@ test("project picker lives in the top navbar, not the sidebar", () => {
   const sideMarkup = HTML.slice(sideStart, HTML.indexOf('<div class="content">', sideStart))
   expect(sideMarkup).not.toContain('id="projSwitcher"')
   expect(HTML).not.toContain(".side .proj-pick")
+})
+
+test("overview cards use per-card View all links without a Focus/Full control", () => {
+  expect(HTML).not.toContain("Focus mode")
+  expect(HTML).not.toContain("Focus/Full")
+  expect(HTML).not.toContain("Focus ⇄ Full")
+  expect(HTML).not.toContain("Full</button>")
+  expect(HTML).toContain('onclick="setView(\'sims\')" aria-label="View all Sims and their feedback"')
+  expect(HTML).toContain('onclick="setView(\'tickets\')" aria-label="View all tickets"')
+  expect(HTML).toContain('onclick="setView(\'triage\')" style="margin-left:auto" aria-label="View all feedback and activity"')
+  expect(HTML).toContain('onclick="setView(\'sims\')" style="margin-left:auto" aria-label="View all Sims feedback"')
+  expect(HTML).toContain("const shown = acts.slice(0, FEED_VISIBLE)")
+})
+
+test("single-ticket view keeps title/source in the header and operational details in the panel", () => {
+  const renderHeadStart = openSingleTicketSrc.indexOf("const renderHead = () =>")
+  const detailStart = openSingleTicketSrc.indexOf("const detailEl = buildTktDetail")
+  const renderHeadSrc = openSingleTicketSrc.slice(renderHeadStart, detailStart)
+  expect(renderHeadSrc).toContain('class="single-title"')
+  expect(renderHeadSrc).not.toContain("statusPillHtml(")
+  expect(renderHeadSrc).not.toContain("s-${esc(t.sentiment)}")
+  expect(buildTktDetailSrc).toContain("const _showBugTitle")
+  expect(buildTktDetailSrc).toContain("const _showBugBody")
+  expect(buildTktDetailSrc).toContain("const _showBug =")
+  expect(buildTktDetailSrc).toContain("Status</span>")
+  expect(buildTktDetailSrc).toContain("Notes</label>")
 })
 
 test("Sims page leads with Sims feed; Live/Observability are collapsible in Sims+Settings views", () => {

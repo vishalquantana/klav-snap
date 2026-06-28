@@ -1173,8 +1173,8 @@ const ago = (ts) => {
 const ACT_ICON = { feedback_filed:kicon('bug'), review_run:kicon('eye'), sim_activated:kicon('zap'), sim_added:kicon('plus'), sim_evolved:kicon('dna'), transcript_added:kicon('file-text') }
 const ACT_VERB = { feedback_filed:"filed feedback", review_run:"ran a review", sim_activated:"went live", sim_added:"added a Sim", sim_evolved:"evolved a Sim", transcript_added:"added a transcript" }
 
-// How many rows the overview tickets + activity feeds show in Focus mode (the default).
-// Keeps /dashboard short — cards show the recent few instead of running the page to the bottom.
+// How many rows overview preview cards show before their "View all" link takes over.
+// Keeps /dashboard short without a global preview-size toggle.
 const FEED_VISIBLE = 5
 
 // Overview feeds show a capped preview (FEED_VISIBLE); each card carries a "View all →" link
@@ -2148,10 +2148,16 @@ function buildTktDetail(t, admin, onChange, isSingle = false) {
     const _isTwoCol = isSingle && !!t.screenshotId
     const _showObs = t.observation && (!isSingle || t.observation.trim() !== (t.title || "").trim())
     const _showSevChip = !isSingle && !!t.severity
-    const _showSentiment = !isSingle && !!t.sentiment   // sentiment moves to single-meta header in single view
+    const _showSentiment = !isSingle && !!t.sentiment
     const _showSimChip = !isSingle && !!t.simName
     const _showMetaLine = !isSingle
-    const _hasContextItems = _showObs || !!t.suggestedBug || !!t.sourceQuote
+    const _bugTitle = t.suggestedBug && t.suggestedBug.title ? String(t.suggestedBug.title) : ""
+    const _bugBody = t.suggestedBug && t.suggestedBug.body ? String(t.suggestedBug.body) : ""
+    const _sameAsSingleTitle = (v) => isSingle && v.trim() === String(t.title || "").trim()
+    const _showBugTitle = !!_bugTitle && !_sameAsSingleTitle(_bugTitle)
+    const _showBugBody = !!_bugBody && !_sameAsSingleTitle(_bugBody)
+    const _showBug = !!t.suggestedBug && (_showBugTitle || _showBugBody)
+    const _hasContextItems = _showObs || _showBug || !!t.sourceQuote
       || (_showSevChip || _showSentiment || _showSimChip)
     const _hasContext = _hasContextItems || (!_isTwoCol && !!t.screenshotId)
 
@@ -2163,7 +2169,7 @@ function buildTktDetail(t, admin, onChange, isSingle = false) {
         ${regrBannerHtml(t)}
         ${_showObs ? `<div class="tkt-obs">${esc(t.observation)}</div>` : ""}
         ${(_showSevChip || _showSentiment || _showSimChip) ? `<div class="tkt-chips">${_showSevChip ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${_showSentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${_showSimChip ? `<span class="chip">${esc(t.simName)}</span>` : ""}</div>` : ""}
-        ${t.suggestedBug ? `<div class="tkt-bug"><div class="tkt-bug-t">${kicon('bug')} ${esc(t.suggestedBug.title || "Suggested fix")}</div>${t.suggestedBug.body ? `<div class="tkt-bug-b">${esc(t.suggestedBug.body)}</div>` : ""}</div>` : ""}
+        ${_showBug ? `<div class="tkt-bug">${_showBugTitle ? `<div class="tkt-bug-t">${kicon('bug')} ${esc(_bugTitle)}</div>` : ""}${_showBugBody ? `<div class="tkt-bug-b">${esc(_bugBody)}</div>` : ""}</div>` : ""}
         ${t.sourceQuote ? `<div class="tkt-prov">"${esc(t.sourceQuote)}"${t.sourceDate ? ` · raised ${esc(ago(t.sourceDate))}` : ""}</div>` : ""}
         ${_showMetaLine ? `<div class="tkt-meta-line muted">${(t.urlHost || t.urlPath) ? esc((t.urlHost || "") + (t.urlPath || "")) : ""}${((t.urlHost || t.urlPath) && t.createdAt) ? " · " : ""}${t.createdAt ? esc(ago(t.createdAt)) : ""}</div>` : ""}
         ${t.sourceReferrer ? `<div class="tkt-meta-line muted">Referred from: ${esc(t.sourceReferrer)}</div>` : ""}
@@ -2370,7 +2376,7 @@ function openSingleTicket(id) {
     head.innerHTML = `<span class="single-rail sv-${sv}"></span>
       <div class="single-h-b">
         <div class="single-title">${esc(t.title || "Untitled report")}</div>
-        <div class="single-meta">${statusPillHtml(t.status)}${t.severity ? `<span class="chip sev-${esc(t.severity)}">${esc(t.severity)}</span>` : ""}${t.sentiment ? `<span class="chip s-${esc(t.sentiment)}">${esc(t.sentiment)}</span>` : ""}${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}${recurBadgeHtml(t)}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? (kicon('bot',{size:11}) + " " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
+        <div class="single-meta">${(t.recurrence >= 2) ? `<span class="fx-recur">recurring ×${t.recurrence}</span>` : ""}${recurBadgeHtml(t)}<span class="muted" style="font-family:var(--mono);font-size:11px">${t.simName ? (kicon('bot',{size:11}) + " " + esc(t.simName) + " · ") : ""}${t.urlPath ? (esc(t.urlPath) + " · ") : ""}${esc(ago(t.createdAt))}</span></div>
         ${regrBannerHtml(t)}
       </div>`
   }
@@ -2681,8 +2687,8 @@ function renderActivity() {
     $("activity").innerHTML = emptyState(kicon('radio-tower',{size:32}), "No activity yet. Reviews, filings, and Sim updates will stream here.", "")
     return
   }
-  // No dedicated activity view exists, so show all loaded events (API-capped at 25).
-  const shown = acts
+  // Overview is a preview; the card-level View all link jumps to the full triage/activity list.
+  const shown = acts.slice(0, FEED_VISIBLE)
   $("activity").innerHTML = `<div class="list">` + shown.map(a => {
     const who = a.actorEmail || a.simName || "Someone"
     const verb = ACT_VERB[a.type] || esc(a.type)
