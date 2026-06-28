@@ -33,6 +33,7 @@ const skeletonHostsSrc = (HTML.match(/const SKELETON_HOSTS = \[[^\]]*\]/) || [])
 const swrSectionSrc = extractFn(HTML, "async function swrSection(")
 const clearStuckSrc = extractFn(HTML, "function clearStuckSkeletons(")
 const renderSimsFeedSrc = extractFn(HTML, "function renderSimsFeed(")
+const renderSayingSrc = extractFn(HTML, "function renderSaying(")
 
 expect(skeletonHostsSrc).toBeTruthy()
 
@@ -214,4 +215,42 @@ test("renderSimsFeed shows actual observation text with a Triage link", () => {
   expect(els.simsFeed.innerHTML).toContain("View in Triage")
   expect(els.simsFeed.innerHTML).toContain('href="#triage"')
   expect(els.simsCount.textContent).toBe("1")
+})
+
+test("renderSaying never frames unresolved bug reports as A Sim", () => {
+  const els: Record<string, any> = {
+    saying: { innerHTML: "" },
+  }
+  const state = {
+    saying: [{
+      source: "feedback",
+      simId: "sim_missing",
+      simName: null,
+      initials: null,
+      accent: "#6366f1",
+      text: "[bug] Checkout button is hidden below the fold.",
+      sentiment: "confused",
+      urlPath: "/checkout",
+      createdAt: 1700000000000,
+    }],
+  }
+  const factory = new Function(
+    "state", "$", "emptyState", "kicon", "esc", "safeAccent", "col", "initials", "ago",
+    `${renderSayingSrc}\nreturn renderSaying;`,
+  )
+  const renderSaying = factory(
+    state,
+    (id: string) => els[id] ?? null,
+    () => "",
+    () => "",
+    (s: unknown) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string)),
+    (_accent: string, fallback: string) => fallback,
+    () => "#6366f1",
+    (s: string) => s.slice(0, 2).toUpperCase(),
+    () => "just now",
+  )
+  renderSaying()
+  expect(els.saying.innerHTML).toContain("Bug report")
+  expect(els.saying.innerHTML).toContain("Checkout button is hidden")
+  expect(els.saying.innerHTML).not.toContain("A Sim")
 })

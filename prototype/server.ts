@@ -791,7 +791,7 @@ async function feedbackToTicketPayload(fb: any, project: { id: string; name?: st
       }
     } catch (e: any) { console.warn("screenshot lookup failed for ticket:", e?.message || e) }
   }
-  lines.push("Filed by Klavity Sims")
+  lines.push("Filed by Klavity")
   const body = lines.join("\n\n")
   return {
     title,
@@ -2771,15 +2771,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // saying — "what your Sims are saying" overview feed: only Sim observations, newest-first.
           // simObservations is already sim_id IS NOT NULL, so no bug-without-sim can appear.
           let saying = simObservations
-            .filter(f => f.observation)
+            .filter(f => f.observation && f.simId && personaById.has(f.simId))
             .slice(0, 12)
             .map(f => {
-              const p = f.simId ? personaById.get(f.simId) : null
+              const p = personaById.get(f.simId!)
               return {
                 source: "feedback" as const,
-                simId: f.simId, simName: p?.name ?? null,
-                initials: p?.initials || (p?.name?.slice(0, 2).toUpperCase()) || null,
-                accent: p?.accent ?? "#6366f1",
+                simId: f.simId, simName: p!.name,
+                initials: p!.initials || p!.name.slice(0, 2).toUpperCase(),
+                accent: p!.accent || "#6366f1",
                 text: f.observation, sentiment: f.sentiment,
                 urlPath: f.urlPath, createdAt: f.createdAt,
               }
@@ -2808,7 +2808,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // Sim observations grouped by simId so the Sims page can show each Sim's full history.
           const simFeedback: Record<string, Array<{ id: string; text: string; sentiment: string | null; urlPath: string | null; createdAt: number }>> = {}
           for (const f of simObservations) {
-            if (!f.simId || !f.observation) continue
+            if (!f.simId || !f.observation || !personaById.has(f.simId)) continue
             if (!simFeedback[f.simId]) simFeedback[f.simId] = []
             simFeedback[f.simId].push({ id: f.id, text: f.observation, sentiment: f.sentiment, urlPath: f.urlPath, createdAt: f.createdAt })
           }

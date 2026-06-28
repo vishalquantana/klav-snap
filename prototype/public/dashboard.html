@@ -1992,7 +1992,7 @@ function renderSaying() {
     if (s.urlPath) meta.push(esc(s.urlPath))
     if (s.createdAt) meta.push(ago(s.createdAt))
     if (s.source === "insight") meta.push("from transcript insight")
-    const nm = s.simName || "A Sim"
+    const nm = s.simName || (s.source === "feedback" ? "Bug report" : "Sim insight")
     return `<div class="say">
       <div class="av" style="background:${safeAccent(s.accent, col(nm))}">${esc(s.initials||initials(nm))}</div>
       <div class="body">
