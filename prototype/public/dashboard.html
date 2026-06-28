@@ -1282,6 +1282,13 @@ const kbar = {
   },
 }
 
+const DASH_FETCH_TIMEOUT_MS = 15000
+function fetchWithTimeout(url, opts, timeoutMs) {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), timeoutMs || DASH_FETCH_TIMEOUT_MS)
+  return fetch(url, Object.assign({}, opts || {}, { signal: ctrl.signal })).finally(() => clearTimeout(t))
+}
+
 // Generic SWR section runner: paint cached data instantly (if any), then revalidate
 // with the progress bar showing, applying + re-caching fresh data when it lands.
 // `fetcher` returns the payload (or null to skip caching); `apply` renders it.
@@ -1355,7 +1362,7 @@ async function load() {
   kbar.start()
   try {
     const pid = activeProjectParam()
-    const r = await fetch("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
+    const r = await fetchWithTimeout("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
     if (r.status === 401) { location.href = "/login"; return }
     data = await r.json()
   } catch (e) { data = null }
@@ -1396,7 +1403,7 @@ async function refreshAll() {
   kbar.start()
   try {
     const pid = activeProjectParam()
-    const r = await fetch("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
+    const r = await fetchWithTimeout("/api/dashboard" + (pid ? "?project=" + encodeURIComponent(pid) : ""))
     if (r.status === 401) { location.href = "/login"; return }
     if (!r.ok) return
     data = await r.json()

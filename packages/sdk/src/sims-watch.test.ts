@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest"
+import { afterEach, describe, it, expect, vi } from "vitest"
 import {
   djb2,
   computeContentHash,
   shouldSkipReview,
   isSignificantNode,
   hasSignificantMutations,
+  startSimsWatch,
 } from "./sims-watch"
 
 // ── djb2 ─────────────────────────────────────────────────────────────────────────────────
@@ -327,5 +328,74 @@ describe("hasSignificantMutations", () => {
     const a = mockNode({ tag: "SPAN", size: { w: 10, h: 10 } })
     const b = mockNode({ tag: "SPAN", size: { w: 20, h: 20 } })
     expect(hasSignificantMutations([mutRecord("childList", [a, b])])).toBe(false)
+  })
+})
+
+// ── startSimsWatch network timeout ────────────────────────────────────────────────────────
+
+describe("startSimsWatch", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it("aborts a stalled review fetch and allows the same viewport to retry", async () => {
+    vi.useFakeTimers()
+
+    vi.stubGlobal("document", {
+      title: "Dashboard",
+      documentElement: { scrollHeight: 1200 },
+      body: { scrollHeight: 1200 },
+      getElementById: () => null,
+      querySelectorAll: () => [],
+    })
+    vi.stubGlobal("window", {
+      scrollY: 0,
+      scrollX: 0,
+      innerWidth: 1280,
+      innerHeight: 800,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })
+    vi.stubGlobal("location", {
+      href: "https://example.test/dashboard",
+      pathname: "/dashboard",
+      search: "",
+      hash: "",
+    })
+    vi.stubGlobal("history", {
+      pushState: vi.fn(),
+      replaceState: vi.fn(),
+    })
+
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => {
+        const err = new Error("aborted")
+        err.name = "AbortError"
+        reject(err)
+      })
+    }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const ctrl = startSimsWatch({
+      backendUrl: "https://klavity.test",
+      projectId: "proj_1",
+      minIntervalMs: 0,
+      captureViewport: async () => "data:image/png;base64,ZmFrZQ==",
+    })
+
+    history.pushState({}, "", "/dashboard")
+    await vi.runOnlyPendingTimersAsync()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(45_000)
+    await Promise.resolve()
+
+    history.pushState({}, "", "/dashboard")
+    await vi.runOnlyPendingTimersAsync()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    ctrl.stop()
   })
 })

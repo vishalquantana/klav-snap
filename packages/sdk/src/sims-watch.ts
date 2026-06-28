@@ -128,6 +128,7 @@ const DEFAULT_SCROLL_DEBOUNCE_MS = 700
 const DEFAULT_MUTATION_DEBOUNCE_MS = 800
 const MAX_SEEN_HASHES = 200              // cap the client-side dedup set (memory guard)
 const CAPTURE_TIMEOUT_MS = 10_000       // abort a hung captureViewport() after 10s
+const REVIEW_FETCH_TIMEOUT_MS = 45_000   // abort a stalled /api/sim/review before busy stays true
 
 type TriggerKind = 'scroll' | 'navigation' | 'mutation'
 
@@ -222,6 +223,7 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
 
     busy = true
     lastReviewAt = Date.now()
+    let fetchTimedOut = false
     // Optimistically mark seen — un-marked on capture / network error so the next change retries.
     seenHashes.add(hash)
     if (seenHashes.size > MAX_SEEN_HASHES) {
@@ -247,6 +249,7 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
 
       const ac = new AbortController()
       fetchAbort = ac
+      const fetchTimer = setTimeout(() => { fetchTimedOut = true; ac.abort() }, REVIEW_FETCH_TIMEOUT_MS)
 
       const body: Record<string, unknown> = {
         url: typeof location !== 'undefined' ? location.href : '',
@@ -261,14 +264,19 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
       if (opts.bearerToken) headers['authorization'] = `Bearer ${opts.bearerToken}`
 
       const networkStart = benchNow()
-      const res = await fetch(`${opts.backendUrl}/api/sim/review`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        signal: ac.signal,
-        body: JSON.stringify(body),
-      })
-      fetchAbort = null
+      let res: Response
+      try {
+        res = await fetch(`${opts.backendUrl}/api/sim/review`, {
+          method: 'POST',
+          headers,
+          credentials: 'include',
+          signal: ac.signal,
+          body: JSON.stringify(body),
+        })
+      } finally {
+        clearTimeout(fetchTimer)
+        fetchAbort = null
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: {
         ok: boolean
@@ -310,9 +318,9 @@ export function startSimsWatch(opts: SimsWatchOptions): SimsWatchController {
         `sims=${data.reviews.length} observations=${observations} domNodes=${domNodes}`,
       )
     } catch (e) {
-      // AbortError = intentional teardown via stop(); don't retry or log.
-      if (e instanceof Error && e.name === 'AbortError') { busy = false; return }
-      // Capture timeout or network error — un-mark the hash so the next signal can retry.
+      // AbortError without our timeout flag = intentional teardown via stop(); don't retry or log.
+      if (e instanceof Error && e.name === 'AbortError' && !fetchTimedOut) { busy = false; return }
+      // Capture timeout, review timeout, or network error — un-mark the hash so the next signal can retry.
       seenHashes.delete(hash)
     } finally {
       busy = false
