@@ -159,6 +159,24 @@ input.code{font-family:var(--mono);font-size:24px;letter-spacing:.5em;text-align
 #copySnippet:hover{transform:translateY(-1.5px) scale(1.02);border-color:var(--indigo) !important}
 #copySnippet:active{transform:scale(0.97)}
 
+/* ── platform install guide ── */
+.plat-toggle{background:none;border:1px solid var(--line);border-radius:9px;padding:8px 14px;color:var(--indigo);font-family:var(--body);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;margin-top:12px;transition:border-color .15s,background .15s}
+.plat-toggle:hover{background:var(--ink-3);border-color:var(--indigo)}
+.plat-panel{margin-top:10px;background:var(--ink-2);border:1px solid var(--line);border-radius:12px;padding:16px}
+.plat-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.plat-tab{background:none;border:1px solid var(--line);border-radius:8px;padding:5px 12px;font-size:12.5px;font-family:var(--body);cursor:pointer;color:var(--paper-dim);transition:.15s}
+.plat-tab.act{border-color:var(--indigo);color:var(--paper);background:var(--ink-3)}
+.plat-tab:hover{border-color:var(--indigo)}
+.plat-steps{font-size:13px;color:var(--paper-dim);line-height:1.7}
+.plat-steps ol{margin:6px 0 0 16px}
+.plat-steps li{margin-bottom:2px}
+.plat-steps code{font-family:var(--mono);font-size:11.5px;background:var(--ink-3);border-radius:4px;padding:1px 4px}
+/* ext status message inside the extension panel */
+.ext-msg{margin-top:10px;font-size:13px;color:var(--paper-dim);line-height:1.5}
+/* url section toggle */
+.url-toggle{background:none;border:none;color:var(--indigo);font-family:var(--body);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:0;margin-top:22px;text-decoration:underline;text-underline-offset:2px}
+.url-toggle:hover{color:var(--paper)}
+
 /* ── a11y: visible focus + reduced-motion ── */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b8bf5;outline-offset:2px;border-radius:5px}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
@@ -170,11 +188,11 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <a class="brand" href="index.html"><img src="/favicon.svg" width="30" height="30" alt="" style="border-radius:9px;display:block" />Klavity</a>
     <ul class="steps">
       <li class="rstep" data-r="1"><span class="ix">1</span><div class="rl">Create your project</div></li>
-      <li class="rstep" data-r="2"><span class="ix">2</span><div class="rl">Point Sims at your product</div></li>
+      <li class="rstep" data-r="2"><span class="ix">2</span><div class="rl">Add to your website</div></li>
       <li class="rstep" data-r="3"><span class="ix">3</span><div class="rl">Pick your starting Sims</div></li>
       <li class="rstep studio" data-r="4"><span class="ix"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" /></svg></span><div class="rl">Meet them in the Studio</div></li>
     </ul>
-    <div class="foot">~90 seconds, then you're in the Studio</div>
+    <div class="foot">~2 minutes to your first bug report</div>
   </aside>
 
   <main class="content" style="padding:0;display:block">
@@ -184,7 +202,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="hero">
         <div class="eyebrow"><span class="spark">▦</span>Welcome to Klavity</div>
         <h1>Your customers review your product — <em>before they ever see it.</em></h1>
-        <p class="lede">Klavity turns your real customer calls into <b>Sims</b> — AI personas grounded in the exact words your customers said. They walk your product and react <b>in character</b>, so you catch what they'd hate before they churn — without booking a single call.</p>
+        <p class="lede">Klavity turns your real customer calls into <b>Sims</b> — AI personas grounded in the exact words your customers said. They walk your product and react <b>in character</b>, so you catch what they'd hate before they churn — without booking a single call. It also includes <b>Snap</b> — a one-click bug reporter your site visitors can use right now, no calls needed.</p>
         <div class="reelwrap"><iframe class="reelframe" src="/intro-reel?embed=1" title="How Klavity works" scrolling="no" loading="lazy"></iframe></div>
         <p class="payoff">"It's like having your hardest customers in the room as you build."</p>
         <div class="cta"><button class="btn btn-indigo" onclick="go(1)">Get started →</button></div>
@@ -220,33 +238,74 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
     </div>
 
-    <!-- ───────────── STEP 2 — POINT SIMS AT YOUR PRODUCT ───────────── -->
+    <!-- ───────────── STEP 2 — ADD KLAVITY TO YOUR SITE ───────────── -->
     <div class="panel step hide" data-s="2">
       <div class="content" style="padding:60px clamp(28px,6vw,90px)">
         <div class="panel">
-          <div class="kicker amber">Step 2 of 3 · where Sims watch</div>
-          <h2>Where should your Sims <em>watch?</em></h2>
-          <p class="sub">Add your product's URL. When you — or a teammate with the extension — open it, your Sims jump out and comment in-character, live on the real page. Every reaction is one click from a ticket.</p>
-          <div class="urlrow">
-            <input class="in" id="urlInput" aria-label="Product URL to watch" placeholder="app.acme.com/*" onkeydown="if(event.key==='Enter')addUrl()" />
-            <button class="btn btn-ghost" onclick="addUrl()">Add</button>
+          <div class="kicker amber">Step 2 of 3 · add to your site</div>
+          <h2>Add Klavity to your <em>site.</em></h2>
+          <p class="sub">The widget puts a one-click bug button on every page your visitors see — no extra apps needed. If you also want AI Sims reviewing your product live, connect the browser extension too.</p>
+
+          <!-- ── Two paths: widget (primary) + extension (secondary) ── -->
+          <div class="tiles">
+            <div class="tile sel" id="widgetTile" onclick="selectInstall('widget')">
+              <div class="ti">&lt;/&gt;</div>
+              <h3>Embed the bug-report widget</h3>
+              <p>One script tag on your site — visitors report bugs with a single click, no extension needed.</p>
+            </div>
+            <div class="tile" id="chromeTile" onclick="selectInstall('extension')">
+              <div class="ti"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg></div>
+              <h3>Connect the browser extension</h3>
+              <p>For live AI Sim reviews on your pages. Works alongside the widget.</p>
+            </div>
           </div>
-          <div style="font-family:var(--mono);font-size:11px;color:var(--paper-faint);line-height:1.5;margin-bottom:12px">Tip: end a path with <code>/*</code> to cover every page beneath it — e.g. <code>app.acme.com/*</code>. We drop <code>https://</code> and anything after <code>?</code> for you.</div>
-          <div class="empty hide" id="urlEmpty">No URLs yet — add the page your Sims should watch.</div>
-          <div class="chiplist" id="urlChips"></div>
-          <div class="err" id="s2err"></div>
-          <div class="tiles" style="margin-top:18px">
-            <div class="tile sel" id="chromeTile" onclick="connectExtension()"><div class="ti"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg></div><h3>Connect the Klavity extension</h3><p id="chromeMsg">Required for live Sims on your real pages — click to connect (or install it first).</p></div>
-            <div class="tile alt" id="widgetTile" onclick="document.getElementById('widgetSnippet').classList.toggle('hide')"><div class="ti">&lt;/&gt;</div><h3>Or embed the widget</h3><p>One script tag for any web app — no extension needed. Click for the snippet.</p></div>
-          </div>
-          <div class="hide" id="widgetSnippet" style="margin-top:14px">
+
+          <!-- ── Widget section (shown by default) ── -->
+          <div id="widgetSection" style="margin-top:14px">
             <pre style="margin:0;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;overflow:auto;white-space:pre-wrap;word-break:break-all">&lt;script src="https://klavity.quantana.top/widget.js" data-project="<span id="snipPid">YOUR_PROJECT_ID</span>" defer&gt;&lt;/script&gt;</pre>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
               <button type="button" id="copySnippet" style="background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;color:var(--paper);font-family:var(--body);font-size:12.5px;cursor:pointer">Copy snippet</button>
-              <span style="color:var(--paper-faint);font-size:11.5px">Your project ID is filled in — paste this before &lt;/body&gt; on any page.</span>
+              <span style="color:var(--paper-faint);font-size:11.5px">Paste this once — it shows on every page automatically.</span>
+            </div>
+            <!-- Platform install guide -->
+            <button type="button" class="plat-toggle" id="platToggle" onclick="togglePlatforms()">Where do I paste this? ↓</button>
+            <div id="platPanel" class="hide">
+              <div class="plat-panel">
+                <div class="plat-tabs" id="platTabs">
+                  <button type="button" class="plat-tab act" onclick="showPlat('shopify',this)">Shopify</button>
+                  <button type="button" class="plat-tab" onclick="showPlat('webflow',this)">Webflow</button>
+                  <button type="button" class="plat-tab" onclick="showPlat('squarespace',this)">Squarespace</button>
+                  <button type="button" class="plat-tab" onclick="showPlat('wix',this)">Wix</button>
+                  <button type="button" class="plat-tab" onclick="showPlat('other',this)">Other</button>
+                </div>
+                <div class="plat-steps" id="platDesc"></div>
+              </div>
             </div>
           </div>
-          <div class="row"><button class="btn btn-indigo" id="s2continue" onclick="connectExtension()">Connect the extension to continue →</button><span class="skip" onclick="go(3)">I'll set this up later</span></div>
+
+          <!-- ── Extension section (hidden by default) ── -->
+          <div id="extSection" class="hide" style="margin-top:14px">
+            <div class="ext-msg" id="chromeMsg">
+              <a href="https://chromewebstore.google.com/detail/olahjdcgbdjajbfmgnakjlehgjdmaene" target="_blank" rel="noopener" style="color:var(--indigo);font-weight:600">Add Klavity to Chrome →</a>
+              <span style="color:var(--paper-faint)"> — then click the button below to connect it.</span>
+            </div>
+            <!-- URL input for Sim monitoring — only relevant with the extension -->
+            <div style="margin-top:16px">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--paper-faint);margin-bottom:8px">Which pages should your Sims watch? (paste your site address)</div>
+              <div class="urlrow">
+                <input class="in" id="urlInput" aria-label="Your site URL" placeholder="yoursite.com" onkeydown="if(event.key==='Enter')addUrl()" />
+                <button class="btn btn-ghost" onclick="addUrl()">Add</button>
+              </div>
+              <div class="empty hide" id="urlEmpty">No URLs yet — add your site above.</div>
+              <div class="chiplist" id="urlChips"></div>
+            </div>
+          </div>
+
+          <div class="err" id="s2err"></div>
+          <div class="row">
+            <button class="btn btn-indigo" id="s2continue" onclick="s2proceed()">Continue →</button>
+            <span class="skip" onclick="go(3)">Set up later</span>
+          </div>
         </div>
       </div>
     </div>
@@ -328,7 +387,7 @@ async function jsonFetch(url, opts){
 async function requestCode(){
   const email = $('email').value.trim().toLowerCase()
   const err = $('s1err'); err.textContent = ''
-  if (!email || !email.includes('@')) { err.textContent = 'Enter a valid work email.'; return }
+  if (!email || !email.includes('@')) { err.textContent = 'Enter a valid email address.'; return }
   if (!$('projectName').value.trim()) { err.textContent = 'Give your project a name.'; return }
   const btn = $('createBtn'); btn.disabled = true; btn.textContent = 'Sending code…'
   try {
@@ -395,32 +454,77 @@ async function applyProjectName(){
   } catch(e){ /* non-fatal: continue onboarding regardless */ }
 }
 
+// ── Step 2: which install path is selected (‘widget’ | ‘extension’) ──
+let installPath = ‘widget’
+
+function selectInstall(which) {
+  installPath = which
+  $(‘widgetTile’).classList.toggle(‘sel’, which === ‘widget’)
+  $(‘chromeTile’).classList.toggle(‘sel’, which === ‘extension’)
+  $(‘widgetSection’).classList.toggle(‘hide’, which !== ‘widget’)
+  $(‘extSection’).classList.toggle(‘hide’, which !== ‘extension’)
+  const cont = $(‘s2continue’)
+  if (which === ‘extension’) {
+    cont.textContent = ‘Connect & continue →’
+    cont.onclick = connectExtension
+  } else {
+    cont.textContent = ‘Continue →’
+    cont.onclick = () => go(3)
+  }
+}
+
+function s2proceed() {
+  if (installPath === ‘extension’) connectExtension()
+  else go(3)
+}
+
 // Connect the Klavity extension (reuses the CONNECT handshake; works on klavity.quantana.top where
 // the content script exposes window.__klavityExtensionId). Honest fallback when not installed.
 async function connectExtension(){
-  const msg = $('chromeMsg')
-  const extId = (typeof chrome !== 'undefined') && window.__klavityExtensionId
+  const msg = $(‘chromeMsg’)
+  const extId = (typeof chrome !== ‘undefined’) && window.__klavityExtensionId
   if (!extId) {
-    msg.innerHTML = 'Klavity extension not detected. <a href="https://chromewebstore.google.com/detail/olahjdcgbdjajbfmgnakjlehgjdmaene" target="_blank" rel="noopener" style="color:var(--indigo)">Add it from the Chrome Web Store</a>, then click to connect.'
+    msg.innerHTML = ‘<a href="https://chromewebstore.google.com/detail/olahjdcgbdjajbfmgnakjlehgjdmaene" target="_blank" rel="noopener" style="color:var(--indigo);font-weight:600">Add Klavity to Chrome →</a><span style="color:var(--paper-faint)"> — then click "Connect &amp; continue" again.</span>’
     return
   }
-  msg.textContent = 'Connecting…'
+  msg.textContent = ‘Connecting…’
   try {
-    const r = await fetch('/api/extension-token', { redirect: 'manual' })
-    if (!r.ok) throw new Error('sign in first')
+    const r = await fetch(‘/api/extension-token’, { redirect: ‘manual’ })
+    if (!r.ok) throw new Error(‘sign in first’)
     const { token } = await r.json()
     const resp = await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(extId, { type: 'CONNECT', token, backendUrl: location.origin }, (result) => {
+      chrome.runtime.sendMessage(extId, { type: ‘CONNECT’, token, backendUrl: location.origin }, (result) => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve(result)
       })
     })
     if (resp && resp.ok) {
-      msg.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Extension connected — your Sims can now go live on monitored URLs.'
-      // Now that the extension is wired, turn the primary CTA into a clean "continue".
-      const cont = $('s2continue'); if (cont){ cont.textContent = 'Continue →'; cont.onclick = () => go(3) }
+      msg.innerHTML = ‘<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Extension connected — your Sims can now go live on monitored URLs.’
+      const cont = $(‘s2continue’); if (cont){ cont.textContent = ‘Continue →’; cont.onclick = () => go(3) }
     }
-    else throw new Error('the extension rejected the connection')
-  } catch(e){ msg.textContent = 'Couldn’t connect: ' + e.message }
+    else throw new Error(‘the extension rejected the connection’)
+  } catch(e){ msg.textContent = ‘Couldn\’t connect: ‘ + e.message }
+}
+
+// ── Platform install guide ──
+const PLAT_STEPS = {
+  shopify: ‘<ol><li>In your Shopify admin, go to <b>Online Store → Themes</b></li><li>Click <b>Edit code</b> on your active theme</li><li>Open <code>layout/theme.liquid</code></li><li>Paste the snippet just before <code>&lt;/body&gt;</code> at the bottom of the file</li><li>Click <b>Save</b></li></ol>’,
+  webflow: ‘<ol><li>In Webflow, open <b>Project Settings</b> (gear icon, top-left)</li><li>Click the <b>Custom Code</b> tab</li><li>Paste the snippet in the <b>Footer Code</b> box</li><li>Click <b>Save Changes</b>, then <b>Publish</b> your site</li></ol>’,
+  squarespace: ‘<ol><li>In Squarespace, go to <b>Settings → Advanced → Code Injection</b></li><li>Paste the snippet in the <b>Footer</b> box</li><li>Click <b>Save</b></li></ol>’,
+  wix: ‘<ol><li>In Wix, go to <b>Settings → Custom Code</b></li><li>Click <b>+ Add Custom Code</b></li><li>Paste the snippet, set placement to <b>Body — End of tag</b></li><li>Select <b>All Pages</b>, then click <b>Apply</b> and <b>Save</b></li></ol>’,
+  other: ‘<ol><li>Open your page\’s HTML and find <code>&lt;/body&gt;</code> near the bottom</li><li>Paste the snippet on the line just before it</li><li>Save and publish — done</li></ol><p style="margin-top:8px;font-size:12px;color:var(--paper-faint)">WordPress: Appearance → Theme File Editor → footer.php → paste before <code>&lt;/body&gt;</code></p>’
+}
+let platOpen = false
+let curPlat = ‘shopify’
+function togglePlatforms() {
+  platOpen = !platOpen
+  $(‘platPanel’).classList.toggle(‘hide’, !platOpen)
+  $(‘platToggle’).textContent = platOpen ? ‘Where do I paste this? ↑’ : ‘Where do I paste this? ↓’
+  if (platOpen && !$(‘platDesc’).innerHTML) showPlat(‘shopify’, $(‘platTabs’).children[0])
+}
+function showPlat(name, btn) {
+  curPlat = name
+  $(‘platDesc’).innerHTML = PLAT_STEPS[name] || ‘’
+  if (btn) Array.from($(‘platTabs’).children).forEach(b => b.classList.toggle(‘act’, b === btn))
 }
 
 // ── Step 2: monitored URLs (real POST/DELETE against the resolved project) ──
@@ -439,8 +543,11 @@ function renderChips(){
   }
 }
 // Normalize to a path-only pattern: strip scheme + any query/fragment (server rejects ?/#).
+// Auto-append /* when the user enters a bare domain — covers the whole site without needing
+// wildcard knowledge (e.g. "yoursite.com" → "yoursite.com/*").
 function normalizePattern(v){
-  let p = String(v||'').trim().replace(/^https?:\/\//i,'').replace(/[?#].*$/,'')
+  let p = String(v||'').trim().replace(/^https?:\/\//i,'').replace(/[?#].*$/,'').replace(/\/+$/,'')
+  if (p && !p.includes('/') && !p.includes('*')) p = p + '/*'
   return p
 }
 async function addUrl(){
