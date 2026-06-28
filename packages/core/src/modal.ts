@@ -107,7 +107,7 @@ export function buildModal(
     @keyframes kl-genie-out{from{opacity:1;transform:translateY(0) scaleX(1) scaleY(1)}to{opacity:0;transform:translateY(180px) scaleX(.04) scaleY(.06)}}
     @keyframes kl-ov{from{opacity:0}to{opacity:1}}
     .klavity-overlay{position:fixed;inset:0;background:var(--kl-overlay);display:flex;align-items:center;justify-content:center;pointer-events:all;animation:kl-ov .3s ease both;}
-    .klavity-modal{position:relative;overflow:hidden;isolation:isolate;background:var(--kl-glow,transparent),var(--kl-bg);color:var(--kl-fg);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:0 0 0 1px var(--kl-border),var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-font-smoothing:antialiased;-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
+    .klavity-modal{position:relative;overflow-y:auto;max-height:calc(100vh - 40px);isolation:isolate;background:var(--kl-glow,transparent),var(--kl-bg);color:var(--kl-fg);border-radius:var(--kl-radius);padding:24px;width:100%;max-width:480px;box-shadow:0 0 0 1px var(--kl-border),var(--kl-shadow);font-family:var(--kl-font,system-ui,sans-serif);-webkit-font-smoothing:antialiased;-webkit-backdrop-filter:var(--kl-backdrop);backdrop-filter:var(--kl-backdrop);transform-origin:bottom center;animation:kl-genie-in .6s cubic-bezier(.16,1,.3,1) both;}
     .klavity-modal::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(to right,color-mix(in srgb,var(--kl-border) 58%,transparent) 1px,transparent 1px) 0 0/44px 44px,linear-gradient(to bottom,color-mix(in srgb,var(--kl-border) 58%,transparent) 1px,transparent 1px) 0 0/44px 44px;opacity:.36;}
     .klavity-modal>*{position:relative;z-index:1;}
     /* Staggered content reveal — the genie scales the panel in while its rows softly rise + fade so it feels
@@ -123,7 +123,7 @@ export function buildModal(
     .klavity-page{font-size:12px;color:var(--kl-muted);margin-bottom:12px;}
     /* overflow-x:auto forces overflow-y to auto (not visible) per CSS spec — adding vertical padding gives
        the absolutely-positioned rm/mk badge ::after hit-area extensions room so they're not clipped. */
-    .klavity-strip{display:flex;gap:8px;overflow-x:auto;padding:6px 0;margin-bottom:6px;min-height:64px;align-items:flex-start;}
+    .klavity-strip{display:flex;gap:8px;overflow-x:auto;padding:6px 4px 16px;margin-bottom:6px;min-height:64px;align-items:flex-start;}
     .klavity-thumb{position:relative;flex-shrink:0;}
     .klavity-thumb img{height:72px;width:104px;object-fit:cover;object-position:top center;background:var(--kl-chip);display:block;border-radius:8px;outline:1px solid var(--kl-img-outline);outline-offset:-1px;cursor:pointer;transition:filter .12s;}
     .klavity-thumb img:hover{filter:brightness(.85);}
@@ -232,11 +232,19 @@ export function buildModal(
     }
     .klavity-actions button.kl-active .kl-cap-ic,.klavity-toggle button.active .kl-cap-ic{color:var(--kl-accent);transform:scale(1.08) rotate(3deg);}
     .klavity-actions button.kl-active::after{
-      content:"";position:absolute;top:6px;right:7px;
-      width:6px;height:4px;
-      border-left:1.5px solid var(--kl-accent);
-      border-bottom:1.5px solid var(--kl-accent);
-      transform:rotate(-45deg);
+      content:"";position:absolute;top:-4px;right:-4px;
+      width:14px;height:14px;border-radius:50%;
+      background:var(--kl-accent);
+      box-shadow:0 1px 3px rgba(0,0,0,.25);
+      z-index:2;
+    }
+    .klavity-actions button.kl-active::before{
+      content:"";position:absolute;top:-4px;right:-4px;
+      width:14px;height:14px;
+      background-color:var(--kl-on-accent);
+      -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") no-repeat center/8px;
+      mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") no-repeat center/8px;
+      z-index:3;
     }
     @media (max-width:430px){.klavity-lead{flex-direction:column}.klavity-lead button{width:100%;}}
     @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing,.klavity-modal>*, .klavity-toast-progress{animation-duration:.01ms!important;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info{transition:none;}.klavity-actions button.kl-loading{animation:none;}.klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{transition:none;transform:none!important;}}
@@ -355,7 +363,15 @@ export function buildModal(
       rm.className = 'klavity-rm'
       rm.innerHTML = icon('x', { size: 13 })
       rm.title = 'Remove'
-      rm.addEventListener('click', (e) => { e.stopPropagation(); screenshots.splice(i, 1); screenshotCompressed.splice(i, 1); updateStrip() })
+      rm.addEventListener('click', (e) => {
+        e.stopPropagation()
+        screenshots.splice(i, 1)
+        screenshotCompressed.splice(i, 1)
+        if (screenshots.length === 0) {
+          setActiveCapture(null)
+        }
+        updateStrip()
+      })
       const mk = document.createElement('button')
       mk.className = 'klavity-mk'
       mk.innerHTML = icon('pencil', { size: 13 })
@@ -901,7 +917,14 @@ export function buildModal(
   }
 
   if (callbacks.autoCaptureOnOpen) {
-    setTimeout(() => { callbacks.onCaptureFull().then(addScreenshot).catch(() => {}) }, 200)
+    setTimeout(() => {
+      callbacks.onCaptureFull()
+        .then(shot => {
+          addScreenshot(shot)
+          setActiveCapture(fullBtn)
+        })
+        .catch(() => {})
+    }, 200)
   }
 
   return controller

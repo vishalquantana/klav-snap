@@ -332,4 +332,27 @@ describe('buildModal Screen tooltip positioning', () => {
     modalSpy.mockRestore()
     ctrl.close()
   })
+
+  it('autoCaptureOnOpen highlights Full Page as active, and removing all screenshots clears active state', async () => {
+    vi.useFakeTimers()
+    const onCaptureFull = vi.fn(async () => 'data:image/png;base64,FULL')
+    const ctrl = buildModal('bug', { onCaptureFull, autoCaptureOnOpen: true, onSubmit: async () => ({ issueKey: '1', issueUrl: '' }) })
+    
+    // Auto-capture runs on setTimeout(..., 200)
+    await vi.advanceTimersByTimeAsync(250)
+    
+    const fullBtn = q(ctrl, '#klavity-full') as HTMLButtonElement
+    expect(fullBtn.classList.contains('kl-active')).toBe(true)
+    
+    // Remove the screenshot
+    const rmBtn = q(ctrl, '.klavity-rm') as HTMLButtonElement
+    expect(rmBtn).not.toBeNull()
+    rmBtn.click()
+    
+    // Active state should be cleared since screenshots length is 0
+    expect(fullBtn.classList.contains('kl-active')).toBe(false)
+    
+    ctrl.close()
+    vi.useRealTimers()
+  })
 })
