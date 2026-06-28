@@ -7,7 +7,7 @@ export const ICON_NAMES = [
   'check', 'check-circle', 'x', 'x-circle',
   'link', 'user', 'mic', 'puzzle', 'sprout',
   // Added for widget/SDK + shared modal (Task 6)
-  'camera', 'image', 'map-pin', 'monitor', 'pencil', 'scissors', 'square', 'trash-2',
+  'camera', 'image', 'map-pin', 'monitor', 'pencil', 'scissors', 'square', 'trash-2', 'chrome', 'app-window',
   // Added for browser extension options page (Task 7)
   'cloud', 'plug', 'ticket',
   // Added for Noted outcome (Task 7 ext fix)

@@ -206,15 +206,9 @@ export function buildModal(
     .klavity-x:active{transform:var(--kl-press);}
     /* Keyboard accessibility — visible focus ring on every control */
     .klavity-toggle button:focus-visible,.klavity-actions button:focus-visible,.klavity-submit:focus-visible,.klavity-lead button:focus-visible,.klavity-cta:focus-visible,.klavity-rm:focus-visible,.klavity-mk:focus-visible,.klavity-x:focus-visible{outline:2px solid var(--kl-accent);outline-offset:2px;}
-    /* ── Sharp (i) info: the ⓘ is an INLINE element inside the Screen button, not a separate affordance.
-       It sits right after the "Screen" label so Screen+ⓘ read as a single unified control (KLA-15,
-       KLA-26). Clicks on ⓘ stopPropagation so they never trigger the one-click capture. The
-       floating tooltip (.kl-float-tip) is positioned via JS and lives outside the overflow:hidden
-       modal so it is never clipped. ── */
+    /* ── Sharp info: the tooltip (.kl-float-tip) is positioned via JS relative to the Screen button
+       and lives outside the overflow:hidden modal so it is never clipped. ── */
     #klavity-sharp{flex:1.4;}
-    .klavity-info-wrap{display:inline-flex;align-items:center;margin-left:4px;flex:none;}
-    .klavity-info{width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:var(--kl-muted);cursor:help;opacity:.7;transition:color .15s ease,background .15s ease,opacity .15s ease;}
-    .klavity-info-wrap:hover .klavity-info{color:var(--kl-accent);background:color-mix(in srgb,var(--kl-accent) 14%,transparent);opacity:1;}
     /* .klavity-info-pop is kept in markup for its text; visibility is JS-driven via .kl-float-tip so
        the tooltip is rendered outside the overflow:hidden modal and is never clipped. */
     .klavity-info-pop{display:none;}
@@ -262,7 +256,7 @@ export function buildModal(
     <div class="klavity-page">${icon('map-pin')} ${typeof window !== 'undefined' ? escHtml(window.location.pathname) : ''}</div>
     <div class="klavity-strip" id="klavity-strip"></div>
     <div class="klavity-actions">
-      ${callbacks.onCaptureSharp ? `<button id="klavity-sharp" title="Screen — pixel-perfect full page, every image. Shares this tab (asks permission)."><span class="kl-cap-ic">${icon('monitor')}</span><span class="kl-sharp-label">Screen</span><span class="klavity-info-wrap"><span id="klavity-sharp-info" class="klavity-info" role="button" tabindex="0" title="What does Screen do?" aria-label="What does Screen do?"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;pointer-events:none"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span><span class="klavity-info-pop" role="tooltip">Screen grabs the <b>whole page — every image, pixel-perfect</b> using your browser's screen-share. Your browser will ask you to <b>share this tab</b>.</span></span></button>` : ''}
+      ${callbacks.onCaptureSharp ? `<button id="klavity-sharp" title="Screen — pixel-perfect full page, every image. Shares this tab (asks permission)."><span class="kl-cap-ic">${icon('chrome')}</span><span class="kl-sharp-label">Screen</span><span class="klavity-info-pop" role="tooltip">Screen grabs the <b>whole page — every image, pixel-perfect</b> using your browser's screen-share. Your browser will ask you to <b>share this tab</b>.</span></button>` : ''}
       <button id="klavity-full" title="Full Page — instant capture; may miss some cross-origin images"><span class="kl-cap-ic">${icon('camera')}</span>Full Page</button>
       <button id="klavity-upload"><span class="kl-cap-ic">${icon('image')}</span>Upload</button>
       ${callbacks.onRegionCapture ? `<button id="klavity-region"><span class="kl-cap-ic">${icon('scissors')}</span>Region</button>` : ''}
@@ -283,16 +277,16 @@ export function buildModal(
   // .klavity-info-pop in the markup is the text source; we copy its innerHTML into a shadow-root-level
   // div with position:fixed, then position it via getBoundingClientRect with full edge-detection.
   // This sidesteps the overflow:hidden + transform containing-block problem on .klavity-modal.
-  const infoWrap = shadowRoot.querySelector('.klavity-info-wrap')
+  const sharpBtn = shadowRoot.getElementById('klavity-sharp') as HTMLButtonElement | null
   const infoPopSource = shadowRoot.querySelector('.klavity-info-pop')
-  if (infoWrap && infoPopSource) {
+  if (sharpBtn && infoPopSource) {
     const ft = document.createElement('div')
     ft.className = 'kl-float-tip'
     ft.setAttribute('role', 'tooltip')
     ft.innerHTML = infoPopSource.innerHTML
     shadowRoot.appendChild(ft)
     const showTip = () => {
-      const r = infoWrap.getBoundingClientRect()
+      const r = sharpBtn.getBoundingClientRect()
       const TIP_W = Math.min(228, window.innerWidth - 16)
       const PAD = 8
       const vw = window.innerWidth, vh = window.innerHeight
@@ -328,16 +322,10 @@ export function buildModal(
       ft.classList.add('kl-show')
     }
     const hideTip = () => ft.classList.remove('kl-show')
-    infoWrap.addEventListener('mouseenter', showTip)
-    infoWrap.addEventListener('mouseleave', hideTip)
-    infoWrap.addEventListener('focusin', showTip)
-    infoWrap.addEventListener('focusout', hideTip)
-    // Also show when the whole Sharp button gets keyboard focus (mirrors the old CSS rule)
-    const sharpBtn = shadowRoot.getElementById('klavity-sharp')
-    if (sharpBtn) {
-      sharpBtn.addEventListener('focus', showTip)
-      sharpBtn.addEventListener('blur', hideTip)
-    }
+    sharpBtn.addEventListener('mouseenter', showTip)
+    sharpBtn.addEventListener('mouseleave', hideTip)
+    sharpBtn.addEventListener('focus', showTip)
+    sharpBtn.addEventListener('blur', hideTip)
   }
 
   const controller: ModalController = {
@@ -565,8 +553,6 @@ export function buildModal(
     catch { /* ignore */ }
     finally { fullBtn.classList.remove('kl-loading'); lockComposer(false) }
   })
-  // Sharp capture (real-pixel getDisplayMedia scroll-stitch) — only when the host provides it.
-  const sharpBtn = modal.querySelector('#klavity-sharp') as HTMLButtonElement | null
   if (sharpBtn && callbacks.onCaptureSharp) {
     // The "Sharp" word lives in its own span so the "Capturing…" state never clobbers the icon or the
     // embedded (i) (setting button.textContent would wipe both).
@@ -589,12 +575,7 @@ export function buildModal(
     // ONE click → straight to the screen-share permission. getDisplayMedia runs synchronously inside the
     // handler (preserving the click's user gesture).
     sharpBtn.addEventListener('click', () => { void runSharp() })
-    // The (i) info icon is a purely visual affordance inside the Sharp button (not a separate control).
-    // Clicks on it must NOT bubble up to the button's click handler and trigger the capture.
-    const infoEl = sharpBtn.querySelector('#klavity-sharp-info') as HTMLElement | null
-    if (infoEl) {
-      infoEl.addEventListener('click', e => e.stopPropagation())
-    }
+
   }
   const fileInput = modal.querySelector('#klavity-file') as HTMLInputElement
   const uploadBtn = modal.querySelector('#klavity-upload') as HTMLButtonElement

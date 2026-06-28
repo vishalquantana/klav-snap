@@ -288,19 +288,19 @@ describe('buildModal Screen tooltip positioning', () => {
       onSubmit: async () => ({ issueKey: '1', issueUrl: '' })
     })
 
-    const infoWrap = ctrl.shadowRoot.querySelector('.klavity-info-wrap') as HTMLElement
+    const sharpBtn = ctrl.shadowRoot.querySelector('#klavity-sharp') as HTMLElement
     const modalEl = ctrl.shadowRoot.querySelector('.klavity-modal') as HTMLElement
-    expect(infoWrap).not.toBeNull()
+    expect(sharpBtn).not.toBeNull()
     expect(modalEl).not.toBeNull()
 
     // Mock getBoundingClientRect
-    const infoWrapSpy = vi.spyOn(infoWrap, 'getBoundingClientRect').mockReturnValue({
+    const sharpBtnSpy = vi.spyOn(sharpBtn, 'getBoundingClientRect').mockReturnValue({
       left: 200,
-      right: 216,
+      right: 320,
       top: 400,
-      bottom: 416,
-      width: 16,
-      height: 16,
+      bottom: 440,
+      width: 120,
+      height: 40,
       x: 200,
       y: 400,
       toJSON: () => {}
@@ -318,17 +318,17 @@ describe('buildModal Screen tooltip positioning', () => {
       toJSON: () => {}
     })
 
-    infoWrap.dispatchEvent(new MouseEvent('mouseenter'))
+    sharpBtn.dispatchEvent(new MouseEvent('mouseenter'))
 
     const floatTip = ctrl.shadowRoot.querySelector('.kl-float-tip') as HTMLElement
     expect(floatTip).not.toBeNull()
     
-    // Center of icon is 208, TIP_W / 2 is 114 -> preferred left is 94px.
+    // Center of button is 260, TIP_W / 2 is 114 -> preferred left is 146px.
     // Clamped left boundary is modalRect.left (100) + PAD (8) = 108px.
-    // So left should be clamped to 108px.
-    expect(floatTip.style.left).toBe('108px')
+    // So left should be 146px.
+    expect(floatTip.style.left).toBe('146px')
 
-    infoWrapSpy.mockRestore()
+    sharpBtnSpy.mockRestore()
     modalSpy.mockRestore()
     ctrl.close()
   })
