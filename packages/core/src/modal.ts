@@ -296,21 +296,35 @@ export function buildModal(
       const TIP_W = Math.min(228, window.innerWidth - 16)
       const PAD = 8
       const vw = window.innerWidth, vh = window.innerHeight
-      // Horizontal: right-align with the info wrap's right edge; clamp so neither side clips.
-      const left = Math.max(PAD, Math.min(r.right - TIP_W, vw - TIP_W - PAD))
+
+      const modalEl = shadowRoot.querySelector('.klavity-modal')
+      const modalRect = modalEl ? modalEl.getBoundingClientRect() : { left: 0, right: vw, top: 0, bottom: vh }
+
+      // Horizontal: clamp within modal and viewport boundaries
+      const leftBoundary = Math.max(PAD, modalRect.left + PAD)
+      const rightBoundary = Math.min(vw - PAD, modalRect.right - PAD)
+      const preferredLeft = (r.left + r.width / 2) - TIP_W / 2
+      const left = Math.max(leftBoundary, Math.min(preferredLeft, rightBoundary - TIP_W))
       ft.style.left = left + 'px'
+
       ft.style.top = '-9999px'     // off-screen to measure height before final placement
       ft.style.visibility = 'hidden'
       ft.style.display = 'block'
       const tipH = ft.offsetHeight
       ft.style.display = ''
       ft.style.visibility = ''
-      // Vertical: prefer above; flip below if there's not enough room above.
-      const spaceAbove = r.top - PAD
+
+      // Vertical: prefer above; flip below if there's not enough room above. Clamp within modal and viewport
+      const topBoundary = Math.max(PAD, modalRect.top + PAD)
+      const bottomBoundary = Math.min(vh - PAD, modalRect.bottom - PAD)
+      const spaceAbove = r.top - topBoundary
       let top = r.top - tipH - 10
-      if (top < PAD || spaceAbove < tipH) top = r.bottom + 10
-      top = Math.max(PAD, Math.min(top, vh - tipH - PAD))
+      if (top < topBoundary || spaceAbove < tipH) {
+        top = r.bottom + 10
+      }
+      top = Math.max(topBoundary, Math.min(top, bottomBoundary - tipH))
       ft.style.top = top + 'px'
+
       ft.classList.add('kl-show')
     }
     const hideTip = () => ft.classList.remove('kl-show')
