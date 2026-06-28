@@ -331,6 +331,7 @@ async function mount() {
   // 'hidden': no visible launcher (right-click still works); 'icon': bug icon only, no label;
   // 'full': icon + "Report a bug" (default); 'custom': icon + admin-defined text.
   const reportBtn = document.createElement("button")
+  reportBtn.className = "kl-launcher-btn"
   if (launcherMode === 'icon') {
     reportBtn.innerHTML = icon('bug')
     reportBtn.style.cssText = `position:relative;border:0;border-radius:50%;padding:10px;background:${launcherIconColor};color:#fff;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(91,91,240,.32);display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px`
@@ -348,7 +349,10 @@ async function mount() {
       "@keyframes kl-active-pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}" +
       ".kl-active-dot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#22c55e;border:2px solid #fff;animation:kl-active-pulse 2.2s ease-out infinite;}" +
       ".kl-issue-badge{position:absolute;top:-7px;left:-7px;min-width:17px;height:17px;border-radius:9px;background:#ef4444;color:#fff;font-size:9.5px;font-weight:700;padding:0 4px;display:none;align-items:center;justify-content:center;border:2px solid #fff;font-family:system-ui,sans-serif;line-height:1;}" +
-      "@media (prefers-reduced-motion: reduce){.kl-active-dot{animation:none}}"
+      ".kl-launcher-btn{transition:transform 0.15s cubic-bezier(0.2, 0.7, 0.2, 1), background 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;will-change:transform;}" +
+      ".kl-launcher-btn:hover{transform:translateY(-1px) scale(1.02);filter:brightness(1.06);box-shadow:0 10px 28px rgba(91,91,240,.45);}" +
+      ".kl-launcher-btn:active{transform:scale(0.97);transition-duration:0.08s;}" +
+      "@media (prefers-reduced-motion: reduce){.kl-active-dot{animation:none}.kl-launcher-btn{transition:none!important;transform:none!important;}}"
     root.appendChild(a)
   }
   const activeDot = document.createElement("span")
