@@ -171,6 +171,21 @@ test("sidebar view switcher dedupes nav buttons and exposes the inline setView A
   expect(HTML).toContain("window.setView=setView")
 })
 
+test("project picker lives in the top navbar, not the sidebar", () => {
+  const barStart = HTML.indexOf('<div class="bar"><div class="bar-in">')
+  const wrapStart = HTML.indexOf('<div class="wrap">')
+  const sideStart = HTML.indexOf('<aside class="side"')
+  const pickerStart = HTML.indexOf('id="projSwitcher"')
+  expect(barStart).toBeGreaterThan(-1)
+  expect(wrapStart).toBeGreaterThan(barStart)
+  expect(sideStart).toBeGreaterThan(wrapStart)
+  expect(pickerStart).toBeGreaterThan(barStart)
+  expect(pickerStart).toBeLessThan(wrapStart)
+  const sideMarkup = HTML.slice(sideStart, HTML.indexOf('<div class="content">', sideStart))
+  expect(sideMarkup).not.toContain('id="projSwitcher"')
+  expect(HTML).not.toContain(".side .proj-pick")
+})
+
 test("Sims page leads with Sims feed; Live/Observability are collapsible in Sims+Settings views", () => {
   expect(HTML.indexOf('id="simsFeed"')).toBeGreaterThan(-1)
   expect(HTML.indexOf('id="simLiveStrip"')).toBeGreaterThan(-1)

@@ -21,6 +21,7 @@ a{color:inherit;text-decoration:none}
 .bar-in{margin-left:214px;padding:0 30px;height:60px;display:flex;align-items:center;gap:14px}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em}
 .brand .spark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:15px;color:#fff;background:linear-gradient(135deg,var(--indigo-deep),#a78bfa)}
+.bar-brand{display:none;font-size:18px}
 .ws{font-size:14px;color:var(--paper-dim);font-weight:600}
 .right{margin-left:auto;display:flex;align-items:center;gap:14px}
 .who{font-size:13px;color:var(--paper-dim)}
@@ -54,14 +55,8 @@ body[data-view="recurring"] [data-view]:not([data-view~="recurring"]){display:no
   .side .nv{width:auto;white-space:nowrap}
   .side .nv .ct{display:none}
   .side-version{display:none}
-  .side .proj-pick{border-bottom:none;padding-bottom:0;margin-bottom:0;flex-shrink:0;align-self:center}
-  .side .proj-pick .switcher{flex-direction:row;align-items:center;gap:6px}
-  .side .proj-pick .sw-lbl{display:none}
-  .side .proj-select{width:auto;max-width:140px;padding:6px 28px 6px 9px;font-size:13px}
-  .side .proj-pick .newproj{flex-direction:row;flex-wrap:wrap;gap:4px}
-  .side .proj-pick .newproj input{width:120px;min-width:0;padding:6px 9px;font-size:12px}
-  .side .proj-pick .msg{display:none}
   .bar-in,.wrap{margin-left:0}
+  .bar-in{padding:0 12px;gap:8px}
   .wrap{padding:18px 16px 50px;max-width:none}
 }
 
@@ -69,23 +64,23 @@ body[data-view="recurring"] [data-view]:not([data-view~="recurring"]){display:no
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:28px}
 h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02em;margin-bottom:4px}
 .lead{color:var(--paper-dim);font-size:15px}
-/* project switcher cluster — lives at the top of the left sidebar, above the nav items */
-.proj-pick{margin-bottom:8px;padding-bottom:10px;border-bottom:1px solid var(--line)}
-.proj-pick .newproj{margin-top:0}
+/* project switcher cluster — lives in the top navbar, not in page content or the sidebar */
+.proj-pick{margin:0;padding:0;border-bottom:0;min-width:0;flex:0 1 260px}
+.bar .proj-pick .msg{display:none}
+.bar .proj-pick .newproj{margin-top:0;gap:6px}
+.bar .proj-pick .newproj input{min-width:150px;max-width:220px}
+.bar .switcher{min-width:0}
+.bar .sw-lbl{display:none}
+.bar .proj-select{width:100%;max-width:260px;background-color:var(--ink);box-shadow:0 1px 0 rgba(25,20,15,.03)}
+@media(max-width:760px){.proj-pick{flex:1 1 120px}.bar .proj-select{max-width:none;padding:7px 28px 7px 10px;font-size:13px}.bar .proj-pick .newproj input{min-width:0;width:110px}.bar .proj-pick .newproj .btn{padding:7px 9px}}
+@media(max-width:540px){.bar-brand{display:none}.who{display:none}.lo{font-size:12px}.right{gap:8px}}
 /* bar-brand: Klavity logo shown in the top bar on mobile only (sidebar is horizontal there,
    its own brand is hidden, so the bar carries the logo instead) */
-.bar-brand{display:none;font-size:18px}
 /* Studio shortcut — always-visible primary action in the navbar (KLAVITYKLA-25).
    Lives on the left of .bar-in so it's reachable from every tab. JS (a[href^="/app"])
    auto-appends ?project= at load time so it opens the right project. */
 .nav-studio{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;border:1px solid rgba(99,102,241,.28);background:rgba(99,102,241,.1);color:var(--indigo);font-family:var(--body);font-size:13px;font-weight:600;text-decoration:none}
 @media(max-width:500px){.nav-studio .nav-studio-lbl{display:none}.nav-studio{padding:7px 10px}}
-/* Sidebar: full-width select with "Project" label stacked above it */
-.side .proj-pick .switcher{flex-direction:column;align-items:flex-start;gap:3px}
-.side .proj-select{width:100%;padding:8px 32px 8px 11px;font-size:13.5px;text-overflow:ellipsis;transition:border-color var(--mi-dur,.15s) var(--mi-ease,ease)}
-.side .proj-select:hover{border-color:var(--indigo)}
-.side .proj-pick .newproj{flex-direction:column;gap:6px}
-.side .proj-pick .newproj input{width:100%;min-width:0;padding:8px 10px;font-size:13px}
 .switcher{display:flex;align-items:center;gap:8px}
 .switcher .sw-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint)}
 .proj-select{appearance:none;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 34px 9px 13px;color:var(--paper);font-family:var(--body);font-weight:600;font-size:14px;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
@@ -746,6 +741,20 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <span class="ws hide" id="wsName"></span>
   <!-- Studio shortcut — primary action always visible in the navbar regardless of active tab -->
   <a class="nav-studio mi" href="/app" id="studioNavBtn" aria-label="Open Sims Studio"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.524.888l-1.267 5.54a.5.5 0 0 0 .595.595l5.54-1.267a2 2 0 0 0 .888-.524z" /><path d="m15.5 5.5 3 3" /></svg><span class="nav-studio-lbl">Studio</span></a>
+  <!-- Project picker in the navbar itself (KLAVITYKLA-14/25). #projSwitcher and #newProj
+       are a swap-pair; JS toggles by ID. -->
+  <div class="proj-pick" id="projPick">
+    <div class="switcher" id="projSwitcher">
+      <span class="sw-lbl">Project</span>
+      <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
+    </div>
+    <div class="newproj hide" id="newProj">
+      <input id="newProjName" type="text" placeholder="New project name" maxlength="60" />
+      <button class="btn btn-indigo btn-sm" id="newProjCreate">Create</button>
+      <button class="btn btn-ghost btn-sm" id="newProjCancel">Cancel</button>
+    </div>
+    <div class="msg" id="newProjMsg"></div>
+  </div>
   <div class="right">
     <button class="nav-icon" id="themeToggle" type="button" aria-label="Toggle dark mode"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></button>
     <span class="who" id="who"></span>
@@ -757,20 +766,6 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <aside class="side" aria-label="Dashboard sections">
     <!-- Brand at the very top of the sidebar -->
     <div class="brand"><span class="spark">K</span>Klavity</div>
-    <!-- Project picker — top of sidebar, above nav items, always prominent -->
-    <!-- #projSwitcher and #newProj are a swap-pair; JS toggles by ID -->
-    <div class="proj-pick">
-      <div class="switcher" id="projSwitcher">
-        <span class="sw-lbl">Project</span>
-        <select class="proj-select" id="projSwitch" aria-label="Active project"></select>
-      </div>
-      <div class="newproj hide" id="newProj">
-        <input id="newProjName" type="text" placeholder="New project name" maxlength="60" />
-        <button class="btn btn-indigo btn-sm" id="newProjCreate">Create</button>
-        <button class="btn btn-ghost btn-sm" id="newProjCancel">Cancel</button>
-      </div>
-      <div class="msg" id="newProjMsg"></div>
-    </div>
     <button class="nv active" data-go="overview"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /> <path d="M12 11h4" /> <path d="M12 16h4" /> <path d="M8 11h.01" /> <path d="M8 16h.01" /></svg></span>Overview</button>
     <button class="nv" data-go="sims"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg></span>Sims</button>
     <button class="nv" data-go="tickets"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg></span>Tickets <span class="ct" id="navTicketCount"></span></button>
