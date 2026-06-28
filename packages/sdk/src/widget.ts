@@ -343,16 +343,16 @@ async function mount() {
       "@keyframes klm-shine{0%{transform:translateX(-130%)}100%{transform:translateX(240%)}}" +
       ".klm-menu{animation:klm-in .34s cubic-bezier(.34,1.56,.64,1) both}" +
       // ── Large touch cards (L6): icon chip + label + one-line description + arrow ──
-      ".klm-card{position:relative;display:flex;align-items:center;gap:12px;width:100%;border:0;cursor:pointer;text-align:left;padding:11px 12px;border-radius:12px;color:#2a2342;font-family:inherit;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(252,250,246,.55));box-shadow:0 1px 2px rgba(40,25,70,.06),inset 0 0 0 1px rgba(99,102,241,.08);transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s ease,background .2s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
+      ".klm-card{position:relative;display:flex;align-items:center;gap:8px;width:100%;border:0;cursor:pointer;text-align:left;padding:8px 10px;border-radius:12px;color:#2a2342;font-family:inherit;background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(252,250,246,.55));box-shadow:0 1px 2px rgba(40,25,70,.06),inset 0 0 0 1px rgba(99,102,241,.08);transition:scale .14s cubic-bezier(.2,0,0,1),box-shadow .2s ease,background .2s ease;animation:klm-row-in .42s cubic-bezier(.16,1,.3,1) both}" +
       ".klm-card:hover{scale:1.015;box-shadow:0 5px 14px -3px rgba(99,102,241,.3),inset 0 0 0 1px rgba(99,102,241,.16)}" +
       ".klm-card:active{scale:.96}" +
       ".klm-card:focus-visible{outline:2px solid #6366f1;outline-offset:2px}" +
-      ".klm-chip{flex:none;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:#5b51c9;background:rgba(99,102,241,.12);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}" +
-      ".klm-chip svg{width:20px;height:20px;display:block}" +
+      ".klm-chip{flex:none;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:#5b51c9;background:rgba(99,102,241,.12);transition:transform .2s cubic-bezier(.34,1.56,.64,1)}" +
+      ".klm-chip svg{width:16px;height:16px;display:block}" +
       ".klm-card:hover .klm-chip{transform:scale(1.1) rotate(-5deg)}" +
       ".klm-body{display:flex;flex-direction:column;gap:2px;min-width:0}" +
-      ".klm-t{font-size:14px;font-weight:650;letter-spacing:-.01em;line-height:1.2}" +
-      ".klm-d{font-size:11.5px;line-height:1.35;color:#7c7793;text-wrap:pretty}" +
+      ".klm-t{font-size:13px;font-weight:650;letter-spacing:-.01em;line-height:1.2}" +
+      ".klm-d{font-size:10.5px;line-height:1.35;color:#7c7793;text-wrap:pretty}" +
       ".klm-go{margin-left:auto;flex:none;color:#b6afce;display:inline-flex;transition:transform .2s cubic-bezier(.2,0,0,1)}" +
       ".klm-go svg{width:16px;height:16px;display:block}" +
       ".klm-card:hover .klm-go{transform:translateX(3px)}" +
@@ -390,15 +390,11 @@ async function mount() {
     const menu = document.createElement("div")
     menuEl = menu
     menu.className = "klm-menu"
-    // Warm cream "glass" surface with a soft Klavity-purple glow at the top, a layered
-    // purple-tinted shadow, and a frosted backdrop. (Plain backdrop blur — not liquid-glass
-    // refraction, which doesn't compose in Chrome.)
-    menu.style.cssText = "position:fixed;z-index:2147483647;width:240px;max-width:calc(100vw - 16px);border-radius:20px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:bottom right;padding:8px;display:flex;flex-direction:column;gap:7px;box-sizing:border-box;" +
+    menu.style.cssText = "position:fixed;z-index:2147483647;width:200px;max-width:calc(100vw - 16px);border-radius:20px;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;transform-origin:top left;padding:8px;display:flex;flex-direction:column;gap:7px;box-sizing:border-box;" +
       "background:radial-gradient(135% 90% at 50% -12%, rgba(139,92,246,.18), rgba(139,92,246,0) 55%), linear-gradient(180deg, rgba(250,247,240,.95), rgba(243,236,225,.96));" +
       "border:1px solid rgba(255,255,255,.55);" +
       "box-shadow:0 24px 60px -12px rgba(76,40,130,.32), 0 8px 22px rgba(99,102,241,.16), 0 1.5px 4px rgba(25,20,15,.10), inset 0 1px 0 rgba(255,255,255,.75);" +
-      "-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);" +
-      "right:18px;bottom:74px"
+      "-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);"
     // Lucide arrow-right (no such icon in our set → inline) for each card's affordance.
     const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>'
     let idx = 0
@@ -430,7 +426,31 @@ async function mount() {
     menu.appendChild(footer)
     // One-pass shimmer sweep — appended LAST so it sweeps OVER the opaque cards (pointer-events:none).
     const shine = document.createElement("div"); shine.className = "klm-shine"; menu.appendChild(shine)
+
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const menuWidth = 200
+    const PAD = 8
+
+    // Position temporarily off-screen to measure height
+    menu.style.left = x + "px"
+    menu.style.top = "-9999px"
     root.appendChild(menu)
+
+    const menuHeight = menu.offsetHeight
+
+    // Handle keyboard fallback when coordinates are (0,0) or missing
+    const isKeyboard = (x === 0 && y === 0) || x === null || x === undefined || y === null || y === undefined
+    let left = isKeyboard ? vw - menuWidth - 18 : x
+    let top = isKeyboard ? vh - menuHeight - 74 : y
+
+    // Clamp coordinates to keep menu within viewport boundaries
+    left = Math.max(PAD, Math.min(left, vw - menuWidth - PAD))
+    top = Math.max(PAD, Math.min(top, vh - menuHeight - PAD))
+
+    menu.style.left = left + "px"
+    menu.style.top = top + "px"
+
     // Fixed bottom-right anchor — aligns with the launcher button (right:18px, bottom:18px + ~48px button).
     // CSS right/bottom keep the menu in viewport on all screen sizes; no JS clamping needed.
     const onOutside = (ev: MouseEvent) => { const p = (ev.composedPath?.() || []) as HTMLElement[]; if (!p.includes(menu)) { closeMenu(); document.removeEventListener("mousedown", onOutside) } }
