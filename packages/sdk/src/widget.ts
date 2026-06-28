@@ -1,6 +1,6 @@
 // packages/sdk/src/widget.ts
 import { injectSimStyles } from "@klavity/core/sim"
-import { safeToPng } from "./capture"
+import { safeToPng, safeToPngWithScale } from "./capture"
 import { buildModal, installRegionDrag, type ModalController } from "@klavity/core/modal"
 import { cropDataUrl, type Rect } from "@klavity/core/crop"
 import { planScrollStitch, clampCaptureHeight } from "./sharp-capture"
@@ -377,7 +377,12 @@ async function mount() {
       // so we skip the full-page auto-capture and let the zoomed-in region lead.
       autoCaptureOnOpen: !opts?.initialShot,
       onCaptureFull: async () => safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }),
-      onRegionCapture: async (rect) => cropDataUrl(await safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect),
+      onRegionCapture: async (rect) => {
+        // Crop the selected VIEWPORT rect out of a full-page capture. Pass the capture's scale so the rect
+        // lands correctly even when the fetch-free fallback downscaled a tall page (otherwise → black).
+        const { dataUrl, scale } = await safeToPngWithScale(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID })
+        return cropDataUrl(dataUrl, rect, window.scrollX, window.scrollY, scale)
+      },
       // Sharp capture: real tab pixels via getDisplayMedia (no CORS issues, captures cross-origin images) +
       // scroll-stitch to a full-page image. Feature-detected — undefined on iOS Safari (no getDisplayMedia),
       // where the modal hides the Sharp button and users fall back to the html-to-image "Full Page" above.
@@ -707,8 +712,10 @@ async function mount() {
     let shot = ""
     try {
       // Full-page capture (CSP/CORS-resilient), then crop to the selected VIEWPORT rect (cropDataUrl adds
-      // the scroll offset). Best-effort: if capture fails, still open the composer so the user can retry.
-      shot = await cropDataUrl(await safeToPng(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID }), rect)
+      // the scroll offset). Pass the capture's scale so the crop is correct even when the fetch-free
+      // fallback downscaled a tall page. Best-effort: if capture fails, still open the composer to retry.
+      const { dataUrl, scale } = await safeToPngWithScale(document.body, { filter: (n) => (n as HTMLElement).id !== HOST_ID })
+      shot = await cropDataUrl(dataUrl, rect, window.scrollX, window.scrollY, scale)
     } catch { /* fall back to an empty composer */ }
     openReport("bug", shot ? { initialShot: shot } : undefined)
   }

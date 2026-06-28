@@ -63,7 +63,7 @@ function renderFetchFreeFallback(
   node: HTMLElement,
   filter?: (n: HTMLElement) => boolean,
   requestedPixelRatio = 1,
-): string {
+): { dataUrl: string; scale: number } {
   try {
     const rootRect = node.getBoundingClientRect()
     const cssWidth = Math.max(1, Math.ceil(Math.max(node.scrollWidth, node.clientWidth, rootRect.width)))
@@ -75,7 +75,7 @@ function renderFetchFreeFallback(
     canvas.width = Math.max(1, Math.floor(cssWidth * pixelRatio))
     canvas.height = Math.max(1, Math.floor(cssHeight * pixelRatio))
     const context = canvas.getContext("2d")
-    if (!context) return EMERGENCY_PNG
+    if (!context) return { dataUrl: EMERGENCY_PNG, scale: 1 }
 
     context.scale(pixelRatio, pixelRatio)
     context.fillStyle = "#ffffff"
@@ -143,9 +143,11 @@ function renderFetchFreeFallback(
 
     paint(node, true)
     const dataUrl = canvas.toDataURL("image/png")
-    return dataUrl.startsWith("data:image/png") ? dataUrl : EMERGENCY_PNG
+    // `scale` is image-px-per-CSS-px so a viewport rect can be cropped correctly: the canvas is
+    // cssWidth×pixelRatio, which may be < CSS size when a tall page is clamped to MAX_FALLBACK_EDGE.
+    return dataUrl.startsWith("data:image/png") ? { dataUrl, scale: pixelRatio } : { dataUrl: EMERGENCY_PNG, scale: 1 }
   } catch {
-    return EMERGENCY_PNG
+    return { dataUrl: EMERGENCY_PNG, scale: 1 }
   }
 }
 
@@ -168,6 +170,20 @@ export async function safeToPng(
   node: HTMLElement,
   opts: { filter?: (n: HTMLElement) => boolean; pixelRatio?: number } = {},
 ): Promise<string> {
+  return (await safeToPngWithScale(node, opts)).dataUrl
+}
+
+/**
+ * Like {@link safeToPng}, but also returns `scale` — the number of image pixels per CSS pixel of the
+ * captured page. Callers that crop a viewport rect out of a full-page capture (region screenshot) MUST
+ * use this and pass `scale` to `cropDataUrl`: the html-to-image path is 1:1 (scale = pixelRatio), but the
+ * fetch-free fallback downscales tall pages, so a CSS rect cropped at scale 1 would land in the wrong,
+ * often clamped → black, area.
+ */
+export async function safeToPngWithScale(
+  node: HTMLElement,
+  opts: { filter?: (n: HTMLElement) => boolean; pixelRatio?: number } = {},
+): Promise<{ dataUrl: string; scale: number }> {
   let skipped = 0
   const callerFilter = opts.filter
   const pixelRatio = opts.pixelRatio ?? 1
@@ -186,7 +202,7 @@ export async function safeToPng(
     if (skipped) {
       warn(`[Klavity] capture: omitted ${skipped} cross-origin image(s) the page's CSP/CORS blocks — captured the rest`)
     }
-    return out
+    return { dataUrl: out, scale: pixelRatio }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     warn(`[Klavity] capture: html-to-image unavailable (${reason}); using fetch-free fallback`)
