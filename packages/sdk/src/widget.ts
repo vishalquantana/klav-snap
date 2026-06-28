@@ -16,6 +16,14 @@ import { startSimsWatch, type SimsWatchController } from "./sims-watch"
 
 const HOST_ID = "klavity-widget-host"
 const TOKEN_KEY = "klavity_widget_token"
+const WIDGET_FETCH_TIMEOUT_MS = 15_000
+const SIM_REVIEW_FETCH_TIMEOUT_MS = 45_000
+
+function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = WIDGET_FETCH_TIMEOUT_MS): Promise<Response> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), timeoutMs)
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(t))
+}
 
 const benchNow = (): number =>
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -262,7 +270,7 @@ async function mount() {
   let launcherText = 'Report a bug'
   let launcherIconColor = '#5b5bf0'
   try {
-    const r = await fetch(cfg.backendUrl + "/api/projects/" + encodeURIComponent(cfg.projectId) + "/config")
+    const r = await fetchWithTimeout(cfg.backendUrl + "/api/projects/" + encodeURIComponent(cfg.projectId) + "/config")
     if (r.ok) {
       const j = await r.json()
       modalConfig = j.modalConfig || {}
@@ -595,7 +603,7 @@ async function mount() {
       renderSimChips(_deployedSims)
     } else {
       // Fetch available Sims async and populate; silent on failure
-      fetch(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
+      fetchWithTimeout(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (Array.isArray(d?.sims) && d.sims.length) renderSimChips(d.sims) })
         .catch(() => {})
@@ -613,7 +621,7 @@ async function mount() {
       menu.appendChild(status)
       let personas: Array<{ id: string; name: string; role?: string }> = []
       try {
-        const r = await fetch(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
+        const r = await fetchWithTimeout(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
         if (!r.ok) throw new Error()
         personas = ((await r.json()).sims || []) as typeof personas
       } catch {
@@ -764,7 +772,7 @@ async function mount() {
     _simsWatchCtrl = null
     let sims: Array<{ id: string; name: string; initials?: string; accent?: string }> = []
     try {
-      const r = await fetch(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
+      const r = await fetchWithTimeout(cfg.backendUrl + "/api/widget/sims?project=" + encodeURIComponent(cfg.projectId))
       if (r.ok) {
         const data = await r.json().catch(() => ({}))
         sims = Array.isArray(data.sims) ? data.sims : []
@@ -812,9 +820,9 @@ async function mount() {
       const headers: Record<string, string> = { 'content-type': 'application/json' }
       if (getToken()) headers.authorization = `Bearer ${getToken()}`
       const networkStart = benchNow()
-      const res = await fetch(cfg.backendUrl + '/api/sim/review', {
+      const res = await fetchWithTimeout(cfg.backendUrl + '/api/sim/review', {
         method: 'POST', headers, credentials: 'include', body: JSON.stringify(body),
-      })
+      }, SIM_REVIEW_FETCH_TIMEOUT_MS)
       if (!res.ok) return
       const data = await res.json().catch(() => ({}))
       const networkMs = benchNow() - networkStart
