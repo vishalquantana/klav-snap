@@ -174,3 +174,108 @@ describe('buildModal autoCaptureOnOpen', () => {
     ctrl.close(); vi.useRealTimers()
   })
 })
+
+describe('buildModal success screen auto-dismiss', () => {
+  const ok = async () => ({ issueKey: 'K-1', issueUrl: '' })
+
+  it('closes automatically after 5 seconds if showEmail and showCta are false', async () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+    const success = {
+      copy: {
+        headline: 'Bug filed',
+        body: 'Thanks',
+        emailLabel: '',
+        ctaText: '',
+        ctaUrl: '',
+        showEmail: false,
+        showCta: false
+      }
+    }
+    const ctrl = buildModal('bug', {
+      onCaptureFull: async () => 'x',
+      onSubmit: ok,
+      onClose,
+      success
+    })
+    
+    // Trigger submit
+    const desc = q(ctrl, '#klavity-desc') as HTMLTextAreaElement
+    desc.value = 'test bug'; desc.dispatchEvent(new Event('input'))
+    const submit = q(ctrl, '#klavity-submit') as HTMLButtonElement
+    submit.click()
+    
+    // Await submit promise resolution
+    await vi.advanceTimersByTimeAsync(0)
+    
+    // Check that success screen is rendered and has the progress bar
+    expect(q(ctrl, '.klavity-toast-progress')).not.toBeNull()
+    
+    // Check it hasn't closed yet
+    expect(onClose).not.toHaveBeenCalled()
+    
+    // Advance 5 seconds
+    await vi.advanceTimersByTimeAsync(5000)
+    
+    expect(onClose).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
+  it('does not close automatically if showEmail is true until email is submitted', async () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+    const onLead = vi.fn(async () => {})
+    const success = {
+      copy: {
+        headline: 'Bug filed',
+        body: 'Provide email',
+        emailLabel: 'Notify me',
+        ctaText: '',
+        ctaUrl: '',
+        showEmail: true,
+        showCta: false
+      },
+      onLead
+    }
+    const ctrl = buildModal('bug', {
+      onCaptureFull: async () => 'x',
+      onSubmit: ok,
+      onClose,
+      success
+    })
+    
+    // Trigger submit
+    const desc = q(ctrl, '#klavity-desc') as HTMLTextAreaElement
+    desc.value = 'test bug'; desc.dispatchEvent(new Event('input'))
+    const submit = q(ctrl, '#klavity-submit') as HTMLButtonElement
+    submit.click()
+    
+    // Await submit promise resolution
+    await vi.advanceTimersByTimeAsync(0)
+    
+    // Should NOT have the progress bar yet
+    expect(q(ctrl, '.klavity-toast-progress')).toBeNull()
+    
+    // Advance 10 seconds, should not close
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(onClose).not.toHaveBeenCalled()
+    
+    // Enter email and submit lead
+    const emailInput = q(ctrl, '.klavity-lead input') as HTMLInputElement
+    emailInput.value = 'test@example.com'
+    const leadBtn = q(ctrl, '.klavity-lead button') as HTMLButtonElement
+    leadBtn.click()
+    
+    // Await lead submit resolution
+    await vi.advanceTimersByTimeAsync(0)
+    
+    // Should have progress bar now
+    expect(q(ctrl, '.klavity-toast-progress')).not.toBeNull()
+    
+    // Advance 5 seconds, should close
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    
+    vi.useRealTimers()
+  })
+})

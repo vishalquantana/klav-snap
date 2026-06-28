@@ -98,6 +98,7 @@ export function buildModal(
   // toggleable/zoomable overlay instead of baking the drawing into the uploaded image.
   const annotationsByIndex: Record<number, any> = {}
   let currentType = initialType
+  let autodismissTimeout: any = null
 
   const style = document.createElement('style')
   style.textContent = `
@@ -159,6 +160,8 @@ export function buildModal(
     .klavity-progress{height:5px;border-radius:999px;background:var(--kl-chip);overflow:hidden;opacity:0;max-height:0;margin-top:0;transition:opacity .2s ease,max-height .2s ease,margin-top .2s ease;}
     .klavity-progress.show{opacity:1;max-height:5px;margin-top:10px;}
     .klavity-progress-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,color-mix(in srgb,var(--kl-accent) 65%,#fff),var(--kl-accent));}
+    .klavity-toast-progress{position:absolute;top:0;left:0;height:3px;background:var(--kl-accent);width:100%;transform-origin:left;animation:kl-toast-decay 5s linear forwards;z-index:10;}
+    @keyframes kl-toast-decay{from{transform:scaleX(1)}to{transform:scaleX(0)}}
     .klavity-error{color:#f38ba8;font-size:13px;margin-bottom:8px;display:none;}
     .klavity-success h2{margin:0 0 8px;font-size:20px;color:var(--kl-fg);display:flex;align-items:center;gap:8px;line-height:1.2;}
     .klavity-success p{margin:0 0 16px;font-size:14px;color:var(--kl-muted);line-height:1.4;}
@@ -241,7 +244,7 @@ export function buildModal(
       transform:rotate(-45deg);
     }
     @media (max-width:430px){.klavity-lead{flex-direction:column}.klavity-lead button{width:100%;}}
-    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing,.klavity-modal>*{animation-duration:.01ms!important;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info{transition:none;}.klavity-actions button.kl-loading{animation:none;}.klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{transition:none;transform:none!important;}}
+    @media (prefers-reduced-motion: reduce){.klavity-overlay,.klavity-modal,.klavity-modal.kl-closing,.klavity-modal>*, .klavity-toast-progress{animation-duration:.01ms!important;}.klavity-modal{--kl-lift:none;--kl-press:none;--kl-bhover:none;--kl-bpress:none;}.klavity-info{transition:none;}.klavity-actions button.kl-loading{animation:none;}.klavity-actions .kl-cap-ic,.klavity-toggle .kl-cap-ic{transition:none;transform:none!important;}}
   `
   shadowRoot.appendChild(style)
 
@@ -404,6 +407,10 @@ export function buildModal(
   }
 
   function close() {
+    if (autodismissTimeout) {
+      clearTimeout(autodismissTimeout)
+      autodismissTimeout = null
+    }
     document.removeEventListener('keydown', escHandler, { capture: true })
     document.removeEventListener('paste', onPaste)
     try { callbacks.onClose?.() } catch { /* never let a listener error block the close */ }
@@ -832,6 +839,16 @@ export function buildModal(
       wrap.appendChild(p)
     }
 
+    const startAutodismiss = () => {
+      if (autodismissTimeout) return
+      const progressBar = document.createElement('div')
+      progressBar.className = 'klavity-toast-progress'
+      modal.appendChild(progressBar)
+      autodismissTimeout = setTimeout(() => {
+        close()
+      }, 5000)
+    }
+
     if (copy.showEmail) {
       const row = document.createElement('div')
       row.className = 'klavity-lead'
@@ -849,6 +866,9 @@ export function buildModal(
         thanks.className = 'klavity-thanks'
         thanks.textContent = "Thanks — we'll be in touch."
         row.replaceWith(thanks)
+        if (!copy.showCta) {
+          startAutodismiss()
+        }
       }
       btn.addEventListener('click', submitLead)
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLead() })
@@ -872,6 +892,10 @@ export function buildModal(
     pb.className = 'klavity-pb'
     pb.innerHTML = `Powered by <a href="https://klavity.quantana.top" target="_blank" rel="noopener">Klavity</a>`
     modal.appendChild(pb)
+
+    if (!copy.showEmail && !copy.showCta) {
+      startAutodismiss()
+    }
   }
 
   if (callbacks.autoCaptureOnOpen) {
