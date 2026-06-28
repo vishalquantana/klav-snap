@@ -79,16 +79,17 @@ h1{font-family:var(--display);font-weight:450;font-size:32px;letter-spacing:-.02
 /* Studio shortcut — always-visible primary action in the navbar (KLAVITYKLA-25).
    Lives on the left of .bar-in so it's reachable from every tab. JS (a[href^="/app"])
    auto-appends ?project= at load time so it opens the right project. */
-.nav-studio{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;border:1px solid rgba(99,102,241,.28);background:rgba(99,102,241,.1);color:var(--indigo);font-family:var(--body);font-size:13px;font-weight:600;text-decoration:none}
+.nav-studio{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;border:1px solid rgba(99,102,241,.28);background:rgba(99,102,241,.1);color:var(--indigo);font-family:var(--body);font-size:13px;font-weight:600;text-decoration:none;transition:background var(--mi-dur) var(--mi-ease), border-color var(--mi-dur) var(--mi-ease)}
+.nav-studio:hover{background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)}
 @media(max-width:500px){.nav-studio .nav-studio-lbl{display:none}.nav-studio{padding:7px 10px}}
 .switcher{display:flex;align-items:center;gap:8px}
 .switcher .sw-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint)}
-.proj-select{appearance:none;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 34px 9px 13px;color:var(--paper);font-family:var(--body);font-weight:600;font-size:14px;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
-.proj-select:focus{border-color:var(--indigo)}
+.proj-select{appearance:none;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 34px 9px 13px;color:var(--paper);font-family:var(--body);font-weight:600;font-size:14px;cursor:pointer;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;transition:border-color var(--mi-dur) var(--mi-ease), box-shadow var(--mi-dur) var(--mi-ease)}
+.proj-select:focus{border-color:var(--indigo);box-shadow:0 0 0 3px color-mix(in srgb,var(--indigo) 18%,transparent)}
 /* inline "new project" creator under the switcher */
 .newproj{display:flex;align-items:center;gap:8px;margin-top:10px}
-.newproj input{background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none;min-width:200px}
-.newproj input:focus{border-color:var(--indigo)}
+.newproj input{background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none;min-width:200px;transition:border-color var(--mi-dur) var(--mi-ease), box-shadow var(--mi-dur) var(--mi-ease)}
+.newproj input:focus{border-color:var(--indigo);box-shadow:0 0 0 3px color-mix(in srgb,var(--indigo) 18%,transparent)}
 
 /* metrics row — the "dashboard feel": at-a-glance counts up top */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
@@ -184,8 +185,8 @@ body[data-view="recurring"] .grid>.card[data-view~="recurring"]{grid-column:1/-1
 .av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:11px;color:#fff;flex-shrink:0}
 .m-email{font-size:13.5px;flex:1}
 .invite{display:flex;gap:8px;margin-top:14px}
-.invite input{flex:1;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none}
-.invite input:focus{border-color:var(--indigo)}
+.invite input{flex:1;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--paper);font-family:var(--body);font-size:14px;outline:none;transition:border-color var(--mi-dur) var(--mi-ease), box-shadow var(--mi-dur) var(--mi-ease)}
+.invite input:focus{border-color:var(--indigo);box-shadow:0 0 0 3px color-mix(in srgb,var(--indigo) 18%,transparent)}
 .btn{font-family:var(--body);font-weight:600;font-size:14px;padding:10px 16px;border-radius:10px;border:none;cursor:pointer;transition:transform .1s}
 .btn:active{transform:translateY(1px)}
 .btn-indigo{color:#fff;background:linear-gradient(135deg,#a9a9ff,var(--indigo))}
@@ -534,7 +535,7 @@ details.drawer .drawer-in{padding:0 22px 22px}
   --mi-dur:.15s; --mi-press-dur:.08s;
   --mi-lift:translateY(-1px) scale(1.02);   /* control tier: buttons/toggles/icons */
   --mi-lift-card:translateY(-2px);          /* surface tier: clickable cards/rows  */
-  --mi-press:scale(.96);                    /* press scale — exactly .96 (skill #12) */
+  --mi-press:scale(.97);                    /* press scale — exactly .97 (skill #12) */
   --mi-shadow:0 6px 18px -8px rgba(99,102,241,.40);
   --mi-shadow-card:0 12px 28px -14px rgba(76,40,130,.42);
   --mi-accent:var(--indigo);
@@ -559,7 +560,7 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .side .nv{transition:background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),border-color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease)}
 .side .nv:hover{background:var(--ink-3);color:var(--paper);transform:translateY(-1px);box-shadow:inset 2px 0 0 var(--mi-accent),0 5px 16px -10px rgba(99,102,241,.55)}
 .side .nv.active{box-shadow:inset 2px 0 0 var(--mi-accent)}
-.side .nv:active{transform:scale(.96);transition-duration:var(--mi-press-dur)}
+.side .nv:active{transform:var(--mi-press);transition-duration:var(--mi-press-dur)}
 
 /* Round icon buttons (theme toggle …) */
 .nav-icon{transition:border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease),box-shadow var(--mi-dur) var(--mi-ease)}
@@ -568,11 +569,10 @@ details.drawer .drawer-in{padding:0 22px 22px}
 
 /* Segmented + pill toggles. Seg buttons sit inside overflow:hidden, so they only
    press inward (a scale-up would clip); pills get the purple accent + press. */
-.seg button{transition:background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease)}
-.seg button:active,.sm-seg button:active{transform:scale(.96);transition-duration:var(--mi-press-dur)}
+.seg button:active,.sm-seg button:active{transform:var(--mi-press);transition-duration:var(--mi-press-dur)}
 .tog{transition:border-color var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease)}
 .tog:hover{border-color:var(--mi-accent);color:var(--paper)}
-.tog:active{transform:scale(.96);transition-duration:var(--mi-press-dur)}
+.tog:active{transform:var(--mi-press);transition-duration:var(--mi-press-dur)}
 
 /* Small affordance buttons — purple-accent border on hover + quick press */
 .copy-ai-icon,.tkt-back,.sm-chip{transition:border-color var(--mi-dur) var(--mi-ease),background var(--mi-dur) var(--mi-ease),color var(--mi-dur) var(--mi-ease),transform var(--mi-dur) var(--mi-ease)}
