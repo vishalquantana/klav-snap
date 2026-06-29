@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "title": "Capturing Network Requests for Bug Reports That Get Fixed",
+    "slug": "capturing-network-requests-for-bug-reports",
+    "excerpt": "Console logs show errors, but network requests show why they happen. Learn which requests to capture, what fields matter, and how to include them in a bug report developers can act on immediately.",
+    "category": "Learn",
+    "date": "2026-06-23",
+    "author": "Klavity",
+    "tldr": "A bug report without network context leaves developers guessing. Capture the failing request's URL, method, status code, request payload, and response body — then attach them alongside your screenshot and console log. That combination alone eliminates the most common 'cannot reproduce' excuses.",
+    "faqs": [
+      {
+        "question": "Which network requests should I include in a bug report?",
+        "answer": "Focus on requests that failed (4xx/5xx status), requests that returned unexpected data, and the last few requests made before the error appeared. Avoid attaching every request — a 200-response for a font file is noise. The DevTools Network tab lets you filter by XHR/Fetch to see only API calls."
+      },
+      {
+        "question": "Is it safe to include request payloads in a bug report?",
+        "answer": "Redact passwords, tokens, and PII before attaching. Most bug tracker tools accept plain text, so copy the payload as JSON and manually blank sensitive fields. Never screenshot a request that contains an Authorization header or a session cookie — copy the payload body only."
+      },
+      {
+        "question": "What if the failing request only happens in production?",
+        "answer": "Use your browser's network panel in production (it works the same way). If you can reproduce the bug on demand, capture it live. If it's intermittent, set up a Fetch observer or a service worker that logs failing responses to localStorage — then retrieve those logs when the bug occurs."
+      },
+      {
+        "question": "How do I capture a network request that disappears on page refresh?",
+        "answer": "In Chrome DevTools Network tab, check 'Preserve log' before you trigger the action. This keeps all requests across page navigations. You can also use 'Save all as HAR with content' to export the full session for the developer."
+      }
+    ],
+    "takeaways": [
+      "Always capture failing requests (4xx/5xx) and the last API call before an error — these two usually pinpoint the bug.",
+      "Include URL, method, status code, request body, and the first 200 lines of the response body as plain text.",
+      "Redact Authorization headers, cookies, and PII before attaching network data to any ticket.",
+      "Use 'Preserve log' in DevTools to prevent requests from disappearing on redirect or page load.",
+      "A HAR file (exported from the Network panel) is the gold standard — it includes timing, headers, and bodies in one file."
+    ],
+    "relatedSlugs": [
+      "how-to-write-a-bug-report-developers-act-on",
+      "reduce-cannot-reproduce-bug-tickets",
+      "browser-console-errors-signal-vs-noise-in-qa-triage"
+    ]
+  },
+  "bodyHtml": "<p>A screenshot shows what broke. A console log shows the JavaScript error. But a network request capture shows <em>why</em> it broke — the server's actual response, the payload your app sent, the status code that caused the failure.</p><p>Without network context, a developer looking at a bug report has to guess: Did the API return a 401? A 500? Did the client send the wrong payload? Did the response body come back empty when it should have had data? Each guess means another round-trip of questions. With network context, they can skip straight to the fix.</p><h2>What to open first</h2><p>Open Chrome DevTools (F12 or Cmd+Opt+I), switch to the <strong>Network</strong> tab, and check <strong>Preserve log</strong> before you do anything else. This prevents requests from clearing when the page redirects — a critical step because many bugs involve a form submission followed by a redirect, and the failing POST disappears if you forget this checkbox.</p><p>Then reproduce the bug. Every request made during that session is now captured.</p><h2>Which requests actually matter</h2><p>Filter to <strong>Fetch/XHR</strong> to see only API calls and eliminate noise (fonts, images, analytics pings). Now look for:</p><ul><li><strong>Red rows</strong> — any 4xx or 5xx response. These are almost always the direct cause of a bug.</li><li><strong>The last successful request before the error appeared</strong> — often reveals a race condition or a missing dependency.</li><li><strong>Requests with unexpectedly empty response bodies</strong> — a 200 that returns <code>{}</code> when your app expected an array is a common silent failure.</li></ul><h2>What to copy for the bug report</h2><p>For each relevant request, copy four things:</p><ol><li><strong>URL and method</strong> — e.g. <code>POST https://api.example.com/checkout/complete</code></li><li><strong>Status code</strong> — e.g. <code>422 Unprocessable Entity</code></li><li><strong>Request payload</strong> — the JSON body you sent (redact passwords and tokens)</li><li><strong>Response body</strong> — what the server returned (first 200 lines is enough for most cases)</li></ol><p>Paste these as code blocks in the bug report. Plain text is far more useful than a screenshot of the DevTools panel — the developer can copy-paste a JSON payload and test against it immediately; they cannot do that with an image.</p><h2>The HAR file: when one request isn't enough</h2><p>If the bug involves a sequence of requests — an auth flow, a checkout, a multi-step wizard — export a HAR file instead. Right-click anywhere in the Network panel, select <strong>Save all as HAR with content</strong>. This gives the developer a complete session log with timing, headers, and bodies for every request.</p><p>Attach the HAR file to the ticket. Most modern bug trackers accept file attachments. HAR files open in browser DevTools and in dedicated viewers like <code>har.tech</code> — the developer can replay the exact session on their machine.</p><h2>What not to include</h2><p>Network captures can contain sensitive data. Before attaching anything, scan for:</p><ul><li><strong>Authorization headers</strong> — bearer tokens, API keys. Replace with <code>[REDACTED]</code>.</li><li><strong>Cookie headers</strong> — session identifiers. Replace with <code>[REDACTED]</code>.</li><li><strong>PII in request bodies</strong> — email addresses, names, payment details in test data are fine; real user data should be anonymized.</li></ul><p>If your team uses a shared bug tracker that's accessible outside your organization, be especially careful. A leaked bearer token is a security incident, not just a bug report.</p><h2>Tying it together</h2><p>The best bug report format for network-related issues looks like this:</p><ol><li><strong>Steps to reproduce</strong> — numbered, starting from a logged-out or fresh state</li><li><strong>Expected vs. actual</strong> — one sentence each</li><li><strong>Screenshot</strong> — the visible error state</li><li><strong>Console log</strong> — any errors logged at the moment of failure</li><li><strong>Network request</strong> — URL, method, status, payload, response body</li></ol><p>That five-part structure gives the developer everything they need to reproduce, understand, and fix the bug without asking a single follow-up question. Network data is the part most reporters skip — which is exactly why including it makes your report stand out.</p>"
+}

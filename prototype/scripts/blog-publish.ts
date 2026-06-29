@@ -13,7 +13,7 @@ import { join, dirname } from "node:path"
 const SITE = join(import.meta.dir, "..", "..", "site")
 const BLOG = join(SITE, "blog")
 const REG = join(BLOG, "index.json")
-const BASE = "https://klavity.quantana.top"
+const BASE = "https://klavity.in"
 
 export interface BlogFaq { question: string; answer: string }
 export interface BlogMeta {

@@ -4,7 +4,6 @@
 <meta name="description" content="Helpful, specific guides on AI bug reporting, user-persona testing, and self-healing QA — from the team building Klavity.">
 <link rel="canonical" href="https://klavity.in/blog/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="apple-touch-icon" href="/favicon.svg">
 <meta property="og:type" content="article"><meta property="og:site_name" content="Klavity">
 <meta property="og:title" content="Klavity Blog — AI bug reporting, QA &amp; testing"><meta property="og:description" content="Helpful, specific guides on AI bug reporting, user-persona testing, and self-healing QA — from the team building Klavity.">
 <meta property="og:url" content="https://klavity.in/blog/"><meta property="og:image" content="https://klavity.in/favicon.svg">
@@ -53,16 +52,21 @@
     <h1 style="font-family:var(--display);font-weight:600;font-size:clamp(34px,6vw,52px);letter-spacing:-.02em;margin:8px 0 8px">Helpful, specific, no fluff.</h1>
     <p style="color:var(--paper-dim);font-size:18px;max-width:60ch;margin:0 0 36px">Practical guides on AI bug reporting, persona-driven testing, and self-healing QA.</p>
     <div class="bgrid">
-    <a class="bcard reveal" href="/blog/fix-flaky-end-to-end-tests"><div class="bcat">Guides · 2026-06-29</div><h2>How to fix flaky end-to-end tests (and stop re-running CI)</h2><p>Flaky tests are a symptom, not bad luck. Here are the five root causes — timing, shared state, network races, test order, and retry abuse — and how to fix each one for good.</p></a>
-    <a class="bcard reveal" href="/blog/reduce-cannot-reproduce-bug-tickets"><div class="bcat">Insights · 2026-06-22</div><h2>How to reduce 'cannot reproduce' bug tickets for good</h2><p>'Cannot reproduce' is the most expensive two words in a bug tracker. Here's why it happens — and the four kinds of state you have to capture to make it stop.</p></a>
-    <a class="bcard reveal" href="/blog/how-to-write-a-bug-report-developers-act-on"><div class="bcat">Guides · 2026-06-21</div><h2>How to write a bug report developers will actually act on</h2><p>A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.</p></a></div>
+    <a class="bcard reveal" href="/blog/fix-flaky-end-to-end-tests"><div class="bcat">Guides · 2026-06-29</div><h3>How to fix flaky end-to-end tests (and stop re-running CI)</h3><p>Flaky tests are a symptom, not bad luck. Here are the five root causes — timing, shared state, network races, test order, and retry abuse — and how to fix each one for good.</p></a>
+    <a class="bcard reveal" href="/blog/how-to-triage-a-bug-backlog"><div class="bcat">Guides · 2026-06-28</div><h3>How to Triage a Bug Backlog Without Losing Your Mind</h3><p>A 200-bug backlog doesn't mean 200 bugs to fix — it means 200 items to sort so the five that actually matter rise to the top. Here's a repeatable triage process that keeps your backlog useful.</p></a>
+    <a class="bcard reveal" href="/blog/how-ai-personas-catch-bugs-your-test-suite-misses"><div class="bcat">Insights · 2026-06-27</div><h3>How AI Personas Catch Bugs Your Test Suite Misses</h3><p>Automated test suites verify what you thought to test. AI personas explore what you didn't think to test — surfacing UX bugs, edge-case interactions, and assumption mismatches before real users find them.</p></a>
+    <a class="bcard reveal" href="/blog/browser-console-errors-signal-vs-noise-in-qa-triage"><div class="bcat">Guides · 2026-06-26</div><h3>Browser Console Errors: Signal vs. Noise in QA Triage</h3><p>Not every console error is a bug. Not every bug announces itself as an error. Here's how to read console output in under two minutes and separate what matters from what doesn't.</p></a>
+    <a class="bcard reveal" href="/blog/why-qa-finds-different-bugs-than-real-users"><div class="bcat">Insights · 2026-06-25</div><h3>Why Your QA Team Finds Different Bugs Than Your Real Users</h3><p>QA teams are expert users who know what to avoid. Real users aren't — and the bugs they hit live in the paths your QA team never takes. Here's how to close that gap systematically.</p></a>
+    <a class="bcard reveal" href="/blog/playwright-vs-cypress-regression-testing"><div class="bcat">Compare · 2026-06-24</div><h3>Playwright vs. Cypress: Choosing Your Regression Test Framework</h3><p>Both Playwright and Cypress catch regressions — but they make different trade-offs around speed, flakiness, cross-browser coverage, and CI cost. Here's how to pick the right one for your team.</p></a>
+    <a class="bcard reveal" href="/blog/capturing-network-requests-for-bug-reports"><div class="bcat">Learn · 2026-06-23</div><h3>Capturing Network Requests for Bug Reports That Get Fixed</h3><p>Console logs show errors, but network requests show why they happen. Learn which requests to capture, what fields matter, and how to include them in a bug report developers can act on immediately.</p></a>
+    <a class="bcard reveal" href="/blog/reduce-cannot-reproduce-bug-tickets"><div class="bcat">Insights · 2026-06-22</div><h3>How to reduce 'cannot reproduce' bug tickets for good</h3><p>'Cannot reproduce' is the most expensive two words in a bug tracker. Here's why it happens — and the four kinds of state you have to capture to make it stop.</p></a>
+    <a class="bcard reveal" href="/blog/how-to-write-a-bug-report-developers-act-on"><div class="bcat">Guides · 2026-06-21</div><h3>How to write a bug report developers will actually act on</h3><p>A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.</p></a></div>
   </div>
   <style>.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
-  .bcard{display:block;border:1px solid var(--line);border-radius:16px;padding:22px;transition:transform 150ms ease,border-color 150ms ease}
-  .bcard:hover{transform:translateY(-2px) scale(1.02);border-color:var(--indigo)}
-  .bcard:active{transform:scale(0.97)}
+  .bcard{display:block;border:1px solid var(--line);border-radius:16px;padding:22px;transition:transform .15s,border-color .2s}
+  .bcard:hover{transform:translateY(-3px);border-color:var(--paper-faint)}
   .bcard .bcat{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-faint)}
-  .bcard h2{font-family:var(--display);font-weight:600;font-size:21px;margin:8px 0 6px;color:var(--paper)}
+  .bcard h3{font-family:var(--display);font-weight:600;font-size:21px;margin:8px 0 6px;color:var(--paper)}
   .bcard p{color:var(--paper-dim);font-size:15px;line-height:1.5;margin:0}</style>
   </main><footer class="footer"><div class="wrap foot-in">
   <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span>Klavity</a>

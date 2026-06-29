@@ -19,5 +19,47 @@
     "excerpt": "A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.",
     "category": "Guides",
     "date": "2026-06-21"
+  },
+  {
+    "slug": "capturing-network-requests-for-bug-reports",
+    "title": "Capturing Network Requests for Bug Reports That Get Fixed",
+    "excerpt": "Console logs show errors, but network requests show why they happen. Learn which requests to capture, what fields matter, and how to include them in a bug report developers can act on immediately.",
+    "category": "Learn",
+    "date": "2026-06-23"
+  },
+  {
+    "slug": "playwright-vs-cypress-regression-testing",
+    "title": "Playwright vs. Cypress: Choosing Your Regression Test Framework",
+    "excerpt": "Both Playwright and Cypress catch regressions — but they make different trade-offs around speed, flakiness, cross-browser coverage, and CI cost. Here's how to pick the right one for your team.",
+    "category": "Compare",
+    "date": "2026-06-24"
+  },
+  {
+    "slug": "why-qa-finds-different-bugs-than-real-users",
+    "title": "Why Your QA Team Finds Different Bugs Than Your Real Users",
+    "excerpt": "QA teams are expert users who know what to avoid. Real users aren't — and the bugs they hit live in the paths your QA team never takes. Here's how to close that gap systematically.",
+    "category": "Insights",
+    "date": "2026-06-25"
+  },
+  {
+    "slug": "browser-console-errors-signal-vs-noise-in-qa-triage",
+    "title": "Browser Console Errors: Signal vs. Noise in QA Triage",
+    "excerpt": "Not every console error is a bug. Not every bug announces itself as an error. Here's how to read console output in under two minutes and separate what matters from what doesn't.",
+    "category": "Guides",
+    "date": "2026-06-26"
+  },
+  {
+    "slug": "how-ai-personas-catch-bugs-your-test-suite-misses",
+    "title": "How AI Personas Catch Bugs Your Test Suite Misses",
+    "excerpt": "Automated test suites verify what you thought to test. AI personas explore what you didn't think to test — surfacing UX bugs, edge-case interactions, and assumption mismatches before real users find them.",
+    "category": "Insights",
+    "date": "2026-06-27"
+  },
+  {
+    "slug": "how-to-triage-a-bug-backlog",
+    "title": "How to Triage a Bug Backlog Without Losing Your Mind",
+    "excerpt": "A 200-bug backlog doesn't mean 200 bugs to fix — it means 200 items to sort so the five that actually matter rise to the top. Here's a repeatable triage process that keeps your backlog useful.",
+    "category": "Guides",
+    "date": "2026-06-28"
   }
 ]
