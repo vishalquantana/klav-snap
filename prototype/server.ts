@@ -40,6 +40,7 @@ import { seedDemoTrails } from "./lib/trails-demo-seed"
 import { listExpectations, getExpectation, setExpectationStatus, setExpectationEnforced } from "./lib/expectations-db"
 import { validateAssertionDraft } from "./lib/assertion-spec"
 import { buildRecurrenceMemory, listProjectRecurringIssues } from "./lib/recurrence-memory"
+import { publishBlogPost, SLUG_RE, type PublishInput } from "./lib/blog-publish"
 
 const KEY = process.env.OPENROUTER_API_KEY
 const MODEL = process.env.KLAV_MODEL || "google/gemini-2.5-flash"
@@ -51,6 +52,7 @@ const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 const OPS_DAILY_CAP_USD = Number(process.env.OPS_DAILY_CAP_USD || 50)
 const SITE = import.meta.dir + "/../site"
 const PUB = import.meta.dir + "/public"
+const REPO_ROOT = import.meta.dir + "/.."
 const SESSION_DAYS = 7
 // Screenshots embedded in external tracker tickets use a PERMANENT signed link (`/img/<id>.<hmac>`,
 // see lib/imgsign.ts) — never expires, revocable, S3 stays private. (Replaces the old 7-day presign.)
@@ -1056,6 +1058,35 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     if (req.method === "GET" && path === "/snap") return file(SITE + "/snap.html")
     if (req.method === "GET" && path === "/sims") return file(SITE + "/sims.html")
     if (req.method === "GET" && path === "/autosim") return file(SITE + "/autosim.html")
+    // ── POST /api/blog/publish — authenticated blog post publish + git push (Plan B path) ──
+    // Auth: Authorization: Bearer <BLOG_PUBLISH_TOKEN>. The GH_TOKEN env var is used for the push URL
+    // inline (never stored in git config) and must NEVER appear in any log or response body.
+    if (req.method === "POST" && path === "/api/blog/publish") {
+      const publishToken = process.env.BLOG_PUBLISH_TOKEN || ""
+      const authHeader = (req.headers.get("authorization") || "").match(/^Bearer\s+(.+)$/i)?.[1] ?? ""
+      if (!publishToken || !timingSafeStrEqual(authHeader, publishToken)) {
+        return json({ error: "unauthorized" }, 401)
+      }
+      const ghToken = process.env.GH_TOKEN || ""
+      if (!ghToken) return json({ error: "server misconfigured: GH_TOKEN not set" }, 500)
+      let body: Partial<PublishInput>
+      try { body = await req.json() } catch { return json({ error: "invalid JSON body" }, 400) }
+      const { slug, title, excerpt, category, date, html } = body
+      if (!slug || !title || !excerpt || !category || !date || !html) {
+        return json({ error: "missing required fields: slug, title, excerpt, category, date, html" }, 400)
+      }
+      if (!SLUG_RE.test(slug)) {
+        return json({ error: "invalid slug: must match ^[a-z0-9-]+$" }, 400)
+      }
+      try {
+        const result = await publishBlogPost({ slug, title, excerpt, category, date, html }, REPO_ROOT, ghToken)
+        return json(result)
+      } catch (e: any) {
+        const msg = String(e?.message || e)
+        console.error("[blog/publish] error:", msg)
+        return json({ error: "publish failed" }, 500)
+      }
+    }
     // ── blog (Claude-authored, auto-published; static files under site/blog/) ──
     if (req.method === "GET" && path === "/blog") return file(SITE + "/blog/index.html")
     if (req.method === "GET" && path.startsWith("/blog/") && /^[a-z0-9-]+$/.test(path.slice(6))) {
