@@ -21,4 +21,4 @@ Allow: /
 User-agent: Applebot-Extended
 Allow: /
 
-Sitemap: https://klavity.quantana.top/sitemap.xml
+Sitemap: https://klavity.in/sitemap.xml

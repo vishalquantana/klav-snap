@@ -1021,6 +1021,13 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       return new Response(null, { status: 204, headers: widgetCorsHeaders(req) })
     }
 
+    // ── Phase-out 301: old domain → new canonical domain ──
+    // Keep /widget.js serving on both hosts so existing embeds don't break.
+    if (req.headers.get("host") === "klavity.quantana.top" && path !== "/widget.js") {
+      const dest = "https://klavity.in" + path + (url.search || "")
+      return new Response(null, { status: 301, headers: { location: dest } })
+    }
+
     // ── favicon ──
     if (req.method === "GET" && path === "/favicon.svg") return file(PUB + "/favicon.svg")
     if (req.method === "GET" && path === "/favicon.ico") return file(PUB + "/favicon.ico")
@@ -1128,8 +1135,8 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
       let blog: Array<{ slug: string; date: string }> = []
       try { blog = JSON.parse(await Bun.file(SITE + "/blog/index.json").text()) } catch { /* no posts yet */ }
       const urls = [
-        ...core.map((p) => `<url><loc>https://klavity.quantana.top${p}</loc></url>`),
-        ...blog.map((b) => `<url><loc>https://klavity.quantana.top/blog/${b.slug}</loc><lastmod>${b.date}</lastmod></url>`),
+        ...core.map((p) => `<url><loc>https://klavity.in${p}</loc></url>`),
+        ...blog.map((b) => `<url><loc>https://klavity.in/blog/${b.slug}</loc><lastmod>${b.date}</lastmod></url>`),
       ].join("")
       return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`, { headers: { "content-type": "text/xml; charset=utf-8" } })
     }
@@ -2508,7 +2515,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         // itself and learn its report gate BEFORE any auth. Non-sensitive, project-scoped.
         const proj = await projectById(m[1])
         if (!proj) return json({ error: "Not found." }, 404, WIDGET_CORS)
-        return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(m[1])), widget: (await getWidgetConfig(m[1])) || { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding", reportGate: "email" } }, 200, WIDGET_CORS)
+        return json({ modalConfig: resolveModalConfig(await getProjectModalConfig(m[1])), widget: (await getWidgetConfig(m[1])) || { mode: "support", ctaUrl: "https://klavity.in/onboarding", reportGate: "email" } }, 200, WIDGET_CORS)
       }
     }
 
@@ -3517,7 +3524,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // SSRF-guarded fetch of the public page (private/loopback hosts rejected by the guard).
           let html = ""
           try {
-            const res = await safeFetch(siteUrl, { headers: { "user-agent": "KlavitySimBot/1.0 (+https://klavity.quantana.top)" }, signal: AbortSignal.timeout(8000) })
+            const res = await safeFetch(siteUrl, { headers: { "user-agent": "KlavitySimBot/1.0 (+https://klavity.in)" }, signal: AbortSignal.timeout(8000) })
             if (!res.ok) return json({ error: `Couldn't read that page (HTTP ${res.status}).` }, 400)
             html = (await res.text()).slice(0, 300_000)
           } catch {

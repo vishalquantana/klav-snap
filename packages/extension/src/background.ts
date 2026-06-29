@@ -91,7 +91,7 @@ async function captureWithRateLimit(winId?: number): Promise<{ dataUrl: string; 
 // in-memory state; the fetch handlers below are short and finish well within the SW
 // keep-alive window granted while a message port is open.
 function backendBase(settings: KlavitySettings): string {
-  return (settings.backendUrl || 'https://klavity.quantana.top').replace(/\/+$/, '')
+  return (settings.backendUrl || 'https://klavity.in').replace(/\/+$/, '')
 }
 
 async function syncConfig(): Promise<KlavConfig | null> {
