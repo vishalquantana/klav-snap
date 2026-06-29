@@ -1,10 +1,10 @@
 [
   {
-    "slug": "how-to-write-a-bug-report-developers-act-on",
-    "title": "How to write a bug report developers will actually act on",
-    "excerpt": "A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.",
+    "slug": "fix-flaky-end-to-end-tests",
+    "title": "How to fix flaky end-to-end tests (and stop re-running CI)",
+    "excerpt": "Flaky tests are a symptom, not bad luck. Here are the five root causes — timing, shared state, network races, test order, and retry abuse — and how to fix each one for good.",
     "category": "Guides",
-    "date": "2026-06-21"
+    "date": "2026-06-29"
   },
   {
     "slug": "reduce-cannot-reproduce-bug-tickets",
@@ -12,5 +12,12 @@
     "excerpt": "'Cannot reproduce' is the most expensive two words in a bug tracker. Here's why it happens — and the four kinds of state you have to capture to make it stop.",
     "category": "Insights",
     "date": "2026-06-22"
+  },
+  {
+    "slug": "how-to-write-a-bug-report-developers-act-on",
+    "title": "How to write a bug report developers will actually act on",
+    "excerpt": "A bug report gets fixed fast when it carries three things: exact steps, the environment, and evidence (screenshot + console + network). Here's the format.",
+    "category": "Guides",
+    "date": "2026-06-21"
   }
 ]
