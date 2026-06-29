@@ -911,7 +911,7 @@ export function buildModal(
 
     const pb = document.createElement('div')
     pb.className = 'klavity-pb'
-    pb.innerHTML = `Powered by <a href="https://klavity.quantana.top" target="_blank" rel="noopener">Klavity</a>`
+    pb.innerHTML = `Powered by <a href="https://klavity.in" target="_blank" rel="noopener">Klavity</a>`
     modal.appendChild(pb)
 
     if (!copy.showEmail && !copy.showCta) {

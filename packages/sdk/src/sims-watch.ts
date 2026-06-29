@@ -145,7 +145,7 @@ function reactionNodeCount(): number {
 }
 
 export interface SimsWatchOptions {
-  /** Base URL of the Klavity backend, e.g. "https://klavity.quantana.top". */
+  /** Base URL of the Klavity backend, e.g. "https://klavity.in". */
   backendUrl: string
   /** Project to attribute Sim reviews to. Required for adhoc mode. */
   projectId: string

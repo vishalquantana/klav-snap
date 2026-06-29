@@ -1,6 +1,6 @@
 import type { KlavitySettings, KlavConfig, KlavMonitoredProject } from '@klavity/core'
 
-const DEFAULT_BACKEND = 'https://klavity.quantana.top'
+const DEFAULT_BACKEND = 'https://klavity.in'
 
 export function backendBase(s: Partial<KlavitySettings>): string {
   return (s.backendUrl || DEFAULT_BACKEND).replace(/\/+$/, '')

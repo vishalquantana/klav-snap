@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Klavity — Get started · Klavity</title>
 <meta name="description" content="Create your Klavity project and get started with AI-assisted bug reporting and testing." />
-<link rel="canonical" href="https://klavity.quantana.top/onboarding" />
+<link rel="canonical" href="https://klavity.in/onboarding" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" href="/favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="/favicon.svg" />
@@ -16,14 +16,14 @@
 <meta property="og:site_name" content="Klavity" />
 <meta property="og:title" content="Klavity — Get started" />
 <meta property="og:description" content="Create your Klavity project and get started with AI-assisted bug reporting and testing." />
-<meta property="og:url" content="https://klavity.quantana.top/onboarding" />
-<meta property="og:image" content="https://klavity.quantana.top/favicon.svg" />
+<meta property="og:url" content="https://klavity.in/onboarding" />
+<meta property="og:image" content="https://klavity.in/favicon.svg" />
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Klavity — Get started" />
 <meta name="twitter:description" content="Create your Klavity project and get started with AI-assisted bug reporting and testing." />
-<meta name="twitter:image" content="https://klavity.quantana.top/favicon.svg" />
+<meta name="twitter:image" content="https://klavity.in/favicon.svg" />
 <link rel="stylesheet" href="/fonts/fonts.css" />
 <script src="/icons.generated.js"></script>
 <style>
@@ -262,7 +262,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
           <!-- ── Widget section (shown by default) ── -->
           <div id="widgetSection" style="margin-top:14px">
-            <pre style="margin:0;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;overflow:auto;white-space:pre-wrap;word-break:break-all">&lt;script src="https://klavity.quantana.top/widget.js" data-project="<span id="snipPid">YOUR_PROJECT_ID</span>" defer&gt;&lt;/script&gt;</pre>
+            <pre style="margin:0;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;overflow:auto;white-space:pre-wrap;word-break:break-all">&lt;script src="https://klavity.in/widget.js" data-project="<span id="snipPid">YOUR_PROJECT_ID</span>" defer&gt;&lt;/script&gt;</pre>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
               <button type="button" id="copySnippet" style="background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;color:var(--paper);font-family:var(--body);font-size:12.5px;cursor:pointer">Copy code</button>
               <span style="color:var(--paper-faint);font-size:11.5px">Paste this once — it shows on every page automatically.</span>
@@ -347,7 +347,7 @@ let projectId = null          // resolved after sign-in (the user's default proj
 let intent = 'transcript'     // step-3 choice: 'transcript' | 'hats'
 
 // Fill the embed snippet with the real project ID so users never hand-edit it.
-function widgetSnippetText(){ return '<script src="https://klavity.quantana.top/widget.js" data-project="' + (projectId || 'YOUR_PROJECT_ID') + '" defer><\/script>' }
+function widgetSnippetText(){ return '<script src="https://klavity.in/widget.js" data-project="' + (projectId || 'YOUR_PROJECT_ID') + '" defer><\/script>' }
 function renderWidgetSnippet(){ var s = document.getElementById('snipPid'); if (s) s.textContent = projectId || 'YOUR_PROJECT_ID' }
 ;(function(){
   var cp = document.getElementById('copySnippet'); if (!cp) return
@@ -478,7 +478,7 @@ function s2proceed() {
   else go(3)
 }
 
-// Connect the Klavity extension (reuses the CONNECT handshake; works on klavity.quantana.top where
+// Connect the Klavity extension (reuses the CONNECT handshake; works on klavity.in where
 // the content script exposes window.__klavityExtensionId). Honest fallback when not installed.
 async function connectExtension(){
   const msg = $(‘chromeMsg’)

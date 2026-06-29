@@ -264,7 +264,7 @@ async function mount() {
   // ONE unified fetch: the project config endpoint returns BOTH the appearance theme (modalConfig,
   // → buildModal 3rd arg) AND the lead-gen widget settings (widget: {mode, ctaUrl}, → success copy).
   let modalConfig: any = {}
-  let widget: { mode: string; ctaUrl: string; reportGate: string } = { mode: "support", ctaUrl: "https://klavity.quantana.top/onboarding", reportGate: "email" }
+  let widget: { mode: string; ctaUrl: string; reportGate: string } = { mode: "support", ctaUrl: "https://klavity.in/onboarding", reportGate: "email" }
   // Launcher display settings (from modalConfig)
   let launcherMode: 'hidden' | 'icon' | 'full' | 'custom' = 'full'
   let launcherText = 'Report a bug'
@@ -688,7 +688,7 @@ async function mount() {
     footer.className = "klm-foot"
     footer.style.animationDelay = (70 + idx * 64) + "ms"
     footer.innerHTML = "Powered by <strong style=\"background:linear-gradient(135deg,#6366f1,#8b5cf6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;font-weight:700\">Klavity</strong>"
-    footer.addEventListener("click", () => { closeMenu(); window.open("https://klavity.quantana.top", "_blank", "noopener,noreferrer") })
+    footer.addEventListener("click", () => { closeMenu(); window.open("https://klavity.in", "_blank", "noopener,noreferrer") })
     menu.appendChild(footer)
     // One-pass shimmer sweep — appended LAST so it sweeps OVER the opaque cards (pointer-events:none).
     const shine = document.createElement("div"); shine.className = "klm-shine"; menu.appendChild(shine)

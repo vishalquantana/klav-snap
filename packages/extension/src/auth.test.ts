@@ -38,7 +38,7 @@ beforeEach(() => { vi.restoreAllMocks() })
 
 describe('backendBase', () => {
   it('defaults to production and strips trailing slash', () => {
-    expect(backendBase({})).toBe('https://klavity.quantana.top')
+    expect(backendBase({})).toBe('https://klavity.in')
     expect(backendBase({ backendUrl: 'http://localhost:3000/' })).toBe('http://localhost:3000')
   })
 })

@@ -6,12 +6,14 @@
   "description": "AI Sims review your pages and file bug & feature tickets to Jira, Linear, GitHub, or Plane — or report any page in one click.",
   "permissions": ["activeTab", "storage", "scripting", "tabs", "cookies", "contextMenus"],
   "host_permissions": [
+    "https://klavity.in/*",
     "https://klavity.quantana.top/*",
     "http://localhost/*"
   ],
   "optional_host_permissions": ["*://*/*"],
   "externally_connectable": {
     "matches": [
+      "https://klavity.in/*",
       "https://klavity.quantana.top/*",
       "http://localhost/*"
     ]
@@ -28,7 +30,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://klavity.quantana.top/*", "http://localhost/*"],
+      "matches": ["https://klavity.in/*", "https://klavity.quantana.top/*", "http://localhost/*"],
       "js": ["src/expose-id.ts"],
       "run_at": "document_start"
     }
