@@ -885,7 +885,7 @@ const NOTES = [
 
 const hl = document.createElement('div'); hl.className = 'klavity-hl'; document.body.appendChild(hl);
 const rv = document.createElement('div'); rv.className = 'rv'; document.body.appendChild(rv);
-const tg = document.createElement('button'); tg.id = 'klavity-toggle'; tg.className = 'hint'; tg.style.display = 'none'; document.body.appendChild(tg);
+const tg = document.createElement('button'); tg.id = 'klavity-toggle'; tg.className = 'hint'; document.body.appendChild(tg);
 
 let tourOn = false, ix = 0, timer = null, activeEl = null;
 
@@ -971,9 +971,9 @@ tg.onclick = () => tourOn ? stop() : start();
 updateToggle();
 addEventListener('scroll', reposition, { passive: true });
 addEventListener('resize', reposition);
-// Sims-review demo tour hidden — it read as ambient website animation. Toggle is display:none
-// and auto-start is disabled; the tour code is left intact so it can be re-enabled later.
-// if (!reduce) setTimeout(() => { if (!tourOn) start(); }, 4600);
+// Roaming reviewer Sims auto-play the page-review tour shortly after load (respects
+// prefers-reduced-motion via the `reduce` guard). Re-enabled per KLA-40.
+if (!reduce) setTimeout(() => { if (!tourOn) start(); }, 4600);
 </script>
 {SNIP}
 <script>
