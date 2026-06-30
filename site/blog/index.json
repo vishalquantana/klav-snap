@@ -1,5 +1,12 @@
 [
   {
+    "slug": "severity-vs-priority-how-to-classify-a-bug",
+    "title": "Severity vs. Priority: How to Classify a Bug Correctly",
+    "excerpt": "Severity is how badly a bug breaks the product. Priority is how soon you should fix it. They're independent — and confusing them is why the wrong bugs get worked first. Here's how to classify each correctly.",
+    "category": "Guides",
+    "date": "2026-06-30"
+  },
+  {
     "slug": "fix-flaky-end-to-end-tests",
     "title": "How to fix flaky end-to-end tests (and stop re-running CI)",
     "excerpt": "Flaky tests are a symptom, not bad luck. Here are the five root causes — timing, shared state, network races, test order, and retry abuse — and how to fix each one for good.",
