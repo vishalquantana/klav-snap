@@ -68,5 +68,12 @@
     "excerpt": "A 200-bug backlog doesn't mean 200 bugs to fix — it means 200 items to sort so the five that actually matter rise to the top. Here's a repeatable triage process that keeps your backlog useful.",
     "category": "Guides",
     "date": "2026-06-28"
+  },
+  {
+    "slug": "what-are-self-healing-end-to-end-tests",
+    "title": "What Are Self-Healing End-to-End Tests? A Practical Guide",
+    "excerpt": "Self-healing tests auto-repair broken selectors when your UI changes, so a renamed button doesn't fail the whole suite. Here's how they actually work.",
+    "category": "Insights",
+    "date": "2026-07-01"
   }
 ]
