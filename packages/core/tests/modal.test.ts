@@ -275,7 +275,96 @@ describe('buildModal success screen auto-dismiss', () => {
     // Advance 5 seconds, should close
     await vi.advanceTimersByTimeAsync(5000)
     expect(onClose).toHaveBeenCalledTimes(1)
-    
+
+    vi.useRealTimers()
+  })
+
+  it('hover pauses the 5s auto-dismiss and unhover resumes with the remaining time', async () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+    const success = {
+      copy: {
+        headline: 'Bug filed',
+        body: 'Thanks',
+        emailLabel: '',
+        ctaText: '',
+        ctaUrl: '',
+        showEmail: false,
+        showCta: false
+      }
+    }
+    const ctrl = buildModal('bug', {
+      onCaptureFull: async () => 'x',
+      onSubmit: ok,
+      onClose,
+      success
+    })
+
+    // Trigger submit
+    const desc = q(ctrl, '#klavity-desc') as HTMLTextAreaElement
+    desc.value = 'test bug'; desc.dispatchEvent(new Event('input'))
+    const submit = q(ctrl, '#klavity-submit') as HTMLButtonElement
+    submit.click()
+    await vi.advanceTimersByTimeAsync(0)
+
+    const modal = q(ctrl, '.klavity-modal') as HTMLElement
+    const progress = q(ctrl, '.klavity-toast-progress') as HTMLElement
+    expect(progress).not.toBeNull()
+
+    // t=2s: hover the toast — countdown pauses, progress bar freezes
+    await vi.advanceTimersByTimeAsync(2000)
+    modal.dispatchEvent(new MouseEvent('mouseenter'))
+    expect(progress.style.animationPlayState).toBe('paused')
+
+    // 10s hovered — must still be open
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(onClose).not.toHaveBeenCalled()
+
+    // Unhover — resumes with the remaining ~3s
+    modal.dispatchEvent(new MouseEvent('mouseleave'))
+    expect(progress.style.animationPlayState).toBe('running')
+    await vi.advanceTimersByTimeAsync(2999)
+    expect(onClose).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    vi.useRealTimers()
+  })
+
+  it('manual close while hover-paused still closes and fires onClose once', async () => {
+    vi.useFakeTimers()
+    const onClose = vi.fn()
+    const success = {
+      copy: {
+        headline: 'Bug filed',
+        body: 'Thanks',
+        emailLabel: '',
+        ctaText: '',
+        ctaUrl: '',
+        showEmail: false,
+        showCta: false
+      }
+    }
+    const ctrl = buildModal('bug', {
+      onCaptureFull: async () => 'x',
+      onSubmit: ok,
+      onClose,
+      success
+    })
+
+    const desc = q(ctrl, '#klavity-desc') as HTMLTextAreaElement
+    desc.value = 'test bug'; desc.dispatchEvent(new Event('input'))
+    ;(q(ctrl, '#klavity-submit') as HTMLButtonElement).click()
+    await vi.advanceTimersByTimeAsync(0)
+
+    const modal = q(ctrl, '.klavity-modal') as HTMLElement
+    modal.dispatchEvent(new MouseEvent('mouseenter')) // pause
+    ctrl.close() // manual close while paused
+    expect(onClose).toHaveBeenCalledTimes(1)
+    // No stray timer should fire close/onClose again
+    await vi.advanceTimersByTimeAsync(20000)
+    expect(onClose).toHaveBeenCalledTimes(1)
+
     vi.useRealTimers()
   })
 })

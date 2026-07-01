@@ -865,9 +865,37 @@ export function buildModal(
       const progressBar = document.createElement('div')
       progressBar.className = 'klavity-toast-progress'
       modal.appendChild(progressBar)
-      autodismissTimeout = setTimeout(() => {
-        close()
-      }, 5000)
+      // Hover-to-pause (KLAVITYKLA-32 follow-up): while the pointer (or keyboard focus) is on the
+      // toast, freeze both the close timer and the draining progress bar; on leave, resume with
+      // only the remaining time. Manual close() still clears the pending timeout as before.
+      let remainingMs = 5000
+      let startedAt = Date.now()
+      const arm = () => {
+        startedAt = Date.now()
+        autodismissTimeout = setTimeout(() => {
+          close()
+        }, remainingMs)
+      }
+      const pause = () => {
+        if (!autodismissTimeout) return
+        clearTimeout(autodismissTimeout)
+        autodismissTimeout = null
+        remainingMs = Math.max(0, remainingMs - (Date.now() - startedAt))
+        progressBar.style.animationPlayState = 'paused'
+      }
+      const resume = () => {
+        if (autodismissTimeout || modal.classList.contains('kl-closing')) return
+        progressBar.style.animationPlayState = 'running'
+        arm()
+      }
+      modal.addEventListener('mouseenter', pause)
+      modal.addEventListener('mouseleave', resume)
+      // Keyboard users get the same affordance: focus inside the toast pauses, leaving it resumes.
+      modal.addEventListener('focusin', pause)
+      modal.addEventListener('focusout', (e: FocusEvent) => {
+        if (!modal.contains(e.relatedTarget as Node | null)) resume()
+      })
+      arm()
     }
 
     if (copy.showEmail) {
