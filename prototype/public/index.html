@@ -671,11 +671,11 @@ $("transcriptFile").onchange = async (e) => {
   try {
     const text = await file.text()
     $("transcript").value = text
-    setStatus(“extractStatus”, `Loaded “${file.name}” (${text.length.toLocaleString()} chars). Click Extract Sims.`)
+    setStatus("extractStatus", `Loaded "${file.name}" (${text.length.toLocaleString()} chars). Click Extract Sims.`)
   } catch (err) {
-    setStatus(“extractStatus”, “Couldn’t read that file: “ + err.message, true)
+    setStatus("extractStatus", "Couldn't read that file: " + err.message, true)
   }
-  e.target.value = “” // allow re-selecting the same file
+  e.target.value = "" // allow re-selecting the same file
 }
 
 // ── drag-and-drop transcript onto the textarea ──

@@ -26,10 +26,18 @@ for (const dir of DIRS) {
       if (/\bsrc\s*=/.test(attrs)) continue
       if (/ld\+json|application\/json|text\/template/.test(attrs)) continue
       if (!js.trim()) continue
-      const tmp = join(tmpdir(), 'klav-inline-check.js')
-      writeFileSync(tmp, js)
+      // type="module" scripts MUST go through --input-type=module via stdin:
+      // file-based `node --check` mis-detects the module context and silently
+      // passed a curly-quote SyntaxError that killed /app on prod (2026-07-02).
+      const isModule = /type\s*=\s*["']?module/.test(attrs)
       try {
-        execFileSync('node', ['--check', tmp], { stdio: 'pipe' })
+        if (isModule) {
+          execFileSync('node', ['--input-type=module', '--check'], { input: js, stdio: 'pipe' })
+        } else {
+          const tmp = join(tmpdir(), 'klav-inline-check.js')
+          writeFileSync(tmp, js)
+          execFileSync('node', ['--check', tmp], { stdio: 'pipe' })
+        }
       } catch (e) {
         failures++
         const line = String(e.stderr).split('\n').find(l => l.includes('Error')) || 'parse error'
