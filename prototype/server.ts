@@ -2954,11 +2954,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             }
           })
 
-          const [counts, insights] = await Promise.all([
+          const [counts, insights, widgetPing] = await Promise.all([
             dashboardCounts(projectId),
             computeDashboardInsights(projectId),
+            // Widget heartbeat — drives the Snap-aware first-run checklist ("Install the report
+            // widget" ticks the moment /widget.js phones home from the founder's site).
+            latestWidgetPing(projectId),
           ])
-          return json({ email: me, projects, active: activeOut, members, sims, saying, simFeedback, tickets, activity, counts, insights })
+          const widgetStatus = widgetPing ? { host: widgetPing.host, lastSeen: widgetPing.lastSeen } : null
+          return json({ email: me, projects, active: activeOut, members, sims, saying, simFeedback, tickets, activity, counts, insights, widgetStatus })
         } catch (e: any) {
           return json(oops(e, "dashboard"), 500)
         }
@@ -3209,7 +3213,7 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         return json({ project: { id: created.id, name: created.name, accountId: created.accountId, status: created.status, role: "admin" } }, 201)
       }
       // Project detail + members (projectAccess-gated) and project-scoped invite (R4) + monitored-urls (P3b) + connectors.
-      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/rename|\/config|\/triage|\/recurring|\/replays|\/monitored-urls(?:\/[^/]+)?|\/connectors(?:\/[^/]+)?(?:\/test)?)?$/)
+      const projMatch = path.match(/^\/api\/projects\/([^/]+?)(\/members|\/invite|\/activity|\/rename|\/config|\/triage|\/recurring|\/replays|\/widget-status|\/monitored-urls(?:\/[^/]+)?|\/connectors(?:\/[^/]+)?(?:\/test)?)?$/)
       if (projMatch) {
         const pid = projMatch[1]
         const sub = projMatch[2] || ""
@@ -3503,6 +3507,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             }
           })
           return json({ observabilityMode: proj.observabilityMode, named, events })
+        }
+
+        // GET /api/projects/:id/widget-status — lightweight authed heartbeat probe (any project member).
+        // Polled (~3s) by onboarding step 2 and read by the dashboard first-run checklist to flip
+        // "Waiting for your site…" → "Widget detected on <host>" the moment /widget.js phones home
+        // via POST /api/widget/ping. Deliberately tiny (one indexed row read) so polling is cheap.
+        if (req.method === "GET" && sub === "/widget-status") {
+          const ping = await latestWidgetPing(pid)
+          return json({ seen: !!ping, host: ping?.host ?? null, last_seen_at: ping?.lastSeen ?? null })
         }
 
         // GET /api/projects/:id/triage — un-triaged feedback queue (any project member)

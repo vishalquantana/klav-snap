@@ -466,6 +466,9 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .conn-result.pend{color:var(--paper-faint)}
 .conn-result a{color:var(--indigo);text-decoration:underline}
 .conn-edit-hint{font-size:11.5px;color:var(--amber);margin-bottom:10px}
+.conn-help{font-size:12px;color:var(--paper-faint)}
+.conn-help a{color:var(--indigo);text-decoration:none}
+.conn-help a:hover{text-decoration:underline}
 /* two-way status-sync setup panel (G4) — shown for inbound-capable connectors */
 .sync-panel{grid-column:1/-1;margin-top:4px;padding:13px 14px;background:var(--ink-2);border:1px solid var(--line);border-radius:10px}
 .sync-panel .sync-h{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:4px}
@@ -507,6 +510,23 @@ details.drawer .drawer-in{padding:0 22px 22px}
 .checklist .cl-embed{display:flex;align-items:stretch;gap:8px;margin-top:10px}
 .checklist .cl-embed code{flex:1;min-width:0;background:#0c0a08;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:11px;line-height:1.5;color:#f3ece1;overflow:auto;white-space:pre-wrap;word-break:break-all}
 .checklist .cl-embed button{flex-shrink:0;align-self:flex-start}
+/* widget heartbeat state inside the checklist's widget path (Snap-aware first-run) */
+.checklist .cl-wdetect{display:flex;align-items:center;gap:6px;margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--paper-faint)}
+.checklist .cl-wdetect.ok{color:var(--green);animation:frpop .35s ease}
+.checklist .cl-wdetect .icon{flex-shrink:0}
+/* "Sims path" tag on the Sims-only checklist steps */
+.checklist .cl-path-tag{display:inline-block;margin-left:6px;padding:1px 7px;border:1px solid var(--line);border-radius:999px;font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--paper-faint);vertical-align:1px}
+
+/* ===== first-report celebration callout (overview, one-time dismissible) ===== */
+.first-report{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:14px;border:1px solid var(--green,#0f9d6b);border-radius:12px;background:rgba(15,157,107,.08);font-size:14px;position:relative;animation:frpop .4s ease}
+.first-report.hide{display:none}
+.first-report .fr-ic{color:var(--green,#0f9d6b);display:inline-flex;flex-shrink:0}
+.first-report .fr-txt a{color:var(--indigo,#6366f1);font-weight:600;text-decoration:none;transition:transform 150ms ease,color 150ms ease;display:inline-block}
+.first-report .fr-txt a:hover{text-decoration:underline;transform:translateY(-1px) scale(1.02)}
+.first-report .fr-x{margin-left:auto;background:none;border:none;color:var(--paper-faint);cursor:pointer;line-height:1;padding:4px;position:relative;transition:transform 150ms ease,color 150ms ease}
+.first-report .fr-x:hover{color:var(--paper-dim);transform:scale(1.08)}
+.first-report .fr-x:active{transform:scale(0.97)}
+@keyframes frpop{0%{transform:scale(.96);opacity:0}60%{transform:scale(1.01);opacity:1}100%{transform:scale(1)}}
 /* widget heartbeat status pill (Settings → Report widget appearance) */
 .kl-wstatus{display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:12px;border:1px solid var(--line);background:var(--ink-2);font-size:13px;line-height:1.45;margin-bottom:16px}
 .kl-wstatus-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--paper-faint)}
@@ -769,7 +789,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
     <button class="nv active" data-go="overview"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /> <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /> <path d="M12 11h4" /> <path d="M12 16h4" /> <path d="M8 11h.01" /> <path d="M8 16h.01" /></svg></span>Overview</button>
     <button class="nv" data-go="sims"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /> <path d="m14 8-1.5-1.5" /> <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /> <path d="m16.5 10.5 1 1" /> <path d="m17 6-2.891-2.891" /> <path d="M2 15c6.667-6 13.333 0 20-6" /> <path d="m20 9 .891.891" /> <path d="M3.109 14.109 4 15" /> <path d="m6.5 12.5 1 1" /> <path d="m7 18 2.891 2.891" /> <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg></span>Sims</button>
     <button class="nv" data-go="tickets"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-9" /> <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" /> <path d="M14.12 3.88 16 2" /> <path d="M21 21a4 4 0 0 0-3.81-4" /> <path d="M21 5a4 4 0 0 1-3.55 3.97" /> <path d="M22 13h-4" /> <path d="M3 21a4 4 0 0 1 3.81-4" /> <path d="M3 5a4 4 0 0 0 3.55 3.97" /> <path d="M6 13H2" /> <path d="m8 2 1.88 1.88" /> <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" /></svg></span>Tickets <span class="ct" id="navTicketCount"></span></button>
-    <button class="nv" data-go="triage"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>Triage <span class="ct" id="navTriageCount"></span></button>
+    <button class="nv" data-go="triage"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>New reports <span class="ct" id="navTriageCount"></span></button>
     <button class="nv" data-go="recurring"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg></span>Recurring <span class="ct" id="navRecurringCount"></span></button>
     <button class="nv" data-go="team"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /> <path d="M16 3.128a4 4 0 0 1 0 7.744" /> <path d="M22 21v-2a4 4 0 0 0-3-3.87" /> <circle cx="9" cy="7" r="4" /></svg></span>Team <span class="ct" id="navTeamCount"></span></button>
     <button class="nv" data-go="settings"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" /></svg></span>Settings</button>
@@ -789,17 +809,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   <div class="checklist hide" id="checklist" data-view="overview">
     <button class="cl-x" id="checklistDismiss" aria-label="Dismiss checklist"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></button>
     <h3>Welcome to Klavity</h3>
-    <p class="cl-intro">Four steps to your first Sim review — we'll tick them off as you go:</p>
+    <p class="cl-intro">We'll tick these off as you go. Steps 1–2 get real bug reports flowing (Snap); steps 3–5 add AI Sim reviews — take either path, or both:</p>
     <ol>
       <li id="clConnect">
         <div style="flex:1">
           <div class="cl-step-t">Connect your product — pick one</div>
           <div class="cl-step-d">Two ways for Sims and your users to reach Klavity:</div>
           <div class="cl-paths">
-            <div class="cl-path">
-              <div class="cl-path-t"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg> Install the browser extension</div>
-              <div class="cl-path-d">Your Sims watch your product through it — best for internal QA. <a href="https://chromewebstore.google.com/detail/olahjdcgbdjajbfmgnakjlehgjdmaene" target="_blank" rel="noopener">Get the extension →</a></div>
-            </div>
             <div class="cl-path">
               <div class="cl-path-t">&lt;/&gt; Embed the report widget</div>
               <div class="cl-path-d">One script tag on any page — collect real user reports, no extension needed.</div>
@@ -808,35 +824,53 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
                 <button class="btn btn-ghost btn-sm" id="embedCopy" type="button">Copy</button>
                 <button class="btn btn-ghost btn-sm" id="embedCopyAI" type="button" title="Widget not loading? If your site has a Content Security Policy, copy paste-ready fix instructions for your AI or developer.">Copy to AI</button>
               </div>
+              <div class="cl-wdetect" id="clWidgetDetect"></div>
+            </div>
+            <div class="cl-path">
+              <div class="cl-path-t"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg> Install the browser extension</div>
+              <div class="cl-path-d">Your Sims watch your product through it — best for internal QA. <a href="https://chromewebstore.google.com/detail/olahjdcgbdjajbfmgnakjlehgjdmaene" target="_blank" rel="noopener">Get the extension →</a></div>
             </div>
           </div>
         </div>
       </li>
+      <li id="clFirstReport">
+        <div>
+          <div class="cl-step-t">Get your first bug report</div>
+          <div class="cl-step-d">Click the widget button on your site and send a test report — it lands in <a href="#triage" onclick="setView('triage');return false">New reports</a>, ready to accept as a bug or dismiss.</div>
+        </div>
+      </li>
       <li id="clUrl">
         <div>
-          <div class="cl-step-t">Add your product's URL so Sims know where to watch</div>
+          <div class="cl-step-t">Add your product's URL so Sims know where to watch <span class="cl-path-tag">Sims path</span></div>
           <div class="cl-step-d">Allowlist the paths your Sims should react on. <a href="#liveDrawer" id="checklistUrlLink">Open Live Sims settings →</a></div>
         </div>
       </li>
       <li id="clSims">
         <div>
-          <div class="cl-step-t">Add your Sims (built from real customer calls)</div>
+          <div class="cl-step-t">Add your Sims (built from real customer calls) <span class="cl-path-tag">Sims path</span></div>
           <div class="cl-step-d">Extract personas from a transcript in the studio. <a href="/app" id="checklistStudioLink">Launch the Sims studio →</a></div>
         </div>
       </li>
       <li id="clReview">
         <div>
-          <div class="cl-step-t">Watch your first review roll in</div>
+          <div class="cl-step-t">Watch your first review roll in <span class="cl-path-tag">Sims path</span></div>
           <div class="cl-step-d">When a Sim reacts to a page, it shows up under Recent tickets and What your Sims are saying.</div>
         </div>
       </li>
     </ol>
   </div>
 
+  <!-- First-report celebration — one-time dismissible callout when the project's first feedback lands -->
+  <div class="first-report hide" id="firstReportCallout" data-view="overview" role="status">
+    <span class="fr-ic" data-ki="sparkles"></span>
+    <span class="fr-txt"><b>Your first bug report is in!</b> Review it in <a href="#triage" onclick="setView('triage');return false">New reports</a> — accept it as a bug or dismiss it.</span>
+    <button class="fr-x" id="firstReportDismiss" type="button" aria-label="Dismiss first-report celebration"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></button>
+  </div>
+
   <!-- Triage banner — shown in overview when needsTriage > 0 -->
   <a class="triage-banner hide" id="triageBanner" data-view="overview" href="#triage">
     <span class="tb-ic" data-ki="bell"></span>
-    <span class="tb-txt"><b id="triageCount">0</b> items need triage — review and accept them as bugs or dismiss them</span>
+    <span class="tb-txt"><b id="triageCount">0</b> new reports to review — accept them as bugs or dismiss them</span>
     <span class="tb-go">Review →</span>
   </a>
 
@@ -879,7 +913,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
     <!-- Triage inbox -->
     <div class="card full" data-view="triage">
-      <h2 style="display:flex;align-items:center;gap:8px"><span data-ki="bell"></span> Triage <span class="h-tag">accept as a bug or dismiss</span></h2>
+      <h2 style="display:flex;align-items:center;gap:8px"><span data-ki="bell"></span> New reports <span class="h-tag">accept as a bug or dismiss</span></h2>
       <div class="tg-filters" id="triageFilters"></div>
       <div id="triageList"><div class="sk-card"><span class="sk sk-av"></span><div class="sk-lines"><span class="sk sk-line" style="width:62%"></span><span class="sk sk-line" style="width:40%"></span></div><span class="sk sk-pill"></span></div></div>
     </div>
@@ -919,11 +953,11 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="sim-live-intro">
         <div class="sim-live-copy">
           <h2><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9" /> <path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5" /> <circle cx="12" cy="9" r="2" /> <path d="M16.2 4.8c2 2 2.26 5.11.8 7.47" /> <path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1" /> <path d="M9.5 18h5" /> <path d="m8 22 4-11 4 11" /></svg> Sims — live on your product</h2>
-          <p class="muted">Your Sims can react to the exact page you're viewing, on demand. Use the extension to ask them for a live review; observations land above and in Triage.</p>
+          <p class="muted">Your Sims can react to the exact page you're viewing, on demand. Use the extension to ask them for a live review; observations land above and in New reports.</p>
           <div class="sim-live-steps">
             <div class="sim-live-step"><span class="sim-live-n">1</span><div><b>Browse</b><div class="muted">Open the product page.</div></div></div>
             <div class="sim-live-step"><span class="sim-live-n">2</span><div><b>Trigger</b><div class="muted">Right-click or open the extension.</div><div class="sim-live-pill"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 16 1.5 1.5" /><path d="m14 8-1.5-1.5" /><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /><path d="m16.5 10.5 1 1" /><path d="m17 6-2.891-2.891" /><path d="M2 15c6.667-6 13.333 0 20-6" /><path d="m20 9 .891.891" /><path d="M3.109 14.109 4 15" /><path d="m6.5 12.5 1 1" /><path d="m7 18 2.891 2.891" /><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /></svg> Ask Sims to review this</div></div></div>
-            <div class="sim-live-step"><span class="sim-live-n">3</span><div><b>Review</b><div class="muted">Read observations and triage what matters.</div></div></div>
+            <div class="sim-live-step"><span class="sim-live-n">3</span><div><b>Review</b><div class="muted">Read observations and keep what matters.</div></div></div>
           </div>
         </div>
         <button class="sim-live-dismiss" id="simLiveDismiss" type="button" aria-label="Dismiss live Sims explainer"><svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></button>
@@ -1441,7 +1475,7 @@ async function renderTriage() {
 }
 function renderTriageItems(items) {
   const host = $("triageList"); if (!host) return
-  if (!items.length) { host.innerHTML = emptyState(kicon('check-circle',{size:32}), "Nothing to triage — you're all caught up.", ""); return }
+  if (!items.length) { host.innerHTML = emptyState(kicon('check-circle',{size:32}), "No new reports — you're all caught up.", ""); return }
   host.innerHTML = items.map(t => `
     <div class="tg-row ${sevRailClass(t.severity)}" data-id="${esc(String(t.id))}">
       ${t.screenshotId ? `<div class="tg-shot" data-shot="${esc(String(t.screenshotId))}" title="Open screenshot"><div class="tg-shot-ph">${kicon('image',{size:16})}</div></div>` : ""}
@@ -1561,6 +1595,7 @@ function render(fromCache) {
   // below is the backstop that resolves the skeleton of whichever renderer did throw.
   safeRender("switcher", renderSwitcher)
   safeRender("checklist", renderChecklist)
+  safeRender("firstReport", renderFirstReport)
   safeRender("stats", renderStats)
   safeRender("saying", renderSaying)
   safeRender("sims", () => renderSims(admin))
@@ -1596,6 +1631,8 @@ function render(fromCache) {
 }
 
 // ── First-run checklist — shows ONLY when this project has zero Sims, dismissible per-session ──
+// Path-aware (Snap vs Sims): the widget step ticks on the /widget.js heartbeat, the first-report
+// step ticks on the first human (non-Sim) feedback row — Sims steps stay for the Sims path.
 function renderChecklist() {
   const el = $("checklist")
   if (!el) return
@@ -1603,20 +1640,36 @@ function renderChecklist() {
   const counts = state.counts || {}
   // "First review rolled in" = at least one real feedback observation exists for this project.
   const hasReview = (counts.feedback || 0) > 0 || (state.saying || []).some(s => s.source === "feedback")
+  // Snap path: widget heartbeat (from /api/dashboard widgetStatus) + first human bug report.
+  const widgetSeen = !!(state.widgetStatus && state.widgetStatus.lastSeen)
+  const hasHumanReport = (state.tickets || []).some(t => !t.simName)
   let dismissed = false
   try { dismissed = sessionStorage.getItem("klavChecklistDismissed") === "1" } catch (e) {}
   // Keep guiding until the activation goal (first review) is reached — not just until the first Sim.
   el.classList.toggle("hide", hasReview || dismissed)
   // Tick off every step we can detect from dashboard state so "what's left" is obvious at a glance.
-  // Step 2 done = at least one monitored URL is allowlisted for this project (loaded by loadLive()).
+  // URL step done = at least one monitored URL is allowlisted for this project (loaded by loadLive()).
   const hasUrls = (typeof curUrls !== "undefined") && (curUrls || []).length > 0
-  // Step 1 done = the product is wired up — proven by any later progress (a URL, a Sim, feedback, or a review).
-  const connected = hasReview || hasSims || hasUrls || (counts.feedback || 0) > 0
+  // Step 1 done = the product is wired up — a widget heartbeat, or any later progress (a URL, a Sim, feedback).
+  const connected = widgetSeen || hasReview || hasSims || hasUrls || (counts.feedback || 0) > 0
   const connLi = $("clConnect"); if (connLi) connLi.classList.toggle("cl-done", connected)
+  const frLi = $("clFirstReport"); if (frLi) frLi.classList.toggle("cl-done", hasHumanReport)
   const urlLi = $("clUrl"); if (urlLi) urlLi.classList.toggle("cl-done", hasUrls)
   const simsLi = $("clSims"); if (simsLi) simsLi.classList.toggle("cl-done", hasSims)
   const revLi = $("clReview"); if (revLi) revLi.classList.toggle("cl-done", hasReview)
-  // Point step-3 studio link at the active project (mirrors the Sims-link pattern).
+  // Widget path: mirror the onboarding "widget detected" live state on the heartbeat.
+  const wd = $("clWidgetDetect")
+  if (wd) {
+    if (widgetSeen) {
+      const host = state.widgetStatus.host
+      wd.classList.add("ok")
+      wd.innerHTML = kicon('check-circle', { size: 13 }) + " Widget detected on <b>" + esc(host && host !== "(unknown)" ? host : "your site") + "</b>"
+    } else {
+      wd.classList.remove("ok")
+      wd.textContent = "Waiting for your site… (paste the snippet, then reload your page)"
+    }
+  }
+  // Point the studio link at the active project (mirrors the Sims-link pattern).
   const pid = curProjId()
   const studio = $("checklistStudioLink")
   if (studio && pid) studio.setAttribute("href", "/app?project=" + encodeURIComponent(pid))
@@ -1624,6 +1677,25 @@ function renderChecklist() {
   const snip = $("embedSnippet")
   if (snip && pid) snip.textContent = embedSnippet(pid)
 }
+
+// ── First-report celebration — one-time dismissible callout when the project's FIRST feedback
+//    lands. Capped at the first few reports so long-running projects never see it retroactively;
+//    dismissal is remembered per-project in localStorage. ──
+function renderFirstReport() {
+  const el = $("firstReportCallout")
+  if (!el) return
+  const pid = curProjId()
+  const c = state.counts || {}
+  let dismissed = false
+  try { dismissed = localStorage.getItem("klavFirstReportSeen:" + pid) === "1" } catch (e) {}
+  const isEarly = (c.feedback || 0) >= 1 && (c.feedback || 0) <= 3
+  el.classList.toggle("hide", !pid || dismissed || !isEarly)
+}
+$("firstReportDismiss") && ($("firstReportDismiss").onclick = () => {
+  const pid = curProjId()
+  try { if (pid) localStorage.setItem("klavFirstReportSeen:" + pid, "1") } catch (e) {}
+  const el = $("firstReportCallout"); if (el) el.classList.add("hide")
+})
 // Canonical one-line widget embed for a project — host-aware so it works on prod and local.
 function embedSnippet(pid) {
   return '<script src="' + location.origin + '/widget.js" data-project="' + pid + '" defer></scr' + 'ipt>'
@@ -2070,7 +2142,7 @@ function renderSimsFeed() {
           if (o.createdAt) meta.push(ago(o.createdAt))
           const moreLink = obs.length > 1
             ? `<a class="sf-triage" href="#triage" onclick="setView('triage')">See ${obs.length - 1} more →</a>`
-            : `<a class="sf-triage" href="#triage" onclick="setView('triage')">View in Triage →</a>`
+            : `<a class="sf-triage" href="#triage" onclick="setView('triage')">View in New reports →</a>`
           meta.push(moreLink)
           return `<div class="sf-obs"><div class="sf-ob">
             ${tags.length ? `<div class="sf-ob-tags">${tags.join("")}</div>` : ""}
@@ -2915,6 +2987,15 @@ function resetConnForm() {
   $("connAddTestResult") && $("connAddTestResult").classList.add("hide")
 }
 
+// Per-type "Where do I find this?" pointers — one line above the credential fields so a founder
+// setting up their first connector doesn't have to hunt for where the API token lives.
+const CONN_HELP = {
+  plane:  { where: "Plane → Workspace settings → API tokens", url: "https://docs.plane.so/core-concepts/workspaces#api-tokens" },
+  github: { where: "GitHub → Settings → Developer settings → Personal access tokens (needs repo scope)", url: "https://github.com/settings/tokens" },
+  jira:   { where: "Atlassian account → Security → Create and manage API tokens", url: "https://id.atlassian.com/manage-profile/security/api-tokens" },
+  linear: { where: "Linear → Settings → API → Personal API keys", url: "https://linear.app/settings/api" },
+}
+
 // Render the connector field inputs into the shared add/edit form.
 // `editConfig` pre-fills non-secret values; in edit mode secret fields stay blank
 // and show PERSISTENT helper text "Leave blank to keep the saved value".
@@ -2953,7 +3034,13 @@ function renderConnectorFields(type, editConfig) {
     <div class="sync-note">Set the secret on the ${esc(g.name)} side to match your <b>Inbound Webhook Secret</b> field above — leave it blank to stay outbound-only.</div>
   </div>` : ""
 
-  fieldsEl.innerHTML = fieldsHtml + syncPanel
+  // One-line credentials pointer (Plane/GitHub/Jira/Linear) — absent for generic webhook.
+  const help = CONN_HELP[type]
+  const helpHtml = help
+    ? `<div class="conn-help field-full">Where do I find this? <a href="${esc(help.url)}" target="_blank" rel="noopener">${esc(help.where)} →</a></div>`
+    : ""
+
+  fieldsEl.innerHTML = helpHtml + fieldsHtml + syncPanel
   const cp = $("syncUrlCopy")
   if (cp) cp.onclick = () => {
     const u = $("syncUrl").textContent
