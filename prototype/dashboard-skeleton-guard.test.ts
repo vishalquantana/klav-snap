@@ -255,7 +255,7 @@ test("renderSimsFeed shows actual observation text with a Triage link", () => {
   )
   renderSimsFeed()
   expect(els.simsFeed.innerHTML).toContain("The checkout CTA disappears below the fold.")
-  expect(els.simsFeed.innerHTML).toContain("View in Triage")
+  expect(els.simsFeed.innerHTML).toContain("View in New reports")
   expect(els.simsFeed.innerHTML).toContain('href="#triage"')
   expect(els.simsCount.textContent).toBe("1")
 })

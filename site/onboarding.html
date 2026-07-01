@@ -159,6 +159,20 @@ input.code{font-family:var(--mono);font-size:24px;letter-spacing:.5em;text-align
 #copySnippet:hover{transform:translateY(-1.5px) scale(1.02);border-color:var(--indigo) !important}
 #copySnippet:active{transform:scale(0.97)}
 
+/* ── widget live-detect chip (step 2): amber pulsing "waiting" → green "detected" pop ── */
+.wstatus{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;font-family:var(--mono);font-size:11.5px;color:var(--paper-faint);transition:border-color .3s ease,color .3s ease,background .3s ease}
+.wstatus .wdot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0;animation:wpulse 1.6s ease infinite}
+.wstatus.ok{border-color:var(--green);color:var(--green);background:rgba(15,157,107,.07);animation:wpop .35s ease}
+.wstatus.ok .wdot{background:var(--green);animation:none}
+.wstatus .icon{flex-shrink:0}
+@keyframes wpulse{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes wpop{0%{transform:scale(.92)}60%{transform:scale(1.04)}100%{transform:scale(1)}}
+
+/* ── low-emphasis Snap exit on step 3 (skip Sims, go straight to reports) ── */
+.snap-exit{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--paper-faint);cursor:pointer;transition:transform 150ms ease,color 150ms ease}
+.snap-exit:hover{color:var(--indigo);transform:translateY(-1.5px) scale(1.02)}
+.snap-exit:active{transform:scale(0.97)}
+
 /* ── platform install guide ── */
 .plat-toggle{background:none;border:1px solid var(--line);border-radius:9px;padding:8px 14px;color:var(--indigo);font-family:var(--body);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;margin-top:12px;transition:border-color .15s,background .15s}
 .plat-toggle:hover{background:var(--ink-3);border-color:var(--indigo)}
@@ -267,6 +281,17 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
               <button type="button" id="copySnippet" style="background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;color:var(--paper);font-family:var(--body);font-size:12.5px;cursor:pointer">Copy code</button>
               <span style="color:var(--paper-faint);font-size:11.5px">Paste this once — it shows on every page automatically.</span>
             </div>
+            <!-- Live install check: polls /api/projects/:id/widget-status (~3s) and flips green the
+                 moment the widget's heartbeat is seen from the founder's site (or the test below). -->
+            <div class="wstatus" id="widgetChip" role="status" aria-live="polite">
+              <span class="wdot" aria-hidden="true"></span><span id="widgetChipTxt">Waiting for your site… (paste the snippet, then reload your page)</span>
+            </div>
+            <!-- "Try it now": mounts the real widget on THIS page with the founder's project id and
+                 opens the composer — the submitted report flows through /api/feedback into their dashboard. -->
+            <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
+              <button type="button" class="btn btn-ghost" id="tryWidgetBtn" onclick="tryTestReport()">Try it now — send a test report</button>
+              <span style="color:var(--paper-faint);font-size:11.5px;max-width:34ch">This files a real ticket in your project — perfect for checking the loop.</span>
+            </div>
             <!-- Platform install guide -->
             <button type="button" class="plat-toggle" id="platToggle" onclick="togglePlatforms()">Where do I paste this? ↓</button>
             <div id="platPanel" class="hide">
@@ -276,6 +301,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
                   <button type="button" class="plat-tab" onclick="showPlat('webflow',this)">Webflow</button>
                   <button type="button" class="plat-tab" onclick="showPlat('squarespace',this)">Squarespace</button>
                   <button type="button" class="plat-tab" onclick="showPlat('wix',this)">Wix</button>
+                  <button type="button" class="plat-tab" onclick="showPlat('react',this)">React / Next.js</button>
                   <button type="button" class="plat-tab" onclick="showPlat('other',this)">Other</button>
                 </div>
                 <div class="plat-steps" id="platDesc"></div>
@@ -331,6 +357,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
             </div>
           </div>
           <div class="row"><button class="btn btn-amber" onclick="openStudio()">Open the Studio →</button><span class="skip" onclick="openStudio()">Pick later in the Studio</span></div>
+          <!-- Snap-only exit: founders who just want bug reports shouldn't be forced through Sims. -->
+          <div style="margin-top:16px"><a class="snap-exit" href="/dashboard">Skip for now — take me to my reports →</a></div>
         </div>
       </div>
     </div>
@@ -372,6 +400,8 @@ function paint(){
     if (r < cur && r !== 4) el.querySelector('.ix').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>'
     else if (r !== 4) el.querySelector('.ix').textContent = String(r)
   })
+  // Widget live-detect: poll only while step 2's widget section is visible.
+  if (typeof syncWidgetPoll === 'function') syncWidgetPoll()
   window.scrollTo(0, 0)
 }
 function go(n){ cur = n; paint() }
@@ -471,11 +501,86 @@ function selectInstall(which) {
     cont.textContent = 'Continue →'
     cont.onclick = () => go(3)
   }
+  syncWidgetPoll()
 }
 
 function s2proceed() {
   if (installPath === 'extension') connectExtension()
   else go(3)
+}
+
+// ── Widget-detected live check: poll the authed heartbeat probe every ~3s while the widget
+//    section of step 2 is visible; flip the chip green (with host) the moment it's seen. ──
+let widgetPollTimer = null
+let widgetSeen = false
+function setWidgetChipDetected(host) {
+  const chip = $('widgetChip'), txt = $('widgetChipTxt')
+  if (!chip || !txt) return
+  chip.classList.add('ok')
+  const check = (typeof window.kicon === 'function') ? window.kicon('check', { size: 13 }) : ''
+  txt.innerHTML = check + ' Widget detected on <b>' + esc(host && host !== '(unknown)' ? host : 'your site') + '</b>'
+}
+async function pollWidgetStatus() {
+  if (!projectId || widgetSeen) return
+  try {
+    const { ok, data } = await jsonFetch('/api/projects/' + encodeURIComponent(projectId) + '/widget-status')
+    if (ok && data && data.seen) {
+      widgetSeen = true
+      setWidgetChipDetected(data.host)
+      stopWidgetPoll()
+    }
+  } catch (e) { /* transient — keep polling */ }
+}
+function startWidgetPoll() {
+  if (widgetSeen || widgetPollTimer) return
+  pollWidgetStatus()
+  widgetPollTimer = setInterval(pollWidgetStatus, 3000)
+}
+function stopWidgetPoll() { if (widgetPollTimer) { clearInterval(widgetPollTimer); widgetPollTimer = null } }
+// Poll only while step 2's widget section is actually on screen (and we know the project).
+function syncWidgetPoll() {
+  if (cur === 2 && installPath === 'widget' && projectId && !widgetSeen) startWidgetPoll()
+  else stopWidgetPoll()
+}
+
+// ── "Try it now — send a test report": mount the REAL widget on this page (founder's own
+//    project id, loaded on demand) and open the bug composer. The submission goes through the
+//    normal /api/feedback path, so it lands in their dashboard like any visitor report. ──
+let widgetScriptRequested = false
+function openWidgetComposer(deadline) {
+  // window.Klavity.open() is a silent no-op until mount() finishes — the widget host element
+  // appearing in the DOM is the reliable "mounted" signal, so wait for it, then open.
+  const mounted = !!document.getElementById('klavity-widget-host')
+  if (mounted && window.Klavity && typeof window.Klavity.open === 'function') {
+    const btn = $('tryWidgetBtn'); if (btn) { btn.disabled = false; btn.textContent = 'Try it now — send a test report' }
+    window.Klavity.open('bug')
+    return
+  }
+  if (Date.now() > deadline) {
+    const btn = $('tryWidgetBtn'); if (btn) { btn.disabled = false; btn.textContent = 'Try it now — send a test report' }
+    $('s2err').textContent = "Couldn't load the widget here — check your connection and try again."
+    return
+  }
+  setTimeout(() => openWidgetComposer(deadline), 250)
+}
+function tryTestReport() {
+  const err = $('s2err'); err.textContent = ''
+  if (!projectId) { err.textContent = 'Project not ready yet — finish step 1 first.'; return }
+  const btn = $('tryWidgetBtn')
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading the widget…' }
+  if (!widgetScriptRequested) {
+    widgetScriptRequested = true
+    const s = document.createElement('script')
+    s.src = '/widget.js' // same-origin: works on prod and locally alike
+    s.setAttribute('data-project', projectId)
+    s.onerror = () => {
+      widgetScriptRequested = false
+      if (btn) { btn.disabled = false; btn.textContent = 'Try it now — send a test report' }
+      err.textContent = "Couldn't load the widget script — try again."
+    }
+    document.body.appendChild(s)
+  }
+  openWidgetComposer(Date.now() + 8000)
 }
 
 // Connect the Klavity extension (reuses the CONNECT handshake; works on klavity.in where
@@ -502,7 +607,7 @@ async function connectExtension(){
       const cont = $('s2continue'); if (cont){ cont.textContent = 'Continue →'; cont.onclick = () => go(3) }
     }
     else throw new Error('the extension rejected the connection')
-  } catch(e){ msg.textContent = 'Couldn\'t connect: ' + e.message }
+  } catch(e){ msg.textContent = "Couldn't connect: " + e.message }
 }
 
 // ── Platform install guide ──
@@ -511,6 +616,7 @@ const PLAT_STEPS = {
   webflow: '<ol><li>In Webflow, open <b>Project Settings</b> (gear icon, top-left)</li><li>Click the <b>Custom Code</b> tab</li><li>Paste the snippet in the <b>Footer Code</b> box</li><li>Click <b>Save Changes</b>, then <b>Publish</b> your site</li></ol>',
   squarespace: '<ol><li>In Squarespace, go to <b>Settings → Advanced → Code Injection</b></li><li>Paste the snippet in the <b>Footer</b> box</li><li>Click <b>Save</b></li></ol>',
   wix: '<ol><li>In Wix, go to <b>Settings → Custom Code</b></li><li>Click <b>+ Add Custom Code</b></li><li>Paste the snippet, set placement to <b>Body — End of tag</b></li><li>Select <b>All Pages</b>, then click <b>Apply</b> and <b>Save</b></li></ol>',
+  react: '<ol><li><b>Plain React / Vite / CRA:</b> paste the snippet just before <code>&lt;/body&gt;</code> in your <code>index.html</code> (it lives outside the React tree, so no component changes)</li><li><b>Next.js (pages router):</b> add it inside <code>&lt;body&gt;</code> in <code>pages/_document</code></li><li><b>Next.js (app router):</b> add it in <code>app/layout</code> inside <code>&lt;body&gt;</code> — or use <code>&lt;Script src="https://klavity.in/widget.js" data-project="YOUR_PROJECT_ID" strategy="afterInteractive" /&gt;</code></li><li><b>Any SPA, no HTML access:</b> inject it once at startup: <code>var s=document.createElement(\'script\');s.src=\'https://klavity.in/widget.js\';s.setAttribute(\'data-project\',\'YOUR_PROJECT_ID\');s.defer=true;document.body.appendChild(s)</code></li></ol>',
   other: '<ol><li>Open your page\'s HTML and find <code>&lt;/body&gt;</code> near the bottom</li><li>Paste the snippet on the line just before it</li><li>Save and publish — done</li></ol><p style="margin-top:8px;font-size:12px;color:var(--paper-faint)">WordPress: Appearance → Theme File Editor → footer.php → paste before <code>&lt;/body&gt;</code></p>'
 }
 let platOpen = false
@@ -523,7 +629,8 @@ function togglePlatforms() {
 }
 function showPlat(name, btn) {
   curPlat = name
-  $('platDesc').innerHTML = PLAT_STEPS[name] || ''
+  // Personalize guides: show the founder's real project id inside code examples once known.
+  $('platDesc').innerHTML = (PLAT_STEPS[name] || '').replace(/YOUR_PROJECT_ID/g, esc(projectId || 'YOUR_PROJECT_ID'))
   if (btn) Array.from($('platTabs').children).forEach(b => b.classList.toggle('act', b === btn))
 }
 

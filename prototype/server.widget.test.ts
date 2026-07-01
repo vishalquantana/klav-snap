@@ -305,3 +305,49 @@ test("GET /api/widget/sims with reflected Origin CORS on real response", async (
   expect(r.headers.get("access-control-allow-origin")).toBe(X_ORIGIN)
   expect((r.headers.get("vary") || "")).toContain("Origin")
 })
+
+// ── Widget-status probe — the authed heartbeat check behind the onboarding "Widget detected"
+//    live chip and the dashboard first-run checklist (GET /api/projects/:id/widget-status). ──
+
+test("GET /api/projects/:id/widget-status without a session is refused (login redirect)", async () => {
+  const r = await fetch(base + "/api/projects/" + projectId + "/widget-status", { redirect: "manual" })
+  expect(r.status).toBe(302)
+  expect(r.headers.get("location")).toBe("/login")
+})
+
+test("widget-status flips seen:false → seen:true (with host) after a widget ping", async () => {
+  // Fresh project with NO pings yet — seeded here so earlier ping tests can't contaminate it.
+  const P2 = `proj_ws_${ts}`
+  await rawExec(
+    `INSERT INTO projects (id, account_id, name, status, review_mode, review_budget_daily, observability_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [P2, ACCOUNT_ID, "Widget Status Project", "active", "auto", 200, "named", NOW, NOW],
+  )
+  await rawExec(
+    `INSERT INTO project_members (id, project_id, email, project_role, invited_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    [`pm_ws_${ts}`, P2, ADMIN_EMAIL, "admin", null, NOW],
+  )
+
+  // Never pinged → seen:false, no host.
+  let r = await fetch(base + "/api/projects/" + P2 + "/widget-status", { headers: { cookie: sessionCookie } })
+  expect(r.status).toBe(200)
+  let j = await r.json()
+  expect(j.seen).toBe(false)
+  expect(j.host).toBeNull()
+  expect(j.last_seen_at).toBeNull()
+
+  // The widget loads on the founder's site and phones home…
+  const ping = await fetch(base + "/api/widget/ping", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://app.acme.com" },
+    body: JSON.stringify({ project_id: P2 }),
+  })
+  expect(ping.status).toBe(200)
+
+  // …and the probe now reports it, host derived from the ping's Origin.
+  r = await fetch(base + "/api/projects/" + P2 + "/widget-status", { headers: { cookie: sessionCookie } })
+  expect(r.status).toBe(200)
+  j = await r.json()
+  expect(j.seen).toBe(true)
+  expect(j.host).toBe("app.acme.com")
+  expect(Number(j.last_seen_at)).toBeGreaterThan(0)
+})
