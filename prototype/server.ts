@@ -1143,6 +1143,18 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
     }
     if (req.method === "GET" && path === "/robots.txt") return new Response(Bun.file(SITE + "/robots.txt"), { headers: { "content-type": "text/plain; charset=utf-8" } })
     if (req.method === "GET" && path === "/klavity-sim.js") return file(PUB + "/klavity-sim.js")
+    // ── vendored driver.js (dashboard first-run guided tour) — pinned v1.6.0, MIT. Served locally
+    // because the CSP only allows 'self' + esm.sh script origins (no CDN hotlinking). ──
+    if (req.method === "GET" && path === "/vendor/driver.min.js") {
+      return new Response(Bun.file(PUB + "/vendor/driver.min.js"), {
+        headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=86400" },
+      })
+    }
+    if (req.method === "GET" && path === "/vendor/driver.css") {
+      return new Response(Bun.file(PUB + "/vendor/driver.css"), {
+        headers: { "content-type": "text/css; charset=utf-8", "cache-control": "public, max-age=86400" },
+      })
+    }
     // ── vendored session-replay PLAYER (Trails Walk + ticket replay scrubber) ──
     // Served under NEUTRAL filenames (klv-view.*): ad-blockers (uBlock/EasyPrivacy/Brave) block ANY URL
     // containing "rrweb"/"record", which silently broke replay for a large share of real users. The old
