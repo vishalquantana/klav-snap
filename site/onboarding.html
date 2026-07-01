@@ -454,77 +454,77 @@ async function applyProjectName(){
   } catch(e){ /* non-fatal: continue onboarding regardless */ }
 }
 
-// ── Step 2: which install path is selected (‘widget’ | ‘extension’) ──
-let installPath = ‘widget’
+// ── Step 2: which install path is selected ('widget' | 'extension') ──
+let installPath = 'widget'
 
 function selectInstall(which) {
   installPath = which
-  $(‘widgetTile’).classList.toggle(‘sel’, which === ‘widget’)
-  $(‘chromeTile’).classList.toggle(‘sel’, which === ‘extension’)
-  $(‘widgetSection’).classList.toggle(‘hide’, which !== ‘widget’)
-  $(‘extSection’).classList.toggle(‘hide’, which !== ‘extension’)
-  const cont = $(‘s2continue’)
-  if (which === ‘extension’) {
-    cont.textContent = ‘Connect & continue →’
+  $('widgetTile').classList.toggle('sel', which === 'widget')
+  $('chromeTile').classList.toggle('sel', which === 'extension')
+  $('widgetSection').classList.toggle('hide', which !== 'widget')
+  $('extSection').classList.toggle('hide', which !== 'extension')
+  const cont = $('s2continue')
+  if (which === 'extension') {
+    cont.textContent = 'Connect & continue →'
     cont.onclick = connectExtension
   } else {
-    cont.textContent = ‘Continue →’
+    cont.textContent = 'Continue →'
     cont.onclick = () => go(3)
   }
 }
 
 function s2proceed() {
-  if (installPath === ‘extension’) connectExtension()
+  if (installPath === 'extension') connectExtension()
   else go(3)
 }
 
 // Connect the Klavity extension (reuses the CONNECT handshake; works on klavity.in where
 // the content script exposes window.__klavityExtensionId). Honest fallback when not installed.
 async function connectExtension(){
-  const msg = $(‘chromeMsg’)
-  const extId = (typeof chrome !== ‘undefined’) && window.__klavityExtensionId
+  const msg = $('chromeMsg')
+  const extId = (typeof chrome !== 'undefined') && window.__klavityExtensionId
   if (!extId) {
-    msg.innerHTML = ‘<a href="https://chromewebstore.google.com/detail/olahjdcgbdjajbfmgnakjlehgjdmaene" target="_blank" rel="noopener" style="color:var(--indigo);font-weight:600">Add Klavity to Chrome →</a><span style="color:var(--paper-faint)"> — then click "Connect &amp; continue" again.</span>’
+    msg.innerHTML = '<a href="https://chromewebstore.google.com/detail/olahjdcgbdjajbfmgnakjlehgjdmaene" target="_blank" rel="noopener" style="color:var(--indigo);font-weight:600">Add Klavity to Chrome →</a><span style="color:var(--paper-faint)"> — then click "Connect &amp; continue" again.</span>'
     return
   }
-  msg.textContent = ‘Connecting…’
+  msg.textContent = 'Connecting…'
   try {
-    const r = await fetch(‘/api/extension-token’, { redirect: ‘manual’ })
-    if (!r.ok) throw new Error(‘sign in first’)
+    const r = await fetch('/api/extension-token', { redirect: 'manual' })
+    if (!r.ok) throw new Error('sign in first')
     const { token } = await r.json()
     const resp = await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(extId, { type: ‘CONNECT’, token, backendUrl: location.origin }, (result) => {
+      chrome.runtime.sendMessage(extId, { type: 'CONNECT', token, backendUrl: location.origin }, (result) => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve(result)
       })
     })
     if (resp && resp.ok) {
-      msg.innerHTML = ‘<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Extension connected — your Sims can now watch the pages you listed.’
-      const cont = $(‘s2continue’); if (cont){ cont.textContent = ‘Continue →’; cont.onclick = () => go(3) }
+      msg.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Extension connected — your Sims can now watch the pages you listed.'
+      const cont = $('s2continue'); if (cont){ cont.textContent = 'Continue →'; cont.onclick = () => go(3) }
     }
-    else throw new Error(‘the extension rejected the connection’)
-  } catch(e){ msg.textContent = ‘Couldn\’t connect: ‘ + e.message }
+    else throw new Error('the extension rejected the connection')
+  } catch(e){ msg.textContent = 'Couldn\'t connect: ' + e.message }
 }
 
 // ── Platform install guide ──
 const PLAT_STEPS = {
-  shopify: ‘<ol><li>In your Shopify admin, go to <b>Online Store → Themes</b></li><li>Click <b>Edit code</b> on your active theme</li><li>Open <code>layout/theme.liquid</code></li><li>Paste the snippet just before <code>&lt;/body&gt;</code> at the bottom of the file</li><li>Click <b>Save</b></li></ol>’,
-  webflow: ‘<ol><li>In Webflow, open <b>Project Settings</b> (gear icon, top-left)</li><li>Click the <b>Custom Code</b> tab</li><li>Paste the snippet in the <b>Footer Code</b> box</li><li>Click <b>Save Changes</b>, then <b>Publish</b> your site</li></ol>’,
-  squarespace: ‘<ol><li>In Squarespace, go to <b>Settings → Advanced → Code Injection</b></li><li>Paste the snippet in the <b>Footer</b> box</li><li>Click <b>Save</b></li></ol>’,
-  wix: ‘<ol><li>In Wix, go to <b>Settings → Custom Code</b></li><li>Click <b>+ Add Custom Code</b></li><li>Paste the snippet, set placement to <b>Body — End of tag</b></li><li>Select <b>All Pages</b>, then click <b>Apply</b> and <b>Save</b></li></ol>’,
-  other: ‘<ol><li>Open your page\’s HTML and find <code>&lt;/body&gt;</code> near the bottom</li><li>Paste the snippet on the line just before it</li><li>Save and publish — done</li></ol><p style="margin-top:8px;font-size:12px;color:var(--paper-faint)">WordPress: Appearance → Theme File Editor → footer.php → paste before <code>&lt;/body&gt;</code></p>’
+  shopify: '<ol><li>In your Shopify admin, go to <b>Online Store → Themes</b></li><li>Click <b>Edit code</b> on your active theme</li><li>Open <code>layout/theme.liquid</code></li><li>Paste the snippet just before <code>&lt;/body&gt;</code> at the bottom of the file</li><li>Click <b>Save</b></li></ol>',
+  webflow: '<ol><li>In Webflow, open <b>Project Settings</b> (gear icon, top-left)</li><li>Click the <b>Custom Code</b> tab</li><li>Paste the snippet in the <b>Footer Code</b> box</li><li>Click <b>Save Changes</b>, then <b>Publish</b> your site</li></ol>',
+  squarespace: '<ol><li>In Squarespace, go to <b>Settings → Advanced → Code Injection</b></li><li>Paste the snippet in the <b>Footer</b> box</li><li>Click <b>Save</b></li></ol>',
+  wix: '<ol><li>In Wix, go to <b>Settings → Custom Code</b></li><li>Click <b>+ Add Custom Code</b></li><li>Paste the snippet, set placement to <b>Body — End of tag</b></li><li>Select <b>All Pages</b>, then click <b>Apply</b> and <b>Save</b></li></ol>',
+  other: '<ol><li>Open your page\'s HTML and find <code>&lt;/body&gt;</code> near the bottom</li><li>Paste the snippet on the line just before it</li><li>Save and publish — done</li></ol><p style="margin-top:8px;font-size:12px;color:var(--paper-faint)">WordPress: Appearance → Theme File Editor → footer.php → paste before <code>&lt;/body&gt;</code></p>'
 }
 let platOpen = false
-let curPlat = ‘shopify’
+let curPlat = 'shopify'
 function togglePlatforms() {
   platOpen = !platOpen
-  $(‘platPanel’).classList.toggle(‘hide’, !platOpen)
-  $(‘platToggle’).textContent = platOpen ? ‘Where do I paste this? ↑’ : ‘Where do I paste this? ↓’
-  if (platOpen && !$(‘platDesc’).innerHTML) showPlat(‘shopify’, $(‘platTabs’).children[0])
+  $('platPanel').classList.toggle('hide', !platOpen)
+  $('platToggle').textContent = platOpen ? 'Where do I paste this? ↑' : 'Where do I paste this? ↓'
+  if (platOpen && !$('platDesc').innerHTML) showPlat('shopify', $('platTabs').children[0])
 }
 function showPlat(name, btn) {
   curPlat = name
-  $(‘platDesc’).innerHTML = PLAT_STEPS[name] || ‘’
-  if (btn) Array.from($(‘platTabs’).children).forEach(b => b.classList.toggle(‘act’, b === btn))
+  $('platDesc').innerHTML = PLAT_STEPS[name] || ''
+  if (btn) Array.from($('platTabs').children).forEach(b => b.classList.toggle('act', b === btn))
 }
 
 // ── Step 2: monitored URLs (real POST/DELETE against the resolved project) ──

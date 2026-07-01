@@ -39,6 +39,10 @@ jobs:
         continue-on-error: false
         run: node scripts/check-no-emoji.mjs
 
+      - name: Inline-JS guard (enforcing — blocks unparsable inline scripts)
+        continue-on-error: false
+        run: node scripts/check-inline-js.mjs
+
       - name: Build
         run: pnpm -r build
 
