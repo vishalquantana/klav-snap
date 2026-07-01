@@ -20,6 +20,7 @@ import { safeFetch } from "./lib/safe-fetch"
 import { allow as rlAllow, record as rlRecord, count as rlCount, clear as rlClear } from "./lib/ratelimit"
 import { wrapUntrusted, UNTRUSTED_GUARD } from "./lib/prompt-safety"
 import { notifyNewSignup } from "./lib/signup-alert"
+import { notifyNewReport } from "./lib/report-alert"
 import { validateModalConfigInput, resolveModalConfig } from "../packages/core/src/modal-theme"
 import { MODEL_CHOICES, MODEL_CHOICE_IDS, DEFAULT_WEIGHTS, pickModel, parseWeightsForm, weightsToPct } from "./lib/models"
 import { AsyncLocalStorage } from "node:async_hooks"
@@ -1485,6 +1486,9 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
         const sourceReferrer = /^https?:\/\//i.test(referrerRaw) ? referrerRaw : ""
         const reporterEmail = String(form.get("reporter_email") || "").trim()
         const validReporterEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reporterEmail) && reporterEmail.length <= 200
+        // Report type from the composer's Bug/Feature toggle (packages/core submit payload `type`).
+        // Anything other than the literal "feature" is treated as a bug report.
+        const reportType: "bug" | "feature" = String(form.get("type") || "") === "feature" ? "feature" : "bug"
         if (!description) return wjson({ error: "Description is required." }, 400)
         if (description.length > 5000) return wjson({ error: "Description too long." }, 400)
 
@@ -1731,6 +1735,19 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
 
               // ── auto-copy hook (shared with the Sim review path) ──
               if (feedbackId && !dedupedInto) autoCopyFeedback(feedbackId, projectId, actor)
+
+              // ── founder notifications (P0 retention loop): email to account owner/admins
+              // (throttled: max 1/project/10min, DB-backed state) + optional per-project Slack
+              // webhook (modal_config_json.slack_webhook_url, per report). Fire-and-forget —
+              // follows the signup-alert pattern; must never block or fail the feedback insert.
+              if (feedbackId) {
+                void notifyNewReport({
+                  projectId, projectName: resolved.name, accountId: resolved.accountId,
+                  feedbackId, reportType, description, pageUrl: pageUrl || null,
+                  reporterEmail: validReporterEmail ? reporterEmail : null,
+                  isRecurrence: !!dedupedInto, baseUrl: BASE, at: Date.now(),
+                }).catch((err: any) => console.error("report alert (non-fatal):", err?.message || err))
+              }
             }
           } catch (persistErr: any) {
             console.error("feedback persistence (non-fatal):", persistErr?.message || persistErr)
@@ -3403,7 +3420,27 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
             const pro = await isAccountPro(proj.accountId)
             const v = validateModalConfigInput(body, { isPro: pro })
             if (!v.ok) return json({ error: v.error }, 400)
-            await setProjectModalConfig(pid, v.config as any)
+            // SERVER-OWNED config keys ride alongside the validated appearance config inside
+            // modal_config_json and must survive appearance saves (the validator strips unknown keys):
+            //   - screenshots      (per-project screenshot storage config, lib/screenshot-config.ts)
+            //   - slack_webhook_url (per-project report-alert Slack webhook, lib/report-alert.ts)
+            // slack_webhook_url is settable here (admin-only, API-only — no dashboard UI yet):
+            // pass a https://hooks.slack.com/... URL to set, "" to clear, omit to keep as-is.
+            const prevCfg = await getProjectModalConfig(pid)
+            const nextCfg: Record<string, unknown> = { ...(v.config as any) }
+            if (prevCfg.screenshots !== undefined) nextCfg.screenshots = prevCfg.screenshots
+            if (typeof body.slack_webhook_url === "string") {
+              const swu = String(body.slack_webhook_url).trim()
+              if (swu !== "") {
+                if (!/^https:\/\/hooks\.slack\.com\//.test(swu) || swu.length > 500) {
+                  return json({ error: "slack_webhook_url must be an https://hooks.slack.com/... URL." }, 400)
+                }
+                nextCfg.slack_webhook_url = swu
+              } // "" → clear (key simply not carried forward)
+            } else if (prevCfg.slack_webhook_url !== undefined) {
+              nextCfg.slack_webhook_url = prevCfg.slack_webhook_url
+            }
+            await setProjectModalConfig(pid, nextCfg)
             // Persist widget mode/cta/notify if any were provided (partial update).
             const hasWidget = body.mode !== undefined || body.cta_url !== undefined || body.notify_email !== undefined || body.report_gate !== undefined
             if (hasWidget) {
@@ -3419,11 +3456,15 @@ async function handle(req: Request, server: { requestIP?: (r: Request) => { addr
           // GET here (session-authed) returns current + pro flag + widget config for the admin UI.
           // widgetStatus = the heartbeat: when /widget.js last loaded and on which host (null = never seen).
           const ping = await latestWidgetPing(pid)
+          const curCfg = await getProjectModalConfig(pid)
           return json({
-            modalConfig: resolveModalConfig(await getProjectModalConfig(pid)),
+            modalConfig: resolveModalConfig(curCfg),
             pro: await isAccountPro(proj.accountId),
             widget: await getWidgetConfig(pid),
             widgetStatus: ping ? { host: ping.host, lastSeen: ping.lastSeen, firstSeen: ping.firstSeen, hits: ping.hits } : null,
+            // Report-alert Slack webhook — admin-eyes only (it is a capability URL). The public
+            // (CORS-open) config GET earlier in this file never returns it: resolveModalConfig strips it.
+            ...(access === "admin" ? { slackWebhookUrl: typeof curCfg.slack_webhook_url === "string" ? curCfg.slack_webhook_url : null } : {}),
           })
         }
 

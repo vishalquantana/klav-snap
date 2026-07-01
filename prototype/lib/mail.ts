@@ -83,6 +83,30 @@ export async function sendOtp(to: string, code: string) {
   if (!res.ok) throw new Error(`SendGrid ${res.status}: ${(await res.text()).slice(0, 200)}`)
 }
 
+// Founder alert on new bug/feature reports (lib/report-alert.ts). Same SendGrid transport as the
+// OTP mail above; one API call, individual copies per recipient (separate personalizations so
+// member addresses aren't exposed to each other in the To header).
+export async function sendReportAlertEmail(to: string[], subject: string, html: string, text: string) {
+  const key = process.env.SENDGRID_API_KEY
+  const from = process.env.KLAV_MAIL_FROM || "klav@quantana.com.au"
+  if (!key) throw new Error("SENDGRID_API_KEY not set")
+  if (!to.length) return
+  const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      personalizations: to.map((email) => ({ to: [{ email }] })),
+      from: { email: from, name: "Klavity" },
+      subject,
+      content: [
+        { type: "text/plain", value: text },
+        { type: "text/html", value: html },
+      ],
+    }),
+  })
+  if (!res.ok) throw new Error(`SendGrid ${res.status}: ${(await res.text()).slice(0, 200)}`)
+}
+
 export async function sendLeadAlert(to: string, lead: { email: string; description: string; pageUrl: string; referrer?: string; projectName: string; feedbackUrl: string }) {
   const key = process.env.SENDGRID_API_KEY
   const from = process.env.KLAV_MAIL_FROM || "klav@quantana.com.au"
