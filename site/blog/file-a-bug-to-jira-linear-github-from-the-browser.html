@@ -1,0 +1,125 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to File a Bug to Jira, Linear, or GitHub From the Browser · Klavity</title>
+<meta name="description" content="File a bug to your tracker without losing context: capture evidence first, map it to each tool's required fields, and search before filing to avoid dupes.">
+<link rel="canonical" href="https://klavity.in/blog/file-a-bug-to-jira-linear-github-from-the-browser">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="any">
+<meta property="og:type" content="article"><meta property="og:site_name" content="Klavity">
+<meta property="og:title" content="How to File a Bug to Jira, Linear, or GitHub From the Browser"><meta property="og:description" content="File a bug to your tracker without losing context: capture evidence first, map it to each tool's required fields, and search before filing to avoid dupes.">
+<meta property="og:url" content="https://klavity.in/blog/file-a-bug-to-jira-linear-github-from-the-browser"><meta property="og:image" content="https://klavity.in/favicon.svg">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="How to File a Bug to Jira, Linear, or GitHub From the Browser"><meta name="twitter:description" content="File a bug to your tracker without losing context: capture evidence first, map it to each tool's required fields, and search before filing to avoid dupes."><meta name="twitter:image" content="https://klavity.in/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Hanken+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500;700&display=optional">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Hanken+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500;700&display=optional" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Hanken+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500;700&display=optional"></noscript>
+<link rel="stylesheet" href="/kit.css"><script src="/kit.js" defer></script>
+<style>
+.post{max-width:720px;margin:0 auto;padding:40px 22px 80px}
+.post .crumb{font-family:var(--mono);font-size:12.5px;color:var(--paper-faint);letter-spacing:.04em;margin-bottom:18px}
+.post h1{font-family:var(--display);font-weight:600;font-size:clamp(34px,6vw,52px);line-height:1.06;letter-spacing:-.02em;margin:0 0 10px}
+.post .by{font-family:var(--mono);font-size:12.5px;color:var(--paper-faint);margin-bottom:26px}
+.tldr-box{background:var(--ink-2,#efe9df);border:1px solid var(--line);border-left:4px solid var(--accent-text,var(--indigo));border-radius:14px;padding:18px 20px;margin:0 0 30px;font-size:17px;line-height:1.5}
+.tldr-box b{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-faint);display:block;margin-bottom:6px}
+.prose{font-size:18px;line-height:1.72;color:var(--paper-dim)}
+.prose h2{font-family:var(--display);font-weight:600;font-size:28px;color:var(--paper);margin:42px 0 12px;line-height:1.15}
+.prose h3{font-weight:700;font-size:20px;color:var(--paper);margin:30px 0 8px}
+.prose p{margin:0 0 18px}.prose ul,.prose ol{margin:0 0 18px;padding-left:24px}.prose li{margin:6px 0}
+.prose a{color:var(--accent-text,var(--indigo));text-decoration:underline}
+.prose strong{color:var(--paper)}
+.faq{margin:48px 0 0;border-top:1px solid var(--line);padding-top:30px}
+.faq h2{font-family:var(--display);font-size:26px;margin:0 0 16px}
+.faq details{border-bottom:1px solid var(--line);padding:14px 0}.faq summary{font-weight:600;cursor:pointer;font-size:17px}
+.faq p{margin:10px 0 0;color:var(--paper-dim);line-height:1.6}
+.takeaways{margin:40px 0 0;background:var(--ink-2,#efe9df);border-radius:16px;padding:24px 26px}
+.takeaways h2{font-family:var(--display);font-size:22px;margin:0 0 12px}.takeaways ul{margin:0;padding-left:20px}.takeaways li{margin:8px 0;line-height:1.5}
+.cta{margin:48px 0 0;text-align:center;padding:34px;border:1px solid var(--line);border-radius:18px}
+.cta h2{font-family:var(--display);font-size:24px;margin:0 0 8px}.cta p{color:var(--paper-dim);margin:0 0 18px}
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"How to File a Bug to Jira, Linear, or GitHub From the Browser","description":"File a bug to your tracker without losing context: capture evidence first, map it to each tool's required fields, and search before filing to avoid dupes.","datePublished":"2026-07-02","dateModified":"2026-07-02","author":{"@type":"Person","name":"Klavity"},"publisher":{"@type":"Organization","name":"Klavity","logo":{"@type":"ImageObject","url":"https://klavity.in/favicon.svg"}},"mainEntityOfPage":"https://klavity.in/blog/file-a-bug-to-jira-linear-github-from-the-browser","inLanguage":"en"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://klavity.in/"},{"@type":"ListItem","position":2,"name":"Blog","item":"https://klavity.in/blog"},{"@type":"ListItem","position":3,"name":"How to File a Bug to Jira, Linear, or GitHub From the Browser","item":"https://klavity.in/blog/file-a-bug-to-jira-linear-github-from-the-browser"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","speakable":{"@type":"SpeakableSpecification","cssSelector":["h1",".tldr-box",".prose > p:first-of-type"]},"url":"https://klavity.in/blog/file-a-bug-to-jira-linear-github-from-the-browser"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the minimum information a bug ticket needs in each tracker?","acceptedAnswer":{"@type":"Answer","text":"Jira requires a project, an issue type, and a summary. Linear requires a team and a title. GitHub Issues technically requires only a title. But a minimum-viable field is not a useful ticket — every one of them should carry exact steps, the environment, and evidence (screenshot, console, network) so the fix can start immediately instead of with a round of questions."}},{"@type":"Question","name":"Should I file bugs directly to the tracker or to a triage inbox first?","acceptedAnswer":{"@type":"Answer","text":"For engineering-reported bugs, file straight to the tracker with full evidence. For bugs reported by non-technical teammates or users, route them through a lightweight capture step that collects evidence automatically, then push a complete ticket to the tracker — otherwise you get title-only issues that stall in triage."}},{"@type":"Question","name":"How do I avoid creating duplicate bug tickets?","acceptedAnswer":{"@type":"Answer","text":"Search the tracker for the exact error message string or a stable identifier (an API path, an element selector) before filing — not your paraphrase of the symptom. Two people describe the same bug three different ways, but the underlying error text is identical, so searching by that text is the reliable dedup key."}}]}</script>
+</head><body style="--accent:var(--indigo);--accent-text:var(--indigo-text)">
+<a class="skip-link" href="#main">Skip to content</a><nav class="nav" aria-label="Primary"><div class="wrap nav-in">
+  <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span>Klavity</a>
+  <div class="nav-links">
+    <a href="/#how">How it works</a><a class="s-snap" href="/snap">Snap</a>
+    <a class="s-sims" href="/sims">Sims</a><a class="s-autosim" href="/autosim">AutoSim</a>
+    <a href="/blog" aria-current="page">Blog</a>
+    <a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+  <div class="nav-cta"><a class="btn btn-ghost" href="/login">Log in</a><a class="btn btn-primary" href="/onboarding">Get started</a></div>
+</div></nav><main id="main">
+  <article class="post">
+    <div class="crumb"><a href="/blog">Blog</a> · Guides · 2026-07-02</div>
+    <h1>How to File a Bug to Jira, Linear, or GitHub From the Browser</h1>
+    <div class="by">Klavity</div>
+    <div class="tldr-box"><b>TL;DR</b>To file a bug to Jira, Linear, or GitHub from the browser, capture the evidence first — steps, environment, screenshot, console, and network — then map it to the tracker's required fields and create the issue in place so nothing is lost to copy-paste. Search the tracker by the exact error string before you file so you attach to the existing bug instead of creating a duplicate.</div>
+    <div class="prose"><p>To file a bug straight to Jira, Linear, or GitHub from the browser, capture the evidence first &mdash; exact steps, the environment, a screenshot, the console log, and the failing network request &mdash; then map that evidence to the tracker's required fields and create the issue in place so nothing is lost to copy-paste. The trackers differ in what they demand at creation: Jira needs a project, an issue type, and a summary; Linear needs a team and a title; GitHub Issues needs only a title. A useful ticket carries far more than the minimum, and the fastest way to file one is to collect the evidence <em>while you are looking at the bug</em>, not after you have navigated away.</p>
+
+<h2>What information does a bug ticket actually need?</h2>
+<p>Every tracker will happily accept a one-line title. That is exactly why so many tickets bounce back with "how do I reproduce this?" A ticket that a developer can act on without a follow-up question carries three things, and none of them are the tracker's required fields:</p>
+<ol>
+<li><strong>Exact steps</strong> &mdash; the specific sequence that triggers the bug, including the starting URL and any data state, not "the checkout is broken."</li>
+<li><strong>The environment</strong> &mdash; browser and version, OS, viewport size, and whether the user was logged in. A layout bug at 1280px wide may not exist at 1440px.</li>
+<li><strong>Evidence</strong> &mdash; a screenshot of the failure, the console output at the moment it happened, and the network request that failed with its status code and response.</li>
+</ol>
+<p>Collect these before you open the create-issue form. Once you leave the page to go file the ticket, the console clears, the network tab resets, and the state that produced the bug is gone. This is the single biggest reason bugs get marked <a href="/blog/reduce-cannot-reproduce-bug-tickets">"cannot reproduce"</a>: the evidence was capturable for about ten seconds and nobody captured it.</p>
+
+<h2>How to file a bug to Jira from the browser</h2>
+<p>Jira's create-issue dialog demands the most structure of the three, which is a feature once you are filing complete tickets and a friction point when you are not.</p>
+<ol>
+<li><strong>Pick the project and issue type</strong> &mdash; "Bug" is a distinct issue type in most Jira projects and unlocks fields like Environment and Affects Version. Use it rather than filing a generic Task.</li>
+<li><strong>Write a specific summary</strong> &mdash; lead with the component and the observed failure: "Checkout &mdash; Apply-coupon button returns 500 for expired codes," not "coupon bug."</li>
+<li><strong>Fill the Environment field</strong> &mdash; Jira has a dedicated Environment field; put the browser, OS, and viewport there so it does not clutter the description.</li>
+<li><strong>Attach the evidence</strong> &mdash; drag the screenshot, a console export, and a saved network HAR into the Attachment field. Jira renders inline images in the description, so paste the screenshot into the body where you describe the failure.</li>
+</ol>
+<p>If you file programmatically, Jira Cloud's REST API creates issues via <code>POST /rest/api/3/issue</code> and accepts attachments in a follow-up call &mdash; useful when a capture tool assembles the ticket for you.</p>
+
+<h2>How to file a bug to Linear from the browser</h2>
+<p>Linear is the lightest of the three to file into, which is a strength as long as you supply the context the sparse form does not force you to.</p>
+<ol>
+<li><strong>Choose the team</strong> &mdash; Linear scopes issues to a team, so file into the team that owns the surface, not a generic inbox, or the bug lands in the wrong triage queue.</li>
+<li><strong>Title, then description</strong> &mdash; the title is the only required field, so the discipline has to come from you: put the steps, environment, and expected-vs-actual in the description every time.</li>
+<li><strong>Paste evidence inline</strong> &mdash; Linear accepts pasted and dragged images and file attachments directly in the description, so a screenshot and a console snippet go straight into the body.</li>
+<li><strong>Set a label and priority</strong> &mdash; a "Bug" label and a real priority keep it visible; an unlabeled issue with default priority is easy to lose in a fast-moving Linear workspace.</li>
+</ol>
+<p>For automated filing, Linear's GraphQL API creates issues with the <code>issueCreate</code> mutation, and attachments can be linked to the created issue &mdash; the same pattern a browser capture tool uses to push a complete ticket in one action.</p>
+
+<h2>How to file a bug to GitHub Issues from the browser</h2>
+<p>GitHub Issues asks for the least &mdash; a title is enough &mdash; so the quality of the ticket rests entirely on the body and on your repository's discipline.</p>
+<ol>
+<li><strong>Use an issue template</strong> &mdash; a <code>.github/ISSUE_TEMPLATE/bug_report.md</code> template pre-fills the steps / environment / evidence structure so nobody has to remember it. This is the highest-leverage change for GitHub-based teams.</li>
+<li><strong>Drag images into the body</strong> &mdash; GitHub uploads dragged or pasted screenshots and attaches them inline in Markdown, so the visual evidence lives in the issue, not in a Slack thread.</li>
+<li><strong>Fence the console and network output</strong> &mdash; wrap logs and the failing request/response in triple-backtick code blocks so they stay readable and searchable.</li>
+<li><strong>Label and link</strong> &mdash; add a <code>bug</code> label and reference the commit or PR you suspect; GitHub's cross-linking makes the trail easy to follow later.</li>
+</ol>
+<p>The REST equivalent is <code>POST /repos/{owner}/{repo}/issues</code>, which takes title, body, labels, and assignees &mdash; enough for a capture tool to file a fully-formed issue without opening the web form.</p>
+
+<h2>How to avoid creating duplicate bug tickets</h2>
+<p>Duplicates are the tax you pay for filing by description instead of by evidence. Three people hit the same bug and file it as "page won't load," "spinner never stops," and "checkout hangs" &mdash; three tickets, one bug. The fix is to dedup on something stable:</p>
+<ul>
+<li><strong>Search by the exact error string</strong> &mdash; the console error or the API error message is identical across reporters even when the human descriptions diverge. Paste it into the tracker's search before you file.</li>
+<li><strong>Search by a stable identifier</strong> &mdash; a failing endpoint path (<code>/api/v2/checkout</code>) or a specific element selector is a reliable key when there is no clean error text.</li>
+<li><strong>Link, don't re-file</strong> &mdash; if you find the existing ticket, add your environment and evidence as a comment. A second reproduction on a different browser is genuinely useful triage data; a second ticket is just noise.</li>
+</ul>
+
+<h2>Jira vs. Linear vs. GitHub Issues: which fields matter</h2>
+<p>The trackers require different minimums, but the fields that actually get a bug fixed are the same everywhere. Here is how the required fields map, and what you should add regardless:</p>
+<ul>
+<li><strong>Jira</strong> &mdash; requires project, issue type, summary. Use the Bug issue type and the dedicated Environment field; attach evidence as files and inline images.</li>
+<li><strong>Linear</strong> &mdash; requires team and title. Discipline lives in the description; paste evidence inline and set a label and priority.</li>
+<li><strong>GitHub</strong> &mdash; requires title only. Lean on an issue template and Markdown code fences; drag screenshots into the body.</li>
+</ul>
+<p>Notice the pattern: the required fields are about <em>where the ticket goes</em>, while the fields that matter are about <em>whether it can be fixed</em>. No tracker forces you to include steps, environment, and evidence &mdash; so the process has to.</p>
+
+<h2>Make the evidence capture automatic</h2>
+<p>The reason complete tickets are rare is not that people are lazy &mdash; it is that capturing a screenshot, exporting the console, saving the network HAR, and pasting it all into the right fields is a dozen manual steps performed under the mild stress of "I found a bug and I want to keep working." The reliable fix is to remove the manual steps.</p>
+<p>This is exactly the gap <a href="/snap">Klavity Snap</a> closes: right-click on the bug, and it captures the screenshot, the console, the network trace, and the environment automatically, then files a complete ticket to Jira, Linear, or GitHub with the evidence already attached and mapped to the right fields. The reporter never leaves the page, so nothing is lost to navigation, and the ticket lands ready to work instead of ready to triage. Whether you automate it or do it by hand, the principle is the same &mdash; capture the evidence in the moment, map it to the tracker, and search before you file.</p></div>
+    <section class="takeaways"><h2>Key takeaways</h2><ul><li>Capture steps, environment, and evidence before you open the create-issue form.</li><li>Map evidence to each tracker's required fields — Jira, Linear, and GitHub differ.</li><li>Search by the exact error string before filing to attach to the existing bug.</li><li>Attach a screenshot, console log, and network trace at creation, not on request.</li></ul></section><section class="faq"><h2>FAQ</h2><details><summary>What is the minimum information a bug ticket needs in each tracker?</summary><p>Jira requires a project, an issue type, and a summary. Linear requires a team and a title. GitHub Issues technically requires only a title. But a minimum-viable field is not a useful ticket — every one of them should carry exact steps, the environment, and evidence (screenshot, console, network) so the fix can start immediately instead of with a round of questions.</p></details><details><summary>Should I file bugs directly to the tracker or to a triage inbox first?</summary><p>For engineering-reported bugs, file straight to the tracker with full evidence. For bugs reported by non-technical teammates or users, route them through a lightweight capture step that collects evidence automatically, then push a complete ticket to the tracker — otherwise you get title-only issues that stall in triage.</p></details><details><summary>How do I avoid creating duplicate bug tickets?</summary><p>Search the tracker for the exact error message string or a stable identifier (an API path, an element selector) before filing — not your paraphrase of the symptom. Two people describe the same bug three different ways, but the underlying error text is identical, so searching by that text is the reliable dedup key.</p></details></section>
+    <section class="cta"><h2>Catch bugs the moment a human sees them</h2><p>Klavity: right-click bug reports, AI personas that review your product, and self-healing tests.</p><a class="btn btn-primary" href="/onboarding">Get started free</a></section>
+  </article></main><footer class="footer"><div class="wrap foot-in">
+  <a class="brand" href="/"><span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3C6 7 6 17 10 21"/><path d="M14 3C18 7 18 17 14 21"/><path d="M7.5 8h9M7.5 16h9" stroke-width="1.2" opacity=".5"/></svg></span>Klavity</a>
+  <div class="foot-links"><a href="/">Home</a><a href="/snap">Snap</a><a href="/sims">Sims</a><a href="/autosim">AutoSim</a><a href="/blog">Blog</a><a href="https://github.com/vishalquantana/klav-snap" target="_blank" rel="noopener">GitHub</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+  <span class="sp"></span><span class="mono">© <span data-year>2026</span> Klavity</span>
+</div></footer></body></html>
