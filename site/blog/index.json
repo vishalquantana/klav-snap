@@ -75,5 +75,12 @@
     "excerpt": "Self-healing tests auto-repair broken selectors when your UI changes, so a renamed button doesn't fail the whole suite. Here's how they actually work.",
     "category": "Insights",
     "date": "2026-07-01"
+  },
+  {
+    "slug": "file-a-bug-to-jira-linear-github-from-the-browser",
+    "title": "How to File a Bug to Jira, Linear, or GitHub From the Browser",
+    "excerpt": "File a bug to your tracker without losing context: capture evidence first, map it to each tool's required fields, and search before filing to avoid dupes.",
+    "category": "Guides",
+    "date": "2026-07-02"
   }
 ]
